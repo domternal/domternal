@@ -62,7 +62,7 @@ export function forEachNormalizedAttribute(
   attrs: unknown,
   check: NormalizedAttributeCheck,
   found: (attribute: string, value: unknown, normalizer: AttributeNormalizer) => void,
-  code?: string,
+  code?: ContentDiagnostic['code'],
 ): void {
   for (const [attribute, normalizer] of normalizedAttributeTypes(schema).get(typeName) ?? []) {
     if (code !== undefined && normalizer.code !== code) continue;

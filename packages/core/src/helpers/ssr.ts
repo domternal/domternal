@@ -95,7 +95,7 @@ export function generateHTML(
   options: GenerateHTMLOptions = {}
 ): string {
   const schema = buildSchemaFromExtensions(extensions);
-  // Unknown list markers load as the default marker.
+  // Unknown list markers load as the default marker, unsupported heading levels as the nearest configured level.
   const doc = PMNode.fromJSON(schema, normalizeContent(content, schema, options));
   const targetDocument = options.document ?? getDocument();
 

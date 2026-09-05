@@ -48,7 +48,7 @@ function deepFreeze<T>(value: T): T {
 
 describe('normalizeContent', () => {
   it.each([
-    ['orderedList', 7, undefined],
+    ['orderedList', 7, 7],
     ['orderedList', {}, undefined],
     ['orderedList', '', ''],
     ['orderedList', 'DECIMAL', 'DECIMAL'],

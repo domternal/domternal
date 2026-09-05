@@ -1,7 +1,7 @@
 import { act, StrictMode, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Editor, ListItem, OrderedList, type JSONContent } from '@domternal/core';
+import { Editor, Heading, ListItem, OrderedList, type JSONContent } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { Domternal } from './Domternal.js';
 import { DomternalEditor } from './DomternalEditor.js';
@@ -163,6 +163,30 @@ describe('React content reports', () => {
       expect(editors).toHaveLength(1);
     },
   );
+
+  it('keeps the document and selection when an equal JSON value with an unsupported heading level is passed again', async () => {
+    const stored: JSONContent = { type: 'doc', content: [
+      { type: 'heading', attrs: { level: 5 }, content: [{ type: 'text', text: 'Five' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'tail' }] },
+    ] };
+    const reports: string[] = [];
+    const render = (json: JSONContent): ReactNode => (
+      <DomternalEditor extensions={[Heading]} outputFormat="json" onCreate={onCreate} value={json} onChange={() => undefined}
+        onContentDiagnostic={({ source }) => { reports.push(source); }} />
+    );
+
+    await update(() => { root.render(render(structuredClone(stored))); });
+    const editor = liveEditor();
+    expect(editor.state.doc.firstChild?.attrs['level']).toBe(4);
+    await update(() => { editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3))); });
+    const doc = editor.state.doc;
+    const selection = editor.state.selection;
+
+    await update(() => { root.render(render(structuredClone(stored))); });
+    expect(editor.state.doc).toBe(doc);
+    expect(editor.state.selection.eq(selection)).toBe(true);
+    expect(reports).toEqual(['content']);
+  });
 
   it.each(['value', 'content'] as const)(
     'keeps a document that holds an unknown marker when a JSON %s echoes it back',

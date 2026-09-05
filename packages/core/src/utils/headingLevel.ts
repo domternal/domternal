@@ -3,6 +3,8 @@
  * from 1 to 6) and the rule that places a level a configuration lacks.
  */
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
+import type { AttributeSpec } from '../types/AttributeSpec.js';
+import { registerAttributeNormalizer } from './normalizedAttributes.js';
 
 /** Whether the value is a heading level: a whole number from 1 to 6. */
 export function isHeadingLevel(value: unknown): value is number {
@@ -42,4 +44,28 @@ export function nearestHeadingLevel(level: number, levels: readonly number[]): n
 export function resolveHeadingLevel(value: unknown, levels: readonly number[]): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return levels[0] ?? 1;
   return nearestHeadingLevel(Math.min(6, Math.max(1, Math.ceil(value))), levels);
+}
+
+/**
+ * The default and validation of the heading `level` attribute. Validation
+ * accepts the whole vocabulary, not only the configured levels, so a document
+ * written with other levels, such as by a collaborator configured with more,
+ * still loads everywhere: in Node.fromJSON, Node.check and Step.fromJSON.
+ * The editor's JSON entry points move a level these `levels` lack to the
+ * nearest configured one and report it; rendering does the same without
+ * changing the document.
+ */
+export function headingLevelAttribute(levels: readonly number[]): Pick<AttributeSpec, 'default' | 'validate'> {
+  const invalid = (value: unknown): boolean => !isHeadingLevel(value);
+  const validate = (value: unknown): void => {
+    if (invalid(value)) throw new RangeError('Invalid heading level');
+  };
+  registerAttributeNormalizer(validate, {
+    code: 'unsupported-heading-level',
+    invalid,
+    unsupported: value => invalid(value) || !levels.includes(value as number),
+    replacement: value => resolveHeadingLevel(value, levels),
+  });
+  // Content and commands without a level get the first configured one.
+  return { default: levels[0], validate };
 }

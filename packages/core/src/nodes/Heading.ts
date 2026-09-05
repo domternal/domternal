@@ -12,7 +12,8 @@ import { Node } from '../Node.js';
 import { textblockTypeInputRule } from '../helpers/textblockTypeInputRule.js';
 import { keymap } from '@domternal/pm/keymap';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
-import { configuredHeadingLevels, resolveHeadingLevel } from '../utils/headingLevel.js';
+import { configuredHeadingLevels, headingLevelAttribute, resolveHeadingLevel } from '../utils/headingLevel.js';
+import { pastedAttributesPlugin } from '../utils/pastedAttributes.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
@@ -51,8 +52,7 @@ export const Heading = Node.create<HeadingOptions>({
     const levels = configuredHeadingLevels(this.options.levels);
     return {
       level: {
-        // Content and commands without a level get the first configured one.
-        default: levels[0],
+        ...headingLevelAttribute(levels),
         parseHTML: (element: HTMLElement) => {
           const match = /^H(\d)$/i.exec(element.tagName);
           return match?.[1] ? parseInt(match[1], 10) : levels[0];
@@ -268,6 +268,8 @@ export const Heading = Node.create<HeadingOptions>({
     codeToLevel['Digit0'] = 0;
 
     return [
+      // Keeps levels that are not heading levels out of pasted slice context.
+      pastedAttributesPlugin('unsupported-heading-level'),
       new Plugin({
         key: new PluginKey('headingKeydownFix'),
         props: {

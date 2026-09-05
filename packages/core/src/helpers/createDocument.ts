@@ -68,8 +68,9 @@ export interface CreateDocumentOptions {
 
   /**
    * Receives up to 100 diagnostics for values JSON content loaded without,
-   * such as an unknown list marker that became null. Called only when the
-   * document was created.
+   * such as an unknown list marker that became null or a heading level the
+   * configuration lacks that became the nearest configured level. Called
+   * only when the document was created.
    */
   onDiagnostic?: (diagnostic: ContentDiagnostic) => void;
 }
@@ -186,7 +187,8 @@ export function buildDocument(
     return createEmptyDocument(schema);
   }
 
-  // Handle JSON content: unknown list markers load as the default marker
+  // Handle JSON content: unknown list markers load as the default marker and
+  // unsupported heading levels as the nearest configured level.
   if (isJSONContent(content)) {
     return PMNode.fromJSON(schema, normalizeInto(content, schema, report));
   }

@@ -51,12 +51,17 @@ export interface Range {
  * in the editor document through the normalizeListMarkers command. `path`
  * holds child indices from the normalized input, or from the document for
  * that command, to the node.
+ *
+ * - `unknown-list-marker`: a list marker this version does not know became
+ *   null, the default marker.
+ * - `unsupported-heading-level`: a heading level the Heading configuration
+ *   lacks, or a value that is not a level, became the nearest configured level.
  */
 export interface ContentDiagnostic {
-  readonly code: 'unknown-list-marker';
+  readonly code: 'unknown-list-marker' | 'unsupported-heading-level';
   readonly nodeType: string;
   readonly attribute: string;
   readonly path: readonly number[];
-  /** The replaced value, only when it is a string of at most 64 characters. */
-  readonly value?: string;
+  /** The replaced value, only when it is a string of at most 64 characters or a finite number. */
+  readonly value?: string | number;
 }

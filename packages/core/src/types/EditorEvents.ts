@@ -48,8 +48,9 @@ export interface ContentErrorProps {
 
 /**
  * Props passed to content diagnostic handlers. Emitted when the editor
- * replaced values, such as unknown list markers: in JSON content it loaded,
- * or in its document through the normalizeListMarkers command.
+ * replaced values, such as unknown list markers or heading levels its
+ * configuration lacks: in JSON content it loaded, or in its document through
+ * the normalizeListMarkers command.
  */
 export interface ContentDiagnosticProps {
   editor: EditorInstance;

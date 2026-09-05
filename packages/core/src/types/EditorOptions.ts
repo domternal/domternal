@@ -190,7 +190,9 @@ export interface EditorOptions {
 
   /**
    * Called when content loaded with replaced values, such as an unknown
-   * list marker that became the default marker. See the contentDiagnostic event.
+   * list marker that became the default marker or a heading level the
+   * configuration lacks that became the nearest configured level. See the
+   * contentDiagnostic event.
    * For the initial content it runs during construction, before
    * `editor.view` exists; the framework wrappers deliver that report once
    * the editor is ready.

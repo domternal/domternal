@@ -1,10 +1,12 @@
 /**
  * Normalizes JSON content before it reaches Node.fromJSON.
  *
- * List marker attributes keep their strict validators, so direct
- * schema.nodeFromJSON and Node.check still reject an unknown value. The
- * editor's JSON entry points replace such a value with null instead of
- * failing, and report it as a diagnostic.
+ * List marker and heading level attributes keep their strict validators, so
+ * direct schema.nodeFromJSON and Node.check still reject an invalid value. The
+ * editor's JSON entry points replace such a value instead of failing, and
+ * report it as a diagnostic: an unknown list marker becomes null, and a
+ * heading level the configuration lacks, or a value that is not a level,
+ * becomes the nearest configured level.
  */
 import type { Schema } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
@@ -47,7 +49,7 @@ export function reportReplacedValue(
     nodeType,
     attribute,
     path: [...path],
-    ...(typeof value === 'string' && value.length <= 64 ? { value } : {}),
+    ...((typeof value === 'string' && value.length <= 64) || (typeof value === 'number' && Number.isFinite(value)) ? { value } : {}),
   }));
 }
 
@@ -108,9 +110,11 @@ export function normalizeInto<T>(content: T, schema: Schema, report: ContentRepo
 
 /**
  * Replaces list marker values this version does not know with null, the
- * default marker. The input is never mutated, and it is returned as is when
- * nothing changes. Apps can run this before handing stored JSON to consumers
- * that validate it, such as y-prosemirror's prosemirrorJSONToYDoc.
+ * default marker, and heading levels the configuration lacks, or values that
+ * are not levels, with the nearest configured level. The input is never
+ * mutated, and it is returned as is when nothing changes. Apps can run this
+ * before handing stored JSON to consumers that validate it, such as
+ * y-prosemirror's prosemirrorJSONToYDoc.
  */
 export function normalizeContent<T extends JSONContent | readonly JSONContent[]>(
   content: T,
