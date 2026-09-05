@@ -3217,6 +3217,24 @@
       "searchable": false
     },
     {
+      "id": "pasteCleanup.diagnostic.destinationHeadingLevelAdapted",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "A pasted heading level the editor does not support became its nearest supported level instead of a paragraph.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Some headings were changed to a heading level this editor supports."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "pasteCleanup.diagnostic.destinationTableUnsupported",
       "owner": "@domternal/extension-paste-cleanup",
       "description": "Table capability refusal before insertion, independently of diagnostic capacity.",

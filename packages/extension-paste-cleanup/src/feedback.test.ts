@@ -337,6 +337,23 @@ describe('paste loss feedback', () => {
     expect(notice.textContent).not.toMatch(/123|456|Formatting was adapted/);
   });
 
+  it('lists adapted heading levels once however many headings moved, next to other destination findings', () => {
+    const { renderer, notice } = fixture();
+    renderer.update({
+      status: 'applied', diagnosticsTruncated: false,
+      diagnostics: [
+        { code: 'destination-heading-level-adapted', severity: 'warning', offset: 0 },
+        { code: 'destination-heading-level-adapted', severity: 'warning', offset: 20 },
+        { code: 'destination-formatting-unconfirmed', severity: 'warning' },
+      ],
+    });
+    expect(notice.hidden).toBe(false);
+    expect(Array.from(notice.querySelectorAll('li'), node => node.textContent)).toEqual([
+      'Some headings were changed to a heading level this editor supports.',
+      'This editor may not preserve some pasted formatting.',
+    ]);
+  });
+
   it('provides native disclosure and button controls with keyboard dismissal', () => {
     const { renderer, notice } = fixture();
     renderer.update(result());

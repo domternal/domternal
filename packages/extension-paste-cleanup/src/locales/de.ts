@@ -39,6 +39,7 @@ export const deMessages: Readonly<CompleteMessages<typeof pasteCleanupMessages>>
     'pasteCleanup.diagnostic.officeListUnsupported': 'Einige Office-Listen konnten nicht wiederhergestellt werden.',
     'pasteCleanup.diagnostic.destinationFormattingUnconfirmed': 'Dieser Editor kann möglicherweise nicht alle eingefügten Formatierungen beibehalten.',
     'pasteCleanup.diagnostic.destinationTableUnsupported': 'Das Einfügen der Tabelle wurde blockiert, weil die Tabellenunterstützung nicht bestätigt werden konnte.',
+    'pasteCleanup.diagnostic.destinationHeadingLevelAdapted': 'Einige Überschriften wurden in eine Überschriftenebene geändert, die dieser Editor unterstützt.',
     'pasteCleanup.diagnostic.other': 'Einige eingefügte Inhalte sollten überprüft werden.',
 } satisfies CompleteMessages<typeof pasteCleanupMessages>);
 

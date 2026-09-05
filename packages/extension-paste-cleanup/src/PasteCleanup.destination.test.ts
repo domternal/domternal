@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import {
-  Bold, BulletList, Document, Editor, FontFamily, FontSize, Heading, Highlight, History, Italic,
-  LineHeight, Paragraph, Strike, Subscript, Superscript, Text, TextAlign, TextColor,
+  Blockquote, Bold, BulletList, Document, Editor, FontFamily, FontSize, Heading, Highlight, History, Italic,
+  LineHeight, ListItem, Paragraph, StarterKit, Strike, Subscript, Superscript, Text, TextAlign, TextColor,
   OrderedList, TextStyle, Underline,
 } from '@domternal/core';
 import type { EditorOptions } from '@domternal/core';
@@ -12,6 +12,7 @@ import type { Transaction } from '@domternal/pm/state';
 import { Image } from '../../extension-image/dist/index.js';
 import { Table, TableCell, TableHeader, TableRow } from '../../extension-table/dist/index.js';
 import { PasteCleanup, normalizePasteHTML } from './index.js';
+import { deMessages } from './locales/de.js';
 import type {
   ClipboardImageMatchContext, ClipboardResolverAdapter, PasteCleanupOptions, PasteOperationResult,
 } from './index.js';
@@ -29,6 +30,8 @@ const typography = [TextStyle, FontFamily, FontSize, TextColor, Highlight, TextA
 const tableHTML = '<table><tbody><tr><td><p>A</p></td><td><p>B</p></td></tr></tbody></table>';
 const headerHTML = '<table><tbody><tr><th><p>A</p></th><th><p>B</p></th></tr><tr><td><p>C</p></td><td><p>D</p></td></tr></tbody></table>';
 const warning = { code: 'destination-formatting-unconfirmed', severity: 'warning' };
+const headingAdapted = (offset: number): unknown => ({ code: 'destination-heading-level-adapted', severity: 'warning', offset });
+const headingNotice = 'Some headings were changed to a heading level this editor supports.';
 
 interface Fixture {
   editor: Editor;
@@ -184,8 +187,8 @@ describe('destination capability feedback through the editor', () => {
     const fixture = mount({}, [Heading.configure({ levels: [1, 3] })]);
     paste(fixture.editor, `<h${String(level)}>Title</h${String(level)}>`);
     const result = await terminal(fixture, 'applied');
-    expect(result.diagnostics).toEqual(supported ? [] : [warning]);
-    expect(fixture.editor.getHTML()).toBe(supported ? '<h3>Title</h3>' : '<p>Title</p>');
+    expect(result.diagnostics).toEqual(supported ? [] : [headingAdapted(0)]);
+    expect(fixture.editor.getHTML()).toBe('<h3>Title</h3>');
     expect(notice(fixture).hidden).toBe(supported);
   });
 
@@ -206,6 +209,136 @@ describe('destination capability feedback through the editor', () => {
     expect(fixture.host.querySelector('.dm-paste-feedback')).toBeNull();
     await Promise.resolve();
     expect(fixture.completed).toHaveBeenCalledOnce(); expect(fixture.normalized).toHaveBeenCalledOnce();
+  });
+});
+
+describe('heading levels the destination cannot represent', () => {
+  function blocks(editor: Editor): { type: string; level?: unknown; text: string }[] {
+    const output: { type: string; level?: unknown; text: string }[] = [];
+    editor.state.doc.descendants(node => {
+      if (!node.isTextblock) return;
+      output.push({ type: node.type.name, ...(node.type.name === 'heading' ? { level: node.attrs['level'] } : {}), text: node.textContent });
+    });
+    return output;
+  }
+
+  it.each(['preserve', 'adapt'] as const)('pastes default Heading levels five and six as level four, one reversible step, in %s mode', async formatting => {
+    const fixture = mount({ formatting }, [Heading]);
+    const before = snapshot(fixture.editor);
+    const html = '<h5>Five</h5><h6>Six</h6><h2>Two</h2>';
+    paste(fixture.editor, html);
+    const result = await terminal(fixture, 'applied');
+    expect(result.diagnostics).toEqual([headingAdapted(0), headingAdapted(html.indexOf('<h6'))]);
+    expect(fixture.editor.getHTML()).toBe('<h4>Five</h4><h4>Six</h4><h2>Two</h2>');
+    expect(() => { fixture.editor.state.doc.check(); }).not.toThrow();
+    expect(notice(fixture).hidden).toBe(false);
+    expect(notice(fixture).querySelector('[role="status"]')?.textContent).toBe('Review the pasted content.');
+    expect(Array.from(notice(fixture).querySelectorAll('li'), row => row.textContent)).toEqual([headingNotice]);
+    expect(fixture.changes).toHaveLength(1);
+    expect(undoDepth(fixture.editor.state)).toBe(1);
+    expect(fixture.editor.commands.undo()).toBe(true);
+    expect(fixture.editor.getJSON()).toEqual(before.doc);
+    expect(fixture.editor.state.selection.toJSON()).toEqual(before.selection);
+  });
+
+  it('pastes into a StarterKit editor at its deepest level', async () => {
+    const normalized = vi.fn<NonNullable<PasteCleanupOptions['onResult']>>();
+    const completed = vi.fn<(result: PasteOperationResult) => void>();
+    const host = document.createElement('div'); document.body.append(host); hosts.push(host);
+    const editor = new Editor({ element: host, content: '<p>Old</p>',
+      extensions: [StarterKit, PasteCleanup.configure({ onResult: normalized, onPasteResult: completed })] });
+    editors.push(editor);
+    editor.view.setProps({ handleScrollToSelection: () => true });
+    editor.commands.selectAll();
+    paste(editor, '<h6>Six</h6><p>Body</p>');
+    const result = await terminal({ editor, normalized, completed, changes: [], host }, 'applied');
+    expect(result.diagnostics).toEqual([headingAdapted(0)]);
+    expect(blocks(editor)).toEqual([{ type: 'heading', level: 4, text: 'Six' }, { type: 'paragraph', text: 'Body' }]);
+  });
+
+  it('moves a heading above the first configured level down to it', async () => {
+    const fixture = mount({}, [Heading.configure({ levels: [2, 3] })]);
+    paste(fixture.editor, '<h1>Page title</h1><h4>Deep</h4>');
+    const result = await terminal(fixture, 'applied');
+    expect(result.diagnostics).toEqual([headingAdapted(0), headingAdapted('<h1>Page title</h1>'.length)]);
+    expect(fixture.editor.getHTML()).toBe('<h2>Page title</h2><h3>Deep</h3>');
+  });
+
+  it('keeps a paragraph and the general warning when the editor has no heading node', async () => {
+    const fixture = mount();
+    paste(fixture.editor, '<h5>Five</h5>');
+    const result = await terminal(fixture, 'applied');
+    expect(result.diagnostics).toEqual([warning]);
+    expect(fixture.editor.getHTML()).toBe('<p>Five</p>');
+    expect(notice(fixture).textContent).toContain('This editor may not preserve some pasted formatting.');
+    expect(notice(fixture).textContent).not.toContain(headingNotice);
+  });
+
+  it.each([
+    ['list item', [BulletList, ListItem], '<ul><li><h6>Inside</h6></li></ul>'],
+    ['blockquote', [Blockquote], '<blockquote><h6>Inside</h6></blockquote>'],
+    ['table cell', [Table, TableRow, TableCell, TableHeader], '<table><tbody><tr><td><h6>Inside</h6></td><td><p>B</p></td></tr></tbody></table>'],
+  ] as const)('maps a heading inside a %s as a supported heading of that level pastes', async (_, extensions, html) => {
+    const mapped = mount({}, [Heading, ...extensions]);
+    paste(mapped.editor, html);
+    const result = await terminal(mapped, 'applied');
+    expect(result.diagnostics).toEqual([headingAdapted(html.indexOf('<h6'))]);
+    const direct = mount({}, [Heading, ...extensions]);
+    paste(direct.editor, html.replace(/h6>/g, 'h4>'));
+    expect((await terminal(direct, 'applied')).diagnostics).toEqual([]);
+    expect(mapped.editor.getJSON()).toEqual(direct.editor.getJSON());
+    expect(blocks(mapped.editor)).toContainEqual({ type: 'heading', level: 4, text: 'Inside' });
+    expect(() => { mapped.editor.state.doc.check(); }).not.toThrow();
+  });
+
+  it('keeps the alignment of a mapped heading', async () => {
+    const fixture = mount({}, [Heading, TextAlign]);
+    paste(fixture.editor, '<h5 style="text-align:center">Centered</h5>');
+    const result = await terminal(fixture, 'applied');
+    expect(result.diagnostics).toEqual([headingAdapted(0)]);
+    expect(fixture.editor.state.doc.firstChild?.attrs).toMatchObject({ level: 4, textAlign: 'center' });
+  });
+
+  it('maps an own copy from an editor with six levels', async () => {
+    const sourceHost = document.createElement('div'); document.body.append(sourceHost); hosts.push(sourceHost);
+    const source = new Editor({ element: sourceHost, content: '<h5>Five</h5><h6>Six</h6>',
+      extensions: [Document, Paragraph, Text, Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }), PasteCleanup] });
+    editors.push(source);
+    source.commands.selectAll();
+    const copied = source.view.serializeForClipboard(source.state.selection.content()).dom.innerHTML;
+    expect(copied).toContain('data-domternal-copy');
+    const fixture = mount({ formatting: 'adapt' }, [Heading]);
+    paste(fixture.editor, copied);
+    const result = await terminal(fixture, 'applied');
+    expect(result.diagnostics.map(item => item.code)).toEqual(['destination-heading-level-adapted', 'destination-heading-level-adapted']);
+    expect(blocks(fixture.editor)).toEqual([{ type: 'heading', level: 4, text: 'Five' }, { type: 'heading', level: 4, text: 'Six' }]);
+  });
+
+  it('shows the adaptation in the editor locale', async () => {
+    const fixture = mount({}, [Heading]);
+    fixture.editor.i18n.set({ locale: 'de', messages: deMessages });
+    paste(fixture.editor, '<h6>Sechs</h6>');
+    await terminal(fixture, 'applied');
+    expect(Array.from(notice(fixture).querySelectorAll('li'), row => row.textContent))
+      .toEqual([deMessages['pasteCleanup.diagnostic.destinationHeadingLevelAdapted']]);
+    expect(notice(fixture).querySelector('li')?.lang).toBe('de');
+  });
+
+  it('maps headings in a coordinated image paste', async () => {
+    const data = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC'), character => character.charCodeAt(0));
+    const file = new File([data], 'chart.png', { type: 'image/png' });
+    Object.defineProperty(file, 'arrayBuffer', { value: () => Promise.resolve(data.slice().buffer) });
+    const match = (context: ClipboardImageMatchContext): ReturnType<NonNullable<Exclude<PasteCleanupOptions['imageAssets'], false | undefined>['match']>> =>
+      context.references.map(reference => ({ placementId: reference.placementId, itemIndex: 1, evidence: { kind: 'host' as const, matcherId: 'explicit-test-identity' } }));
+    const fixture = mount({ imageAssets: { mode: 'embedded', match } }, [Heading, Image.configure({ inline: true, uploadHandler: () => Promise.resolve('/unused.png') })]);
+    const html = '<h5>Chart</h5><p><img src="cid:chart" alt="Chart"></p>';
+    paste(fixture.editor, html, [file]);
+    const result = await terminal(fixture, 'applied');
+    expect(result.diagnostics).toEqual([headingAdapted(0)]);
+    expect(fixture.editor.state.doc.firstChild?.attrs['level']).toBe(4);
+    let images = 0;
+    fixture.editor.state.doc.descendants(node => { if (node.type.name === 'image') images++; });
+    expect(images).toBe(1);
   });
 });
 

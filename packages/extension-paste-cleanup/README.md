@@ -213,11 +213,21 @@ The editor integration checks requested built-in destination capabilities using
 small constant probes against the actual schema parser. It checks semantic marks,
 requested heading levels, retained text styles, paragraph alignment/line spacing,
 lists and table structure. Missing or unconfirmed formatting support produces a
-`destination-formatting-unconfirmed` warning. Table support that cannot be confirmed
-blocks the paste with `destination-table-unsupported` and terminal reason
-`unsupported-content`, preserving the selection instead of flattening cells into
-ambiguous text. This block remains effective when diagnostic details are full and
-runs before coordinated image reads or resolver callbacks.
+`destination-formatting-unconfirmed` warning. A pasted heading whose level the
+editor cannot represent stays a heading: it moves to the nearest supported level
+of equal or lower importance, otherwise to the deepest supported level, so a
+heading is never promoted while a deeper level exists and the outline keeps its
+order. With the default levels 1 to 4, `h5` and `h6` become `h4`; with levels 2
+and 3, `h1` becomes `h2`. A moved heading keeps its alignment and the other
+attributes a heading of its new level keeps, and each one is reported with a
+`destination-heading-level-adapted` warning at its source offset. It becomes a
+paragraph, with `destination-formatting-unconfirmed`, only when the editor
+confirms no heading level at all, for example without a heading node. Table
+support that cannot be confirmed blocks the paste with
+`destination-table-unsupported` and terminal reason `unsupported-content`,
+preserving the selection instead of flattening cells into ambiguous text. This
+block remains effective when diagnostic details are full and runs before
+coordinated image reads or resolver callbacks.
 
 These are built-in reference capability checks, not a comparison of each source
 word or style with the final editor document. Custom renamed nodes, custom clipboard

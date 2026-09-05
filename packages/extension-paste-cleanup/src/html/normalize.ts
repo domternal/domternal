@@ -13,6 +13,7 @@ import { assertTagWork, TagWorkLimitError } from './tagWork.js';
 import { assertOutputTreeBounds } from './treeBounds.js';
 import { collectDestinationDemand } from './destinationDemand.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
+import { adaptHeadingLevels, HEADING_LEVEL_FEATURES } from './headingLevels.js';
 import { reconstructOfficeLists } from './officeLists.js';
 import type { OfficeListReconstructionOptions } from './officeLists.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
@@ -299,7 +300,19 @@ export function normalizeClipboardHTML(
         report('destination-table-unsupported', undefined, 'error');
         return { result, preserveOrderedListStart: false, destinationRejected: true };
       }
-      if (unconfirmed.length > 0) report('destination-formatting-unconfirmed');
+      let remaining = unconfirmed;
+      if (unconfirmed.some(feature => HEADING_LEVEL_FEATURES.includes(feature))) {
+        // A heading keeps its meaning at the nearest level the destination supports. Only a level
+        // that every answer confirmed counts, and without one the destination makes paragraphs.
+        const missing = destination(HEADING_LEVEL_FEATURES);
+        const supported = HEADING_LEVEL_FEATURES.flatMap((feature, index) =>
+          missing.includes(feature) || unconfirmed.includes(feature) ? [] : [index + 1]);
+        if (supported.length > 0) {
+          adaptHeadingLevels(sanitized, supported, node => { report('destination-heading-level-adapted', node); });
+          remaining = unconfirmed.filter(feature => !HEADING_LEVEL_FEATURES.includes(feature));
+        }
+      }
+      if (remaining.length > 0) report('destination-formatting-unconfirmed');
     }
     if (preparation === undefined) result.html = toHtml(sanitized);
     else preparation.retainTree(sanitized, pixels);

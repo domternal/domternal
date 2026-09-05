@@ -37,6 +37,7 @@ declare module '@domternal/core' {
     'pasteCleanup.diagnostic.officeListUnsupported': undefined;
     'pasteCleanup.diagnostic.destinationFormattingUnconfirmed': undefined;
     'pasteCleanup.diagnostic.destinationTableUnsupported': undefined;
+    'pasteCleanup.diagnostic.destinationHeadingLevelAdapted': undefined;
     'pasteCleanup.diagnostic.other': undefined;
   }
 }
@@ -182,6 +183,10 @@ export const pasteCleanupMessages = {
   destinationTableUnsupported: defineMessage({
     id: 'pasteCleanup.diagnostic.destinationTableUnsupported', defaultValue: 'Table paste was blocked because table support could not be confirmed.', owner: '@domternal/extension-paste-cleanup',
     description: 'Table capability refusal before insertion, independently of diagnostic capacity.',
+  }),
+  destinationHeadingLevelAdapted: defineMessage({
+    id: 'pasteCleanup.diagnostic.destinationHeadingLevelAdapted', defaultValue: 'Some headings were changed to a heading level this editor supports.', owner: '@domternal/extension-paste-cleanup',
+    description: 'A pasted heading level the editor does not support became its nearest supported level instead of a paragraph.',
   }),
   other: defineMessage({
     id: 'pasteCleanup.diagnostic.other', defaultValue: 'Some pasted content may need review.', owner: '@domternal/extension-paste-cleanup',

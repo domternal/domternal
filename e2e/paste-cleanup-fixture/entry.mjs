@@ -23,6 +23,8 @@ const coordinatedAssets = embeddedAssets || resolverAssets;
 const imagePolicy = query.get('image-policy');
 const capabilityMinimal = query.get('schema') === 'capability-minimal';
 const capabilityFull = query.get('schema') === 'capability-full';
+// Levels two and three only, as an application that reserves h1 for its page title.
+const headingLevels = query.get('schema') === 'heading-levels';
 const lists = query.get('schema') !== 'no-lists';
 const listMarkers = query.get('list-markers') === '1';
 if (listMarkers) await import('@domternal/theme/css');
@@ -226,7 +228,8 @@ const ConsumeOuterAndNest = Extension.create({
 // The optional extension list is identical across all four integrations.
 const extensions = [
   Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
-  FontFamily, FontSize, TextAlign, capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : Heading,
+  FontFamily, FontSize, TextAlign,
+  capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : headingLevels ? Heading.configure({ levels: [2, 3] }) : Heading,
   ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),
   ...(lists ? [...markerLists, ListItem] : []),
   ...(listMarkers ? [TaskList, TaskItem] : []),

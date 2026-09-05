@@ -33,6 +33,7 @@ const diagnosticMessages: Readonly<Record<PasteDiagnosticCode, Copy>> = {
   'office-list-unsupported': pasteCleanupMessages.officeListUnsupported,
   'destination-formatting-unconfirmed': pasteCleanupMessages.destinationFormattingUnconfirmed,
   'destination-table-unsupported': pasteCleanupMessages.destinationTableUnsupported,
+  'destination-heading-level-adapted': pasteCleanupMessages.destinationHeadingLevelAdapted,
 };
 
 interface Presentation {

@@ -7,6 +7,7 @@ import { test } from './fixtures.js';
 const BASE_URL = 'http://127.0.0.1:5895';
 const FRAMEWORKS = ['vanilla', 'react', 'vue', 'angular'] as const;
 const TABLE_HTML = '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>';
+const HEADING_NOTICE = 'Some headings were changed to a heading level this editor supports.';
 const FULL_HTML = '<h2 style="text-align:center;line-height:1.5"><strong>Bold</strong> <em>Italic</em> <u>Underline</u> <s>Strike</s> <sub>Sub</sub> <sup>Sup</sup></h2>'
   + '<p><span style="font-family:Georgia;font-size:18pt;color:#123456;background-color:#ffff00">Painted</span></p>'
   + '<ol start="7"><li><p>Seven</p><ul><li><p>Nested</p></li></ul></li><li><p>Eight</p></li></ol>'
@@ -35,7 +36,7 @@ interface ProbeWindow {
 type Transport = 'synthetic-event' | 'programmatic';
 
 async function open(page: Page, framework: string, options: {
-  schema?: 'capability-minimal' | 'capability-full'; formatting?: 'preserve' | 'adapt'; diagnostics?: 'one';
+  schema?: 'capability-minimal' | 'capability-full' | 'heading-levels'; formatting?: 'preserve' | 'adapt'; diagnostics?: 'one';
 } = {}): Promise<void> {
   const query = new URLSearchParams({ framework, ...options });
   await page.goto(`${BASE_URL}/?${query.toString()}`);
@@ -47,6 +48,10 @@ async function open(page: Page, framework: string, options: {
       const schema = (window as unknown as ProbeWindow).__pasteCleanup.editor.state.schema;
       return { nodes: Object.keys(schema.nodes).sort(), marks: Object.keys(schema.marks).sort() };
     })).toEqual({ nodes: ['doc', 'paragraph', 'text'], marks: [] });
+  }
+  if (options.schema === 'heading-levels') {
+    expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.extensionManager.extensions
+      .find(extension => extension.name === 'heading')?.options)).toMatchObject({ levels: [2, 3] });
   }
 }
 
@@ -99,6 +104,16 @@ async function paste(page: Page, html: string, transport: Transport = 'synthetic
   return observed;
 }
 
+function headings(page: Page): Promise<{ level: unknown; text: string }[]> {
+  return page.evaluate(() => {
+    const output: { level: unknown; text: string }[] = [];
+    (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.descendants(node => {
+      if (node.type.name === 'heading') output.push({ level: node.attrs['level'], text: node.textContent });
+    });
+    return output;
+  });
+}
+
 async function marks(page: Page, text: string): Promise<{ type: string; attrs: Record<string, unknown> }[]> {
   return page.evaluate(text => {
     const output: { type: string; attrs: Record<string, unknown> }[] = [];
@@ -149,13 +164,51 @@ for (const framework of FRAMEWORKS) {
       });
     }
 
-    test('default heading levels warn for level five while retaining its text', async ({ page }) => {
+    test('default heading levels paste level five as level four and report it', async ({ page }) => {
       await open(page, framework);
       await seed(page);
       const observed = await paste(page, '<h5>Level five</h5>');
-      await expect(page.locator('.ProseMirror')).toHaveText('Level five');
+      await expect(page.locator('.ProseMirror h4')).toHaveText('Level five');
       await expect(page.locator('.ProseMirror h5')).toHaveCount(0);
-      expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.firstChild?.type.name)).toBe('paragraph');
+      expect(await headings(page)).toEqual([{ level: 4, text: 'Level five' }]);
+      expect(observed.results[0]?.diagnostics).toEqual([{ code: 'destination-heading-level-adapted', severity: 'warning', offset: 0 }]);
+      expect(observed.operations[0]?.status).toBe('applied');
+      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      await expect(notice.getByRole('status')).toHaveText('Review the pasted content.');
+      await notice.locator('summary').click();
+      await expect(notice.locator('li')).toHaveText([HEADING_NOTICE]);
+    });
+
+    test('configured levels two and three keep every pasted heading in outline order', async ({ page }) => {
+      await open(page, framework, { schema: 'heading-levels' });
+      await seed(page);
+      const before = await snapshot(page);
+      const html = '<h1>Title</h1><h2>Section</h2><h4>Detail</h4><h6>Note</h6>';
+      const observed = await paste(page, html);
+      expect(await headings(page)).toEqual([
+        { level: 2, text: 'Title' }, { level: 2, text: 'Section' }, { level: 3, text: 'Detail' }, { level: 3, text: 'Note' },
+      ]);
+      expect(observed.results[0]?.diagnostics).toEqual(['<h1', '<h4', '<h6'].map(tag => ({
+        code: 'destination-heading-level-adapted', severity: 'warning', offset: html.indexOf(tag),
+      })));
+      expect(observed.operations[0]?.status).toBe('applied');
+      expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
+      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      await notice.locator('summary').click();
+      await expect(notice.locator('li')).toHaveText([HEADING_NOTICE]);
+      expect(await history(page)).toEqual({ undo: 1, redo: 0 });
+      // The disclosure took focus; undo belongs to the editor.
+      await page.locator('.ProseMirror').focus();
+      await page.keyboard.press('ControlOrMeta+z');
+      await expect.poll(() => snapshot(page)).toEqual(before);
+    });
+
+    test('a destination without headings keeps the text as a paragraph with the general warning', async ({ page }) => {
+      await open(page, framework, { schema: 'capability-minimal' });
+      await seed(page);
+      const observed = await paste(page, '<h5>Level five</h5>');
+      await expect(page.locator('.ProseMirror p')).toHaveText('Level five');
+      expect(await headings(page)).toEqual([]);
       expect(observed.results[0]?.diagnostics).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
       expect(observed.operations[0]?.status).toBe('applied');
     });
