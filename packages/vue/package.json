@@ -1,7 +1,7 @@
 {
   "name": "@domternal/vue",
   "version": "1.0.1",
-  "description": "Vue 3 components for Domternal editor",
+  "description": "MIT-licensed Vue 3 components for the Domternal rich text editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
   "type": "module",
@@ -45,6 +45,9 @@
     "prosemirror",
     "editor",
     "rich-text",
+    "rich-text-editor",
+    "wysiwyg",
+    "typescript",
     "domternal"
   ],
   "repository": {

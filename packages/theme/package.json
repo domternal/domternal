@@ -1,7 +1,7 @@
 {
   "name": "@domternal/theme",
   "version": "1.0.1",
-  "description": "Default themes and styles for Domternal editor",
+  "description": "Light and dark CSS theme for the Domternal rich text editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
   "type": "commonjs",
@@ -39,6 +39,7 @@
   "keywords": [
     "domternal",
     "editor",
+    "rich-text-editor",
     "theme",
     "css",
     "prosemirror"

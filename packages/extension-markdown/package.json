@@ -61,6 +61,8 @@
   "keywords": [
     "prosemirror",
     "editor",
+    "rich-text-editor",
+    "typescript",
     "markdown",
     "gfm",
     "import",

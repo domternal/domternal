@@ -4,7 +4,7 @@
  * The transform is the only code between a working tree and npm, and npm is a
  * place nothing can be taken back from: a wrong compatibility range or a dangling export
  * condition is public the moment it lands. So its behaviour is pinned here on
- * hand-written manifests rather than only on the eighteen real ones, which all
+ * hand-written manifests rather than only on the seventeen real ones, which all
  * happen to be correct and would therefore prove nothing about the failures.
  */
 import { test } from 'node:test';
@@ -19,6 +19,9 @@ import {
   lockstepViolations,
   packageFailures,
   peerRangeFailures,
+  publicMetadataFailures,
+  publicContext7Failures,
+  publicReadmeFailures,
   requiredNodeFloor,
 } from './check.mjs';
 import {
@@ -75,6 +78,130 @@ test('lockstep reports the buckets, not just that they exist', () => {
       { name: '@domternal/extension-toc', version: '0.16.0' },
     ]),
     ['0.15.0: @domternal/core, @domternal/pm', '0.16.0: @domternal/extension-toc']
+  );
+});
+
+test('public npm metadata is searchable without assigning another framework to a wrapper', () => {
+  const base = {
+    name: '@domternal/react',
+    description: 'MIT-licensed React components for the Domternal rich text editor',
+    keywords: ['react', 'prosemirror', 'editor', 'rich-text-editor', 'typescript', 'domternal'],
+  };
+  assert.deepEqual(publicMetadataFailures(base), []);
+  assert.match(
+    publicMetadataFailures({
+      ...base,
+      keywords: base.keywords.filter((word) => word !== 'react'),
+    })[0],
+    /missing its own framework/
+  );
+  assert.match(
+    publicMetadataFailures({ ...base, keywords: [...base.keywords, 'angular'] }).find((failure) =>
+      failure.includes('another wrapper')
+    ),
+    /"angular"/
+  );
+  assert.match(
+    publicMetadataFailures({ ...base, description: 'React bindings' }).find((failure) =>
+      failure.includes('description')
+    ),
+    /rich text editor/
+  );
+});
+
+test('the public README inventory follows discovered packages and distinguishes JavaScript from CSS', () => {
+  const packages = [
+    { manifest: { name: '@domternal/core' } },
+    { manifest: { name: '@domternal/react' } },
+    { manifest: { name: '@domternal/extension-table' } },
+  ];
+  const readme = `
+JavaScript exports are tree-shakeable; the optional theme ships as one complete CSS stylesheet.
+
+**70+ extensions across core and 1 extension packages**
+**17,000+ automated test executions**
+**150+ CSS custom properties**
+
+## Packages
+
+| Package | Description |
+|---|---|
+| [\`@domternal/core\`](url) | Core |
+| [\`@domternal/react\`](url) | React |
+| [\`@domternal/extension-table\`](url) | Table |
+
+The table above lists all 3 current MIT packages.
+
+## Domternal Pro
+`;
+  assert.deepEqual(publicReadmeFailures(readme, packages), []);
+  assert.match(
+    publicReadmeFailures(readme.replace('all 3 current', 'all 4 current'), packages).find(
+      (failure) => failure.includes('package count')
+    ),
+    /expected 3/
+  );
+  assert.match(
+    publicReadmeFailures(
+      readme.replace('| [`@domternal/react`](url) | React |\n', ''),
+      packages
+    ).find((failure) => failure.includes('not listed')),
+    /@domternal\/react/
+  );
+  assert.match(
+    publicReadmeFailures(
+      readme.replace('JavaScript exports are', 'Every package is'),
+      packages
+    ).find((failure) => failure.includes('theme stylesheet')),
+    /theme stylesheet/
+  );
+  for (const claim of [
+    '70+ extensions',
+    '17,000+ automated test executions',
+    '150+ CSS custom properties',
+  ]) {
+    assert.match(
+      publicReadmeFailures(readme.replace(claim, 'outdated claim'), packages).find((failure) =>
+        failure.includes('threshold')
+      ),
+      /no longer states/
+    );
+  }
+});
+
+test('Context7 keeps framework, package, source and deployment facts precise', () => {
+  const packages = Array.from({ length: 17 }, (_, index) => ({
+    manifest: { name: `@domternal/package-${String(index)}` },
+  }));
+  const config = {
+    description:
+      'Framework-agnostic editor with Angular, React, Vue and Vanilla packages. MIT licensed.',
+    rules: [
+      'JavaScript extension exports are tree-shakeable.',
+      'Domternal Free is the current set of 17 MIT-licensed @domternal packages. Domternal Pro is a separate commercially licensed suite distributed through public npm with a private source repository.',
+      'Domternal Pro requires no Domternal-operated editor cloud. See https://domternal.dev/free-vs-pro/ and https://domternal.dev/license-explained/.',
+    ],
+  };
+  assert.deepEqual(publicContext7Failures(config, packages), []);
+  assert.match(
+    publicContext7Failures(
+      {
+        ...config,
+        rules: config.rules.map((rule) => rule.replace('17 MIT-licensed', '18 MIT-licensed')),
+      },
+      packages
+    )[0],
+    /package inventory/
+  );
+  assert.match(
+    publicContext7Failures(
+      {
+        ...config,
+        rules: [...config.rules, 'Extensions are tree-shakeable: the bundler strips the rest'],
+      },
+      packages
+    ).find((failure) => failure.includes('tree-shaking')),
+    /JavaScript export boundary/
   );
 });
 
@@ -197,9 +324,10 @@ test('an exports target that is missing, or that files does not ship, blocks the
   /* The legacy fields are judged too. Nothing here uses `main` today, but a
      resolver that has not implemented exports reads it, and a dangling one
      fails exactly as hard. */
-  assert.deepEqual(publishBlockers({ ...manifest, exports: undefined, main: './dist/gone.js' }, root), [
-    'the manifest points at ./dist/gone.js, which does not exist',
-  ]);
+  assert.deepEqual(
+    publishBlockers({ ...manifest, exports: undefined, main: './dist/gone.js' }, root),
+    ['the manifest points at ./dist/gone.js, which does not exist']
+  );
 
   /* The shipped case: src/index.ts exists here, so only "files" separates a
      working consumer from ERR_MODULE_NOT_FOUND. That distinction is the whole

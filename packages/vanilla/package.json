@@ -1,7 +1,7 @@
 {
   "name": "@domternal/vanilla",
   "version": "1.0.1",
-  "description": "Polished DOM components for the Domternal rich-text editor. Use in Astro, Svelte, Solid, plain HTML.",
+  "description": "MIT-licensed framework-free DOM components for the Domternal rich text editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
   "type": "module",
@@ -45,6 +45,10 @@
     "prosemirror",
     "editor",
     "rich-text",
+    "rich-text-editor",
+    "wysiwyg",
+    "typescript",
+    "web-components",
     "domternal"
   ],
   "repository": {

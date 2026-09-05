@@ -1,7 +1,7 @@
 {
   "name": "@domternal/react",
   "version": "1.0.1",
-  "description": "React components for Domternal editor",
+  "description": "MIT-licensed React components for the Domternal rich text editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
   "type": "module",
@@ -48,6 +48,9 @@
     "prosemirror",
     "editor",
     "rich-text",
+    "rich-text-editor",
+    "wysiwyg",
+    "typescript",
     "domternal"
   ],
   "repository": {

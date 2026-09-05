@@ -2,7 +2,7 @@
 
 [![Domternal Editor](https://domternal.dev/readme/readme-banner.png?v=4)](https://domternal.dev)
 
-A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), with a headless core and first-class **Angular**, **React**, **Vue**, and **Vanilla** components. Take the core alone and drive the DOM yourself, add the toolbar and theme for a finished editor, or mount the components for your framework. Notion-style block editing, drag handle, slash menu and floating outline included, and every package is tree-shakeable.
+A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), with a headless core and first-class **Angular**, **React**, **Vue**, and **Vanilla** components. Take the core alone and drive the DOM yourself, add the toolbar and theme for a finished editor, or mount the components for your framework. Notion-style block editing, drag handle, slash menu and floating outline are included. JavaScript exports are tree-shakeable; the optional theme ships as one complete CSS stylesheet.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/domternal/domternal/actions/workflows/ci.yml/badge.svg)](https://github.com/domternal/domternal/actions/workflows/ci.yml)
@@ -22,14 +22,14 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
 - **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents, from `@domternal/extension-block-controls` and `@domternal/extension-toc`, with `preset: 'notion'` for the layout and preset-aware behavior
 - **Print to paper or PDF** - `printDocument()` leaves your app's chrome off the page, and the theme's paper layer applies to the reader's own Ctrl/Cmd+P with no code involved
-- **74 extensions across core and 10 extension packages** - nodes, marks, and behavior extensions
+- **70+ extensions across core and 10 extension packages** - nodes, marks, and behavior extensions
 - **130+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar
-- **Tree-shakeable** - import only what you use, your bundler strips the rest
+- **Tree-shakeable JavaScript** - import only the JavaScript exports you use; the optional `@domternal/theme` deliberately ships one complete stylesheet
 - **~51 KiB minified and gzipped** (own code), [**~132 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies - see Packages for the full bundle breakdown
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
-- **17,800+ tests** - 4,700+ unit and 13,100+ E2E across the Playwright matrix and 4 demo apps
-- **Light and dark theme** - 160 CSS custom properties for full visual control
+- **17,000+ automated test executions** - unit coverage and a Playwright matrix across four demo apps
+- **Light and dark theme** - 150+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
 
@@ -57,27 +57,27 @@ The example above wires the minimum schema by hand to show the headless model; i
 
 ## Packages
 
-| Package | Description |
-|---|---|
-| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core) | Editor engine with 13 nodes, 9 marks, 28 extensions, toolbar controller, and 52 built-in icons |
-| [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) | Light and dark themes with 160 CSS custom properties |
-| [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular) | Angular 17.1+ wrapper: 6 components (editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker) |
-| [`@domternal/react`](https://www.npmjs.com/package/@domternal/react) | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |
-| [`@domternal/vue`](https://www.npmjs.com/package/@domternal/vue) | Vue 3.3+ wrapper: composable component, composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |
-| [`@domternal/vanilla`](https://www.npmjs.com/package/@domternal/vanilla) | Framework-free class-based wrapper for Astro, Svelte, Solid, plain HTML, and Web Components |
-| [`@domternal/pm`](https://www.npmjs.com/package/@domternal/pm) | ProseMirror re-exports (state, view, model, transform, commands, keymap, history, tables, and more) |
-| [`@domternal/extension-block-controls`](https://www.npmjs.com/package/@domternal/extension-block-controls) | Notion-style block UX: block handle, context menu, drag-to-reorder, keyboard reorder, slash command, floating menu, smart paste (formerly `@domternal/extension-block-menu`) |
-| [`@domternal/extension-toc`](https://www.npmjs.com/package/@domternal/extension-toc) | Notion-style Table of Contents: floating outline, inline `/toc` block, `scrollToHeading` command |
-| [`@domternal/extension-table`](https://www.npmjs.com/package/@domternal/extension-table) | Tables with 18 commands: merge, split, resize, cell styling, row/column controls |
-| [`@domternal/extension-math`](https://www.npmjs.com/package/@domternal/extension-math) | LaTeX math: inline and block equations with a pluggable renderer (KaTeX) |
-| [`@domternal/extension-markdown`](https://www.npmjs.com/package/@domternal/extension-markdown) | GitHub-flavored Markdown import and export: markdown paste, `insertMarkdown`/`setMarkdownContent`, headless parser and serializer with fidelity warnings |
-| [`@domternal/extension-image`](https://www.npmjs.com/package/@domternal/extension-image) | Image with paste/drop upload, URL input, XSS protection, bubble menu |
-| [`@domternal/extension-emoji`](https://www.npmjs.com/package/@domternal/extension-emoji) | Emoji picker panel and `:shortcode:` autocomplete |
-| [`@domternal/extension-mention`](https://www.npmjs.com/package/@domternal/extension-mention) | `@mention` autocomplete with multi-trigger and async support |
-| [`@domternal/extension-details`](https://www.npmjs.com/package/@domternal/extension-details) | Collapsible details/accordion blocks |
-| [`@domternal/extension-code-block-lowlight`](https://www.npmjs.com/package/@domternal/extension-code-block-lowlight) | Syntax-highlighted code blocks powered by lowlight |
+| Package                                                                                                              | Description                                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core)                                                   | Editor engine with 13 nodes, 9 marks, 28 extensions, toolbar controller, and 52 built-in icons                                                                               |
+| [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)                                                 | Light and dark themes with 150+ CSS custom properties                                                                                                                        |
+| [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular)                                             | Angular 17.1+ wrapper: 6 components (editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker)                                                         |
+| [`@domternal/react`](https://www.npmjs.com/package/@domternal/react)                                                 | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views                                                  |
+| [`@domternal/vue`](https://www.npmjs.com/package/@domternal/vue)                                                     | Vue 3.3+ wrapper: composable component, composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views                                      |
+| [`@domternal/vanilla`](https://www.npmjs.com/package/@domternal/vanilla)                                             | Framework-free class-based wrapper for Astro, Svelte, Solid, plain HTML, and Web Components                                                                                  |
+| [`@domternal/pm`](https://www.npmjs.com/package/@domternal/pm)                                                       | ProseMirror re-exports (state, view, model, transform, commands, keymap, history, tables, and more)                                                                          |
+| [`@domternal/extension-block-controls`](https://www.npmjs.com/package/@domternal/extension-block-controls)           | Notion-style block UX: block handle, context menu, drag-to-reorder, keyboard reorder, slash command, floating menu, smart paste (formerly `@domternal/extension-block-menu`) |
+| [`@domternal/extension-toc`](https://www.npmjs.com/package/@domternal/extension-toc)                                 | Notion-style Table of Contents: floating outline, inline `/toc` block, `scrollToHeading` command                                                                             |
+| [`@domternal/extension-table`](https://www.npmjs.com/package/@domternal/extension-table)                             | Tables with 18 commands: merge, split, resize, cell styling, row/column controls                                                                                             |
+| [`@domternal/extension-math`](https://www.npmjs.com/package/@domternal/extension-math)                               | LaTeX math: inline and block equations with a pluggable renderer (KaTeX)                                                                                                     |
+| [`@domternal/extension-markdown`](https://www.npmjs.com/package/@domternal/extension-markdown)                       | GitHub-flavored Markdown import and export: markdown paste, `insertMarkdown`/`setMarkdownContent`, headless parser and serializer with fidelity warnings                     |
+| [`@domternal/extension-image`](https://www.npmjs.com/package/@domternal/extension-image)                             | Image with paste/drop upload, URL input, XSS protection, bubble menu                                                                                                         |
+| [`@domternal/extension-emoji`](https://www.npmjs.com/package/@domternal/extension-emoji)                             | Emoji picker panel and `:shortcode:` autocomplete                                                                                                                            |
+| [`@domternal/extension-mention`](https://www.npmjs.com/package/@domternal/extension-mention)                         | `@mention` autocomplete with multi-trigger and async support                                                                                                                 |
+| [`@domternal/extension-details`](https://www.npmjs.com/package/@domternal/extension-details)                         | Collapsible details/accordion blocks                                                                                                                                         |
+| [`@domternal/extension-code-block-lowlight`](https://www.npmjs.com/package/@domternal/extension-code-block-lowlight) | Syntax-highlighted code blocks powered by lowlight                                                                                                                           |
 
-`@domternal/extension-block-menu`, the deprecated shim left from the v0.10.0 rename, ended with the 0.x line. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
+The table above lists all 17 current MIT packages. npm search may still show `@domternal/extension-block-menu` as a historical, deprecated 0.x entry. It is not an eighteenth current package. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
 
 See [Packages & Bundle Size](https://domternal.dev/v1/packages) for a full breakdown of what each package includes and how tree-shaking works.
 

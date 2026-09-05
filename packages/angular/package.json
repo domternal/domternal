@@ -1,7 +1,7 @@
 {
   "name": "@domternal/angular",
   "version": "1.0.1",
-  "description": "Angular components for Domternal editor",
+  "description": "MIT-licensed Angular components for the Domternal rich text editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
   "type": "module",
@@ -50,6 +50,9 @@
     "prosemirror",
     "editor",
     "rich-text",
+    "rich-text-editor",
+    "wysiwyg",
+    "typescript",
     "domternal"
   ],
   "repository": {

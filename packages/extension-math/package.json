@@ -53,6 +53,8 @@
   "keywords": [
     "prosemirror",
     "editor",
+    "rich-text-editor",
+    "typescript",
     "math",
     "latex",
     "katex",
