@@ -12,6 +12,7 @@ import { Node } from '../Node.js';
 import { textblockTypeInputRule } from '../helpers/textblockTypeInputRule.js';
 import { keymap } from '@domternal/pm/keymap';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
+import { configuredHeadingLevels, resolveHeadingLevel } from '../utils/headingLevel.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
@@ -24,6 +25,10 @@ declare module '@domternal/core' {
 }
 
 export interface HeadingOptions {
+  /**
+   * The heading levels this editor offers: a non-empty list of whole numbers
+   * from 1 to 6. The first one is the default level.
+   */
   levels: number[];
   HTMLAttributes: Record<string, unknown>;
 }
@@ -42,12 +47,15 @@ export const Heading = Node.create<HeadingOptions>({
   },
 
   addAttributes() {
+    // Checked while the schema is built, so a misconfiguration fails the editor or SSR helper.
+    const levels = configuredHeadingLevels(this.options.levels);
     return {
       level: {
-        default: 1,
+        // Content and commands without a level get the first configured one.
+        default: levels[0],
         parseHTML: (element: HTMLElement) => {
           const match = /^H(\d)$/i.exec(element.tagName);
-          return match?.[1] ? parseInt(match[1], 10) : 1;
+          return match?.[1] ? parseInt(match[1], 10) : levels[0];
         },
         renderHTML: () => {
           // Level is used in the tag name, not as an attribute
@@ -66,10 +74,10 @@ export const Heading = Node.create<HeadingOptions>({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const level = node.attrs['level'] as number;
-    // Ensure level is within allowed range
-    const validLevel = this.options.levels.includes(level) ? level : (this.options.levels[0] ?? 1);
-    return [`h${String(validLevel)}`, { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
+    // A stored level the configuration lacks, for example from a client with
+    // more levels, renders at the nearest configured level; the document keeps it.
+    const level = resolveHeadingLevel(node.attrs['level'], this.options.levels);
+    return [`h${String(level)}`, { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
   addCommands() {

@@ -9,7 +9,9 @@ export const HEADING_LEVEL_FEATURES: readonly PasteDestinationFeature[] = Object
 /**
  * The supported level that keeps a heading's place in the outline: the nearest level of equal or
  * lower importance, otherwise the deepest supported level. A heading is never promoted while a
- * deeper level exists, and the order of outline levels is kept.
+ * deeper level exists, and the order of outline levels is kept. Core's Heading renders and loads
+ * a stored level its configuration lacks by the same rule, in its own copy, since this bundle must
+ * not import Core.
  */
 export function nearestHeadingLevel(level: number, supported: readonly number[]): number | undefined {
   let deeper: number | undefined;

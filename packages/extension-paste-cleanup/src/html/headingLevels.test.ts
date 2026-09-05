@@ -10,7 +10,8 @@ import { adaptHeadingLevels, nearestHeadingLevel } from './headingLevels.js';
 
 /**
  * Every non-empty set of supported levels, as a bit mask where bit `level - 1` marks a supported
- * level, maps levels 1 to 6 to this row (entry `mask - 1`).
+ * level, maps levels 1 to 6 to this row (entry `mask - 1`). Core's copy of the rule in
+ * core/src/utils/headingLevel.test.ts asserts the same table, so the two copies cannot drift.
  */
 const LEVEL_TABLE = [
   '111111', '222222', '122222', '333333', '133333', '223333', '123333', '444444', '144444',
