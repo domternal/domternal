@@ -13,15 +13,17 @@ const ALLOWED_FUNCTIONS = new Set([
 
 /**
  * Characters that end a declaration, open a block that would swallow the
- * next declaration, quote, escape, or start importance or a rule; and a comment.
+ * next declaration, quote, escape, or start importance or a rule; a comment;
+ * and `&`, which starts a character reference that HTML written without
+ * escaping it, as linkedom writes it, decodes into any of them.
  */
-const FORBIDDEN = /[;{}[\]<>\\"'!@]|\/\*/;
+const FORBIDDEN = /[;{}[\]<>\\"'!@&]|\/\*/;
 const MAX_LENGTH = 256;
 
 /**
  * Whether `value` is safe to write as the value of one CSS declaration, such
  * as `color: <value>`: a string of at most 256 characters that is not blank,
- * with no control character, none of `; { } [ ] < > \ " ' ! @`, no comment,
+ * with no control character, none of `; { } [ ] < > \ " ' ! @ &`, no comment,
  * balanced parentheses, and no function other than the color and arithmetic
  * functions `rgb`, `rgba`, `hsl`, `hsla`, `hwb`, `lab`, `lch`, `oklab`,
  * `oklch`, `color`, `color-mix`, `light-dark`, `var`, `calc`, `min`, `max`

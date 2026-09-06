@@ -51,6 +51,7 @@ export interface UrlPolicyOptions {
  *   or a value that is not a string.
  * - `unsupported`: the value is harmless but these options do not allow it:
  *   another scheme, a relative or network-path reference, a backslash, an
+ *   `&` where a character reference could spell a scheme or a host, an
  *   address the URL parser rejects, or an empty value, null or undefined.
  */
 export type UrlCheck =
@@ -176,6 +177,8 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
     // A host never holds `%` once parsed; Chromium keeps an invalid host percent-encoded
     // where other parsers reject it, so this keeps the decision the same everywhere.
     if (parsed === null || parsed.hostname.includes('%')) return UNSUPPORTED;
+    // No real host holds `&`, and `&#64;` there reads as `@` wherever HTML is decoded.
+    if (parsed.hostname.includes('&')) return UNSUPPORTED;
     if (parsed.username !== '' || parsed.password !== '') return UNSAFE;
     return { status: 'allowed', url };
   }
@@ -185,10 +188,16 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
   if (networkPath && !allowNetworkPath) return UNSUPPORTED;
   // RFC 3986 path-noscheme: a colon in the first segment reads as a scheme to
   // some consumers and hides a look-alike one, such as a fullwidth letter.
-  const firstSegment = url.search(/[/\\?#]/);
-  if (url.slice(0, firstSegment < 0 ? url.length : firstSegment).includes(':')) return UNSUPPORTED;
+  // HTML that leaves `&` unescaped in an attribute, as linkedom writes it, is
+  // read with its character references decoded, so an `&` there, as in
+  // `javascript&colon;` or `&#106;avascript:`, could spell a scheme, and one
+  // right after the leading slash, as in `/&#47;host`, a network path.
+  const firstSegmentEnd = url.search(/[/\\?#]/);
+  const firstSegment = url.slice(0, firstSegmentEnd < 0 ? url.length : firstSegmentEnd);
+  if (firstSegment.includes(':') || firstSegment.includes('&')) return UNSUPPORTED;
+  if (!allowNetworkPath && /^[/\\]&/.test(url)) return UNSUPPORTED;
   const resolved = parse(url, RELATIVE_BASE);
-  if (resolved === null || resolved.hostname.includes('%')) return UNSUPPORTED;
+  if (resolved === null || resolved.hostname.includes('%') || resolved.hostname.includes('&')) return UNSUPPORTED;
   if (!allowNetworkPath && resolved.origin !== RELATIVE_ORIGIN) return UNSUPPORTED;
   if (resolved.username !== '' || resolved.password !== '') return UNSAFE;
   return { status: 'allowed', url };

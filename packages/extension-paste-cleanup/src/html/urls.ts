@@ -15,6 +15,8 @@ export function safeLink(value: unknown, sourceURL?: string): string | undefined
     const url = new URL(value, base);
     if (!['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol)) return undefined;
     if (url.username !== '' || url.password !== '') return undefined;
+    // No real host holds `&`, and `&#64;` there reads as `@` wherever HTML is decoded.
+    if (url.hostname.includes('&')) return undefined;
     return url.href;
   } catch { return undefined; }
 }

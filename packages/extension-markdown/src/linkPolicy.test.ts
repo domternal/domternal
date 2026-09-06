@@ -191,18 +191,15 @@ describe('serializing destinations and titles (J7, J8, J9)', () => {
     expect(renderedHrefs(markdown)).toEqual(['https://ok.example/a%20b%3Cc%3E%26colon;']);
   });
 
-  it.each([
-    ['javascript&colon;alert(1)', '[x](javascript%26colon;alert\\(1\\))'],
-    ['&#106;avascript:alert(1)', '[x](%26#106;avascript:alert\\(1\\))'],
-    ['javascript&#58alert(1)', '[x](javascript%26#58alert\\(1\\))'],
-  ])('keeps the entity-like relative path %j from decoding into a scheme in any renderer', (href, expected) => {
-    const { markdown } = serializeMarkdown(stored(href, 'x'));
-    expect(markdown).toBe(expected);
-    const rendered = renderedHrefs(markdown);
-    expect(rendered).toHaveLength(1);
-    // Resolved as a browser would read the attribute: a path on the page, never a script scheme.
-    for (const value of rendered) expect(new URL(value, 'https://base.example/').protocol).toBe('https:');
-  });
+  it.each(['javascript&colon;alert(1)', '&#106;avascript:alert(1)', 'javascript&#58alert(1)'])(
+    'writes a link to the entity-like path %j, which the Link refuses, as its text',
+    (href) => {
+      const { markdown, warnings } = serializeMarkdown(stored(href, 'x'));
+      expect(markdown).toBe('x');
+      expect(renderedHrefs(markdown)).toEqual([]);
+      expect(warnings.map(warning => warning.code)).toEqual(['lossy-attribute']);
+    },
+  );
 
   it('keeps an ampersand that starts no reference, so a query keeps its parameters', () => {
     expect(serializeMarkdown(stored('https://ok.example/?a=1&b=2&c', 'x')).markdown).toBe('[x](https://ok.example/?a=1&b=2&c)');

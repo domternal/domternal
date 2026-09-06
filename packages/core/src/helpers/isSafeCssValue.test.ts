@@ -47,6 +47,12 @@ describe('isSafeCssValue', () => {
     ['a double quote', 'x" onmouseover="alert(1)'],
     ['a single quote', "x';background:url(y);'"],
     ['markup', '</style><script>'],
+    // HTML that leaves `&` unescaped in an attribute, as linkedom writes it, is decoded by the browser that reads it.
+    ['a character reference', 'red&#59;position:fixed'],
+    ['a hexadecimal character reference', 'red&#x3b;position:fixed'],
+    ['a named character reference', 'red&semi;position:fixed'],
+    ['parentheses spelled as references', 'url&#40;https://probe.test/x&#41;'],
+    ['an ampersand', 'Tom&Jerry'],
     ['a line break', 'red\nposition:fixed'],
     ['a carriage return', 'red\rblue'],
     ['a tab', 'red\tblue'],

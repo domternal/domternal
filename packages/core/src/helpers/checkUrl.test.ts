@@ -263,6 +263,43 @@ describe('checkUrl', () => {
       expect(problems).toEqual([]);
     });
 
+    it('allows nothing that reads as another scheme, origin or host once a browser decodes its character references', () => {
+      // HTML that leaves `&` unescaped in an attribute, as linkedom writes it, reaches the browser
+      // that reads it with every character reference decoded.
+      const decoded = (value: string): string => {
+        const holder = document.createElement('div');
+        holder.innerHTML = `<a href="${value.replace(/"/g, '&quot;')}"></a>`;
+        return holder.querySelector('a')?.getAttribute('href') ?? '';
+      };
+      const problems: string[] = [];
+      let references = 0;
+      for (const value of values) {
+        const link = checkUrl(value, LINK_PROFILE);
+        if (link.status === 'allowed') {
+          const read = decoded(link.url);
+          if (read !== link.url) references++;
+          const resolved = resolve(read);
+          if (!resolved) problems.push(`link unparsable ${label(value)}`);
+          else {
+            if (!['http:', 'https:', 'mailto:', 'tel:'].includes(resolved.protocol)) problems.push(`link scheme ${resolved.protocol} ${label(value)}`);
+            if (resolved.username !== '' || resolved.password !== '') problems.push(`link credentials ${label(value)}`);
+            if (!/^[a-z][a-z0-9+.-]*:/i.test(link.url) && resolved.origin !== 'https://page.example') problems.push(`link origin ${label(value)}`);
+            if (/^[a-z][a-z0-9+.-]*:/i.test(link.url) && resolved.hostname !== resolve(link.url)?.hostname) problems.push(`link host ${label(value)}`);
+          }
+        }
+        for (const allowDataImages of [true, false]) {
+          const image = checkUrl(value, imageProfile(allowDataImages));
+          if (image.status !== 'allowed') continue;
+          const resolved = resolve(decoded(image.url));
+          if (resolved && ['javascript:', 'vbscript:', 'file:'].includes(resolved.protocol)) problems.push(`image scheme ${resolved.protocol} ${label(value)}`);
+          if (resolved?.protocol === 'data:' && !allowDataImages) problems.push(`image data ${label(value)}`);
+        }
+      }
+      expect(problems).toEqual([]);
+      // Allowed addresses that hold a character reference exist, so the check is not met vacuously.
+      expect(references).toBeGreaterThan(100);
+    });
+
     it('refuses every value the parser resolves to a script scheme, whatever the options', () => {
       const problems: string[] = [];
       const everything = [LINK_PROFILE, imageProfile(true), { protocols: 'any' as const, allowRelative: true, allowNetworkPath: true, allowDataImages: true }];

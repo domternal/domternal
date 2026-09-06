@@ -265,7 +265,10 @@ isValidUrl('https://example.com/');          // true
 - `unsupported`: a harmless value these options do not allow, such as another scheme, a relative
   reference without `allowRelative`, a network path (`//host`) or a backslash, which browsers
   read as a slash in web addresses, an address the URL parser rejects, and empty values, `null`
-  and `undefined`.
+  and `undefined`. So is an `&` in a host, in the first segment of a relative reference or right
+  after its leading slash: HTML that leaves `&` unescaped in an attribute, as linkedom writes it,
+  reaches the browser with character references decoded, where `javascript&colon;x` or
+  `&#106;avascript:x` would spell a scheme. An `&` in a path, query or fragment stays allowed.
 
 The options are `protocols` (default `['http:', 'https:']`, compared in lower case with or
 without the colon; `'any'` allows every scheme except `file:`), `allowRelative` (`/path`,
@@ -315,7 +318,7 @@ the Link accepts.
 Text color, highlight, font family, font size, alignment and line height are stored as values and
 written into a `style` attribute when rendered. `isSafeCssValue(value)` decides whether a value
 may be written there: a string of at most 256 characters with no control character, none of
-`; { } [ ] < > \ " ' ! @`, no comment, balanced parentheses, and no function other than the
+`; { } [ ] < > \ " ' ! @ &`, no comment, balanced parentheses, and no function other than the
 color and arithmetic functions (`rgb`, `rgba`, `hsl`, `hsla`, `hwb`, `lab`, `lch`, `oklab`,
 `oklch`, `color`, `color-mix`, `light-dark`, `var`, `calc`, `min`, `max`, `clamp`). Such a value
 cannot add a declaration, such as `position: fixed`, or load a resource through `url()`.

@@ -206,6 +206,14 @@ describe('parity with the core URL policy (H8)', () => {
     expect(isValidUrl(value, LINK)).toBe(false);
   });
 
+  it('refuses a host that holds &, which reads as another host once a browser decodes a character reference', () => {
+    for (const value of ['https://a.example&#64;evil.example/', 'https://a.example&commat;evil.example/', 'https:&#47;&#47;evil.example/']) {
+      expect(safeLink(value), value).toBeUndefined();
+      expect(isValidUrl(value, LINK), value).toBe(false);
+    }
+    expect(safeLink('https://example.com/a?b=1&c=2')).toBe('https://example.com/a?b=1&c=2');
+  });
+
   it('keeps only addresses core allows, for a corpus and a seeded fuzz', () => {
     const corpus = [
       'https://example.com/', 'HTTPS://EXAMPLE.COM/A', 'http://example.com/a b', 'https://ｅxample.com/', 'https://example.com/‮',

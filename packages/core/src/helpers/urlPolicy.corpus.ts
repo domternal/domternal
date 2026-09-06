@@ -117,6 +117,8 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A17', value: 'images\\x.png', link: 'unsupported', image: ALLOWED },
   { id: 'A17', value: 'https://x.example/?a\\b', link: 'allowed', image: ALLOWED },
   { id: 'A17', value: 'https://x.example/#a\\b', link: 'allowed', image: ALLOWED },
+  // A scheme without slashes: on a page of another scheme it reads as https://evil.example/, on an
+  // https page as the relative path evil.example. Either way an allowed scheme, never a script.
   { id: 'A18', value: 'https:evil.example', link: 'allowed', image: ALLOWED },
   // Look-alikes of a scheme: without a real scheme they read as a path, which the colon rule refuses.
   { id: 'A19', value: '%6Aavascript:alert(1)', link: 'unsupported', image: UNSUPPORTED },
@@ -127,9 +129,29 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A19', value: 'localhost:3000', link: 'unsupported', image: ALLOWED },
   { id: 'A19', value: '1abc:x', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A20', value: 'javascript%3Aalert(1)', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
-  { id: 'A20', value: 'javascript&colon;alert(1)', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
-  // A literal character reference is no scheme: `#` starts a fragment of the relative path `&`.
-  { id: 'A20', value: '&#106;avascript:alert(1)', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  // Character references: HTML that leaves `&` unescaped in an attribute, as linkedom writes it, is
+  // decoded by the browser that reads it, so `&colon;` or `&#106;` there spells a scheme. An `&` in the
+  // first segment of a relative reference, after its leading slash or in a host is refused.
+  { id: 'A30', value: 'javascript&colon;alert(1)', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: '&#106;avascript:alert(1)', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: '&#x6A;avascript&#x3A;alert(1)', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: 'javascript&#58;alert(1)', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: '&Tab;javascript:alert(1)', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: `&#100;ata:image/png;base64,${PNG}`, link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: '/&#47;evil.example/x', link: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: '/&sol;evil.example/x', link: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: 'https://a.example&#64;evil.example/', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: 'https://a.example&commat;evil.example/', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: 'https:&#47;&#47;evil.example/', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: 'faq&help.html', link: 'unsupported', image: UNSUPPORTED },
+  // An `&` past those places cannot spell a scheme or a host, so queries and paths keep it.
+  { id: 'A30', value: '/search?a=1&b=2', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: '?q=x&copy;y', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: '#a&#58;b', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: './a&b.html', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: 'docs/a&#58;b', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: 'https://example.com/a&b?c=1&amp;d=2#e&f', link: 'allowed', image: ALLOWED },
+  { id: 'A30', value: 'mailto:a@b.example?subject=Q&A', link: 'allowed', image: ALLOWED },
   { id: 'A21', value: 'https://exa mple.com', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A21', value: 'https://', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A21', value: 'https://exa%20mple.com/', link: 'unsupported', image: UNSUPPORTED },
@@ -154,7 +176,8 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
 /** Pieces the fuzzer joins: scheme parts, delimiters, controls, bidi and look-alike characters. */
 const FUZZ_PIECES = [
   'javascript', 'JaVaScRiPt', 'vbscript', 'data', 'http', 'https', 'mailto', 'tel', 'file', 'ftp', 'blob',
-  ':', ':', '/', '//', '\\', '#', '?', '%', '%3A', '%0a', '&', '&colon;', ';', ',', '@', '.', '-', '+',
+  ':', ':', '/', '//', '\\', '#', '?', '%', '%3A', '%0a', '&', '&colon;', '&#58;', '&#x3a;', '&#106;', '&#47;',
+  '&sol;', '&bsol;', '&commat;', '&Tab;', '&amp;', ';', ',', '@', '.', '-', '+',
   '\t', '\n', '\r', '\u0000', '\u0001', '\u001f', ' ', '\u00a0', '\u200b', '\u202e', '\u2066', '\ufeff',
   '\uff4a', '\u0430', '\ud800', 'x', 'example.com', 'evil.example', 'alert(1)', 'image/png', 'text/html',
   'base64', 'user:pass', '0', '9',

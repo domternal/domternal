@@ -37,12 +37,15 @@ const ALLOWED: [source: string, url: string][] = [
   ['localhost:3000/a.png', 'localhost:3000/a.png'],
   ['https:example.com/a.png', 'https:example.com/a.png'],
   ['javascript%3Aalert(1)', 'javascript%3Aalert(1)'],
-  // A literal entity is a relative path with a fragment: nothing decodes it into a scheme.
-  ['&#106;avascript:alert(1)', '&#106;avascript:alert(1)'],
+  ['images/a&b.png', 'images/a&b.png'],
 ];
 
 /** Sources no configuration allows. */
 const REFUSED: string[] = [
+  // HTML that leaves `&` unescaped in an attribute, as linkedom writes it, is decoded by the browser
+  // that reads it, so a character reference in the first segment could spell a scheme.
+  '&#106;avascript:alert(1)',
+  '&#100;ata:image/png;base64,iVBORw0KGgo=',
   'javascript:alert(1)',
   'JaVaScRiPt:alert(1)',
   ' javascript:alert(1)',
