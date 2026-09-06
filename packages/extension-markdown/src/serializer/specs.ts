@@ -55,6 +55,40 @@ function escapeLinkDestination(url: string): string {
     .replace(/[<> ]/g, (char) => (char === '<' ? '%3C' : char === '>' ? '%3E' : '%20'));
 }
 
+/**
+ * What makes stored LaTeX unsafe to write between dollar signs. A `$`, a
+ * backtick or a line break could end the math early, so the rest would be
+ * read as Markdown, and a renderer without math reads all of it as Markdown:
+ * there a `<` that opens a tag, comment or autolink would be raw HTML, and a
+ * `](` or `][` a link. So could a `$$` in a block.
+ */
+const INLINE_MATH_BREAKOUT = /[$`\r\n]|<[a-z/!?]|\]\(|\]\[/i;
+const BLOCK_MATH_BREAKOUT = /\$\$|`|<[a-z/!?]|\]\(|\]\[|^ {0,3}(?:~~~|\[)/im;
+
+/** The longest run of backticks in `text`, so a code span or fence around it can be longer. */
+function longestBacktickRun(text: string): number {
+  return Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+}
+
+/**
+ * Inline math as `$latex$`, or, when that could end early or read as
+ * Markdown, as `` $`latex`$ ``: the code span form GitHub and GitLab read as
+ * math, which no stored text can close and every other renderer shows as
+ * code. Line breaks become spaces, as TeX reads them in math, so the math
+ * stays in its paragraph. The dollar form also needs no space inside either
+ * dollar, no `\` before the closing one and no digit after it, which parsers
+ * take for currency.
+ */
+function inlineMath(latex: string, next: PMNode | null): string {
+  const text = latex.replace(/\r\n?|\n/g, ' ');
+  const followedByDigit = next?.isText === true && /^\d/.test(next.text ?? '');
+  if (!INLINE_MATH_BREAKOUT.test(text) && !/^\s|\s$|\\$/.test(text) && !followedByDigit) return `$${text}$`;
+  const ticks = '`'.repeat(longestBacktickRun(text) + 1);
+  // A code span drops one space at each end, and a backtick there would join the delimiter.
+  const pad = /^`|`$/.test(text) || (/^ [\s\S]* $/.test(text) && text.trim() !== '') ? ' ' : '';
+  return `$${ticks}${pad}${text}${pad}${ticks}$`;
+}
+
 /** A title on one line, with every character that could close it or start markup escaped. */
 function escapeLinkTitle(title: string): string {
   return title.replace(/\r\n?|\n/g, ' ').replace(/[\\"&<>]/g, '\\$&');
@@ -323,15 +357,27 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
     state.warn('lossy-structure', 'Mentions serialize as plain text', node.type.name);
   },
 
-  mathInline: (state, node) => {
-    state.write(`$${attrString(node, 'latex') ?? ''}$`);
+  mathInline: (state, node, parent, index) => {
+    const latex = attrString(node, 'latex');
+    // Empty math has nothing to show, and a lone `$$` would open a math block.
+    if (latex === null) {
+      state.warn('lossy-structure', 'Empty inline math omitted', node.type.name);
+      return;
+    }
+    state.write(inlineMath(latex, parent.maybeChild(index + 1)));
   },
 
+  // A block whose LaTeX could end it early or read as Markdown is written as
+  // a `math` code fence, which GitHub and GitLab read as math and no stored
+  // text can close.
   mathBlock: (state, node) => {
-    state.write('$$\n');
-    state.text(attrString(node, 'latex') ?? '', false);
+    const latex = (attrString(node, 'latex') ?? '').replace(/\r\n?/g, '\n');
+    const fenced = BLOCK_MATH_BREAKOUT.test(latex);
+    const delimiter = fenced ? '`'.repeat(Math.max(3, longestBacktickRun(latex) + 1)) : '$$';
+    state.write(fenced ? `${delimiter}math\n` : '$$\n');
+    state.text(latex, false);
     state.ensureNewLine();
-    state.write('$$');
+    state.write(delimiter);
     state.closeBlock(node);
   },
 

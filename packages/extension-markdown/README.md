@@ -8,7 +8,7 @@ Bidirectional Markdown for the [Domternal](https://domternal.dev) editor: parse 
 - **Import**: `insertMarkdown` / `setMarkdownContent` commands, plus automatic conversion of Markdown-looking plain-text pastes (opt-out).
 - **Export**: `getMarkdown(editor)` and a `downloadMarkdown` helper, with a warning channel for anything Markdown cannot express (alignment, colors, merged table cells).
 - **Headless**: `parseMarkdown` / `serializeMarkdown` work against any schema without an editor instance.
-- Coverage: headings, lists (bullet, ordered with start, GFM task lists), blockquotes, fenced code with language, tables with column alignment, images, links and autolinks, bold/italic/strike/inline code, hard breaks, LaTeX math (`$...$`, `$$` blocks), emoji glyphs.
+- Coverage: headings, lists (bullet, ordered with start, GFM task lists), blockquotes, fenced code with language, tables with column alignment, images, links and autolinks, bold/italic/strike/inline code, hard breaks, LaTeX math (`$...$`, `$$` blocks, and GitHub's `` $`...`$ `` and `math` fences), emoji glyphs.
 
 ## Links
 
@@ -105,6 +105,23 @@ store or render.
   escaped.
 - The `<url>` autolink form is used only for `http:`, `https:` and `mailto:` links whose text is
   their href; any other link, such as `tel:`, is written as `[text](href)`.
+
+## Math
+
+Inline math is written as `$latex$` and block math between `$$` lines. LaTeX is written as it is
+stored, so when it holds something that could end the math early or read as Markdown in a renderer
+without math, the serializer uses the forms GitHub and GitLab read as math instead, which no LaTeX
+can close and every other renderer shows as code:
+
+- inline math as `` $`latex`$ `` (with a longer backtick run when the LaTeX holds backticks) when it
+  holds a `$`, a backtick, a `<` that opens a tag, comment or autolink, a `](` or `][`, a space at
+  either end or a `\` at the end, or when a digit follows it, which parsers take for currency.
+  Line breaks are written as spaces, as TeX reads them in math;
+- block math as a `math` code fence when it holds a `$$`, a backtick, a `<` that opens a tag, a
+  `](` or `][`, or a line that starts with `[` or `~~~`.
+
+Empty inline math is omitted with a `lossy-structure` warning. The parser reads both forms back into
+the math nodes; a `math` fence becomes block math only when the schema has it.
 
 ## Fidelity notes
 

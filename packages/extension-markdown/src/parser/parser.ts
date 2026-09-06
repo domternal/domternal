@@ -281,6 +281,7 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
   };
 
   const codeBlockType = node('codeBlock') ?? node('paragraph');
+  const mathBlockType = node('mathBlock');
   if (codeBlockType !== undefined) {
     const addCodeBlock = (state: MarkdownParseState, content: string, language: string | null): void => {
       const text = content.replace(/\n$/, '');
@@ -289,6 +290,11 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
     };
     handlers['fence'] = (state, token) => {
       const language = token.info.trim().split(/\s+/)[0] ?? '';
+      // A `math` fence is block math, as GitHub and GitLab read it.
+      if (language === 'math' && mathBlockType !== undefined) {
+        state.addNode(mathBlockType, { latex: token.content.replace(/\n$/, '') });
+        return;
+      }
       addCodeBlock(state, token.content, language === '' ? null : language);
     };
     handlers['code_block'] = (state, token) => {
@@ -349,7 +355,6 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
       state.addNode(mathInlineType, { latex: token.content });
     };
   }
-  const mathBlockType = node('mathBlock');
   if (mathBlockType !== undefined) {
     handlers['math_block'] = (state, token) => {
       state.addNode(mathBlockType, { latex: token.content });
