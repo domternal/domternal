@@ -51,6 +51,8 @@
   "keywords": [
     "prosemirror",
     "editor",
+    "rich-text-editor",
+    "typescript",
     "block-controls",
     "block-menu",
     "floating-menu",

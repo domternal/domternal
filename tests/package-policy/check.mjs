@@ -18,6 +18,14 @@ const SCOPE = '@domternal/';
 const PUBLISH_HOOK = 'node ../../scripts/prepare-publish-manifest.mjs';
 const RESTORE_HOOK = 'git checkout package.json';
 
+const WRAPPER_KEYWORDS = new Map([
+  ['@domternal/angular', 'angular'],
+  ['@domternal/react', 'react'],
+  ['@domternal/vue', 'vue'],
+  ['@domternal/vanilla', 'vanilla'],
+]);
+const FRAMEWORK_KEYWORDS = new Set(['angular', 'react', 'vue', 'vue3', 'vanilla']);
+
 // The one package that must declare side effects: it is a stylesheet, and a
 // bundler told it is side-effect free is entitled to drop it entirely.
 const STYLESHEET_PACKAGE = '@domternal/theme';
@@ -69,6 +77,145 @@ export function lockstepViolations(manifests) {
     .map(([version, names]) => `${version}: ${names.sort().join(', ')}`);
 }
 
+/** Public npm metadata that keeps search results precise without mislabeling a wrapper. */
+export function publicMetadataFailures(manifest) {
+  const failures = [];
+  const label = manifest.name;
+  const keywords = new Set(manifest.keywords ?? []);
+
+  for (const keyword of ['domternal', 'prosemirror']) {
+    if (!keywords.has(keyword)) failures.push(`${label}: keywords is missing "${keyword}"`);
+  }
+
+  if (label !== '@domternal/pm' && !keywords.has('rich-text-editor')) {
+    failures.push(`${label}: keywords is missing "rich-text-editor"`);
+  }
+
+  if (label !== '@domternal/pm' && label !== '@domternal/theme' && !keywords.has('typescript')) {
+    failures.push(`${label}: keywords is missing "typescript"`);
+  }
+
+  const ownFramework = WRAPPER_KEYWORDS.get(label);
+  if (ownFramework !== undefined) {
+    if (!keywords.has(ownFramework)) {
+      failures.push(`${label}: keywords is missing its own framework, "${ownFramework}"`);
+    }
+    for (const keyword of FRAMEWORK_KEYWORDS) {
+      if (keyword === ownFramework || (ownFramework === 'vue' && keyword === 'vue3')) continue;
+      if (keywords.has(keyword)) {
+        failures.push(`${label}: keywords includes another wrapper's framework, "${keyword}"`);
+      }
+    }
+  }
+
+  if (
+    (label === '@domternal/core' || ownFramework !== undefined || label === '@domternal/theme') &&
+    !String(manifest.description).toLowerCase().includes('rich text editor')
+  ) {
+    failures.push(`${label}: description does not identify it as part of a rich text editor`);
+  }
+
+  return failures;
+}
+
+/** README package inventory and durable product statements checked against the workspace. */
+export function publicReadmeFailures(readme, packages) {
+  const failures = [];
+  const names = packages.map(({ manifest }) => manifest.name).sort();
+  const section = /## Packages\s+([\s\S]*?)\s+## Domternal Pro/.exec(readme)?.[1];
+  if (section === undefined) {
+    return ['README: Packages section is missing or no longer ends before Domternal Pro'];
+  }
+
+  const listed = [...section.matchAll(/\[`(@domternal\/[a-z0-9-]+)`\]/g)].map((match) => match[1]);
+  const uniqueListed = [...new Set(listed)].sort();
+  const missing = names.filter((name) => !uniqueListed.includes(name));
+  const stale = uniqueListed.filter((name) => !names.includes(name));
+  const duplicates = uniqueListed.filter(
+    (name) => listed.filter((entry) => entry === name).length > 1
+  );
+  if (missing.length > 0)
+    failures.push(`README: current packages not listed: ${missing.join(', ')}`);
+  if (stale.length > 0)
+    failures.push(`README: listed packages not in the workspace: ${stale.join(', ')}`);
+  if (duplicates.length > 0)
+    failures.push(`README: packages listed more than once: ${duplicates.join(', ')}`);
+
+  const currentCount = /table above lists all (\d+) current MIT packages/i.exec(readme)?.[1];
+  if (currentCount === undefined || Number(currentCount) !== names.length) {
+    failures.push(
+      `README: current MIT package count is ${currentCount ?? 'missing'}, expected ${String(names.length)}`
+    );
+  }
+
+  const extensionCount = /extensions across core and (\d+) extension packages/i.exec(readme)?.[1];
+  const actualExtensionCount = names.filter((name) =>
+    name.startsWith('@domternal/extension-')
+  ).length;
+  if (extensionCount === undefined || Number(extensionCount) !== actualExtensionCount) {
+    failures.push(
+      `README: extension package count is ${extensionCount ?? 'missing'}, expected ${String(actualExtensionCount)}`
+    );
+  }
+
+  for (const [claim, label] of [
+    ['70+ extensions', 'extension threshold'],
+    ['17,000+ automated test executions', 'automated test threshold'],
+    ['150+ CSS custom properties', 'theme token threshold'],
+  ]) {
+    if (!readme.includes(claim)) failures.push(`README: ${label} no longer states "${claim}"`);
+  }
+
+  if (/every package is tree-shakeable/i.test(readme)) {
+    failures.push('README: tree-shaking claim includes the complete theme stylesheet');
+  }
+  if (!readme.includes('JavaScript exports are tree-shakeable')) {
+    failures.push('README: tree-shaking statement no longer names JavaScript exports');
+  }
+  if (!readme.includes('the optional theme ships as one complete CSS stylesheet')) {
+    failures.push(
+      'README: tree-shaking statement no longer explains the complete theme stylesheet'
+    );
+  }
+
+  return failures;
+}
+
+/** Public Context7 facts that must describe the same product as the README and npm. */
+export function publicContext7Failures(config, packages) {
+  const failures = [];
+  const description = String(config.description ?? '');
+  const rules = Array.isArray(config.rules) ? config.rules.map(String) : [];
+  const joinedRules = rules.join('\n');
+
+  for (const fact of ['Framework-agnostic', 'Angular', 'React', 'Vue', 'Vanilla', 'MIT licensed']) {
+    if (!description.includes(fact)) {
+      failures.push(`context7.json: description is missing "${fact}"`);
+    }
+  }
+
+  const packageClaim = `Domternal Free is the current set of ${String(packages.length)} MIT-licensed`;
+  if (!joinedRules.includes(packageClaim)) {
+    failures.push(`context7.json: package inventory no longer states "${packageClaim}"`);
+  }
+  for (const fact of [
+    'Domternal Pro is a separate commercially licensed suite',
+    'private source repository',
+    'requires no Domternal-operated editor cloud',
+    'https://domternal.dev/free-vs-pro/',
+    'https://domternal.dev/license-explained/',
+  ]) {
+    if (!joinedRules.includes(fact)) failures.push(`context7.json: rules are missing "${fact}"`);
+  }
+  if (joinedRules.includes('the bundler strips the rest')) {
+    failures.push(
+      'context7.json: tree-shaking claim is broader than the JavaScript export boundary'
+    );
+  }
+
+  return failures;
+}
+
 /** Every source file under `directory`, so a stylesheet import cannot hide in a subfolder. */
 export function sourceFiles(directory) {
   const found = [];
@@ -99,7 +246,8 @@ export function sourceFiles(directory) {
  */
 export function requiredNodeFloor(nvmrc) {
   const major = /^\s*v?(\d+)/.exec(nvmrc);
-  if (major === null) throw new Error(`.nvmrc does not name a Node major: ${JSON.stringify(nvmrc)}`);
+  if (major === null)
+    throw new Error(`.nvmrc does not name a Node major: ${JSON.stringify(nvmrc)}`);
   return `>=${major[1]}`;
 }
 
@@ -320,7 +468,17 @@ function main() {
   for (const entry of packages) {
     failures.push(...packageFailures(entry, names, rootLicense, nodeFloor));
     failures.push(...peerRangeFailures(entry));
+    failures.push(...publicMetadataFailures(entry.manifest));
   }
+  failures.push(
+    ...publicReadmeFailures(readFileSync(join(repoRoot, 'README.md'), 'utf8'), packages)
+  );
+  failures.push(
+    ...publicContext7Failures(
+      JSON.parse(readFileSync(join(repoRoot, 'context7.json'), 'utf8')),
+      packages
+    )
+  );
 
   if (failures.length > 0) {
     console.error('[package-policy] FAILED:');

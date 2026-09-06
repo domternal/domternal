@@ -51,6 +51,8 @@
   "keywords": [
     "prosemirror",
     "editor",
+    "rich-text-editor",
+    "typescript",
     "table-of-contents",
     "toc",
     "outline",
