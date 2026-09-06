@@ -1,12 +1,14 @@
 /**
  * Block (default) or inline image element.
  *
- * XSS protection (blocklist): javascript:, vbscript:, file: are blocked;
- * data: URLs require `allowBase64` AND data:image/. Validated in parseHTML,
- * renderHTML, the `setImage` command, and the input rule (defense in depth).
+ * Sources go through the core URL policy, which reads an address the way
+ * browsers do: javascript:, vbscript:, file:, credentials and hidden
+ * characters are refused, and data: URLs need `allowBase64` and an image
+ * media type. Checked in parseHTML, renderHTML, the node view, the
+ * `setImage` command and the input rule (defense in depth).
  */
 
-import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages } from '@domternal/core';
+import { Node, PluginKey, checkUrl, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages } from '@domternal/core';
 import { getClipboardPasteBehavior, registerClipboardImageDestination } from '@domternal/core/clipboard';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
@@ -64,25 +66,31 @@ declare module '@domternal/core' {
 }
 
 /**
- * Validates image src URL for XSS protection.
- * Blocks: javascript:, vbscript:, file:, and data: (unless allowBase64 AND data:image/).
- * Allows everything else: http(s), relative paths, protocol-relative URLs, etc.
+ * The spelling of an image source to store, render and load, as the core URL
+ * policy's image profile reads it: any scheme except the script schemes and
+ * `file:`, relative and network-path sources, and `data:image/...` only with
+ * `allowBase64`. `null` means no source, which `null` and `''` stand for, and
+ * `undefined` a refused source.
  */
+function imageSource(value: unknown, allowBase64: boolean): string | null | undefined {
+  if (value === null || value === undefined || value === '') return null;
+  const check = checkUrl(value, { protocols: 'any', allowRelative: true, allowNetworkPath: true, allowDataImages: allowBase64 });
+  return check.status === 'allowed' ? check.url : undefined;
+}
+
+/** Whether a source may be stored: no source, or one the URL policy allows. */
 function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
-  if (value === null || value === undefined) return true; // null is valid (no src)
-  if (typeof value !== 'string') return false;
-  if (value === '') return true; // empty string is valid
+  return imageSource(value, allowBase64) !== undefined;
+}
 
-  // Block dangerous protocols
-  if (/^(javascript|vbscript|file):/i.test(value)) return false;
-
-  // Block data: URLs unless allowBase64 AND specifically data:image/
-  if (/^data:/i.test(value)) {
-    return allowBase64 && /^data:image\//i.test(value);
+/** Loads the source into the node view's image only when the policy allows it. */
+function applySource(img: HTMLImageElement, value: unknown, allowBase64: boolean): void {
+  const src = imageSource(value, allowBase64);
+  if (typeof src === 'string') {
+    if (img.getAttribute('src') !== src) img.src = src;
+  } else {
+    img.removeAttribute('src');
   }
-
-  // Allow everything else: http(s), relative paths, protocol-relative, etc.
-  return true;
 }
 
 /**
@@ -225,12 +233,8 @@ export const Image = Node.create<ImageOptions>({
       src: {
         default: null,
         parseHTML: (element: HTMLElement) => {
-          const src = element.getAttribute('src');
-          // Validate on parse - reject invalid URLs
-          if (src && !isValidImageSrc(src, this.options.allowBase64)) {
-            return null;
-          }
-          return src;
+          // A refused source is not stored; an allowed one in its cleaned spelling.
+          return imageSource(element.getAttribute('src'), this.options.allowBase64) ?? null;
         },
         renderHTML: (attributes: Record<string, unknown>) => {
           if (!attributes['src']) return {};
@@ -340,15 +344,17 @@ export const Image = Node.create<ImageOptions>({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const src = node.attrs['src'] as string | null;
+    const src = imageSource(node.attrs['src'], this.options.allowBase64);
 
-    // XSS protection: defense in depth - validate again on render
-    if (src && !isValidImageSrc(src, this.options.allowBase64)) {
-      // Return image with empty src if URL is invalid (should not happen due to parse validation)
+    // Checked again on render, for a source stored by JSON or a collaborator:
+    // a refused one renders an empty src, so an HTML round trip keeps the node.
+    if (src === undefined) {
       return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes, src: '' }];
     }
-
-    return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
+    if (src === null) {
+      return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
+    }
+    return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes, src }];
   },
 
   leafText(node) {
@@ -366,12 +372,13 @@ export const Image = Node.create<ImageOptions>({
           const [fullMatch, wrapper, alt, src, title] = match;
           if (!src || !wrapper) return null;
 
-          // XSS validation: reject dangerous URLs in markdown syntax too
-          if (!isValidImageSrc(src, options.allowBase64)) return null;
+          // The same check as every other entry, in markdown syntax too.
+          const allowed = imageSource(src, options.allowBase64);
+          if (typeof allowed !== 'string') return null;
 
           const { tr } = state;
           const attrs: Record<string, unknown> = {
-            src,
+            src: allowed,
             alt: alt ?? null,
             title: title ?? null,
           };
@@ -461,6 +468,8 @@ export const Image = Node.create<ImageOptions>({
   },
 
   addNodeView() {
+    // Read live, as parsing does, so a changed option applies to the next update.
+    const allowBase64 = (): boolean => this.options.allowBase64;
     return (node: PmNode, view: EditorView, getPos: () => number | undefined) => {
       const dom = document.createElement('div');
       dom.className = 'dm-image-resizable';
@@ -481,7 +490,7 @@ export const Image = Node.create<ImageOptions>({
       applyPlacement(node.attrs['float'], node.attrs['align']);
 
       const img = document.createElement('img');
-      img.src = node.attrs['src'] as string;
+      applySource(img, node.attrs['src'], allowBase64());
       if (node.attrs['alt']) img.alt = node.attrs['alt'] as string;
       if (node.attrs['title']) img.title = node.attrs['title'] as string;
       applyWidth(img, node.attrs['width']);
@@ -550,7 +559,7 @@ export const Image = Node.create<ImageOptions>({
         dom,
         update(updatedNode: PmNode) {
           if (updatedNode.type.name !== 'image') return false;
-          img.src = updatedNode.attrs['src'] as string;
+          applySource(img, updatedNode.attrs['src'], allowBase64());
           // A null alt/title would be written as the literal string "null".
           img.alt = (updatedNode.attrs['alt'] as string | null) ?? '';
           img.title = (updatedNode.attrs['title'] as string | null) ?? '';
@@ -574,8 +583,9 @@ export const Image = Node.create<ImageOptions>({
       setImage:
         (attributes: SetImageOptions) =>
         ({ state, tr, dispatch }) => {
-          // XSS protection: validate src URL before inserting
-          if (!isValidImageSrc(attributes.src, this.options.allowBase64)) {
+          // The same check as every other entry; an allowed source is stored cleaned.
+          const src = imageSource(attributes.src, this.options.allowBase64);
+          if (src === undefined) {
             return false;
           }
 
@@ -584,7 +594,7 @@ export const Image = Node.create<ImageOptions>({
           // Refuse insertion inside code blocks
           if (tr.selection.$from.parent.type.spec.code) return false;
 
-          const node = this.nodeType.create(attributes);
+          const node = this.nodeType.create({ ...attributes, src: src ?? attributes.src });
 
           // List-item-aware path: cursor in the LABEL paragraph of a
           // list/task item. Block-level images belong at TOP LEVEL,

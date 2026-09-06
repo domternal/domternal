@@ -85,6 +85,21 @@ editor.commands.deleteImage();
 - `onUploadStart` / `onUploadError` - callbacks fired when an upload begins or fails.
 - `HTMLAttributes` (`Record<string, unknown>`) - attributes merged onto the rendered `<img>`.
 
+### Image sources
+
+Sources go through the core URL policy (`checkUrl` from `@domternal/core`) with the image profile,
+which reads an address the way a browser does: leading and trailing spaces and controls are
+stripped and tabs and line breaks removed before the scheme is judged. Any scheme is allowed except
+`javascript:`, `vbscript:`, `data:` other than an image with `allowBase64`, and `file:`; relative
+and network-path sources, `blob:` and custom schemes such as `app://` keep working. An address with
+credentials or a hidden control, bidi or format character is refused.
+
+- HTML parsing stores an allowed source in its cleaned spelling and a refused one as no source.
+- `setImage` and the Markdown input rule refuse a source the policy refuses.
+- A stored source, such as one loaded from JSON, renders in its cleaned spelling; a refused one
+  renders `src=""` in `getHTML()` and `generateHTML()`, and the node view does not load it.
+- `null` and `''` mean no source, as before.
+
 ## Commands
 
 - `setImage(attributes: SetImageOptions)` - insert an image (`src` required; optional `alt`, `title`, `width`, `height`, `loading`, `crossorigin`, `float`, `align`).

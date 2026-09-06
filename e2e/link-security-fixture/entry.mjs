@@ -50,12 +50,12 @@ const HeadingIds = Extension.create({
   }],
 });
 
-function extensions({ link = {}, linkPopover = false } = {}) {
+function extensions({ link = {}, linkPopover = false, image = {} } = {}) {
   return [
     StarterKit.configure({ link, linkPopover }),
     HeadingIds,
     TextStyle, TextColor, Highlight, FontFamily, FontSize, TextAlign, LineHeight,
-    Image.configure({ inline: true }),
+    Image.configure({ inline: true, ...image }),
     Table, TableRow, TableCell, TableHeader,
   ];
 }
@@ -77,7 +77,7 @@ const diagnostics = [];
  * Creates the editor under test, replacing the previous one. JSON content is
  * stored as given, unless `load` asks for the editor's own JSON loading.
  */
-function create({ content, editable = true, link, linkPopover, load = false } = {}) {
+function create({ content, editable = true, link, linkPopover, image, load = false } = {}) {
   editor?.destroy();
   opens.length = 0;
   diagnostics.length = 0;
@@ -88,7 +88,7 @@ function create({ content, editable = true, link, linkPopover, load = false } = 
   const stored = !load && content !== null && typeof content === 'object';
   editor = new Editor({
     element,
-    extensions: extensions({ link, linkPopover }),
+    extensions: extensions({ link, linkPopover, image }),
     content: stored ? null : content,
     editable,
     onContentDiagnostic: ({ diagnostics: reported }) => diagnostics.push(...reported),

@@ -738,3 +738,45 @@ test.describe('stored table cell backgrounds in the browser', () => {
     expect(await safe.evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(1, 2, 3)');
   });
 });
+
+test.describe('image sources in the browser', () => {
+  const PROBE = 'https://probe.test/';
+  // A valid 1x1 PNG, so a source the browser loaded reports a natural width.
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+  const image = (src: unknown): Json => ({ type: 'image', attrs: { src, alt: 'img' } });
+
+  test('loads no refused source in the node view, getHTML or generateHTML (F2)', async ({ page }) => {
+    const requests: string[] = [];
+    await page.context().route(/^https?:\/\/probe\.test\//, route => {
+      requests.push(route.request().url());
+      return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from(PNG.slice(PNG.indexOf(',') + 1), 'base64') });
+    });
+    await open(page);
+    const refused = [` ${PNG}`, `da\nta:${PNG.slice(5)}`, `\u0001${PNG}`, `https://user:pass@${PROBE.slice(8)}credentials.png`, ` javascript:alert(1)`];
+    const content = docOf(paragraph(...refused.map(image)));
+    await setup(page, { content, image: { allowBase64: false } });
+    const loaded = await page.locator('#fixture img[alt="img"]').evaluateAll(images => images.map(img => ({
+      src: img.getAttribute('src'), width: (img as HTMLImageElement).naturalWidth,
+    })));
+    expect(loaded).toEqual(refused.map(() => ({ src: null, width: 0 })));
+    const html = await page.evaluate(() => (window as unknown as EditorWindow).__linkSecurity.getHTML());
+    const generated = await page.evaluate(json => (window as unknown as EditorWindow).__linkSecurity.generateHTML(json, { image: { allowBase64: false } }), content);
+    for (const output of [html, generated]) expect(output).not.toMatch(/data:|javascript:|probe\.test/);
+    await page.evaluate(markup => {
+      (window as unknown as { __linkSecurity: { show: (html: string) => void } }).__linkSecurity.show(markup);
+    }, html + generated);
+    await page.waitForTimeout(300);
+    expect(await page.locator('#sink img').evaluateAll(images => images.map(img => (img as HTMLImageElement).naturalWidth))).toEqual(refused.flatMap(() => [0, 0]));
+    expect(requests).toEqual([]);
+  });
+
+  test('loads an allowed source in its cleaned spelling (F1, F3)', async ({ page }) => {
+    await page.context().route(/^https?:\/\/probe\.test\//, route => route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from(PNG.slice(PNG.indexOf(',') + 1), 'base64') }));
+    await open(page);
+    await setup(page, { content: docOf(paragraph(image(` ${PROBE}a.png`), image(PNG), image(`//${PROBE.slice(8)}b.png`))) });
+    const img = page.locator('#fixture img[alt="img"]');
+    await expect(img).toHaveCount(3);
+    await expect.poll(() => img.evaluateAll(images => images.map(element => (element as HTMLImageElement).naturalWidth))).toEqual([1, 1, 1]);
+    expect(await img.evaluateAll(images => images.map(element => element.getAttribute('src')))).toEqual([`${PROBE}a.png`, PNG, `//${PROBE.slice(8)}b.png`]);
+  });
+});

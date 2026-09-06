@@ -1152,8 +1152,8 @@ test.describe('Image - edge cases', () => {
     // The image should not have the javascript URL
     const img = page.locator(`${editorSelector} .dm-image-resizable img`).first();
     if (await img.count() > 0) {
-      const src = await img.getAttribute('src');
-      expect(src).not.toContain('javascript:');
+      // A refused source is never loaded: the image has no src at all.
+      expect(await img.getAttribute('src')).toBeNull();
     }
   });
 
@@ -1162,8 +1162,8 @@ test.describe('Image - edge cases', () => {
 
     const img = page.locator(`${editorSelector} .dm-image-resizable img`).first();
     if (await img.count() > 0) {
-      const src = await img.getAttribute('src');
-      expect(src).not.toContain('vbscript:');
+      // A refused source is never loaded: the image has no src at all.
+      expect(await img.getAttribute('src')).toBeNull();
     }
   });
 
@@ -1172,8 +1172,8 @@ test.describe('Image - edge cases', () => {
 
     const img = page.locator(`${editorSelector} .dm-image-resizable img`).first();
     if (await img.count() > 0) {
-      const src = await img.getAttribute('src');
-      expect(src).not.toContain('data:text/html');
+      // A refused source is never loaded: the image has no src at all.
+      expect(await img.getAttribute('src')).toBeNull();
     }
   });
 
