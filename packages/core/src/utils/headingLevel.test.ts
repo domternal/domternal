@@ -51,8 +51,16 @@ describe('heading level rule', () => {
   });
 
   it.each([
-    ['3'], [null], [true], [undefined], [Number.NaN], [Number.POSITIVE_INFINITY], [Number.NEGATIVE_INFINITY], [{}], [[3]],
-  ])('resolves %j, which is not a number, to the first configured level', value => {
+    ['5', [1, 2, 3, 4], 4], ['2', [1, 2, 3, 4], 2], [' 3 ', [1, 2, 3, 4], 3], ['2.5', [1, 2, 4], 4],
+    ['1', [2, 3], 2], ['-1', [2, 3], 2], ['+4', [1, 5], 5], ['99', [1, 6], 6], ['0005', [1, 2, 3, 4], 4],
+  ])('resolves the decimal string %j with levels %j like its number, to %i', (value, levels, level) => {
+    expect(resolveHeadingLevel(value, levels)).toBe(level);
+  });
+
+  it.each([
+    [''], [' '], ['x'], ['3px'], ['0x5'], ['5e0'], ['.5'], ['5.'], ['Infinity'], ['٣'],
+    [null], [true], [undefined], [Number.NaN], [Number.POSITIVE_INFINITY], [Number.NEGATIVE_INFINITY], [{}], [[3]],
+  ])('resolves %j, which is not a number or a decimal string, to the first configured level', value => {
     expect(resolveHeadingLevel(value, [1, 2, 3, 4])).toBe(1);
     expect(resolveHeadingLevel(value, [3, 2])).toBe(3);
   });

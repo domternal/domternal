@@ -253,8 +253,9 @@ a value instead of failing the whole document, and report it:
 - A heading level moves to the nearest configured level of equal or lower importance, otherwise
   to the deepest configured level (`unsupported-heading-level`), so a heading is never promoted
   while a deeper level exists and the outline keeps its order. With levels 1 to 4, `5` and `6`
-  load as `4`; with levels 2 and 3, `1` loads as `2`. A number that is not a whole level is
-  rounded up into 1 to 6 first, and any other value loads as the first configured level.
+  load as `4`; with levels 2 and 3, `1` loads as `2`. A string that holds a decimal number, such
+  as `"5"`, counts as that number. A number that is not a whole level is rounded up into 1 to 6
+  first, and any other value loads as the first configured level.
 
 Each diagnostic names the `code`, `nodeType`, `attribute`, and `path` of the replaced value, and
 the `value` itself when it is a finite number or a string of at most 64 characters. The editor

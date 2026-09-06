@@ -132,6 +132,16 @@ describe('heading levels across Yjs clients with different configurations', () =
     expect(four.editor.getHTML()).toBe('<h2>Title</h2><p>tail</p>');
   });
 
+  it('a level another writer stored as a decimal string renders and migrates as its number', () => {
+    const [six, four] = network([{ levels: SIX }, {}], '5') as [Client, Client];
+    expect(stateLevel(four)).toBe('5');
+    expect(six.editor.getHTML()).toBe('<h5>Title</h5><p>tail</p>');
+    expect(four.editor.getHTML()).toBe('<h4>Title</h4><p>tail</p>');
+    expect(six.editor.commands.normalizeContentAttributes()).toBe(true);
+    for (const client of [six, four]) expect(sharedLevel(client)).toBe(5);
+    expect(four.editor.getHTML()).toBe('<h4>Title</h4><p>tail</p>');
+  });
+
   it('a read-only client renders the configured level, refuses to migrate and converges on a writer migration', () => {
     const [writer, viewer] = network([{}, { readOnly: true }]) as [Client, Client];
     expect(viewer.editor.isEditable).toBe(false);

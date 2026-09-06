@@ -50,7 +50,7 @@ describe('rendering a stored heading level the configuration lacks', () => {
     expect(ed.getHTML()).toBe('<h5>A</h5><p>tail</p>');
   });
 
-  it.each([['x', 'h1'], [null, 'h1'], [0, 'h1'], [7, 'h4'], [2.5, 'h3']])('renders the stored value %j as %s', (level, tag) => {
+  it.each([['x', 'h1'], [null, 'h1'], [0, 'h1'], [7, 'h4'], [2.5, 'h3'], ['5', 'h4'], ['2', 'h2']])('renders the stored value %j as %s', (level, tag) => {
     const ed = mount();
     store(ed, level);
     expect(ed.getHTML()).toBe(`<${tag}>A</${tag}><p>tail</p>`);

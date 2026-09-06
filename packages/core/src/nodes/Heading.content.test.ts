@@ -76,8 +76,8 @@ describe('normalizeContent with heading levels', () => {
   });
 
   it.each([
-    [0, 1, 0], [-3, 1, -3], [7, 4, 7], [99, 4, 99], [2.5, 3, 2.5], ['3', 1, '3'], [null, 1, undefined], [true, 1, undefined],
-    [{}, 1, undefined], ['x'.repeat(65), 1, undefined],
+    [0, 1, 0], [-3, 1, -3], [7, 4, 7], [99, 4, 99], [2.5, 3, 2.5], ['3', 3, '3'], ['5', 4, '5'], ['x', 1, 'x'],
+    [null, 1, undefined], [true, 1, undefined], [{}, 1, undefined], ['x'.repeat(65), 1, undefined],
   ])('loads the value %j that is not a configured level as %i', (value, level, reported) => {
     const { diagnostics, onDiagnostic } = collect();
     const result = normalizeContent(doc(heading(value)), schema, { onDiagnostic });
@@ -218,6 +218,12 @@ describe('pasted slice context with heading levels', () => {
     expect(levels(ed.getJSON())).toEqual([4]);
     expect(() => { ed.state.doc.check(); }).not.toThrow();
     expect(ed.setContent(ed.getJSON())).toBe(true);
+  });
+
+  it('replaces a level written as a decimal string with its nearest configured level', () => {
+    const ed = paste(['heading', { level: '5' }]);
+    expect(levels(ed.getJSON())).toEqual([4]);
+    expect(() => { ed.state.doc.check(); }).not.toThrow();
   });
 
   it('keeps a valid level the configuration lacks, as another client may have written it', () => {

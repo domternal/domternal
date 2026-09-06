@@ -36,14 +36,19 @@ export function nearestHeadingLevel(level: number, levels: readonly number[]): n
   return deeper ?? deepest;
 }
 
+/** A decimal number written as a string, such as a level stored as "5". */
+const decimal = /^\s*[+-]?\d+(?:\.\d+)?\s*$/;
+
 /**
- * The configured level a stored value renders and loads as. Another finite
+ * The configured level a stored value renders and loads as. A decimal string
+ * counts as its number, so "5" keeps its place in the outline. Another finite
  * number is rounded up, toward less importance, into the range 1 to 6 first.
  * Any other value takes the first configured level, the default.
  */
 export function resolveHeadingLevel(value: unknown, levels: readonly number[]): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return levels[0] ?? 1;
-  return nearestHeadingLevel(Math.min(6, Math.max(1, Math.ceil(value))), levels);
+  const level = typeof value === 'string' && decimal.test(value) ? Number(value) : value;
+  if (typeof level !== 'number' || !Number.isFinite(level)) return levels[0] ?? 1;
+  return nearestHeadingLevel(Math.min(6, Math.max(1, Math.ceil(level))), levels);
 }
 
 /**
