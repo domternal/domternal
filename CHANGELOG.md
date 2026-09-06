@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3 (2026-09-06)
+
+### Fixes
+
+- Markdown copied from a source editor converts on paste. A syntax-highlighted copy, such as a `.md` file copied from VS Code, carries an HTML flavor next to the plain text, and the paste plugin took any HTML flavor to mean a rich source and stood aside, so the Markdown landed as literal paragraphs, markers and all, instead of as headings, lists and links. The HTML now converts when it holds nothing but source wrappers (`pre`, `div`, `span`, `br`, at most a charset `meta`), preserves whitespace, and renders the same text the plain-text flavor carries. A tab the editor expanded to spaces for display is the one difference allowed, and it is the plain text that gets parsed, so the original indentation is kept. A copy from Google Docs or a web page, a slice copied out of the editor and any element carrying `data-type` still paste through ProseMirror's own HTML handling, and pastes into code blocks stay literal. The extension now sits at priority 110, above the default 100, so the check runs ahead of block-level HTML paste handlers such as `SmartPaste`. (#179)
+
 ## 1.0.2 (2026-09-06)
 
 ### Fixes

@@ -1,6 +1,6 @@
 {
   "name": "@domternal/core",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "MIT-licensed, framework-agnostic headless rich text editor engine built on ProseMirror",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
