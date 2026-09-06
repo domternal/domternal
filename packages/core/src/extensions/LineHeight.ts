@@ -27,6 +27,7 @@ import { localizedGroup } from '../messages/presentation.js';
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
+import { isSafeCssValue } from '../helpers/isSafeCssValue.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -93,6 +94,10 @@ export const LineHeight = Extension.create<LineHeightOptions>({
                 return null;
               }
 
+              // Without a list, only a value that cannot add a declaration
+              // or load a resource is written; the document keeps any other.
+              if (!isSafeCssValue(lineHeight)) return null;
+
               return { style: `line-height: ${lineHeight}` };
             },
           },
@@ -113,6 +118,7 @@ export const LineHeight = Extension.create<LineHeightOptions>({
           ) {
             return false;
           }
+          if (!isSafeCssValue(lineHeight)) return false;
 
           return this.options.types
             .map((type) => commands.updateAttributes(type, { lineHeight }))

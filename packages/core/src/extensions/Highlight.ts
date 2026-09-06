@@ -26,6 +26,7 @@ import { localizedGroup } from '../messages/presentation.js';
  */
 import { Extension } from '../Extension.js';
 import { normalizeColor } from '../helpers/normalizeColor.js';
+import { isSafeCssValue } from '../helpers/isSafeCssValue.js';
 import { InputRule } from '@domternal/pm/inputrules';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
@@ -112,7 +113,9 @@ export const Highlight = Extension.create<HighlightOptions>({
               // Token wins: when a named token is set, render data attribute
               // only (below) so theme variables control the actual color.
               const token = attributes['backgroundColorToken'] as string | null;
-              if (!bg || token) return null;
+              // A stored value that could add a declaration or load a
+              // resource is not written; the document keeps it.
+              if (!bg || token || !isSafeCssValue(bg)) return null;
               return { style: `background-color: ${bg}` };
             },
           },
@@ -140,6 +143,7 @@ export const Highlight = Extension.create<HighlightOptions>({
         (attributes?: { color?: string }) =>
         ({ commands }) => {
           const color = attributes?.color ?? defaultColor;
+          if (!isSafeCssValue(color)) return false;
           return commands.setMark('textStyle', { backgroundColor: color, backgroundColorToken: null });
         },
 
@@ -186,6 +190,7 @@ export const Highlight = Extension.create<HighlightOptions>({
             return true;
           }
 
+          if (!isSafeCssValue(color)) return false;
           return commands.setMark('textStyle', { backgroundColor: color, backgroundColorToken: null });
         },
 

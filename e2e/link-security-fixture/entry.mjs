@@ -3,7 +3,10 @@
  * browser suite can judge addresses with the URL policy, compare them with
  * what the browser itself reads, and click links the editor renders.
  */
-import { Editor, Extension, StarterKit, checkUrl, isValidUrl, generateHTML } from '@domternal/core';
+import {
+  Editor, Extension, StarterKit, checkUrl, isValidUrl, generateHTML,
+  TextStyle, TextColor, Highlight, FontFamily, FontSize, TextAlign, LineHeight,
+} from '@domternal/core';
 import { Image } from '@domternal/extension-image';
 import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
 import { TextSelection } from '@domternal/pm/state';
@@ -51,6 +54,7 @@ function extensions({ link = {}, linkPopover = false } = {}) {
   return [
     StarterKit.configure({ link, linkPopover }),
     HeadingIds,
+    TextStyle, TextColor, Highlight, FontFamily, FontSize, TextAlign, LineHeight,
     Image.configure({ inline: true }),
     Table, TableRow, TableCell, TableHeader,
   ];
@@ -120,4 +124,13 @@ window.__linkSecurity = {
     return found;
   },
   generateHTML: (content, options) => generateHTML(content, extensions(options)),
+  /** Inserts HTML into the page outside the editor, as an application shows exported content. */
+  show: (html) => {
+    const sink = document.getElementById('sink') ?? document.body.appendChild(Object.assign(document.createElement('div'), { id: 'sink' }));
+    sink.innerHTML = html;
+  },
+  /** Elements of the page that cover it the way an injected overlay would. */
+  fixedElements: () => Array.from(document.querySelectorAll('body *'))
+    .filter(element => getComputedStyle(element).position === 'fixed')
+    .map(element => element.tagName.toLowerCase()),
 };

@@ -214,6 +214,7 @@ export {
   nodeInputRule,
   isValidUrl,
   checkUrl,
+  isSafeCssValue,
   generateHTML,
   generateJSON,
   generateText,

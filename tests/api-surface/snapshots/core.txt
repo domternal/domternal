@@ -190,6 +190,7 @@ isInsideListItem
 isInsideTableCell
 isNodeEmpty
 IsNodeEmptyOptions
+isSafeCssValue
 isSupportedAttributeValue
 isValidUrl
 IsValidUrlOptions

@@ -29,6 +29,24 @@ import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import { TextStyle } from '../marks/TextStyle.js';
+import { isSafeCssValue } from '../helpers/isSafeCssValue.js';
+
+/**
+ * The CSS value of a stored font family list, or null when it is not safe to
+ * write. Quotes are dropped, as parsing pasted HTML does, and each family
+ * name with a space is quoted again, so `"Times New Roman", serif` becomes
+ * `'Times New Roman', serif`. A value with a function, such as a `var()`, is
+ * written as it is.
+ */
+function fontFamilyValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const families = value.replace(/['"]+/g, '');
+  if (!isSafeCssValue(families)) return null;
+  if (families.includes('(')) return families.trim();
+  const names = families.split(',').map(name => name.trim());
+  if (names.some(name => name === '')) return null;
+  return names.map(name => (/\s/.test(name) ? `'${name}'` : name)).join(', ');
+}
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -68,11 +86,10 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
               return element.style.fontFamily.replace(/['"]+/g, '') || null;
             },
             renderHTML: (attributes: Record<string, unknown>) => {
-              const fontFamily = attributes['fontFamily'] as string | null;
-              if (!fontFamily) return null;
-
-              const value = fontFamily.includes(' ') ? `'${fontFamily}'` : fontFamily;
-              return { style: `font-family: ${value}` };
+              // A stored value that could add a declaration or load a
+              // resource is not written; the document keeps it.
+              const value = fontFamilyValue(attributes['fontFamily']);
+              return value === null ? null : { style: `font-family: ${value}` };
             },
           },
         },
@@ -85,6 +102,7 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
       setFontFamily:
         (fontFamily: string) =>
         ({ commands }) => {
+          if (fontFamilyValue(fontFamily) === null) return false;
           return commands.setMark('textStyle', { fontFamily });
         },
 
@@ -117,17 +135,20 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
         displayMode: 'text',
         dynamicLabel: true,
         computedStyleProperty: 'font-family',
-        items: this.options.fontFamilies.map((font, i) => ({
-          type: 'button' as const,
-          name: `fontFamily-${font}`,
-          command: 'setFontFamily',
-          commandArgs: [font],
-          isActive: { name: 'textStyle', attributes: { fontFamily: font } },
-          icon: 'textAa',
-          label: font,
-          style: `font-family: ${font.includes(' ') ? `'${font}'` : font}`,
-          priority: 200 - i,
-        })),
+        items: this.options.fontFamilies.map((font, i) => {
+          const value = fontFamilyValue(font);
+          return {
+            type: 'button' as const,
+            name: `fontFamily-${font}`,
+            command: 'setFontFamily',
+            commandArgs: [font],
+            isActive: { name: 'textStyle', attributes: { fontFamily: font } },
+            icon: 'textAa',
+            label: font,
+            ...(value !== null && { style: `font-family: ${value}` }),
+            priority: 200 - i,
+          };
+        }),
       },
     ];
   },

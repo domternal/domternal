@@ -28,6 +28,7 @@ import { normalizeColor } from '../helpers/normalizeColor.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import { TextStyle } from '../marks/TextStyle.js';
+import { isSafeCssValue } from '../helpers/isSafeCssValue.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -105,7 +106,9 @@ export const TextColor = Extension.create<TextColorOptions>({
               // attribute (below) and skip the inline style to avoid mixed
               // sources of truth for the same visual color.
               const token = attributes['colorToken'] as string | null;
-              if (!color || token) return null;
+              // A stored value that could add a declaration or load a
+              // resource is not written; the document keeps it.
+              if (!color || token || !isSafeCssValue(color)) return null;
               return { style: `color: ${color}` };
             },
           },
@@ -131,6 +134,7 @@ export const TextColor = Extension.create<TextColorOptions>({
       setTextColor:
         (color: string) =>
         ({ commands }) => {
+          if (!isSafeCssValue(color)) return false;
           return commands.setMark('textStyle', { color, colorToken: null });
         },
 

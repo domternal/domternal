@@ -630,3 +630,74 @@ test.describe('relative links and the link popover in the browser', () => {
     expect(await opened?.evaluate(() => window.opener === null)).toBe(true);
   });
 });
+
+test.describe('stored style values in the browser', () => {
+  const PROBE = 'https://probe.test/';
+  const OVERLAY = 'red;position:fixed;inset:0;z-index:2147483647;background:rgb(255,0,0)';
+
+  /** Every request to the probe host, which only an injected url() would make. */
+  async function probeRequests(page: Page): Promise<string[]> {
+    const requests: string[] = [];
+    await page.context().route(`${PROBE}**`, route => {
+      requests.push(route.request().url());
+      return route.fulfill({ status: 204, body: '' });
+    });
+    return requests;
+  }
+
+  const styled = (value: string, attrs: Json): Json => text(value, [{ type: 'textStyle', attrs }]);
+  const UNSAFE_STYLES = docOf(
+    { type: 'paragraph', attrs: { textAlign: `left;background-image:url(${PROBE}align)` }, content: [
+      styled('COLOR', { color: OVERLAY }),
+      text(' '),
+      styled('HIGHLIGHT', { backgroundColor: `url(${PROBE}highlight)` }),
+      text(' '),
+      styled('FAMILY', { fontFamily: `x';background-image:url(${PROBE}family);'` }),
+      text(' '),
+      styled('SIZE', { fontSize: `1px;background-image:url(${PROBE}size)` }),
+      text(' '),
+      styled('ARRAY', { color: [`red;background-image:url(${PROBE}array)`] }),
+    ] },
+    { type: 'paragraph', attrs: { lineHeight: `2;background-image:url(${PROBE}line)` }, content: [text('LINE')] },
+  );
+
+  interface StyleWindow {
+    __linkSecurity: EditorWindow['__linkSecurity'] & { show: (html: string) => void; fixedElements: () => string[] };
+  }
+
+  test('writes no declaration an unsafe stored value would add, in the editor, getHTML and generateHTML (G2)', async ({ page }) => {
+    const requests = await probeRequests(page);
+    await open(page);
+    await setup(page, { content: UNSAFE_STYLES });
+    const html = await page.evaluate(() => (window as unknown as EditorWindow).__linkSecurity.getHTML());
+    const generated = await page.evaluate(content => (window as unknown as EditorWindow).__linkSecurity.generateHTML(content), UNSAFE_STYLES);
+    for (const output of [html, generated]) {
+      expect(output).not.toContain('probe.test');
+      expect(output).not.toContain('position');
+      expect(output).not.toContain('style=');
+    }
+    await page.evaluate(markup => {
+      (window as unknown as StyleWindow).__linkSecurity.show(markup);
+    }, html + generated);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as unknown as StyleWindow).__linkSecurity.fixedElements())).toEqual([]);
+    expect(requests).toEqual([]);
+    // The stored values stay for the application to migrate or inspect.
+    const stored = await page.evaluate(() => JSON.stringify((window as unknown as EditorWindow).__linkSecurity.getJSON()));
+    expect(stored).toContain('position:fixed');
+  });
+
+  test('renders safe stored values as they are (G1, G3, G4, G5)', async ({ page }) => {
+    await open(page);
+    await setup(page, { content: docOf({ type: 'paragraph', attrs: { textAlign: 'center' }, content: [
+      styled('SAFE', { color: 'rgb(1, 2, 3)', backgroundColor: 'rgb(4, 5, 6)', fontFamily: 'Times New Roman, serif', fontSize: 'calc(10px + 8px)' }),
+    ] }) });
+    const safe = page.locator('#fixture').getByText('SAFE', { exact: true });
+    const computed = await safe.evaluate(element => {
+      const style = getComputedStyle(element);
+      return { color: style.color, background: style.backgroundColor, family: style.fontFamily, size: style.fontSize };
+    });
+    expect(computed).toEqual({ color: 'rgb(1, 2, 3)', background: 'rgb(4, 5, 6)', family: expect.stringMatching(/^"?Times New Roman"?, serif$/) as unknown as string, size: '18px' });
+    expect(await page.locator('#fixture p').evaluate(element => getComputedStyle(element).textAlign)).toBe('center');
+  });
+});

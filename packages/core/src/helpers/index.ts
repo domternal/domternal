@@ -41,6 +41,7 @@ export {
   type UrlCheck,
   type UrlPolicyOptions,
 } from './checkUrl.js';
+export { isSafeCssValue } from './isSafeCssValue.js';
 export {
   generateHTML,
   generateJSON,

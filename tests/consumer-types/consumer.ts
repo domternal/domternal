@@ -465,3 +465,9 @@ LinkPopover.configure({ protocols: popoverSchemes });
 LinkPopover.configure({ protocols: ['https:'] });
 const relativeLinks: LinkOptions['allowRelative'] = true;
 void relativeLinks;
+
+// A stored style value is checked before an exporter writes it into markup.
+import { isSafeCssValue } from '@domternal/core';
+
+const safeColor: boolean = isSafeCssValue(editor.getAttributes('textStyle')['color']);
+void safeColor;

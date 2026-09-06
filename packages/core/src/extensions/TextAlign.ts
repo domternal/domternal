@@ -38,6 +38,15 @@ export interface TextAlignOptions {
   defaultAlignment: string;
 }
 
+/** The `text-align` keywords an alignment may render as. */
+const TEXT_ALIGN_KEYWORDS = new Set(['left', 'center', 'right', 'justify', 'start', 'end']);
+
+/** The keyword a stored alignment names, in lower case, or null. */
+function textAlignKeyword(value: unknown): string | null {
+  const keyword = typeof value === 'string' ? value.toLowerCase() : null;
+  return keyword !== null && TEXT_ALIGN_KEYWORDS.has(keyword) ? keyword : null;
+}
+
 export const TextAlign = Extension.create<TextAlignOptions>({
   name: 'textAlign',
 
@@ -63,7 +72,9 @@ export const TextAlign = Extension.create<TextAlignOptions>({
               if (textAlign === this.options.defaultAlignment) {
                 return null;
               }
-              return { style: `text-align: ${textAlign}` };
+              // Only a keyword renders; the document keeps any other value.
+              const keyword = textAlignKeyword(textAlign);
+              return keyword === null ? null : { style: `text-align: ${keyword}` };
             },
           },
         },
@@ -76,7 +87,7 @@ export const TextAlign = Extension.create<TextAlignOptions>({
       setTextAlign:
         (alignment: string) =>
         ({ commands }) => {
-          if (!this.options.alignments.includes(alignment)) {
+          if (!this.options.alignments.includes(alignment) || textAlignKeyword(alignment) === null) {
             return false;
           }
 

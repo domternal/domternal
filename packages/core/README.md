@@ -310,6 +310,38 @@ only its href and keeps its `title`, `target`, `rel` and `class`. `LinkPopover.c
 protocols })` narrows the schemes the popover accepts; the default `null` accepts every scheme
 the Link accepts.
 
+## Style values
+
+Text color, highlight, font family, font size, alignment and line height are stored as values and
+written into a `style` attribute when rendered. `isSafeCssValue(value)` decides whether a value
+may be written there: a string of at most 256 characters with no control character, none of
+`; { } [ ] < > \ " ' ! @`, no comment, balanced parentheses, and no function other than the
+color and arithmetic functions (`rgb`, `rgba`, `hsl`, `hsla`, `hwb`, `lab`, `lch`, `oklab`,
+`oklch`, `color`, `color-mix`, `light-dark`, `var`, `calc`, `min`, `max`, `clamp`). Such a value
+cannot add a declaration, such as `position: fixed`, or load a resource through `url()`.
+
+```ts
+import { isSafeCssValue } from '@domternal/core';
+
+isSafeCssValue('#ff0000');                    // true
+isSafeCssValue('calc(1em + 2px)');            // true
+isSafeCssValue('red;position:fixed');         // false
+isSafeCssValue('url(https://example.com/x)'); // false
+```
+
+- The editor DOM, `getHTML()` and `generateHTML()` write a stored value only when it is safe. Any
+  other value is left out of the `style` attribute and kept in the document, so the stored JSON
+  does not change. The other values of the same mark still render.
+- `setTextColor`, `setHighlight`, `toggleHighlight` (when it adds a highlight), `setFontFamily`,
+  `setFontSize`, `setTextAlign` and `setLineHeight` return `false` for a value that is not safe.
+- Alignment renders only the keywords `left`, `center`, `right`, `justify`, `start` and `end`,
+  in lower case. `setTextAlign` also needs the value in `alignments`.
+- A font family list is written with each name that holds a space quoted, and quotes in the stored
+  value are dropped first, so `"Times New Roman", serif` renders as `'Times New Roman', serif`.
+- `LineHeight` renders only its configured `lineHeights`; with an empty list, any safe value.
+- Use `isSafeCssValue` before writing a stored style value into markup yourself, such as in an
+  exporter.
+
 ## Content normalization
 
 JSON content can hold values the editor cannot represent: a list marker this version does not
