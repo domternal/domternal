@@ -83,6 +83,29 @@ companion package can reuse them instead of building its own.
 
 Custom nodes without a mapping degrade gracefully: content is preserved as plain text and a warning is reported instead of failing. Custom mappings plug in via `Markdown.configure({ specs })` or the `specs` option of `serializeMarkdown`.
 
+## Links and images
+
+Markdown follows the same URL policy as the editor (`checkUrl` and `isSupportedAttributeValue` from
+`@domternal/core`), so an import or export never carries an address the editor itself would not
+store or render.
+
+- Parsing opens a link only for an href the schema's `Link` keeps with its `protocols` and
+  `allowRelative`: `[a](#intro)` and `[a](/docs/page)` become links by default, while
+  `[a](ftp://x)`, `[a](//host/x)`, `[a](data:image/png;base64,...)` and a link with credentials
+  keep their text without a link. An image whose source the `Image` would not load keeps its
+  alternative text. markdown-it's own check still refuses `javascript:`, `vbscript:` and `file:`
+  first. Markdown pastes behave the same.
+- Serializing writes a link the editor would not render, such as a stored `javascript:` href or one
+  a collaborator wrote, as its text with a `lossy-attribute` warning, and omits such an image with
+  an `unsupported-node` warning. An allowed href is written in its cleaned spelling.
+- Destinations percent-encode an `&` that starts a character reference, such as `&colon;` or
+  `&#106;`, so a renderer that writes it into an attribute unescaped can never let the browser decode
+  it into a scheme; they also encode `<`, `>` and spaces as `%3C`, `%3E` and `%20` and escape `\`,
+  `(`, `)` and `"` with a backslash. Titles are written on one line, with `\`, `"`, `&`, `<` and `>`
+  escaped.
+- The `<url>` autolink form is used only for `http:`, `https:` and `mailto:` links whose text is
+  their href; any other link, such as `tel:`, is written as `[text](href)`.
+
 ## Fidelity notes
 
 Markdown cannot express everything the editor can. The serializer keeps the content and reports a warning for: text alignment and line height, text and background colors, underline, merged table cells, multi-block table cells, table cell background and vertical alignment, image resize dimensions, toggle (details) structure, and mentions. Two cases drop the content instead of keeping it, each with its own warning: an image without a `src`, and a table of contents block (generated content). Round trips of the supported subset are exact and covered by tests.

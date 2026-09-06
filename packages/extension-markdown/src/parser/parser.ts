@@ -10,6 +10,7 @@ import { Fragment } from '@domternal/pm/model';
 import type { Node as PMNode, NodeType, Schema } from '@domternal/pm/model';
 import { addMathBlockRule, addMathInlineRule } from './mathRules.js';
 import { MarkdownParseState } from './state.js';
+import { allowedImageSource, allowedLinkHref } from '../urls.js';
 
 type Token = ReturnType<MarkdownIt['parse']>[number];
 type TokenHandler = (state: MarkdownParseState, token: Token) => void;
@@ -190,17 +191,33 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
       ignore(`${tokenName}_open`, `${tokenName}_close`);
       return;
     }
-    handlers[`${tokenName}_open`] = (state, token) => {
-      state.openMark(
-        type.create(
-          tokenName === 'link'
-            ? { href: attrFrom(token, 'href'), title: attrFrom(token, 'title') }
-            : null
-        )
-      );
+    handlers[`${tokenName}_open`] = (state) => {
+      state.openMark(type.create(null));
     };
     handlers[`${tokenName}_close`] = (state) => {
       state.closeMark(type);
+    };
+  };
+
+  /**
+   * Links open a mark only for an href the schema's link keeps, as loading
+   * JSON content would; any other keeps its text. Links never nest, but the
+   * stack keeps each close paired with its own open.
+   */
+  const linkMark = (): void => {
+    const type = schema.marks['link'];
+    if (type === undefined) {
+      ignore('link_open', 'link_close');
+      return;
+    }
+    const opened: boolean[] = [];
+    handlers['link_open'] = (state, token) => {
+      const href = allowedLinkHref(schema, type.name, attrFrom(token, 'href'));
+      opened.push(href !== null);
+      if (href !== null) state.openMark(type.create({ href, title: attrFrom(token, 'title') }));
+    };
+    handlers['link_close'] = (state) => {
+      if (opened.pop() === true) state.closeMark(type);
     };
   };
 
@@ -299,14 +316,18 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
   inlineMark('strong', 'bold');
   inlineMark('em', 'italic');
   inlineMark('s', 'strike');
-  inlineMark('link', 'link');
+  linkMark();
 
   const imageType = node('image');
   if (imageType !== undefined) {
     handlers['image'] = (state, token) => {
-      const src = attrFrom(token, 'src');
-      if (src === null) return;
+      const src = allowedImageSource(attrFrom(token, 'src'));
       const alt = altText(token);
+      // A source the Image would not load keeps the alternative text.
+      if (src === null) {
+        state.addText(alt);
+        return;
+      }
       const attrs = { src, alt: alt === '' ? null : alt, title: attrFrom(token, 'title') };
       if (imageType.isInline) {
         state.addNode(imageType, attrs);

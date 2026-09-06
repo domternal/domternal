@@ -10,6 +10,7 @@ import {
   type MarkdownMarkSpec,
   type MarkdownNodeSerializer,
 } from './state.js';
+import { allowedImageSource, allowedLinkHref } from '../urls.js';
 
 function attrString(node: PMNode, name: string): string | null {
   const value: unknown = node.attrs[name];
@@ -38,19 +39,39 @@ function warnLossyBlockAttrs(state: MarkdownSerializerState, node: PMNode): void
   }
 }
 
+/**
+ * A link destination that every renderer reads as one address. An `&` that
+ * starts a character reference, such as `&colon;` or `&#106;`, is
+ * percent-encoded: a renderer that writes it into an attribute unescaped
+ * would otherwise let the browser decode it into a scheme such as
+ * `javascript:`. `<`, `>` and spaces are percent-encoded too, and `\`, `(`,
+ * `)` and `"` are backslash-escaped.
+ */
 function escapeLinkDestination(url: string): string {
   // Backslash included: a literal `\` must not neutralize the next escape.
-  return url.replace(/[\\()"]/g, '\\$&');
+  return url
+    .replace(/&(?=#|[a-z][a-z0-9]*;)/gi, '%26')
+    .replace(/[\\()"]/g, '\\$&')
+    .replace(/[<> ]/g, (char) => (char === '<' ? '%3C' : char === '>' ? '%3E' : '%20'));
 }
 
+/** A title on one line, with every character that could close it or start markup escaped. */
 function escapeLinkTitle(title: string): string {
-  return title.replace(/[\\"]/g, '\\$&');
+  return title.replace(/\r\n?|\n/g, ' ').replace(/[\\"&<>]/g, '\\$&');
+}
+
+/** The schemes whose `<url>` autolink form every renderer links. */
+const AUTOLINK_SCHEMES = /^(?:https?|mailto):/i;
+
+/** The href of a link the editor renders, in its cleaned spelling, or null. */
+function linkHref(link: Mark): string | null {
+  return allowedLinkHref(link.type.schema, link.type.name, link.attrs['href']);
 }
 
 /** Autolink form is only valid for a bare, title-less URL that is its own text. */
 function isPlainUrl(link: Mark, parent: PMNode, index: number): boolean {
-  const href: unknown = link.attrs['href'];
-  if (typeof href !== 'string' || attrTitle(link) !== null || !/^\w+:/.test(href)) return false;
+  const href = linkHref(link);
+  if (href === null || attrTitle(link) !== null || !AUTOLINK_SCHEMES.test(href) || /[\s<>&\\]/.test(href)) return false;
   const content = parent.child(index);
   if (
     !content.isText ||
@@ -239,9 +260,13 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
   },
 
   image: (state, node) => {
-    const src = attrString(node, 'src');
-    if (src === null) {
+    if (attrString(node, 'src') === null) {
       state.warn('unsupported-node', 'Image without src omitted', node.type.name);
+      return;
+    }
+    const src = allowedImageSource(node.attrs['src']);
+    if (src === null) {
+      state.warn('unsupported-node', 'Image with a source the editor does not load omitted', node.type.name);
       return;
     }
     // Resize writes NUMERIC width/height attrs; check presence, not strings.
@@ -325,14 +350,21 @@ export const defaultMarkSpecs: Record<string, MarkdownMarkSpec> = {
     escape: false,
   },
   link: {
-    open: (_state, mark, parent, index) => (isPlainUrl(mark, parent, index) ? '<' : '['),
+    // A link the editor would not render, such as a script address or one a
+    // collaborator stored, is written as its text: an export never carries it.
+    open: (state, mark, parent, index) => {
+      if (linkHref(mark) === null) {
+        state.warn('lossy-attribute', 'Link with an address the editor does not render written as text', mark.type.name);
+        return '';
+      }
+      return isPlainUrl(mark, parent, index) ? '<' : '[';
+    },
     close: (_state, mark, parent, index) => {
+      const href = linkHref(mark);
+      if (href === null) return '';
       if (isPlainUrl(mark, parent, index - 1)) return '>';
-      const href: unknown = mark.attrs['href'];
       const title = attrTitle(mark);
-      return `](${escapeLinkDestination(typeof href === 'string' ? href : '')}${
-        title !== null ? ` "${escapeLinkTitle(title)}"` : ''
-      })`;
+      return `](${escapeLinkDestination(href)}${title !== null ? ` "${escapeLinkTitle(title)}"` : ''})`;
     },
   },
 };
