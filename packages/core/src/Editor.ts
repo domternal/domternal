@@ -17,6 +17,7 @@ import { createDocument, isDocumentEmpty } from './helpers/index.js';
 import { buildDocument } from './helpers/createDocument.js';
 import { contentDiagnosticsOf, contentReport, type ContentDiagnosticRecord } from './helpers/normalizeContent.js';
 import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js';
+import { serializeChildren } from './utils/serializeChildren.js';
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
@@ -587,8 +588,10 @@ export class Editor extends EventEmitter<EditorEvents> {
     const div = document.createElement('div');
     div.appendChild(fragment);
 
-    // Browser DOM normalizes hex colors to rgb() - convert back to hex within style attrs
-    const html = div.innerHTML.replace(
+    // Browser DOM normalizes hex colors to rgb() - convert back to hex within style attrs.
+    // Attribute values are escaped as the HTML standard writes them, also in a headless
+    // editor on linkedom.
+    const html = serializeChildren(div).replace(
       /style="([^"]*)"/g,
       (_match, style: string) =>
         'style="' +

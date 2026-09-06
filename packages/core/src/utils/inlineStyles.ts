@@ -13,6 +13,7 @@
  */
 
 import { parseListMarker } from './listMarker.js';
+import { serializeChildren } from './serializeChildren.js';
 
 // ---------------------------------------------------------------------------
 // Override keys - users can override any of these
@@ -451,5 +452,6 @@ export function inlineStyles(html: string, overrides?: InlineStyleOverrides): st
   const div = document.createElement('div');
   div.innerHTML = html;
   applyInlineStyles(div, overrides);
-  return div.innerHTML;
+  // Attribute values escaped as the HTML standard writes them, also under linkedom.
+  return serializeChildren(div);
 }

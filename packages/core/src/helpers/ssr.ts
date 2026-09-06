@@ -17,6 +17,7 @@ import type { Schema } from '@domternal/pm/model';
 import type { AnyExtension, JSONContent } from '../types/index.js';
 import { ExtensionManager } from '../ExtensionManager.js';
 import { normalizeContent, type NormalizeContentOptions } from './normalizeContent.js';
+import { serializeChildren } from '../utils/serializeChildren.js';
 
 // Declare global require for Node.js environment
 declare const require: (id: string) => unknown;
@@ -107,7 +108,8 @@ export function generateHTML(
   const container = targetDocument.createElement('div');
   container.appendChild(fragment);
 
-  return container.innerHTML;
+  // Attribute values escaped as the HTML standard writes them, also under linkedom.
+  return serializeChildren(container);
 }
 
 export interface GenerateJSONOptions {

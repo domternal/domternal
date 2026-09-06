@@ -59,6 +59,21 @@ describe('generateHTML under linkedom', () => {
     expect((received(html).querySelector('span') as HTMLElement).style.length).toBe(0);
   });
 
+  it('writes stored attribute values so the browser reads them as stored', () => {
+    const attrs = { href: '/search?q=x&copy;y&amp;z=1', title: 'Tom &amp; Jerry &lt;3', class: 'a&amp;b', target: null, rel: null };
+    const html = generateHTML(paragraph('t', [{ type: 'link', attrs }]), [StarterKit], { document: serverDocument() });
+    const anchor = received(html).querySelector('a');
+    expect(anchor?.getAttribute('href')).toBe(attrs.href);
+    expect(anchor?.getAttribute('title')).toBe(attrs.title);
+    expect(anchor?.getAttribute('class')).toBe(attrs.class);
+  });
+
+  it('leaves linkedom output as it was for values without an ampersand', () => {
+    const content = paragraph('t', [{ type: 'link', attrs: { href: 'https://example.com/a?b=c', title: 'say "hi" <b>' } }]);
+    expect(generateHTML(content, [StarterKit], { document: serverDocument() }))
+      .toBe('<p><a title="say &quot;hi&quot; <b>" href="https://example.com/a?b=c">t</a></p>');
+  });
+
   it('keeps a link whose query holds an ampersand', () => {
     const html = generateHTML(paragraph('q', [{ type: 'link', attrs: { href: '/search?a=1&b=2' } }]), [StarterKit], {
       document: serverDocument(),

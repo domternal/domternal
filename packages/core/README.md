@@ -460,3 +460,9 @@ import { parseHTML } from 'linkedom';
 const { document } = parseHTML('<!DOCTYPE html><html><body></body></html>');
 const html = generateHTML(content, [StarterKit], { document });
 ```
+
+linkedom writes attribute values without escaping `&`, so the browser that reads its output would
+decode every character reference in them. `generateHTML`, `getHTML` in a headless editor and
+`inlineStyles` escape `&` in attribute values themselves when the document's serializer does
+not, so a stored value such as `Tom &amp; Jerry` reaches the browser as stored. The output of a
+browser or jsdom document is unchanged.
