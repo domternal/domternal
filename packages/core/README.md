@@ -241,6 +241,67 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   registration made directly. When the latest policy reader throws or returns `undefined`, the
   view has no destination; an earlier registration is not a fallback.
 
+## Content normalization
+
+JSON content can hold values the editor cannot represent: a list marker this version does not
+know, or a heading level the `Heading` configuration lacks, such as `5` with the default levels 1
+to 4, or a value that is not a level at all. The JSON entry points (the initial `content`,
+`setContent`, `insertContent`, `createDocument`, `generateHTML`, and `generateText`) replace such
+a value instead of failing the whole document, and report it:
+
+- An unknown list marker becomes `null`, the default marker (`unknown-list-marker`).
+- A heading level moves to the nearest configured level of equal or lower importance, otherwise
+  to the deepest configured level (`unsupported-heading-level`), so a heading is never promoted
+  while a deeper level exists and the outline keeps its order. With levels 1 to 4, `5` and `6`
+  load as `4`; with levels 2 and 3, `1` loads as `2`. A number that is not a whole level is
+  rounded up into 1 to 6 first, and any other value loads as the first configured level.
+
+Each diagnostic names the `code`, `nodeType`, `attribute`, and `path` of the replaced value, and
+the `value` itself when it is a finite number or a string of at most 64 characters. The editor
+reports through the `onContentDiagnostic` option and the `contentDiagnostic` event, with the
+`source` that loaded the content, the first 100 diagnostics, and the `total`. `createDocument`
+and the SSR helpers take an `onDiagnostic` callback instead.
+
+```ts
+const editor = new Editor({
+  extensions: [StarterKit],
+  content: storedJSON,
+  onContentDiagnostic: ({ source, diagnostics, total }) => {
+    console.warn(`${source} replaced ${String(total)} values`, diagnostics);
+  },
+});
+```
+
+The schema itself stays strict: `schema.nodeFromJSON` and `Node.check` still reject an unknown
+list marker and a heading `level` that is not a whole number from 1 to 6, and so does
+`Step.fromJSON` for the nodes a step carries. Run
+`normalizeContent(json, editor.schema, { onDiagnostic })` before handing stored JSON to other
+consumers that validate it, such as y-prosemirror's `prosemirrorJSONToYDoc`. It never mutates its
+input and returns it as is when nothing changes.
+
+A document can still hold such a value: a collaborative document binds without validation, a
+collaborator configured with more heading levels writes them, and undo can restore a removed
+node. A pasted slice keeps a valid level the configuration lacks, so moving content in a shared
+document never rewrites another client's heading, and only an invalid level is replaced.
+Rendering shows the replacement in the view, `getHTML()`, and the SSR helpers without changing
+the document, so `getJSON()`, `isActive`, and exports still see the stored value.
+
+`editor.commands.normalizeContentAttributes()` is the explicit migration. It replaces every such
+value in one transaction outside the undo history and reports it with the source
+`normalizeContentAttributes`. It returns `false` in a read-only editor or when nothing needs
+replacing, so `editor.can().normalizeContentAttributes()` detects a document that needs it. Run
+it only when every client shares this version and this heading configuration: a client with an
+older marker vocabulary or fewer heading levels would replace values that another client supports.
+
+`Heading.configure({ levels })` takes a non-empty list of whole numbers from 1 to 6, in any order.
+The first one is the default level for content and commands without a level. Other values fail
+`new Editor(...)` and the SSR helpers with an `ExtensionConfigurationError`. `updateAttributes`,
+`setBlockType`, and `toggleBlockType` refuse a level that is not a whole number from 1 to 6, and
+`setHeading` and `toggleHeading` accept only configured levels. HTML content is parsed through the
+configured heading tags, so an unconfigured tag still becomes a paragraph; with
+[`@domternal/extension-paste-cleanup`](https://www.npmjs.com/package/@domternal/extension-paste-cleanup),
+a pasted heading moves to the nearest supported level instead.
+
 ## SSR
 
 The `generateHTML`, `generateJSON`, and `generateText` helpers render content
