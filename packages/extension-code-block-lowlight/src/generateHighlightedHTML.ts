@@ -12,11 +12,47 @@ export interface GenerateHighlightedHTMLOptions {
   document?: Document;
 }
 
+/** The references a DOM serializer writes in text, decoded once each. */
+const NAMED_REFERENCES: Readonly<Record<string, string>> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+/** Decodes the character references of serialized text in one pass, so `&amp;lt;` stays `&lt;`. */
+function decodeText(text: string): string {
+  return text.replace(/&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-zA-Z]+));/g, (reference, decimal?: string, hex?: string, name?: string) => {
+    if (name !== undefined) return NAMED_REFERENCES[name] ?? reference;
+    const code = decimal !== undefined ? Number.parseInt(decimal, 10) : Number.parseInt(hex ?? '', 16);
+    return code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : reference;
+  });
+}
+
+/** Elements whose content a DOM serializer writes as raw text, never as markup. */
+const RAW_TEXT_ELEMENTS = new Set(['script', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext']);
+
+/** The index just after the tag that starts at `start`, skipping `>` inside quoted attribute values. */
+function tagEnd(html: string, start: number): number {
+  let quote = '';
+  for (let index = start + 1; index < html.length; index++) {
+    const char = html[index];
+    if (quote !== '') {
+      if (char === quote) quote = '';
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '>') {
+      return index + 1;
+    }
+  }
+  return html.length;
+}
+
+const CODE_OPEN = /<code(?:\s+class="language-([^"]*)")?>/y;
+const CODE_CLOSE = '</code></pre>';
+
 /**
  * Generate HTML with syntax-highlighted code blocks.
  *
  * Unlike generateHTML(), this applies lowlight highlighting to code blocks,
  * producing `<span class="hljs-keyword">` etc. inside `<code>` elements.
+ * Only real code blocks are highlighted: the HTML is read as markup, so text
+ * inside an attribute, such as an image title, is never rewritten.
  *
  * @example
  * ```ts
@@ -40,33 +76,60 @@ export function generateHighlightedHTML(
 
   const html = generateHTML(content, extensions, htmlOptions);
 
-  return html.replace(
-    /<pre([^>]*)><code(?:\s+class="language-([^"]*)")?>([\s\S]*?)<\/code><\/pre>/g,
-    (_match, preAttrs: string, language: string | undefined, code: string) => {
-      // Unescape HTML entities in code content
-      const decoded = code
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
+  /** The highlighted content of one code block, or null to keep it as serialized. */
+  const highlight = (code: string, language: string | undefined): string | null => {
+    const decoded = decodeText(code);
+    const lang = language ?? options.defaultLanguage ?? null;
+    if (lang && lowlight.registered(lang)) return toHtml(lowlight.highlight(lang, decoded));
+    if (options.autoDetect && decoded.length > 0) return toHtml(lowlight.highlightAuto(decoded));
+    return null;
+  };
 
-      const lang = language ?? options.defaultLanguage ?? null;
-      let highlighted: string;
-
-      if (lang && lowlight.registered(lang)) {
-        const result = lowlight.highlight(lang, decoded);
-        highlighted = toHtml(result);
-      } else if (options.autoDetect && decoded.length > 0) {
-        const result = lowlight.highlightAuto(decoded);
-        highlighted = toHtml(result);
-      } else {
-        const codeClass = language ? ` class="language-${language}"` : '';
-        return `<pre${preAttrs}><code${codeClass}>${code}</code></pre>`;
+  // Serialized HTML holds elements, attributes and text only. In text, `<`
+  // always starts a tag, since text escapes it; a tag is copied whole, so a
+  // `<pre>` inside an attribute value is never read as a code block.
+  let output = '';
+  let index = 0;
+  while (index < html.length) {
+    const open = html.indexOf('<', index);
+    if (open < 0) {
+      output += html.slice(index);
+      break;
+    }
+    output += html.slice(index, open);
+    if (html.startsWith('<!--', open)) {
+      const close = html.indexOf('-->', open + 4);
+      const end = close < 0 ? html.length : close + 3;
+      output += html.slice(open, end);
+      index = end;
+      continue;
+    }
+    const end = tagEnd(html, open);
+    const tag = html.slice(open, end);
+    index = end;
+    const name = /^<([a-zA-Z][^\s/>]*)/.exec(tag)?.[1]?.toLowerCase();
+    if (name === 'pre') {
+      CODE_OPEN.lastIndex = end;
+      const code = CODE_OPEN.exec(html);
+      const contentStart = end + (code?.[0].length ?? 0);
+      const close = code === null ? -1 : html.indexOf(CODE_CLOSE, contentStart);
+      const text = close < 0 ? '' : html.slice(contentStart, close);
+      // A code block holds text only; anything else is left as it is.
+      if (code !== null && close >= 0 && !text.includes('<')) {
+        const language = code[1];
+        const highlighted = highlight(text, language);
+        output += `${tag}${code[0]}${highlighted ?? text}${CODE_CLOSE}`;
+        index = close + CODE_CLOSE.length;
+        continue;
       }
-
-      const codeClass = language ? ` class="language-${language}"` : '';
-      return `<pre${preAttrs}><code${codeClass}>${highlighted}</code></pre>`;
-    },
-  );
+    }
+    output += tag;
+    if (name !== undefined && RAW_TEXT_ELEMENTS.has(name)) {
+      const close = html.toLowerCase().indexOf(`</${name}`, index);
+      const stop = close < 0 ? html.length : close;
+      output += html.slice(index, stop);
+      index = stop;
+    }
+  }
+  return output;
 }

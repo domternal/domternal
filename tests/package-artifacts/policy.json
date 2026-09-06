@@ -32,7 +32,8 @@
     "2026-09-27: unknown list marker normalization, the contentDiagnostic event, the normalizeListMarkers migration command and the attribute refusals add production code, declarations and deliberate source maps to core. Measured packed bytes: core 882211, up from 864096 at the previous commit. The 971000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and export checks are unchanged.",
     "2026-09-28: own-copy recognition with the same-page copy marker, the quiet Office envelope classification, the bounded Word @list level reader, Word list profile reconstruction from level definitions and marker run fonts, and the per item Office list fallback raise the packed cleanup package to 861052 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The 948000 ceiling keeps the documented ten percent headroom rounded up to 1000 bytes; file allowlists and all other package ceilings are unchanged.",
     "2026-09-28: the experimental @domternal/core/clipboard subpath adds dist/clipboard.js, dist/clipboard.cjs, their empty source maps and self-contained dist/clipboard.d.ts and .d.cts. The code files only re-export the sibling main bundle, so no module is shipped twice. Core now measures 888702 packed bytes, up from 887629, including the README section and the experimental markers in the declarations; the ceiling is unchanged. The core allowlist names only the index and clipboard files.",
-    "2026-09-29: the Markdown URL policy (link and image address checks through core, a refused link written as its text, escaped destinations and one-line titles) and its README section raise the packed markdown package from 83895 to 90150 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The previous 85000 ceiling kept about one percent headroom; the new 100000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged."
+    "2026-09-29: the Markdown URL policy (link and image address checks through core, a refused link written as its text, escaped destinations and one-line titles) and its README section raise the packed markdown package from 83895 to 90150 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The previous 85000 ceiling kept about one percent headroom; the new 100000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged.",
+    "2026-09-29: the markup-aware generateHighlightedHTML (a tag and quote aware scanner that highlights only real code blocks and decodes code text once) and its README note raise the packed code-block-lowlight package from 12159 to 14878 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The 17000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes; file allowlists and all other package ceilings are unchanged."
   ],
   "@domternal/angular": {
     "maxPackedBytes": 77000,
@@ -56,7 +57,7 @@
     "maxAdditionalLocaleBytes": 9000
   },
   "@domternal/extension-code-block-lowlight": {
-    "maxPackedBytes": 14000,
+    "maxPackedBytes": 17000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
