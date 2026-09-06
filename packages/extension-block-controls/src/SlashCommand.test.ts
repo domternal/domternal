@@ -97,7 +97,7 @@ describe('SlashCommand plugin', () => {
         Document, Text, Paragraph,
         SlashCommand.configure({
           icons: { callout: '<svg data-slash-custom-icon="callout"></svg>' },
-          items: [{ name: 'callout', label: 'Callout', icon: 'callout', command: vi.fn() }],
+          items: [{ name: 'callout', label: 'Callout', icon: 'callout', command: vi.fn<(editor: Editor) => void>() }],
         }),
       ],
     });

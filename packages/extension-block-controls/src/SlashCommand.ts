@@ -164,10 +164,9 @@ function findSlashQuery(
 }
 
 /**
- * Removes items whose `hideWhenInside` matches the cursor's wrapping list type,
- * but ONLY when the cursor is in the label paragraph (first-child slot) of a
- * list item: picking the same list type there would lift the user out of the
- * list (`liftListItem` semantics), which is surprising.
+ * Removes items whose `hideWhenInside` matches a non-list cursor ancestor.
+ * List containers retain their existing policy: only the nearest wrapping
+ * list hides its item, and only in the list item's first-child label slot.
  *
  * In the children zone (non-first paragraph) it's kept on purpose: picking the
  * same list type creates a nested sublist, which is useful and Notion-like.
@@ -177,6 +176,18 @@ export function filterByCursorAncestors(
   editor: Editor,
 ): FloatingMenuItem[] {
   const { $from } = editor.view.state.selection;
+
+  const nonListAncestors = new Set<string>();
+  for (let d = $from.depth; d >= 0; d--) {
+    const node = $from.node(d);
+    const child = d < $from.depth ? $from.node(d + 1) : null;
+    // Recognize custom list wrappers around the supported item nodes even
+    // when their schema does not declare the standard `list` group.
+    const wrapsListItem = child?.type.name === 'listItem' || child?.type.name === 'taskItem';
+    if (!node.type.isInGroup('list') && !wrapsListItem) {
+      nonListAncestors.add(node.type.name);
+    }
+  }
 
   // Find the nearest list-item ancestor; if the cursor is in its label slot,
   // record the wrapping list's type name.
@@ -193,8 +204,9 @@ export function filterByCursorAncestors(
 
   return items.filter((item) => {
     if (!item.hideWhenInside || item.hideWhenInside.length === 0) return true;
-    if (!wrappingListType) return true;
-    return !item.hideWhenInside.includes(wrappingListType);
+    return !item.hideWhenInside.some(
+      (name) => nonListAncestors.has(name) || name === wrappingListType,
+    );
   });
 }
 

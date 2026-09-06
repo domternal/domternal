@@ -16,6 +16,7 @@ function node(type: string, ...content: JSONContent[]): JSONContent {
 }
 
 const paragraph = (): JSONContent => node('paragraph');
+const label = (): JSONContent => node('paragraph', { type: 'text', text: 'Label' });
 
 async function seedEmptyParagraph(page: Page, content: JSONContent): Promise<void> {
   await page.evaluate((serialized) => {
@@ -56,3 +57,50 @@ test('slash icons support custom keys, overrides, fallback and readable missing 
   await expect(page.locator('#editor .ProseMirror')).toHaveText('missing');
   await expect(menu).toHaveCount(0);
 });
+
+test('a distant custom ancestor excludes slash items without changing the floating menu', async ({ page }) => {
+  await open(page);
+  const nested = node('doc', node('callout', node('blockquote', paragraph())));
+  await seedEmptyParagraph(page, nested);
+  await page.keyboard.type('/custom');
+  await expect(page.locator(`${MENU} [role="status"]`)).toHaveText('No matches');
+  await expect(page.locator(`${MENU} [role="menuitem"]`)).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // The independent floating surface intentionally keeps the same item.
+  await seedEmptyParagraph(page, nested);
+  await page.evaluate(() => { window.__TUTORIAL_MENUS__.openFloating(); });
+  const floating = page.locator('.dm-floating-menu');
+  await expect(floating).toHaveAttribute('data-show', '');
+  await expect(floating.locator('[data-floating-menu-item="custom"]')).toBeVisible();
+  await floating.locator('[data-floating-menu-item="custom"]').click();
+  await expect(page.locator('#editor aside blockquote p')).toHaveText('custom');
+
+  await seedEmptyParagraph(page, node('doc', paragraph()));
+  await page.keyboard.type('/custom');
+  await expect(page.locator(MENU).getByRole('menuitem', { name: 'Custom action', exact: true })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#editor .ProseMirror')).toHaveText('custom');
+});
+
+for (const scenario of [
+  { name: 'bullet label', doc: node('doc', node('bulletList', node('listItem', paragraph()))), hidden: ['Default bullet'], visible: ['Default ordered'] },
+  { name: 'bullet child paragraph', doc: node('doc', node('bulletList', node('listItem', label(), paragraph()))), hidden: [], visible: ['Default bullet'] },
+  { name: 'different nearest nested list', doc: node('doc', node('bulletList', node('listItem', label(), node('orderedList', node('listItem', paragraph()))))), hidden: ['Default ordered'], visible: ['Default bullet'] },
+  { name: 'task label', doc: node('doc', node('taskList', node('taskItem', paragraph()))), hidden: ['Default task'], visible: ['Default bullet'] },
+]) {
+  test(`slash ancestor compatibility: ${scenario.name}`, async ({ page }) => {
+    await open(page);
+    await seedEmptyParagraph(page, scenario.doc);
+    await page.keyboard.type('/');
+    const menu = page.locator(MENU);
+    await expect(menu).toBeVisible();
+    for (const name of scenario.hidden) await expect(menu.getByRole('menuitem', { name, exact: true })).toHaveCount(0);
+    for (const name of scenario.visible) await expect(menu.getByRole('menuitem', { name, exact: true })).toBeVisible();
+    await menu.getByRole('menuitem', { name: scenario.visible[0]!, exact: true }).click();
+    await expect(menu).toHaveCount(0);
+    expect(await page.locator('#editor .ProseMirror').textContent()).not.toContain('/');
+    expect(await page.evaluate(() => window.__TUTORIAL_MENUS__.editor.state.doc.textContent))
+      .toContain(scenario.visible[0] === 'Default ordered' ? 'ordered' : 'bullet');
+  });
+}
