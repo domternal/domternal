@@ -37,6 +37,7 @@ type Transport = 'synthetic-event' | 'programmatic';
 
 async function open(page: Page, framework: string, options: {
   schema?: 'capability-minimal' | 'capability-full' | 'heading-levels'; formatting?: 'preserve' | 'adapt'; diagnostics?: 'one';
+  'link-protocols'?: 'https';
 } = {}): Promise<void> {
   const query = new URLSearchParams({ framework, ...options });
   await page.goto(`${BASE_URL}/?${query.toString()}`);
@@ -163,6 +164,38 @@ for (const framework of FRAMEWORKS) {
         await expect(notice).toContainText('This editor may not preserve some pasted formatting.');
       });
     }
+
+    test('keeps links whose scheme the editor stores and reports each other one as link-removed (H2, H3, H9)', async ({ page }) => {
+      // The probe parses constant anchors in a detached container: no request may leave the page.
+      const requests: string[] = [];
+      page.on('request', request => { if (!request.url().startsWith(BASE_URL)) requests.push(request.url()); });
+      const html = '<p><a href="http://a.example/">http</a> <a href="https://b.example/">https</a> '
+        + '<a href="mailto:c@c.example">mail</a> <a href="tel:+385123">phone</a></p>';
+      const linked = (): Promise<[string, unknown][]> => page.evaluate(() => {
+        const found: [string, unknown][] = [];
+        (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.descendants(node => {
+          const link = node.marks.find(mark => mark.type.name === 'link');
+          if (node.isText && link) found.push([node.text ?? '', link.attrs['href']]);
+        });
+        return found;
+      });
+
+      await open(page, framework, { 'link-protocols': 'https' });
+      await seed(page);
+      let observed = await paste(page, html);
+      expect(await linked()).toEqual([['https', 'https://b.example/']]);
+      await expect(page.locator('.ProseMirror')).toHaveText('http https mail phone');
+      expect(observed.results[0]?.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['link-removed', 'link-removed', 'link-removed']);
+      expect(observed.operations[0]?.status).toBe('applied');
+
+      await open(page, framework, { schema: 'capability-minimal' });
+      await seed(page);
+      observed = await paste(page, html);
+      expect(await linked()).toEqual([]);
+      await expect(page.locator('.ProseMirror')).toHaveText('http https mail phone');
+      expect(observed.results[0]?.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['link-removed', 'link-removed', 'link-removed', 'link-removed']);
+      expect(requests.filter(url => url.includes('probe.invalid') || url.includes('.example'))).toEqual([]);
+    });
 
     test('default heading levels paste level five as level four and report it', async ({ page }) => {
       await open(page, framework);

@@ -10,7 +10,20 @@ const FEATURES: readonly PasteDestinationFeature[] = Object.freeze([
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
   'ordered-list-style', 'bullet-list-style',
+  'link-http', 'link-https', 'link-mailto', 'link-tel',
 ]);
+/**
+ * One constant address per link scheme. A scheme is supported when the parsed
+ * text carries a mark with exactly this href, which covers a renamed link
+ * mark and the destination Link's own protocols and URL policy. Parsing a
+ * detached anchor loads nothing.
+ */
+const LINK_PROBES: Readonly<Partial<Record<PasteDestinationFeature, string>>> = Object.freeze({
+  'link-http': 'http://probe.invalid/',
+  'link-https': 'https://probe.invalid/',
+  'link-mailto': 'mailto:probe@probe.invalid',
+  'link-tel': 'tel:+10000000000',
+});
 const MARK_TAGS: Readonly<Record<string, string>> = Object.freeze({
   bold: 'strong', italic: 'em', underline: 'u', strike: 's', subscript: 'sub', superscript: 'sup',
 });
@@ -98,6 +111,12 @@ export function getUnsupportedDestinationFeatures(
         lists = officeListCapabilities(schema, document);
       }
       return feature === 'ordered-list' ? lists.orderedLists : feature === 'bullet-list' ? lists.bulletLists : lists.nestedLists;
+    }
+    const probe = LINK_PROBES[feature];
+    if (probe !== undefined) {
+      const nodes = parse(`<p><a href="${probe}">Probe</a></p>`);
+      return nodes.length === 1 && paragraph(nodes[0] ?? null, 'Probe')
+        && nodes[0]?.firstChild?.marks.some(mark => mark.attrs['href'] === probe) === true;
     }
     const markTag = MARK_TAGS[feature];
     if (markTag) {

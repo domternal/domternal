@@ -14,6 +14,7 @@ import { assertOutputTreeBounds } from './treeBounds.js';
 import { collectDestinationDemand } from './destinationDemand.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
 import { adaptHeadingLevels, HEADING_LEVEL_FEATURES } from './headingLevels.js';
+import { LINK_FEATURES, unwrapLinks } from './links.js';
 import { reconstructOfficeLists } from './officeLists.js';
 import type { OfficeListReconstructionOptions } from './officeLists.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
@@ -250,6 +251,10 @@ export function normalizeClipboardHTML(
         for (const key of ['title', 'lang']) {
           const value = original[key];
           if (typeof value === 'string' && value.length <= 512) clean[key] = value;
+          // A link or image title is content the editor keeps; one too long to keep is reported.
+          else if (key === 'title' && typeof value === 'string' && (child.tagName === 'a' || child.tagName === 'img')) {
+            report('unsupported-formatting', child);
+          }
         }
         if (['ltr', 'rtl', 'auto'].includes(String(original.dir))) clean.dir = original.dir;
         if (Object.keys(original).some(key => /^on/i.test(key) || ['srcDoc', 'srcSet', 'formAction', 'xLinkHref'].includes(key))) report('unsafe-content-removed', child);
@@ -300,8 +305,11 @@ export function normalizeClipboardHTML(
         report('destination-table-unsupported', undefined, 'error');
         return { result, preserveOrderedListStart: false, destinationRejected: true };
       }
-      let remaining = unconfirmed;
-      if (unconfirmed.some(feature => HEADING_LEVEL_FEATURES.includes(feature))) {
+      // A link whose scheme the destination lacks keeps its text, one report each.
+      const refusedLinks = unconfirmed.filter(feature => LINK_FEATURES.includes(feature));
+      if (refusedLinks.length > 0) unwrapLinks(sanitized, refusedLinks, node => { report('link-removed', node); });
+      let remaining = unconfirmed.filter(feature => !LINK_FEATURES.includes(feature));
+      if (remaining.some(feature => HEADING_LEVEL_FEATURES.includes(feature))) {
         // A heading keeps its meaning at the nearest level the destination supports. Only a level
         // that every answer confirmed counts, and without one the destination makes paragraphs.
         const missing = destination(HEADING_LEVEL_FEATURES);
@@ -309,7 +317,7 @@ export function normalizeClipboardHTML(
           missing.includes(feature) || unconfirmed.includes(feature) ? [] : [index + 1]);
         if (supported.length > 0) {
           adaptHeadingLevels(sanitized, supported, node => { report('destination-heading-level-adapted', node); });
-          remaining = unconfirmed.filter(feature => !HEADING_LEVEL_FEATURES.includes(feature));
+          remaining = remaining.filter(feature => !HEADING_LEVEL_FEATURES.includes(feature));
         }
       }
       if (remaining.length > 0) report('destination-formatting-unconfirmed');

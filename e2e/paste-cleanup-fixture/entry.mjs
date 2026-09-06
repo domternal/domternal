@@ -26,6 +26,8 @@ const capabilityFull = query.get('schema') === 'capability-full';
 // Levels two and three only, as an application that reserves h1 for its page title.
 const headingLevels = query.get('schema') === 'heading-levels';
 const lists = query.get('schema') !== 'no-lists';
+// A Link that stores only https: addresses, for the destination link probe.
+const httpsLinks = query.get('link-protocols') === 'https';
 const listMarkers = query.get('list-markers') === '1';
 if (listMarkers) await import('@domternal/theme/css');
 // Test-only older/custom schema control: keep list structure but omit the marker attribute.
@@ -227,7 +229,7 @@ const ConsumeOuterAndNest = Extension.create({
 // Each wrapper supplies Document, Paragraph, Text, BaseKeymap and History.
 // The optional extension list is identical across all four integrations.
 const extensions = [
-  Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
+  Bold, Italic, Underline, Strike, httpsLinks ? Link.configure({ protocols: ['https:'] }) : Link, TextStyle, TextColor, Highlight,
   FontFamily, FontSize, TextAlign,
   capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : headingLevels ? Heading.configure({ levels: [2, 3] }) : Heading,
   ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),

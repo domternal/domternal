@@ -4,13 +4,15 @@ import { readSafeStyles } from './styles.js';
 import { cleanSliceContext } from './metadata.js';
 import { listStyleFromType, validListStyle } from './listStyles.js';
 import type { PasteHTMLLimits } from './types.js';
+import { linkFeature } from './links.js';
 
 export type PasteDestinationFeature =
   | 'bold' | 'italic' | 'underline' | 'strike' | 'subscript' | 'superscript'
   | 'heading-1' | 'heading-2' | 'heading-3' | 'heading-4' | 'heading-5' | 'heading-6'
   | 'font-family' | 'font-size' | 'text-color' | 'highlight' | 'text-align' | 'line-height'
   | 'table' | 'table-header' | 'ordered-list' | 'bullet-list' | 'nested-list'
-  | 'ordered-list-style' | 'bullet-list-style';
+  | 'ordered-list-style' | 'bullet-list-style'
+  | 'link-http' | 'link-https' | 'link-mailto' | 'link-tel';
 
 const featureOrder: readonly PasteDestinationFeature[] = Object.freeze([
   'bold', 'italic', 'underline', 'strike', 'subscript', 'superscript',
@@ -18,6 +20,7 @@ const featureOrder: readonly PasteDestinationFeature[] = Object.freeze([
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
   'ordered-list-style', 'bullet-list-style',
+  'link-http', 'link-https', 'link-mailto', 'link-tel',
 ]);
 const headings: Readonly<Record<string, PasteDestinationFeature>> = {
   h1: 'heading-1', h2: 'heading-2', h3: 'heading-3',
@@ -70,6 +73,9 @@ function elementDemand(node: Element, hasInlineContent: boolean, nestedList: boo
 
   const semantic = Object.hasOwn(semanticMarks, tag) ? semanticMarks[tag] : undefined;
   if (semantic !== undefined) features.add(semantic);
+  // A link with text needs its scheme; an empty one carries nothing to lose.
+  const link = tag === 'a' ? linkFeature(node.properties.href) : undefined;
+  if (link !== undefined) features.add(link);
   if (/^(?:bold|[6-9]00)$/.test(styles.get('font-weight') ?? '')) features.add('bold');
   if (/^(?:italic|oblique)$/.test(styles.get('font-style') ?? '')) features.add('italic');
   const decoration = styles.get('text-decoration-line') ?? styles.get('text-decoration') ?? '';

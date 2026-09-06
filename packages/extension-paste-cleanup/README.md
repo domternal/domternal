@@ -430,6 +430,25 @@ after the document changed. An unknown custom-handler outcome remains `untracked
 Relative links require an explicitly supplied HTTP(S) `sourceURL`. The receiving
 page URL and pasted `<base>` are never used. Fragment links need a destination
 anchor mapping and currently retain their text with a `link-removed` diagnostic.
+This includes the `#_Toc` links of a Word table of contents.
+
+Links are checked against the destination too. Each sanitized link uses `http:`,
+`https:`, `mailto:` or `tel:`, and a constant probe, `<p><a href="...">Probe</a></p>`
+parsed by the editor's own schema parser in a detached container, confirms which of
+these schemes the editor stores: a scheme counts only when the parsed text carries a
+mark with exactly the probe's href, which follows the `Link` extension's `protocols`
+and URL policy and also finds a link mark with another name. A link whose scheme the
+editor lacks, for example every link when the editor has no `Link` extension or
+`StarterKit.configure({ link: false, linkPopover: false })`, keeps its text and formatting and is reported
+once with `link-removed`. Links never add `destination-formatting-unconfirmed`. Every
+address `safeLink` keeps is also one the core URL policy allows, so the destination
+`Link` stores it unchanged. The standalone `/html` entry has no destination and keeps
+every sanitized link.
+
+A link or image `title` longer than 512 characters is dropped and reported with
+`unsupported-formatting`. `target`, `rel` and `name` are dropped without a diagnostic:
+they describe the source page rather than the content, and Word writes a `name`
+bookmark for every table of contents entry.
 
 ## Explicit persistent image resolver
 
