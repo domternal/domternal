@@ -424,3 +424,15 @@ BlockHandle.configure({
   dropZoneProviders: [provider],
   nested: { allowedNodes: ['paragraph'], anchorContainers: ['column'] },
 });
+
+// The URL policy result narrows on its status: only an allowed address carries a spelling.
+import { checkUrl, isValidUrl } from '@domternal/core';
+import type { UrlCheck, UrlPolicyOptions } from '@domternal/core';
+
+const linkPolicy: UrlPolicyOptions = { protocols: ['https:', 'mailto:'], allowRelative: true };
+const urlCheck: UrlCheck = checkUrl(' https://example.com/', linkPolicy);
+if (urlCheck.status === 'allowed') {
+  const cleaned: string = urlCheck.url;
+  void cleaned;
+}
+isValidUrl(['https://example.com/'], { protocols: 'any', allowNetworkPath: true, allowDataImages: true });

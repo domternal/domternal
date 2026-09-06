@@ -241,6 +241,39 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   registration made directly. When the latest policy reader throws or returns `undefined`, the
   view has no destination; an earlier registration is not a fallback.
 
+## URL policy
+
+`checkUrl(value, options)` decides whether an address may be stored, rendered and opened, and
+returns the spelling to use. It reads the value the way browsers do: leading and trailing control
+characters and spaces are stripped, and tabs and line breaks inside it are removed, so a scheme
+hidden behind them is judged as the browser would see it.
+
+```ts
+import { checkUrl, isValidUrl } from '@domternal/core';
+
+checkUrl(' https://example.com/');           // { status: 'allowed', url: 'https://example.com/' }
+checkUrl('java\tscript:alert(1)');           // { status: 'unsafe' }
+checkUrl('ftp://example.com/');              // { status: 'unsupported' }
+checkUrl('#intro', { allowRelative: true }); // { status: 'allowed', url: '#intro' }
+isValidUrl('https://example.com/');          // true
+```
+
+- `unsafe`: `javascript:` and `vbscript:` addresses whatever `protocols` lists, `data:` addresses
+  other than an allowed image, credentials such as `https://google.com@evil.example/`, hidden
+  control, bidi and format characters, and values that are not strings (an array would otherwise
+  be stringified into an address).
+- `unsupported`: a harmless value these options do not allow, such as another scheme, a relative
+  reference without `allowRelative`, a network path (`//host`) or a backslash, which browsers
+  read as a slash in web addresses, an address the URL parser rejects, and empty values, `null`
+  and `undefined`.
+
+The options are `protocols` (default `['http:', 'https:']`, compared in lower case with or
+without the colon; `'any'` allows every scheme except `file:`), `allowRelative` (`/path`,
+`./page`, `../page`, `page.html`, `?query`, `#fragment`; a colon in the first segment is refused),
+`allowNetworkPath` and `allowDataImages`, the last two meant for image sources.
+`isValidUrl(value, options)` answers the same question with a boolean. Use `checkUrl` in a custom
+link or image UI before opening an address yourself, and open it with `noopener`.
+
 ## Content normalization
 
 JSON content can hold values the editor cannot represent: a list marker this version does not

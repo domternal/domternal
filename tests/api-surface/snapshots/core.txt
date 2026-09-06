@@ -46,6 +46,7 @@ CharacterCount
 CharacterCountOptions
 characterCountPluginKey
 CharacterCountStorage
+checkUrl
 clearContent
 ClearContentOptions
 ClearFormatting
@@ -356,6 +357,8 @@ uniqueIDPluginKey
 unsetAllMarks
 unsetMark
 updateAttributes
+UrlCheck
+UrlPolicyOptions
 VERSION
 warnOnDuplicateProseMirrorCopy
 wrapIn

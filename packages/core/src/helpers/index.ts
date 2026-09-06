@@ -37,6 +37,11 @@ export {
   type IsValidUrlOptions,
 } from './isValidUrl.js';
 export {
+  checkUrl,
+  type UrlCheck,
+  type UrlPolicyOptions,
+} from './checkUrl.js';
+export {
   generateHTML,
   generateJSON,
   generateText,

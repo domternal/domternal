@@ -176,7 +176,9 @@ describe('serializeMarkdown - inline marks', () => {
     expect(md('<p><a href="https://x.com/" title=\'a\\"b\'>t</a></p>')).toBe(
       '[t](https://x.com/ "a\\\\\\"b")'
     );
-    expect(md('<p><a href="https://x.com/a\\b">t</a></p>')).toBe('[t](https://x.com/a\\\\b)');
+    // A backslash before the query reads as a slash in browsers, so the Link refuses it there.
+    expect(md('<p><a href="https://x.com/?a\\b">t</a></p>')).toBe('[t](https://x.com/?a\\\\b)');
+    expect(md('<p><a href="https://x.com/a\\b">t</a></p>')).toBe('t');
   });
 
   it('closes marks before a trailing hard break', () => {

@@ -1,44 +1,41 @@
 /**
  * URL Validation Helper
  *
- * Provides a utility for validating URLs.
+ * A yes-or-no answer from the URL policy, {@link checkUrl}.
  */
+import { checkUrl, type UrlPolicyOptions } from './checkUrl.js';
 
 /**
- * Options for URL validation
+ * Options for URL validation: the URL policy options. `protocols` defaults
+ * to `['http:', 'https:']` and relative references are refused unless
+ * `allowRelative` is set.
  */
-export interface IsValidUrlOptions {
-  /**
-   * List of allowed URL protocols
-   * @default ['http:', 'https:']
-   */
-  protocols?: string[];
-}
+export type IsValidUrlOptions = UrlPolicyOptions;
 
 /**
- * Checks if a string is a valid URL
+ * Whether the URL policy allows the value: a string that browsers read as an
+ * address with an allowed scheme, or as a relative reference when
+ * `allowRelative` is set. Values that are not strings, credentials, hidden
+ * characters, `javascript:` and `vbscript:`, and `data:` other than an
+ * allowed image are always refused. Use {@link checkUrl} for the cleaned
+ * spelling to store, render or open.
  *
- * @param url - The string to validate
+ * @param url - The value to validate
  * @param options - Validation options
- * @returns True if the string is a valid URL with an allowed protocol
+ * @returns True if the URL policy allows the value
  *
  * @example
  * ```ts
  * isValidUrl('https://example.com'); // true
- * isValidUrl('javascript:alert(1)'); // false (protocol not allowed)
+ * isValidUrl('javascript:alert(1)'); // false (never allowed)
+ * isValidUrl('https://google.com@evil.example'); // false (credentials)
+ * isValidUrl('#intro', { allowRelative: true }); // true
  * isValidUrl('not a url'); // false
  * ```
  */
 export function isValidUrl(
-  url: string,
+  url: unknown,
   options: IsValidUrlOptions = {}
 ): boolean {
-  const { protocols = ['http:', 'https:'] } = options;
-
-  try {
-    const parsed = new URL(url);
-    return protocols.includes(parsed.protocol);
-  } catch {
-    return false;
-  }
+  return checkUrl(url, options).status === 'allowed';
 }
