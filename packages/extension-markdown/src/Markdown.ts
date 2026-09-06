@@ -27,8 +27,8 @@ declare module '@domternal/core' {
 export interface MarkdownOptions {
   /**
    * Convert Markdown-looking plain-text pastes into rich content. Pastes
-   * that carry an HTML flavor, plain prose, and pastes into code blocks are
-   * never touched.
+   * with matching source-formatting HTML convert too. Rich HTML, plain prose,
+   * and pastes into code blocks are never touched.
    * @default true
    */
   paste: boolean;
@@ -63,6 +63,9 @@ export function getMarkdown(editor: Editor): SerializeMarkdownResult {
 
 export const Markdown = Extension.create<MarkdownOptions, MarkdownStorage>({
   name: 'markdown',
+
+  // Source copies must convert before block-level HTML handlers such as SmartPaste.
+  priority: 110,
 
   addOptions() {
     return {

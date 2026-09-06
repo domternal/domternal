@@ -44,7 +44,7 @@ const { markdown, warnings } = getMarkdown(editor);
 const saved = downloadMarkdown(editor, 'notes.md');
 ```
 
-Markdown-looking plain-text pastes convert automatically. Pastes that carry an HTML flavor, plain prose, and pastes into code blocks are never touched. Disable with `Markdown.configure({ paste: false })`. The test the plugin applies is exported as `looksLikeMarkdown(text)`, so a handler that takes over the paste path can reuse the same heuristic.
+Markdown-looking plain-text pastes convert automatically. Syntax-highlighted source copies, such as Markdown copied from VS Code, convert too when their HTML contains only source wrappers (`pre`, `div`, `span`, `br`), preserves whitespace, and matches the clipboard's plain text. HTML display formatting may expand tabs, but the original Markdown and its indentation are used for parsing. HTML with rich-text elements or editor metadata, copied editor code blocks, plain prose, and pastes into code blocks keep their usual handling. Disable with `Markdown.configure({ paste: false })`. The test the plugin applies is exported as `looksLikeMarkdown(text)`, so a handler that takes over the paste path can reuse the same heuristic.
 
 ## Options
 
