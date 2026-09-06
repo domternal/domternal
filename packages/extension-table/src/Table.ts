@@ -11,6 +11,7 @@ import {
   splitListForInsert,
   Gapcursor,
   warnOnDuplicateProseMirrorCopy,
+  isSafeCssValue,
 } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
@@ -341,6 +342,8 @@ export const Table = Node.create<TableOptions>({
       setCellAttribute:
         (name: string, value: unknown) =>
         ({ state, dispatch }) => {
+          // A background is written into the cell's style, so only a safe CSS value is stored.
+          if (name === 'background' && value !== null && !isSafeCssValue(value)) return false;
           return setCellAttr(name, value)(state, dispatch);
         },
 

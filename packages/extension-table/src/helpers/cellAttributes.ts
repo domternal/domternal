@@ -6,7 +6,11 @@
  * Note: textAlign and verticalAlign use data-* attributes (not inline style)
  * to avoid overwriting the background inline style. CSS attribute selectors
  * in _table-controls.scss apply the actual text-align / vertical-align.
+ *
+ * The background is written into the style attribute only when it is a safe
+ * CSS value: one that cannot add a declaration or load a resource.
  */
+import { isSafeCssValue } from '@domternal/core';
 import type { AttributeSpecs } from '@domternal/core';
 
 export function cellAttributes(): AttributeSpecs {
@@ -50,12 +54,17 @@ export function cellAttributes(): AttributeSpecs {
     background: {
       default: null,
       parseHTML: (element: HTMLElement) => {
-        return element.getAttribute('data-background') ?? (element.style.backgroundColor || null);
+        // An unsafe data-background falls back to the one property CSSOM read.
+        const data = element.getAttribute('data-background');
+        if (data !== null && isSafeCssValue(data)) return data;
+        return element.style.backgroundColor || null;
       },
       renderHTML: (attrs: Record<string, unknown>) => {
-        const bg = attrs['background'] as string | null;
-        if (!bg) return null;
-        return { 'data-background': bg, style: `background-color: ${bg}` };
+        const bg = attrs['background'];
+        // A stored value that could add a declaration or load a resource is
+        // not written; the document keeps it.
+        if (!bg || !isSafeCssValue(bg)) return null;
+        return { 'data-background': bg as string, style: `background-color: ${bg as string}` };
       },
     },
     textAlign: {

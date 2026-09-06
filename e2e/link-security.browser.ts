@@ -701,3 +701,40 @@ test.describe('stored style values in the browser', () => {
     expect(await page.locator('#fixture p').evaluate(element => getComputedStyle(element).textAlign)).toBe('center');
   });
 });
+
+test.describe('stored table cell backgrounds in the browser', () => {
+  const PROBE = 'https://probe.test/';
+
+  test('writes no declaration an unsafe cell background would add, and renders a safe one (G6)', async ({ page }) => {
+    const requests: string[] = [];
+    await page.context().route(`${PROBE}**`, route => {
+      requests.push(route.request().url());
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await open(page);
+    const cell = (background: unknown, value: string): Json => ({ type: 'tableCell', attrs: { background }, content: [paragraph(text(value))] });
+    const content = docOf({ type: 'table', content: [{ type: 'tableRow', content: [
+      cell(`red;background-image:url(${PROBE}cell)`, 'UNSAFE'),
+      cell('red;position:fixed;inset:0;z-index:2147483647', 'OVERLAY'),
+      cell([`url(${PROBE}array)`], 'ARRAY'),
+      cell('rgb(1, 2, 3)', 'SAFE'),
+    ] }] });
+    await setup(page, { content });
+    const html = await page.evaluate(() => (window as unknown as EditorWindow).__linkSecurity.getHTML());
+    const generated = await page.evaluate(json => (window as unknown as EditorWindow).__linkSecurity.generateHTML(json), content);
+    for (const output of [html, generated]) {
+      expect(output).not.toContain('probe.test');
+      expect(output).not.toContain('position');
+      expect(output).toContain('data-background="rgb(1, 2, 3)"');
+      expect(output).toMatch(/<td data-background="rgb\(1, 2, 3\)" style="background-color: [^"]+"><p>SAFE/);
+    }
+    await page.evaluate(markup => {
+      (window as unknown as { __linkSecurity: { show: (html: string) => void } }).__linkSecurity.show(markup);
+    }, html + generated);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as unknown as { __linkSecurity: { fixedElements: () => string[] } }).__linkSecurity.fixedElements())).toEqual([]);
+    expect(requests).toEqual([]);
+    const safe = page.locator('#fixture td').filter({ hasText: /^SAFE$/ });
+    expect(await safe.evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(1, 2, 3)');
+  });
+});

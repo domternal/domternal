@@ -94,6 +94,13 @@ Cells carry `colspan`, `rowspan`, `colwidth`, `background`, `textAlign`, and
 `setCellAttribute('background', '#ffe0e0')` or `setCellAttribute('textAlign', 'center')`
 sets them from code.
 
+A cell background is written into the cell's `style` only when it is a safe CSS value
+(`isSafeCssValue` from `@domternal/core`): a value that could add a declaration, such as
+`red;position:fixed`, or load a resource through `url()` is left out of the editor DOM,
+`getHTML()` and `generateHTML()`, and kept in the document. `setCellAttribute('background', value)`
+returns `false` for such a value. Parsing HTML reads `data-background` only when it is safe, and
+otherwise the cell's `background-color`.
+
 The package also exports the `TableView` node view, the `createTable` and
 `deleteTableWhenAllCellsSelected` helpers, and re-exports `CellSelection` and
 `TableMap` (which originate in `prosemirror-tables`) from `@domternal/pm/tables`,
