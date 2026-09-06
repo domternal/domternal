@@ -111,11 +111,12 @@ Call `useEditor({ history: false })` with `provideEditor` instead.
 components) report what loading content changed. `onContentError` receives
 `{ editor, error, content }` when the initial content does not match the schema, so the editor
 starts empty. `onContentDiagnostic` receives `{ editor, source, diagnostics, total }` when content
-loaded with replaced values, such as an unknown list marker that became the default marker. The
-report for the initial content arrives once the editor is ready, before `onCreate`. Later reports
-come from `setContent`, including a changed `v-model` or watched `content`, `insertContent`, and
-`normalizeListMarkers`. With `outputFormat: 'json'`, incoming content that equals the document once
-its unknown list markers are replaced leaves the document and selection alone.
+loaded with replaced values, such as an unknown list marker that became the default marker or a
+heading level the configuration lacks that became the nearest configured level. The report for
+the initial content arrives once the editor is ready, before `onCreate`. Later reports come from
+`setContent`, including a changed `v-model` or watched `content`, `insertContent`, and
+`normalizeContentAttributes`. With `outputFormat: 'json'`, incoming content that equals the
+document once such values are replaced leaves the document and selection alone.
 
 Toolbar, bubble-menu, and floating-menu `icons` props accept raw SVG through `IconSet`.
 Use only trusted, developer-authored constants. Never build an `IconSet` from user input,

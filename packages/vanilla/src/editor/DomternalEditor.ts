@@ -76,9 +76,11 @@ export interface DomternalEditorOptions {
   onContentError?: (ctx: Omit<ContentErrorProps, 'editor'> & { editor: Editor }) => void;
   /**
    * Called when content loaded with replaced values, such as an unknown list
-   * marker that became the default marker. The report for the initial content
-   * is delivered once the editor is ready, before `onCreate`; later reports
-   * come from setContent, insertContent and normalizeListMarkers.
+   * marker that became the default marker or a heading level the
+   * configuration lacks that became the nearest configured level. The report
+   * for the initial content is delivered once the editor is ready, before
+   * `onCreate`; later reports come from setContent, insertContent and
+   * normalizeContentAttributes.
    */
   onContentDiagnostic?: (ctx: Omit<ContentDiagnosticProps, 'editor'> & { editor: Editor }) => void;
 }

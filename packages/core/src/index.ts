@@ -319,7 +319,7 @@ export {
   lift,
   // List commands
   toggleList,
-  normalizeListMarkers,
+  normalizeContentAttributes,
   // Insert commands
   insertContent,
   // Selection commands

@@ -93,8 +93,8 @@ export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Reco
     // Refuse values validation rejects, as toggleList does: node creation
     // does not validate, so the document would keep a value its JSON cannot load.
     // A stored value that fails, such as an unknown list marker in an
-    // unmigrated document, stays for normalizeListMarkers to fix and does not
-    // block an unrelated change, and neither does a default that fails.
+    // unmigrated document, stays for normalizeContentAttributes to fix and
+    // does not block an unrelated change, and neither does a default that fails.
     if (
       nodeChanges.some(change => !validAttributes(state.schema, typeOrName, attributes, false, change.attrs))
       || markChanges.some(change => !validAttributes(state.schema, typeOrName, attributes, true, change.attrs))

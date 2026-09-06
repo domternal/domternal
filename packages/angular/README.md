@@ -131,11 +131,12 @@ export class FormEditorComponent {
 `contentError` emits `{ editor, error, content }` when the initial content does not match the
 schema, so the editor starts empty. `contentDiagnostic` emits `{ editor, source, diagnostics, total }`
 when content loaded with replaced values, such as an unknown list marker that became the default
-marker. The report for the initial content is emitted once the editor is ready, before
-`editorCreated`. Later reports come from `setContent`, including a changed `content` input or form
-value, `insertContent`, and `normalizeListMarkers`. With `outputFormat="json"`, a `content` input
-or form value that equals the document once its unknown list markers are replaced leaves the
-document and selection alone.
+marker or a heading level the configuration lacks that became the nearest configured level. The
+report for the initial content is emitted once the editor is ready, before `editorCreated`. Later
+reports come from `setContent`, including a changed `content` input or form value,
+`insertContent`, and `normalizeContentAttributes`. With `outputFormat="json"`, a `content` input
+or form value that equals the document once such values are replaced leaves the document and
+selection alone.
 
 ```html
 <domternal-editor [extensions]="extensions" [formControl]="editorControl" outputFormat="json"

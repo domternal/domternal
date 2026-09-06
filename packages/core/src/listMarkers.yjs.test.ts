@@ -3,7 +3,7 @@
  * clients. y-prosemirror builds nodes without attribute validation, so a
  * shared document may hold a marker this version does not know. Rendering
  * must show the default marker without rewriting or deleting anything, and
- * only the explicit normalizeListMarkers migration may change the shared
+ * only the explicit normalizeContentAttributes migration may change the shared
  * document, outside every undo history.
  */
 import { afterEach, describe, expect, it } from 'vitest';
@@ -135,15 +135,15 @@ describe('unknown list markers across Yjs clients', () => {
     typeAtEnd(a, '!');
     const depth = undoDepth(a);
     expect(depth).toBe(1);
-    expect(a.editor.commands.normalizeListMarkers()).toBe(true);
+    expect(a.editor.commands.normalizeContentAttributes()).toBe(true);
     for (const client of clients) {
       expect(sharedMarker(client)).toBeUndefined();
       expect(stateMarker(client)).toBeNull();
       expect(client.ydoc.getXmlFragment('default').length).toBe(2);
     }
     expect(undoDepth(a)).toBe(depth);
-    expect(b.editor.can().normalizeListMarkers()).toBe(false);
-    expect(b.editor.commands.normalizeListMarkers()).toBe(false);
+    expect(b.editor.can().normalizeContentAttributes()).toBe(false);
+    expect(b.editor.commands.normalizeContentAttributes()).toBe(false);
     expect(undo(a.editor.state)).toBe(true);
     for (const client of clients) {
       expect(client.editor.getText()).toBe('A\n\ntail');
@@ -157,8 +157,8 @@ describe('unknown list markers across Yjs clients', () => {
     const [a, b] = net.clients as [Client, Client];
     net.offline(a);
     net.offline(b);
-    expect(a.editor.commands.normalizeListMarkers()).toBe(true);
-    expect(b.editor.commands.normalizeListMarkers()).toBe(true);
+    expect(a.editor.commands.normalizeContentAttributes()).toBe(true);
+    expect(b.editor.commands.normalizeContentAttributes()).toBe(true);
     net.online(a);
     net.online(b);
     for (const client of net.clients) {
@@ -173,14 +173,14 @@ describe('unknown list markers across Yjs clients', () => {
     const net = network(2);
     const [a, b] = net.clients as [Client, Client];
     net.offline(a);
-    expect(a.editor.commands.normalizeListMarkers()).toBe(true);
+    expect(a.editor.commands.normalizeContentAttributes()).toBe(true);
     b.editor.view.dispatch(b.editor.state.tr.setNodeAttribute(0, 'listStyleType', 'decimal'));
     net.online(a);
     for (const client of net.clients) {
       expect(sharedMarker(client)).toBe('decimal');
       expect(stateMarker(client)).toBe('decimal');
     }
-    expect(b.editor.can().normalizeListMarkers()).toBe(false);
+    expect(b.editor.can().normalizeContentAttributes()).toBe(false);
   });
 
   it('a read-only client renders the default, refuses to migrate and converges on a writer migration', () => {
@@ -188,11 +188,11 @@ describe('unknown list markers across Yjs clients', () => {
     const [writer, viewer] = clients as [Client, Client];
     expect(viewer.editor.isEditable).toBe(false);
     expectDefaultRendering(viewer);
-    expect(viewer.editor.can().normalizeListMarkers()).toBe(false);
-    expect(viewer.editor.commands.normalizeListMarkers()).toBe(false);
+    expect(viewer.editor.can().normalizeContentAttributes()).toBe(false);
+    expect(viewer.editor.commands.normalizeContentAttributes()).toBe(false);
     expect(viewer.localUpdates).toBe(0);
     expect(sharedMarker(writer)).toBe('bogus');
-    expect(writer.editor.commands.normalizeListMarkers()).toBe(true);
+    expect(writer.editor.commands.normalizeContentAttributes()).toBe(true);
     expect(stateMarker(viewer)).toBeNull();
     expect(sharedMarker(viewer)).toBeUndefined();
     expect(viewer.localUpdates).toBe(0);

@@ -43,12 +43,14 @@ export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, Ba
 
 /**
  * Whether the editor already holds `content`, compared as JSON. Loading
- * replaces an unknown list marker with the default marker, so `content` also
- * counts as held once the same replacement makes it equal: a new but equal
- * value that still carries one must not replace the document and move the
- * selection. The plain comparison comes first, because the document itself
- * can hold an unknown marker (a bound collaborative document before
- * normalizeListMarkers runs), and its own JSON echoed back must not replace it.
+ * replaces an unknown list marker with the default marker and a heading level
+ * the configuration lacks with the nearest configured level, so `content`
+ * also counts as held once the same replacement makes it equal: a new but
+ * equal value that still carries one must not replace the document and move
+ * the selection. The plain comparison comes first, because the document
+ * itself can hold such a value (a bound collaborative document before
+ * normalizeContentAttributes runs), and its own JSON echoed back must not
+ * replace it.
  */
 function holdsJSONContent(editor: Editor, content: Content): boolean {
   const current = JSON.stringify(editor.getJSON());
@@ -111,10 +113,11 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   readonly contentError = output<Omit<ContentErrorProps, 'editor'> & { editor: Editor }>();
   /**
    * Content loaded with replaced values, such as an unknown list marker that
-   * became the default marker. The report for the initial content is emitted
-   * once the editor is ready, before `editorCreated`; later reports come from
-   * setContent (including a changed `content` input or form value),
-   * insertContent and normalizeListMarkers.
+   * became the default marker or a heading level the configuration lacks that
+   * became the nearest configured level. The report for the initial content
+   * is emitted once the editor is ready, before `editorCreated`; later
+   * reports come from setContent (including a changed `content` input or form
+   * value), insertContent and normalizeContentAttributes.
    */
   readonly contentDiagnostic = output<Omit<ContentDiagnosticProps, 'editor'> & { editor: Editor }>();
 

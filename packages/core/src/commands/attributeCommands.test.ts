@@ -90,7 +90,7 @@ describe('attributeCommands', () => {
       setSelection(editor, 3);
       expect(editor.can().updateAttributes('orderedList', { start: 3 })).toBe(true);
       expect(editor.commands.updateAttributes('orderedList', { start: 3 })).toBe(true);
-      // normalizeListMarkers, not an unrelated update, owns the stored value.
+      // normalizeContentAttributes, not an unrelated update, owns the stored value.
       expect(editor.state.doc.firstChild?.attrs).toMatchObject({ start: 3, listStyleType: 'bogus' });
       const before = editor.state.doc;
       expect(editor.commands.updateAttributes('orderedList', { listStyleType: 'bogus' })).toBe(false);

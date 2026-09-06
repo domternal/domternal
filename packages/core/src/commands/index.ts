@@ -44,7 +44,7 @@ export {
 
 // List commands
 export { toggleList } from './listCommands.js';
-export { normalizeListMarkers } from './normalizeListMarkers.js';
+export { normalizeContentAttributes } from './normalizeContentAttributes.js';
 
 // Attribute commands
 export {
@@ -58,7 +58,7 @@ import { setContent, clearContent, insertText, insertContent } from './contentCo
 import { toggleMark, setMark, unsetMark, unsetAllMarks } from './markCommands.js';
 import { setBlockType, toggleBlockType, wrapIn, toggleWrap, lift } from './nodeCommands.js';
 import { toggleList } from './listCommands.js';
-import { normalizeListMarkers } from './normalizeListMarkers.js';
+import { normalizeContentAttributes } from './normalizeContentAttributes.js';
 import { updateAttributes, resetAttributes } from './attributeCommands.js';
 
 export const builtInCommands: CommandMap = {
@@ -79,7 +79,7 @@ export const builtInCommands: CommandMap = {
   toggleWrap,
   lift,
   toggleList,
-  normalizeListMarkers,
+  normalizeContentAttributes,
   insertContent,
   selectNodeBackward,
   updateAttributes,
@@ -113,7 +113,7 @@ declare module '@domternal/core' {
     toggleList: CommandSpec<
       [listNodeName: string, listItemNodeName: string, attributes?: Attrs, options?: { perItem?: boolean }]
     >;
-    normalizeListMarkers: CommandSpec;
+    normalizeContentAttributes: CommandSpec;
     insertContent: CommandSpec<[content: Content]>;
     selectNodeBackward: CommandSpec;
     updateAttributes: CommandSpec<[typeOrName: string, attributes: Record<string, unknown>]>;

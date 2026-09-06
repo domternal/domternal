@@ -48,9 +48,9 @@ export interface Range {
 
 /**
  * A value that normalization replaced: in JSON content while it loaded, or
- * in the editor document through the normalizeListMarkers command. `path`
- * holds child indices from the normalized input, or from the document for
- * that command, to the node.
+ * in the editor document through the normalizeContentAttributes command.
+ * `path` holds child indices from the normalized input, or from the document
+ * for that command, to the node.
  *
  * - `unknown-list-marker`: a list marker this version does not know became
  *   null, the default marker.

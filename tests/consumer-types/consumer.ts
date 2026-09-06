@@ -281,7 +281,7 @@ editor.commands.wrapIn('blockquote');
 editor.commands.toggleWrap('blockquote');
 editor.commands.lift();
 editor.commands.toggleList('bulletList', 'listItem');
-editor.commands.normalizeListMarkers();
+editor.commands.normalizeContentAttributes();
 editor.commands.insertContent('<p>hi</p>');
 editor.commands.selectNodeBackward();
 editor.commands.updateAttributes('paragraph', { textAlign: 'center' });

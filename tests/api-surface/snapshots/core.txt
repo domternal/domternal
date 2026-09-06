@@ -249,8 +249,8 @@ NodeParseRule
 NodeRenderHTMLProps
 NodeViewContext
 normalizeContent
+normalizeContentAttributes
 NormalizeContentOptions
-normalizeListMarkers
 NotionColorPicker
 NotionColorPickerOptions
 NotionColorPickerStorage
