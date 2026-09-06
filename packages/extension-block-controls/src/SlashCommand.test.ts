@@ -91,6 +91,49 @@ describe('SlashCommand plugin', () => {
     editor.destroy();
   });
 
+  it('passes configured icons to the default popup renderer', () => {
+    const editor = new Editor({
+      extensions: [
+        Document, Text, Paragraph,
+        SlashCommand.configure({
+          icons: { callout: '<svg data-slash-custom-icon="callout"></svg>' },
+          items: [{ name: 'callout', label: 'Callout', icon: 'callout', command: vi.fn() }],
+        }),
+      ],
+    });
+
+    try {
+      editor.view.dispatch(editor.state.tr.insertText('/'));
+      const root = editor.view.dom.closest('.dm-editor') ?? document.body;
+      expect(root.querySelector('[data-slash-custom-icon="callout"]')).not.toBeNull();
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('leaves icon handling with a consumer-supplied renderer', () => {
+    const onStart = vi.fn();
+    const onExit = vi.fn();
+    const renderer = vi.fn(() => ({ onStart, onUpdate: vi.fn(), onExit, onKeyDown: () => false }));
+    const editor = new Editor({
+      extensions: [Document, Text, Paragraph, SlashCommand.configure({
+        icons: { custom: '<svg data-must-not-render="true"></svg>' },
+        items: [{ name: 'custom', label: 'Custom', icon: 'custom', command: 'insertText' }],
+        render: renderer,
+      })],
+    });
+    try {
+      editor.view.dispatch(editor.state.tr.insertText('/'));
+      expect(renderer).toHaveBeenCalledTimes(1);
+      expect(onStart).toHaveBeenCalledTimes(1);
+      expect(onStart.mock.calls[0]?.[0].items[0].icon).toBe('custom');
+      expect(editor.view.dom.parentElement?.querySelector('[data-must-not-render]')).toBeNull();
+    } finally {
+      editor.destroy();
+    }
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
   it('dismissSlashCommand resets plugin state', () => {
     const editor = makeEditor();
     // Simulate being active via meta

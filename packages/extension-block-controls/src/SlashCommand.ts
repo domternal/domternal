@@ -13,6 +13,7 @@ import type {
   Editor,
   FloatingMenuItem,
   FloatingMenuItemsOverride,
+  IconSet,
 } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
@@ -67,6 +68,11 @@ export interface SlashCommandOptions {
    * defaults; a function transforms them.
    */
   items?: FloatingMenuItemsOverride;
+  /**
+   * Trusted SVG overrides for the default popup renderer. Missing keys fall
+   * back to `defaultIcons`. Custom render factories resolve their own icons.
+   */
+  icons?: IconSet;
   /**
    * Factory returning render callbacks for the popup. Default uses
    * `createSlashSuggestionRenderer()`.
@@ -490,7 +496,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
         editor,
         char: this.options.char ?? '/',
         ...(this.options.items !== undefined && { items: this.options.items }),
-        render: this.options.render ?? createSlashSuggestionRenderer,
+        render: this.options.render ?? (() => createSlashSuggestionRenderer(this.options.icons)),
         invalidNodes: this.options.invalidNodes ?? ['codeBlock'],
       }),
     ];
