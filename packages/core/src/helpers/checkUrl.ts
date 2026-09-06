@@ -47,8 +47,10 @@ export interface UrlPolicyOptions {
  * - `allowed`: `url` is the cleaned spelling to render and open.
  * - `unsafe`: the value can run script or deceive: a `javascript:` or
  *   `vbscript:` address, a `data:` address the options do not allow,
- *   credentials in the address, a hidden control, bidi or format character,
- *   or a value that is not a string.
+ *   credentials in the address, a control character or a bidi embedding,
+ *   override or isolate anywhere, an invisible format character or bidi mark
+ *   in the scheme, the host or the address of a scheme without a host, or a
+ *   value that is not a string.
  * - `unsupported`: the value is harmless but these options do not allow it:
  *   another scheme, a relative or network-path reference, a backslash, an
  *   `&` where a character reference could spell a scheme or a host, an
@@ -85,17 +87,15 @@ export function cleanUrl(value: string): string {
 }
 
 /**
- * Controls, bidi controls, invisible format characters, the noncharacters
+ * Controls, the bidi embeddings, overrides and isolates, the noncharacters
  * U+FFFE and U+FFFF, and unpaired surrogates: characters that hide or reorder
- * what a reader sees of an address.
+ * what a reader sees of an address wherever they stand.
  */
 function hasHiddenCharacter(value: string): boolean {
   for (let index = 0; index < value.length; index++) {
     const code = value.charCodeAt(index);
-    if (code < 0x20 || (code >= 0x7f && code <= 0x9f) || code === 0x61c
-      || (code >= 0x200b && code <= 0x200f) || (code >= 0x202a && code <= 0x202e)
-      || (code >= 0x2060 && code <= 0x2064) || (code >= 0x2066 && code <= 0x2069)
-      || code === 0xfeff || code === 0xfffe || code === 0xffff) {
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f) || (code >= 0x202a && code <= 0x202e)
+      || (code >= 0x2066 && code <= 0x2069) || code === 0xfffe || code === 0xffff) {
       return true;
     }
     if (code >= 0xd800 && code <= 0xdbff) {
@@ -109,6 +109,34 @@ function hasHiddenCharacter(value: string): boolean {
     if (code >= 0xdc00 && code <= 0xdfff) return true;
   }
   return false;
+}
+
+/**
+ * The bidi marks and invisible format characters, such as the zero-width
+ * joiners of Persian, Arabic, Indic and emoji text. Browsers percent-encode
+ * them in a path, query or fragment, where they are ordinary text, but in a
+ * scheme or a host they hide what a reader sees.
+ */
+const FORMAT_CHARACTER = /[\u061c\u200b-\u200f\u2060-\u2064\ufeff]/;
+
+/**
+ * The part of an address that says where it leads: the scheme and the
+ * authority, such as `https://host:port`, or for a scheme without an
+ * authority, such as `mailto:name@host` or `tel:+1234`, everything up to the
+ * first `/`, `\`, `?` or `#`. A relative reference says it only as a network
+ * path (`//host`), or where its first segment holds a colon and so reads as a
+ * scheme to some consumers; any other relative reference stays on the page.
+ */
+function destinationOf(url: string, schemeLength: number): string {
+  if (schemeLength === 0 && !/^[/\\]{2}/.test(url)) {
+    const end = url.search(/[/\\?#]/);
+    const firstSegment = end < 0 ? url : url.slice(0, end);
+    return firstSegment.includes(':') ? firstSegment : '';
+  }
+  let start = schemeLength;
+  while (url[start] === '/' || url[start] === '\\') start++;
+  const end = url.slice(start).search(/[/\\?#]/);
+  return end < 0 ? url : url.slice(0, start + end);
 }
 
 /** The part of an address before its query or fragment. */
@@ -161,6 +189,7 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
   } = options;
   const match = SCHEME.exec(url);
   const scheme = match ? normalizeUrlProtocol(match[1] ?? '') : null;
+  if (FORMAT_CHARACTER.test(destinationOf(url, match?.[0].length ?? 0))) return UNSAFE;
 
   if (!allowNetworkPath && (scheme === null || SPECIAL_SCHEMES.has(scheme)) && beforeQuery(url).includes('\\')) {
     return UNSUPPORTED;

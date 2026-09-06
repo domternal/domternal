@@ -75,7 +75,7 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A6', value: 'https://x.example/\u2066a', link: 'unsafe', image: UNSAFE },
   { id: 'A6', value: 'https://x.example/\u0085', link: 'unsafe', image: UNSAFE },
   { id: 'A6', value: 'https://x.example/\u007f', link: 'unsafe', image: UNSAFE },
-  { id: 'A6', value: 'https://x.example/\ufeff', link: 'unsafe', image: UNSAFE },
+  { id: 'A6', value: 'https://x.\u200bexample/', link: 'unsafe', image: UNSAFE },
   { id: 'A6', value: 'https://x.example/\ud800', link: 'unsafe', image: UNSAFE },
   { id: 'A6', value: 'https://x.example/\udc00', link: 'unsafe', image: UNSAFE },
   { id: 'A7', value: 'vbscript:msgbox(1)', link: 'unsafe', image: UNSAFE, script: true },
@@ -171,6 +171,34 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A23', value: { toString: () => 'javascript:alert(1)' }, link: 'unsafe', image: UNSAFE },
   // Longer than a diagnostic reports, still classified as usual.
   { id: 'A24', value: `https://example.com/${'a'.repeat(80)}`, link: 'allowed', image: ALLOWED },
+  // The joiners and marks of Persian, Arabic, Indic and emoji text are ordinary characters of a path, query or
+  // fragment, which browsers percent-encode. In a scheme or a host, or in the address of a scheme without a host,
+  // they hide what a reader sees. Bidi embeddings, overrides and isolates stay refused anywhere (A6).
+  { id: 'A31', value: 'https://fa.wikipedia.org/wiki/\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: 'https://hi.wikipedia.org/wiki/\u0915\u094d\u200d\u0937', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: 'https://example.com/search?q=\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: 'https://example.com/a\u200e\u200f\u061c\u2060\u2064b#c\u200bd\ufeff', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: 'https://x.example/\ufeff', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: 'mailto:a@b.example?subject=\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: '/wiki/\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A31', value: '\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645.html', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A31', value: '?q=\u0645\u06cc\u200c', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A31', value: '#\u200d', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A31', value: 'data:image/svg+xml,<svg><text>a\u200db</text></svg>', link: 'unsafe', image: ['allowed', 'unsafe'] },
+  { id: 'A31', value: 'https://exa\u200dmple.com/', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https://example.com\u200b/', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https://example.com:44\u200c3/', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https://\u200eexample.com', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https:\u200b//example.com/', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https:exa\u200bmple.com', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'http\u200bs://example.com/', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'mailto:a\u200db@example.com', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'tel:+385\u200e1234', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: '//cdn\u200c.example/x.png', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: '\\\\cdn\u200c.example\\x.png', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: '\ufeffjavascript:alert(1)', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https://example.com/\u202eexe.txt', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: '?q=\u2067x', link: 'unsafe', image: UNSAFE },
 ];
 
 /** Pieces the fuzzer joins: scheme parts, delimiters, controls, bidi and look-alike characters. */
@@ -178,7 +206,7 @@ const FUZZ_PIECES = [
   'javascript', 'JaVaScRiPt', 'vbscript', 'data', 'http', 'https', 'mailto', 'tel', 'file', 'ftp', 'blob',
   ':', ':', '/', '//', '\\', '#', '?', '%', '%3A', '%0a', '&', '&colon;', '&#58;', '&#x3a;', '&#106;', '&#47;',
   '&sol;', '&bsol;', '&commat;', '&Tab;', '&amp;', ';', ',', '@', '.', '-', '+',
-  '\t', '\n', '\r', '\u0000', '\u0001', '\u001f', ' ', '\u00a0', '\u200b', '\u202e', '\u2066', '\ufeff',
+  '\t', '\n', '\r', '\u0000', '\u0001', '\u001f', ' ', '\u00a0', '\u200b', '\u200c', '\u200d', '\u200e', '\u202e', '\u2066', '\ufeff',
   '\uff4a', '\u0430', '\ud800', 'x', 'example.com', 'evil.example', 'alert(1)', 'image/png', 'text/html',
   'base64', 'user:pass', '0', '9',
 ];

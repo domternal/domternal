@@ -36,7 +36,7 @@ describe('checkUrl', () => {
     it('covers every row of the edge-case matrix that judges a single value', () => {
       const ids = new Set(URL_CORPUS.map(row => row.id));
       for (const id of ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12', 'A13', 'A14',
-        'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24']) {
+        'A16', 'A17', 'A18', 'A19', 'A20', 'A21', 'A22', 'A23', 'A24', 'A30', 'A31']) {
         expect(ids.has(id), id).toBe(true);
       }
     });
@@ -98,6 +98,52 @@ describe('checkUrl', () => {
       const protocols = [42, null, 'https:'] as unknown as string[];
       expect(checkUrl('https://example.com/', { protocols }).status).toBe('allowed');
       expect(checkUrl('http://example.com/', { protocols }).status).toBe('unsupported');
+    });
+  });
+
+  describe('format characters', () => {
+    const FORMAT = ['\u061c', '\u200b', '\u200c', '\u200d', '\u200e', '\u200f', '\u2060', '\u2061', '\u2062', '\u2063', '\u2064', '\ufeff'];
+    const BIDI_CONTROLS = ['\u202a', '\u202b', '\u202c', '\u202d', '\u202e', '\u2066', '\u2067', '\u2068', '\u2069'];
+    const options = { protocols: ['https:', 'mailto:', 'tel:', 'myapp:'], allowRelative: true };
+
+    it('allows each joiner and mark in a path, query or fragment, where browsers percent-encode it', () => {
+      for (const char of FORMAT) {
+        for (const value of [`https://example.com/a${char}b`, `https://example.com/?q=a${char}b`, `https://example.com/#a${char}b`,
+          `mailto:a@b.example?subject=a${char}b`, `myapp://host/a${char}b`, `/a${char}b`, `./a${char}b`,
+          `a${char}b.html`, `a${char}b/c`, `?a${char}b`, `#a${char}b`]) {
+          expect(checkUrl(value, options), JSON.stringify(value)).toEqual({ status: 'allowed', url: value });
+        }
+      }
+    });
+
+    it('refuses each one in a scheme, a host, a port, or the address of a scheme without a host', () => {
+      for (const char of FORMAT) {
+        for (const value of [`ht${char}tps://example.com/`, `https${char}://example.com/`, `https:${char}//example.com/`,
+          `https:/${char}/example.com/`, `https://${char}example.com/`, `https://exa${char}mple.com/`, `https://example.com${char}/`,
+          `https://example.com${char}?q`, `https://example.com${char}#f`, `https://example.com:443${char}/`, `https:exa${char}mple.com`,
+          `mailto:a${char}@b.example`, `mailto:a@b.example${char}?subject=x`, `tel:+385${char}123`, `myapp://ho${char}st/path`,
+          `myapp:a${char}b`, `//exa${char}mple.com/x`, `/\\exa${char}mple.com/x`, `ja${char}vascript:alert(1)`, `a${char}b:c`]) {
+          expect(checkUrl(value, { ...options, allowNetworkPath: true }).status, JSON.stringify(value)).toBe('unsafe');
+          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
+        }
+      }
+    });
+
+    it('refuses bidi embeddings, overrides and isolates anywhere, as they reorder how the rest reads', () => {
+      for (const char of BIDI_CONTROLS) {
+        for (const value of [`https://example.com/a${char}b`, `https://example.com/?q=${char}`, `https://example.com/#${char}`,
+          `/a${char}b`, `?${char}`, `#${char}`, `https://exa${char}mple.com/`]) {
+          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
+        }
+      }
+    });
+
+    it('stays linear when a long value holds them', () => {
+      const start = performance.now();
+      checkUrl(`https://example.com/${'\u200c'.repeat(1_000_000)}`, LINK_PROFILE);
+      checkUrl(`${'\u200c'.repeat(1_000_000)}:`, LINK_PROFILE);
+      checkUrl(`https://${'\u200c'.repeat(1_000_000)}`, LINK_PROFILE);
+      expect(performance.now() - start).toBeLessThan(2000);
     });
   });
 

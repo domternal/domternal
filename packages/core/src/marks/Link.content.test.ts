@@ -66,7 +66,8 @@ describe('link hrefs in JSON content', () => {
     ['a hidden script scheme', 'java\tscript:alert(1)', 'unsafe-url', 'java\tscript:alert(1)'],
     ['a data address', 'data:text/html,x', 'unsafe-url', 'data:text/html,x'],
     ['credentials', 'https://google.com@evil.example/', 'unsafe-url', 'https://google.com@evil.example/'],
-    ['a hidden character', 'https://x.example/​', 'unsafe-url', 'https://x.example/​'],
+    ['a hidden character in the host', 'https://x\u200b.example/', 'unsafe-url', 'https://x\u200b.example/'],
+    ['a bidi override', 'https://x.example/\u202eexe.txt', 'unsafe-url', 'https://x.example/\u202eexe.txt'],
     ['an array', ['javascript:alert(1)'], 'unsafe-url'],
     ['a number', 42, 'unsafe-url', 42],
     ['an object', { a: 1 }, 'unsafe-url'],
@@ -103,6 +104,31 @@ describe('link hrefs in JSON content', () => {
     const { editor: ed, reports } = mount(doc(linked('a', ' https://example.com/ '), linked('b', long)));
     expect(hrefs(ed)).toEqual([' https://example.com/ ']);
     expect(reports[0]?.diagnostics).toEqual([{ code: 'unsupported-url', nodeType: 'text', markType: 'link', attribute: 'href', path: [0, 1] }]);
+  });
+
+  it('keeps links whose path, query or fragment holds the joiners of Persian, Indic and emoji text', () => {
+    const persian = 'https://fa.wikipedia.org/wiki/\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645';
+    const hindi = '/wiki/\u0915\u094d\u200d\u0937';
+    const emoji = 'https://example.com/search?q=\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67#\u200e';
+    const { editor: ed, reports } = mount(doc(linked('fa', persian), { type: 'text', text: ' ' }, linked('hi', hindi), { type: 'text', text: ' ' }, linked('em', emoji)));
+    expect(hrefs(ed)).toEqual([persian, hindi, emoji]);
+    expect(reports).toEqual([]);
+    const anchors = Array.from(ed.view.dom.querySelectorAll('a'), anchor => anchor.getAttribute('href'));
+    expect(anchors).toEqual([persian, hindi, emoji]);
+    expect(generateHTML(doc(linked('fa', persian)), extensions())).toBe(`<p><a href="${persian}">fa</a></p>`);
+    ed.commands.setContent(`<p><a href="${persian}">parsed</a></p>`);
+    expect(hrefs(ed)).toEqual([persian]);
+    ed.commands.selectAll();
+    expect(ed.commands.setLink({ href: emoji })).toBe(true);
+    expect(hrefs(ed)).toEqual([emoji]);
+    expect(isSupportedAttributeValue(ed.schema, 'link', 'href', hindi)).toBe(true);
+  });
+
+  it('removes a link whose host holds a joiner, where it would hide the real host', () => {
+    const { editor: ed, reports } = mount(doc(linked('x', 'https://exa\u200dmple.com/')));
+    expect(hrefs(ed)).toEqual([]);
+    expect(reports[0]?.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['unsafe-url']);
+    expect(isSupportedAttributeValue(ed.schema, 'link', 'href', 'https://example.com\u200c/')).toBe(false);
   });
 
   it('allows the schemes the Link protocols list', () => {

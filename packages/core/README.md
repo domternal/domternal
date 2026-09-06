@@ -259,9 +259,12 @@ isValidUrl('https://example.com/');          // true
 ```
 
 - `unsafe`: `javascript:` and `vbscript:` addresses whatever `protocols` lists, `data:` addresses
-  other than an allowed image, credentials such as `https://google.com@evil.example/`, hidden
-  control, bidi and format characters, and values that are not strings (an array would otherwise
-  be stringified into an address).
+  other than an allowed image, credentials such as `https://google.com@evil.example/`, control
+  characters and bidi embeddings, overrides and isolates anywhere, invisible format characters
+  and bidi marks in the scheme, the host or the address of a scheme without a host (such as
+  `mailto:` or `tel:`), and values that are not strings (an array would otherwise be stringified
+  into an address). The zero-width joiners and marks of Persian, Arabic, Indic and emoji text
+  stay allowed in a path, query or fragment, which browsers percent-encode.
 - `unsupported`: a harmless value these options do not allow, such as another scheme, a relative
   reference without `allowRelative`, a network path (`//host`) or a backslash, which browsers
   read as a slash in web addresses, an address the URL parser rejects, and empty values, `null`
@@ -363,8 +366,9 @@ or remove the link that carries it, instead of failing the whole document, and r
   first, and any other value loads as the first configured level.
 - A link whose href the Link's URL policy refuses is removed and its text kept, including a link
   mark without an href. `unsafe-url` reports an href no configuration allows: a `javascript:`,
-  `vbscript:` or `data:` address, credentials, a hidden control, bidi or format character, or a
-  value that is not a string. `unsupported-url` reports an href this configuration does not
+  `vbscript:` or `data:` address, credentials, a control character or bidi override anywhere, a
+  format character such as a zero-width joiner in the scheme or host, or a value that is not a
+  string. `unsupported-url` reports an href this configuration does not
   allow: a scheme outside `protocols`, a relative link with `allowRelative: false`, a network
   path, a backslash, an address the URL parser rejects, or an empty or missing href. An allowed
   href is kept exactly as stored.

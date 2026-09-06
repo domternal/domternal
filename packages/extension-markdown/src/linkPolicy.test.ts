@@ -246,6 +246,9 @@ describe('round trips (J10)', () => {
     ['/docs/page?x=1&y=2#frag', 'multi\nline'],
     ['#section', null],
     ['https://ok.example/(paren)', null],
+    // The joiners of Persian, Indic and emoji text are ordinary characters of a path or query.
+    ['https://fa.wikipedia.org/wiki/\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645', null],
+    ['/wiki/\u0915\u094d\u200d\u0937?q=\ud83d\udc68\u200d\ud83d\udc69', null],
   ])('parses back to the same link for %j', (href, title) => {
     const { markdown } = serializeMarkdown(stored(href, 'x', title));
     const parsed = parseMarkdown(markdown, schema);

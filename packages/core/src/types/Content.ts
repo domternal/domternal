@@ -58,8 +58,9 @@ export interface Range {
  *   lacks, or a value that is not a level, became the nearest configured level.
  * - `unsafe-url`: a link whose href could run script or deceive was removed,
  *   and its text kept: a `javascript:`, `vbscript:` or `data:` address,
- *   credentials, a hidden control, bidi or format character, or a value that
- *   is not a string. No configuration allows these.
+ *   credentials, a control character or bidi override anywhere, a format
+ *   character such as a zero-width joiner in the scheme or host, or a value
+ *   that is not a string. No configuration allows these.
  * - `unsupported-url`: a link whose href this Link configuration does not
  *   allow was removed, and its text kept: a scheme outside `protocols`, a
  *   relative reference the Link does not allow, a network path, a backslash,
