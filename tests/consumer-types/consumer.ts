@@ -436,3 +436,21 @@ if (urlCheck.status === 'allowed') {
   void cleaned;
 }
 isValidUrl(['https://example.com/'], { protocols: 'any', allowNetworkPath: true, allowDataImages: true });
+
+// A custom link UI asks whether loading would keep a stored href before it opens or exports it.
+import { isSupportedAttributeValue } from '@domternal/core';
+import type { ContentDiagnostic } from '@domternal/core';
+
+const keepsHref: boolean = isSupportedAttributeValue(editor.schema, 'link', 'href', editor.getAttributes('link')['href']);
+void keepsHref;
+const describeDiagnostic = (diagnostic: ContentDiagnostic): string => {
+  switch (diagnostic.code) {
+    case 'unsafe-url':
+    case 'unsupported-url':
+      return `${diagnostic.markType ?? diagnostic.nodeType} ${diagnostic.attribute}`;
+    case 'unknown-list-marker':
+    case 'unsupported-heading-level':
+      return diagnostic.nodeType;
+  }
+};
+void describeDiagnostic;

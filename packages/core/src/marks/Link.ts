@@ -7,7 +7,9 @@ import { localizedGroup } from '../messages/presentation.js';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import { Mark } from '../Mark.js';
 import type { CommandSpec } from '../types/Commands.js';
-import { checkUrl, type UrlPolicyOptions } from '../helpers/checkUrl.js';
+import { checkUrl, normalizeUrlProtocol, type UrlPolicyOptions } from '../helpers/checkUrl.js';
+import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
+import { registerAttributeNormalizer } from '../utils/normalizedAttributes.js';
 import { getMarkRange } from '../helpers/getMarkRange.js';
 import { linkClickPlugin } from './helpers/linkClickPlugin.js';
 import { linkPastePlugin } from './helpers/linkPastePlugin.js';
@@ -22,7 +24,10 @@ export interface LinkOptions {
    */
   HTMLAttributes: Record<string, unknown>;
   /**
-   * List of allowed URL protocols
+   * The schemes a link may use, such as `'https:'`, in any case, with or
+   * without the colon. The URL policy refuses credentials and hidden
+   * characters whatever this lists. `javascript:`, `vbscript:` and `data:`
+   * fail editor creation with an ExtensionConfigurationError.
    * @default ['http:', 'https:', 'mailto:', 'tel:']
    */
   protocols: string[];
@@ -81,9 +86,40 @@ export interface LinkAttributes {
   class?: string | null;
 }
 
+/** Schemes no Link configuration may allow: each can run script or show a document of its own. */
+const FORBIDDEN_PROTOCOLS = new Set(['javascript:', 'vbscript:', 'data:']);
+const checkedProtocols = new WeakMap<object, readonly string[]>();
+
+/**
+ * Checks the `protocols` option and spells each entry as the URL parser
+ * reports a scheme, so `'HTTPS'` means `https:`. A list that is not a list of
+ * schemes, or that names a script or data scheme, fails loudly: silently
+ * ignoring it would leave links the application expects, or allow ones it
+ * never should.
+ */
+function configuredProtocols(protocols: unknown): readonly string[] {
+  if (!Array.isArray(protocols)) {
+    throw new ExtensionConfigurationError("Link: protocols must be a list of schemes, such as ['https:']");
+  }
+  const cached = checkedProtocols.get(protocols);
+  if (cached) return cached;
+  const schemes = (protocols as unknown[]).map(entry => {
+    if (typeof entry !== 'string' || !/^[a-z][a-z0-9+.-]*:?$/i.test(entry)) {
+      throw new ExtensionConfigurationError(`Link: protocols entry ${JSON.stringify(entry)} is not a URL scheme`);
+    }
+    const scheme = normalizeUrlProtocol(entry);
+    if (FORBIDDEN_PROTOCOLS.has(scheme)) {
+      throw new ExtensionConfigurationError(`Link: protocols cannot allow ${scheme}, which can run script`);
+    }
+    return scheme;
+  });
+  checkedProtocols.set(protocols, schemes);
+  return schemes;
+}
+
 /** The URL policy of a Link configuration. */
 function linkPolicy(options: LinkOptions): UrlPolicyOptions {
-  return { protocols: options.protocols };
+  return { protocols: configuredProtocols(options.protocols) };
 }
 
 /** The Link's own attributes, which a refused link does not render. */
@@ -148,9 +184,29 @@ export const Link = Mark.create<LinkOptions>({
   },
 
   addAttributes() {
+    // Checked while the schema is built, so a misconfiguration fails the editor or SSR helper.
+    const policy = linkPolicy(this.options);
+    // Validation rejects only what no configuration can hold, a value that is
+    // not a string, so a document written by a collaborator with wider
+    // protocols still loads in Node.fromJSON, Node.check and Step.fromJSON.
+    // The JSON entry points remove a link whose href this policy refuses and
+    // report it; rendering shows its text without changing the document.
+    const invalid = (value: unknown): boolean => value !== null && typeof value !== 'string';
+    const validate = (value: unknown): void => {
+      if (invalid(value)) throw new RangeError('Invalid link href');
+    };
+    registerAttributeNormalizer(validate, {
+      code: 'unsupported-url',
+      codeFor: value => (checkUrl(value, policy).status === 'unsafe' ? 'unsafe-url' : 'unsupported-url'),
+      invalid,
+      unsupported: value => checkUrl(value, policy).status !== 'allowed',
+      replacement: () => null,
+      removesMark: true,
+    });
     return {
       href: {
         default: null,
+        validate,
       },
       target: {
         default: null,
@@ -364,7 +420,7 @@ export const Link = Mark.create<LinkOptions>({
         type: markType,
         openOnClick: this.options.openOnClick,
         enableClickSelection: this.options.enableClickSelection,
-        protocols: this.options.protocols,
+        protocols: configuredProtocols(this.options.protocols),
         noreferrer: this.options.addRelNoopener,
       })
     );
@@ -374,7 +430,7 @@ export const Link = Mark.create<LinkOptions>({
       plugins.push(
         linkPastePlugin({
           type: markType,
-          protocols: this.options.protocols,
+          protocols: configuredProtocols(this.options.protocols),
         })
       );
     }
@@ -413,7 +469,7 @@ export const Link = Mark.create<LinkOptions>({
       plugins.push(
         autolinkPlugin({
           type: markType,
-          protocols: this.options.protocols,
+          protocols: configuredProtocols(this.options.protocols),
           defaultProtocol: this.options.defaultProtocol,
           ...(this.options.shouldAutoLink && {
             shouldAutoLink: this.options.shouldAutoLink,

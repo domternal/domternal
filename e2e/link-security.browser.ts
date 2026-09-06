@@ -201,6 +201,7 @@ const LAYOUTS: Record<string, (href: unknown) => Json> = {
 interface EditorWindow {
   __linkSecurity: FixtureWindow['__linkSecurity'] & {
     create: (options: Json) => string;
+    diagnostics: () => Json[];
     opens: () => string[][];
     getHTML: () => string;
     getJSON: () => unknown;
@@ -251,8 +252,9 @@ test.describe('link sinks in the browser', () => {
         await editor.locator('span', { hasText: 'CLICK' }).click();
         const html = await page.evaluate(() => (window as unknown as EditorWindow).__linkSecurity.getHTML());
         expect(html, JSON.stringify(href)).toBe('<p>before <span>CLICK</span></p>');
+        // generateHTML loads the JSON, which removes the link and keeps its text.
         expect(await page.evaluate(content => (window as unknown as EditorWindow).__linkSecurity.generateHTML(content), content))
-          .toBe('<p>before <span>CLICK</span></p>');
+          .toBe('<p>before CLICK</p>');
       }
       expect(await opens(page)).toEqual([]);
     }
@@ -490,5 +492,26 @@ test.describe('link targets and rel in the browser', () => {
     });
     await expect(page.locator('#fixture a')).not.toHaveAttribute('target', /.*/);
     await Promise.all([page.waitForURL(`${LANDING}named`), page.locator('#fixture a').click()]);
+  });
+});
+
+test.describe('links in loaded JSON in the browser', () => {
+  test('removes links with refused hrefs while loading, keeps their text and reports each (B2)', async ({ page }) => {
+    const dialogs: string[] = [];
+    page.on('dialog', dialog => { dialogs.push(dialog.message()); void dialog.dismiss(); });
+    await open(page);
+    const content = docOf(paragraph(...UNSAFE_HREFS.map((href, index) => text(`[${String(index)}] `, [linkMark(href)])), text('ok', [linkMark(`${LANDING}ok`)])));
+    await setup(page, { content, load: true });
+    const editor = page.locator('#fixture .ProseMirror');
+    await expect(editor.locator('a')).toHaveCount(1);
+    await expect(editor.locator('span')).toHaveCount(0);
+    const diagnostics = await page.evaluate(() => (window as unknown as EditorWindow).__linkSecurity.diagnostics());
+    expect(diagnostics.map(diagnostic => [diagnostic['code'], diagnostic['markType'], diagnostic['attribute']]))
+      .toEqual(UNSAFE_HREFS.map(() => ['unsafe-url', 'link', 'href']));
+    for (let index = 0; index < UNSAFE_HREFS.length; index++) {
+      await editor.getByText(`[${String(index)}]`).click();
+    }
+    expect(await opens(page)).toEqual([]);
+    await expectNothingRan(page, dialogs);
   });
 });

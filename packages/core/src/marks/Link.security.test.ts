@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, afterEach, type MockInstance } from 'vitest';
 import { parseHTML } from 'linkedom';
-import { DOMParser as PMDOMParser } from '@domternal/pm/model';
+import { DOMParser as PMDOMParser, DOMSerializer, type Node as PMNode, type Schema } from '@domternal/pm/model';
 import { TextSelection } from '@domternal/pm/state';
 import { Editor } from '../Editor.js';
 import { Document } from '../nodes/Document.js';
@@ -59,8 +59,24 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/**
+ * Builds a document without validation or content normalization, as
+ * y-prosemirror binds what a collaborator wrote, so a refused href reaches
+ * the sinks. Loading the same JSON through the editor would remove it.
+ */
+function uncheckedNode(schema: Schema, json: JSONContent): PMNode {
+  const marks = (json.marks ?? []).map(mark => schema.marks[mark.type]!.create(mark.attrs));
+  if (json.type === 'text') return schema.text(json.text ?? '', marks);
+  return schema.nodes[json.type]!.create(json.attrs, (json.content ?? []).map(child => uncheckedNode(schema, child)), marks);
+}
+
+/** An editor whose document holds `content` as stored: JSON goes in unchecked, HTML is parsed. */
 function create(content: JSONContent | string, options: Partial<LinkOptions> = {}, editable = true): Editor {
-  editor = new Editor({ extensions: extensions(options), content, editable });
+  editor = new Editor({ extensions: extensions(options), content: typeof content === 'string' ? content : null, editable });
+  if (typeof content !== 'string') {
+    const { tr } = editor.state;
+    editor.view.dispatch(tr.replaceWith(0, tr.doc.content.size, uncheckedNode(editor.schema, content).content));
+  }
   return editor;
 }
 
@@ -75,7 +91,7 @@ function click(view: Editor['view'], target: Element, init: MouseEventInit = {})
 const spyOpen = (): MockInstance<typeof window.open> => vi.spyOn(window, 'open').mockImplementation(() => null);
 
 describe('Link rendering against the URL policy', () => {
-  it.each(UNSAFE_HREFS.map(href => [JSON.stringify(href), href]))('renders %s as a span in the editor, getHTML and generateHTML (F1)', (_label, href) => {
+  it.each(UNSAFE_HREFS.map(href => [JSON.stringify(href), href]))('renders a stored %s as a span in the editor and getHTML, and generateHTML drops it (F1)', (_label, href) => {
     const content = doc([{ type: 'text', text: 'before ' }, link(href, 'CLICK')]);
     for (const editable of [true, false]) {
       const { view } = create(content, {}, editable);
@@ -84,9 +100,19 @@ describe('Link rendering against the URL policy', () => {
       expect(editor?.getHTML()).toBe('<p>before <span>CLICK</span></p>');
       editor?.destroy();
     }
-    expect(generateHTML(content, extensions())).toBe('<p>before <span>CLICK</span></p>');
+    // generateHTML loads JSON, which removes the link and keeps its text.
+    expect(generateHTML(content, extensions())).toBe('<p>before CLICK</p>');
     const { document } = parseHTML('<!DOCTYPE html><html><body></body></html>');
-    expect(generateHTML(content, extensions(), { document })).toBe('<p>before <span>CLICK</span></p>');
+    expect(generateHTML(content, extensions(), { document })).toBe('<p>before CLICK</p>');
+  });
+
+  it('renders a stored refused href as a span in generateHTML under linkedom through a document the editor holds', () => {
+    const { document } = parseHTML('<!DOCTYPE html><html><body></body></html>');
+    const { view } = create(doc([link(['javascript:alert(1)'], 'CLICK')]));
+    const fragment = DOMSerializer.fromSchema(view.state.schema).serializeFragment(view.state.doc.content, { document });
+    const container = document.createElement('div');
+    container.appendChild(fragment);
+    expect(container.innerHTML).toBe('<p><span>CLICK</span></p>');
   });
 
   it('renders a link without href as a span, dropping its link attributes and the HTMLAttributes option', () => {

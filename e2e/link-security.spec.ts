@@ -15,6 +15,10 @@ const FLAG = 'void((window.opener||window).__pwned=document.domain,alert(1))';
 interface DemoEditor {
   commands: { setContent: (content: unknown, options?: { emitUpdate?: boolean }) => boolean };
   getHTML: () => string;
+  getText: () => string;
+  schema: { marks: Record<string, { create: (attrs: Record<string, unknown>) => unknown }> };
+  state: { doc: { content: { size: number } }; tr: { addMark: (from: number, to: number, mark: unknown) => unknown } };
+  view: { dispatch: (tr: unknown) => void };
 }
 
 async function goNotion(page: Page, target: DemoTarget): Promise<void> {
@@ -42,18 +46,39 @@ for (const target of demoTargets) {
       await context.route(`${LANDING}**`, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><p>landing</p>' }));
     });
 
-    test('renders stored refused hrefs as text and opens nothing for them', async ({ page }) => {
-      const dialogs: string[] = [];
-      page.on('dialog', dialog => { dialogs.push(dialog.message()); void dialog.dismiss(); });
+    test('removes refused hrefs from loaded JSON and keeps the text', async ({ page }) => {
       await goNotion(page, target);
       const html = await setJSON(page, { type: 'doc', content: [{ type: 'paragraph', content: [
         link('ARRAY', [`javascript:${FLAG}`]),
         { type: 'text', text: ' ' },
         link('SCRIPT', ` java\tscript:${FLAG}`),
-        { type: 'text', text: ' ' },
-        link('CREDENTIALS', 'https://google.com@evil.example/'),
       ] }] });
       expect(html).not.toContain('href');
+      expect(html).not.toContain('<span');
+      await expect(page.locator(target.editorSelector).locator('a')).toHaveCount(0);
+      expect(await page.evaluate(() => ((window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as DemoEditor).getText()))
+        .toBe('ARRAY SCRIPT');
+    });
+
+    test('renders stored refused hrefs as text and opens nothing for them', async ({ page }) => {
+      const dialogs: string[] = [];
+      page.on('dialog', dialog => { dialogs.push(dialog.message()); void dialog.dismiss(); });
+      await goNotion(page, target);
+      await setJSON(page, { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'ARRAY SCRIPT CREDENTIALS' }] }] });
+      // As a collaborator's document binds: marks created without validation or loading.
+      const html = await page.evaluate((hrefs) => {
+        const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as DemoEditor;
+        const tr = editor.state.tr;
+        let from = 1;
+        for (const [word, href] of hrefs) {
+          tr.addMark(from, from + word.length, editor.schema.marks['link']?.create({ href }));
+          from += word.length + 1;
+        }
+        editor.view.dispatch(tr);
+        return editor.getHTML();
+      }, [['ARRAY', [`javascript:${FLAG}`]], ['SCRIPT', ` java\tscript:${FLAG}`], ['CREDENTIALS', 'https://google.com@evil.example/']] as [string, unknown][]);
+      expect(html).not.toContain('href');
+      expect(html).toContain('<span>ARRAY</span>');
       const editor = page.locator(target.editorSelector);
       await expect(editor.locator('a')).toHaveCount(0);
       for (const text of ['ARRAY', 'SCRIPT', 'CREDENTIALS']) {

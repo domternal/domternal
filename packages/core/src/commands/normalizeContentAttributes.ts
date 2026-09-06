@@ -2,8 +2,9 @@
  * NormalizeContentAttributes command: the explicit migration for stored
  * attribute values that loading JSON content would replace, the document
  * counterpart of normalizeContent. It covers list markers this version does
- * not know and heading levels the Heading configuration lacks, including
- * values that are not levels at all.
+ * not know, heading levels the Heading configuration lacks, including values
+ * that are not levels at all, and links whose href the URL policy refuses,
+ * which it removes while keeping their text.
  *
  * JSON entry points normalize such values while loading, but a document can
  * still hold one: a collaborative document binds without validation, a
@@ -17,7 +18,7 @@
  */
 import type { EditorView } from '@domternal/pm/view';
 import type { CommandSpec } from '../types/Commands.js';
-import { forEachNormalizedAttribute } from '../utils/normalizedAttributes.js';
+import { diagnosticCode, forEachNormalizedAttribute } from '../utils/normalizedAttributes.js';
 import { contentReport, recordContentDiagnostics, reportReplacedValue } from '../helpers/normalizeContent.js';
 
 /**
@@ -35,13 +36,29 @@ export const normalizeContentAttributes: CommandSpec = () => ({ editor, tr, disp
   const report = contentReport();
   const { doc } = tr;
   doc.descendants((node, pos) => {
-    forEachNormalizedAttribute(doc.type.schema, node.type.name, node.attrs, 'unsupported', (attribute, value, normalizer) => {
+    const pathTo = (): number[] => {
       const $pos = doc.resolve(pos);
-      const path = Array.from({ length: $pos.depth + 1 }, (_, depth) => $pos.index(depth));
-      reportReplacedValue(report, normalizer.code, node.type.name, attribute, path, value);
+      return Array.from({ length: $pos.depth + 1 }, (_, depth) => $pos.index(depth));
+    };
+    forEachNormalizedAttribute(doc.type.schema, node.type.name, node.attrs, 'unsupported', (attribute, value, normalizer) => {
+      reportReplacedValue(report, diagnosticCode(normalizer, value), node.type.name, attribute, pathTo(), value);
       // A dry run must leave the transaction alone: in a chain it is the one run() dispatches.
       if (dispatch) tr.setNodeAttribute(pos, attribute, normalizer.replacement(value));
     });
+    for (const mark of node.marks) {
+      let current = mark;
+      let removed = false;
+      forEachNormalizedAttribute(doc.type.schema, mark.type.name, mark.attrs, 'unsupported', (attribute, value, normalizer) => {
+        if (removed) return;
+        reportReplacedValue(report, diagnosticCode(normalizer, value), node.type.name, attribute, pathTo(), value, mark.type.name);
+        removed = normalizer.removesMark === true;
+        if (!dispatch) return;
+        tr.removeMark(pos, pos + node.nodeSize, current);
+        if (removed) return;
+        current = mark.type.create({ ...current.attrs, [attribute]: normalizer.replacement(value) });
+        tr.addMark(pos, pos + node.nodeSize, current);
+      });
+    }
   });
   if (report.total === 0) return false;
   if (dispatch) {

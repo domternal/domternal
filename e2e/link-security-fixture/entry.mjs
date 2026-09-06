@@ -43,15 +43,43 @@ function extensions({ link = {}, linkPopover = false } = {}) {
   ];
 }
 
-/** Creates the editor under test, replacing the previous one. */
-function create({ content, editable = true, link, linkPopover } = {}) {
+/**
+ * Builds a node without validation or content normalization, as
+ * y-prosemirror binds what a collaborator wrote, so a refused href reaches
+ * the sinks. Loading the same JSON through the editor removes it.
+ */
+function uncheckedNode(schema, json) {
+  const marks = (json.marks ?? []).map(mark => schema.marks[mark.type].create(mark.attrs));
+  if (json.type === 'text') return schema.text(json.text ?? '', marks);
+  return schema.nodes[json.type].create(json.attrs, (json.content ?? []).map(child => uncheckedNode(schema, child)), marks);
+}
+
+const diagnostics = [];
+
+/**
+ * Creates the editor under test, replacing the previous one. JSON content is
+ * stored as given, unless `load` asks for the editor's own JSON loading.
+ */
+function create({ content, editable = true, link, linkPopover, load = false } = {}) {
   editor?.destroy();
   opens.length = 0;
+  diagnostics.length = 0;
   const host = document.getElementById('fixture');
   host.replaceChildren();
   const element = document.createElement('div');
   host.appendChild(element);
-  editor = new Editor({ element, extensions: extensions({ link, linkPopover }), content, editable });
+  const stored = !load && content !== null && typeof content === 'object';
+  editor = new Editor({
+    element,
+    extensions: extensions({ link, linkPopover }),
+    content: stored ? null : content,
+    editable,
+    onContentDiagnostic: ({ diagnostics: reported }) => diagnostics.push(...reported),
+  });
+  if (stored) {
+    const { tr } = editor.state;
+    editor.view.dispatch(tr.replaceWith(0, tr.doc.content.size, uncheckedNode(editor.schema, content).content));
+  }
   return editor.getHTML();
 }
 
@@ -65,5 +93,6 @@ window.__linkSecurity = {
   editor: () => editor,
   getHTML: () => editor?.getHTML() ?? '',
   getJSON: () => editor?.getJSON() ?? null,
+  diagnostics: () => diagnostics.map(diagnostic => ({ ...diagnostic })),
   generateHTML: (content, options) => generateHTML(content, extensions(options)),
 };

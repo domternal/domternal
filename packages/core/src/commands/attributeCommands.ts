@@ -3,6 +3,7 @@
  */
 import type { Attrs, Schema } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
+import { isSupportedAttributeValue } from '../utils/normalizedAttributes.js';
 
 /**
  * Whether a node or mark of this type accepts the attributes, by the same
@@ -38,6 +39,15 @@ export function validAttributes(
     }
   }
   return accepts({ ...values, ...attrs });
+}
+
+/**
+ * Whether loading JSON content would keep each given value, such as a link
+ * href the URL policy allows. Only the given attributes are judged, so a
+ * stored value awaiting normalizeContentAttributes never blocks a change.
+ */
+export function supportedAttributes(schema: Schema, type: string, attrs: Record<string, unknown>): boolean {
+  return Object.entries(attrs).every(([name, value]) => isSupportedAttributeValue(schema, type, name, value));
 }
 
 /**
@@ -95,9 +105,14 @@ export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Reco
     // A stored value that fails, such as an unknown list marker in an
     // unmigrated document, stays for normalizeContentAttributes to fix and
     // does not block an unrelated change, and neither does a default that fails.
+    // A mark value this configuration does not support, such as a link href
+    // the URL policy refuses, is refused too: loading it would remove the
+    // mark. A node keeps a valid unsupported value, which renders at its
+    // nearest supported form, such as a heading level.
     if (
       nodeChanges.some(change => !validAttributes(state.schema, typeOrName, attributes, false, change.attrs))
       || markChanges.some(change => !validAttributes(state.schema, typeOrName, attributes, true, change.attrs))
+      || (markChanges.length > 0 && !supportedAttributes(state.schema, typeOrName, attributes))
     ) {
       return false;
     }

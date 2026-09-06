@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Schema } from '@domternal/pm/model';
 import { Node } from '../Node.js';
+import { Mark } from '../Mark.js';
 import { Document } from '../nodes/Document.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Text } from '../nodes/Text.js';
@@ -9,7 +10,9 @@ import { OrderedList } from '../nodes/OrderedList.js';
 import { BulletList } from '../nodes/BulletList.js';
 import { ExtensionManager } from '../ExtensionManager.js';
 import type { AnyExtension, AttributeSpec } from '../types/index.js';
-import { forEachNormalizedAttribute, normalizedAttributeTypes, registerAttributeNormalizer } from './normalizedAttributes.js';
+import {
+  diagnosticCode, forEachNormalizedAttribute, isSupportedAttributeValue, normalizedAttributeTypes, registerAttributeNormalizer,
+} from './normalizedAttributes.js';
 
 const build = (extensions: AnyExtension[]): Schema =>
   new ExtensionManager({ extensions: [Document, Paragraph, Text, ListItem, ...extensions] }, { state: null, view: null, schema: null, commands: {} } as never).schema;
@@ -55,7 +58,7 @@ describe('normalized attribute registry', () => {
     const schema = build([OrderedList, BulletList, Steps, Dots, Callout, Sized]);
     const types = normalizedAttributeTypes(schema);
     expect([...types.keys()].sort()).toEqual(['bulletList', 'dots', 'orderedList', 'sized', 'steps']);
-    expect(types.get('steps')?.map(([attribute, normalizer]) => [attribute, normalizer.code])).toEqual([['listStyleType', 'unknown-list-marker']]);
+    expect(types.get('steps')?.map(({ attribute, normalizer }) => [attribute, normalizer.code])).toEqual([['listStyleType', 'unknown-list-marker']]);
     expect(types.has('callout')).toBe(false);
   });
 
@@ -104,5 +107,60 @@ describe('normalized attribute registry', () => {
     expect(values).toEqual([]);
     forEachNormalizedAttribute(schema, 'other', { size: 'x' }, 'invalid', (_, value) => values.push(value));
     expect(values).toEqual(['x']);
+  });
+
+  describe('mark attributes', () => {
+    /** A mark whose unsupported value removes it, reporting one of two codes. */
+    const toneValidator = (value: unknown): void => { if (value !== null && typeof value !== 'string') throw new RangeError('Invalid tone'); };
+    registerAttributeNormalizer(toneValidator, {
+      code: 'unsupported-url',
+      codeFor: value => (typeof value === 'string' ? 'unsupported-url' : 'unsafe-url'),
+      invalid: value => value !== null && typeof value !== 'string',
+      unsupported: value => value !== 'warm',
+      replacement: () => null,
+      removesMark: true,
+    });
+    const Tone = Mark.create({
+      name: 'tone',
+      addAttributes: () => ({ tone: { default: null, validate: toneValidator }, label: { default: null } }),
+      parseHTML: () => [{ tag: 'q' }],
+      renderHTML: () => ['q', 0],
+    });
+
+    it('registers mark attributes beside node attributes, with their defaults', () => {
+      const types = normalizedAttributeTypes(build([OrderedList, Tone]));
+      expect(types.get('tone')?.map(({ attribute, mark, defaultValue }) => [attribute, mark, defaultValue])).toEqual([['tone', true, null]]);
+      expect(types.get('orderedList')?.[0]?.mark).toBe(false);
+    });
+
+    it('checks the default for an absent value of a mark-removing attribute', () => {
+      const schema = build([Tone]);
+      const values: unknown[] = [];
+      forEachNormalizedAttribute(schema, 'tone', {}, 'unsupported', (attribute, value) => values.push([attribute, value]));
+      forEachNormalizedAttribute(schema, 'tone', undefined, 'unsupported', (attribute, value) => values.push([attribute, value]));
+      forEachNormalizedAttribute(schema, 'tone', { tone: 'warm' }, 'unsupported', (attribute, value) => values.push([attribute, value]));
+      forEachNormalizedAttribute(schema, 'tone', {}, 'invalid', (attribute, value) => values.push([attribute, value]));
+      expect(values).toEqual([['tone', null], ['tone', null]]);
+    });
+
+    it('reports the code for the value', () => {
+      const [entry] = normalizedAttributeTypes(build([Tone])).get('tone') ?? [];
+      expect(entry && diagnosticCode(entry.normalizer, 'cold')).toBe('unsupported-url');
+      expect(entry && diagnosticCode(entry.normalizer, 42)).toBe('unsafe-url');
+      const [marker] = normalizedAttributeTypes(build([OrderedList])).get('orderedList') ?? [];
+      expect(marker && diagnosticCode(marker.normalizer, 'bogus')).toBe('unknown-list-marker');
+    });
+
+    it('answers whether loading keeps a value, only for the attribute asked about', () => {
+      const schema = build([Tone, Sized]);
+      expect(isSupportedAttributeValue(schema, 'tone', 'tone', 'warm')).toBe(true);
+      expect(isSupportedAttributeValue(schema, 'tone', 'tone', 'cold')).toBe(false);
+      expect(isSupportedAttributeValue(schema, 'tone', 'tone', undefined)).toBe(false);
+      expect(isSupportedAttributeValue(schema, 'tone', 'label', 'anything')).toBe(true);
+      expect(isSupportedAttributeValue(schema, 'sized', 'size', 2)).toBe(true);
+      expect(isSupportedAttributeValue(schema, 'sized', 'size', 3)).toBe(false);
+      expect(isSupportedAttributeValue(schema, 'sized', 'size', undefined)).toBe(true);
+      expect(isSupportedAttributeValue(schema, 'missing', 'size', 3)).toBe(true);
+    });
   });
 });

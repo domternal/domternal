@@ -7,6 +7,7 @@
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { MarkType } from '@domternal/pm/model';
+import { checkUrl } from '../../helpers/checkUrl.js';
 
 /**
  * Options for the link paste plugin
@@ -18,13 +19,14 @@ export interface LinkPastePluginOptions {
   type: MarkType;
 
   /**
-   * Allowed URL protocols
+   * Allowed URL protocols. The URL policy also refuses credentials and hidden
+   * characters, whatever this lists.
    * @default ['http:', 'https:']
    */
-  protocols?: string[];
+  protocols?: readonly string[];
 
   /**
-   * Custom URL validation function
+   * Custom URL validation function, called only for an address the URL policy allows.
    * Return false to prevent linking specific URLs
    */
   validate?: (url: string) => boolean;
@@ -53,22 +55,18 @@ export function linkPastePlugin(options: LinkPastePluginOptions): Plugin {
 
     props: {
       handlePaste(view, event) {
-        // Get pasted text
-        const text = event.clipboardData?.getData('text/plain').trim();
-        if (!text) return false;
+        // Get pasted text: one line only, since a browser would remove the
+        // line breaks inside an address and link something else than it shows.
+        const pasted = event.clipboardData?.getData('text/plain').trim();
+        if (!pasted || /[\t\n\r]/.test(pasted)) return false;
 
-        // Check if pasted text is a URL
-        let url: URL;
-        try {
-          url = new URL(text);
-        } catch {
-          return false; // Not a URL, let default paste handling continue
-        }
-
-        // Validate protocol
-        if (!protocols.includes(url.protocol)) {
+        // Only an absolute address the URL policy allows is a link paste;
+        // anything else continues as a default paste.
+        const check = checkUrl(pasted, { protocols });
+        if (check.status !== 'allowed') {
           return false;
         }
+        const text = check.url;
 
         // Custom validation
         if (validate && !validate(text)) {

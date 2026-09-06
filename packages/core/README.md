@@ -296,10 +296,11 @@ The `Link` mark applies the policy with its `protocols` at every entry and again
 ## Content normalization
 
 JSON content can hold values the editor cannot represent: a list marker this version does not
-know, or a heading level the `Heading` configuration lacks, such as `5` with the default levels 1
-to 4, or a value that is not a level at all. The JSON entry points (the initial `content`,
-`setContent`, `insertContent`, `createDocument`, `generateHTML`, and `generateText`) replace such
-a value instead of failing the whole document, and report it:
+know, a heading level the `Heading` configuration lacks, such as `5` with the default levels 1
+to 4, or a value that is not a level at all, and a link href the [URL policy](#url-policy)
+refuses. The JSON entry points (the initial `content`, `setContent`, `insertContent`,
+`createDocument`, `normalizeContent`, `generateHTML`, and `generateText`) replace such a value,
+or remove the link that carries it, instead of failing the whole document, and report it:
 
 - An unknown list marker becomes `null`, the default marker (`unknown-list-marker`).
 - A heading level moves to the nearest configured level of equal or lower importance, otherwise
@@ -308,9 +309,17 @@ a value instead of failing the whole document, and report it:
   load as `4`; with levels 2 and 3, `1` loads as `2`. A string that holds a decimal number, such
   as `"5"`, counts as that number. A number that is not a whole level is rounded up into 1 to 6
   first, and any other value loads as the first configured level.
+- A link whose href the Link's URL policy refuses is removed and its text kept, including a link
+  mark without an href. `unsafe-url` reports an href no configuration allows: a `javascript:`,
+  `vbscript:` or `data:` address, credentials, a hidden control, bidi or format character, or a
+  value that is not a string. `unsupported-url` reports an href this configuration does not
+  allow: a scheme outside `protocols`, a network path, a backslash, an address the URL parser
+  rejects, or an empty or missing href. An allowed href is kept exactly as stored.
 
 Each diagnostic names the `code`, `nodeType`, `attribute`, and `path` of the replaced value, and
-the `value` itself when it is a finite number or a string of at most 64 characters. The editor
+the `value` itself when it is a finite number or a string of at most 64 characters. For a removed
+link, `nodeType` is the node that carried it, such as `text` or an inline `image`, and `markType`
+names the mark, such as `link`. The editor
 reports through the `onContentDiagnostic` option and the `contentDiagnostic` event, with the
 `source` that loaded the content, the first 100 diagnostics, and the `total`. `createDocument`
 and the SSR helpers take an `onDiagnostic` callback instead.
@@ -326,25 +335,40 @@ const editor = new Editor({
 ```
 
 The schema itself stays strict: `schema.nodeFromJSON` and `Node.check` still reject an unknown
-list marker and a heading `level` that is not a whole number from 1 to 6, and so does
-`Step.fromJSON` for the nodes a step carries. Run
+list marker, a heading `level` that is not a whole number from 1 to 6, and a link `href` that is
+neither a string nor `null`, and so does `Step.fromJSON` for the nodes and marks a step carries.
+Validation accepts every string href, so a document a collaborator with wider `protocols` wrote
+still loads. Run
 `normalizeContent(json, editor.schema, { onDiagnostic })` before handing stored JSON to other
 consumers that validate it, such as y-prosemirror's `prosemirrorJSONToYDoc`. It never mutates its
 input and returns it as is when nothing changes.
 
 A document can still hold such a value: a collaborative document binds without validation, a
-collaborator configured with more heading levels writes them, and undo can restore a removed
-node. A pasted slice keeps a valid level the configuration lacks, so moving content in a shared
+collaborator configured with more heading levels or wider link `protocols` writes them, and undo
+can restore a removed node. A pasted slice keeps a valid level the configuration lacks, so moving content in a shared
 document never rewrites another client's heading, and only an invalid level is replaced.
 Rendering shows the replacement in the view, `getHTML()`, and the SSR helpers without changing
-the document, so `getJSON()`, `isActive`, and exports still see the stored value.
+the document, and a refused link renders as its text and never opens, so `getJSON()`,
+`isActive`, `getAttributes`, and exports still see the stored value.
+`isSupportedAttributeValue(editor.schema, 'link', 'href', href)` answers whether loading would
+keep a value; check it before a custom link UI opens or exports a stored href.
 
 `editor.commands.normalizeContentAttributes()` is the explicit migration. It replaces every such
-value in one transaction outside the undo history and reports it with the source
-`normalizeContentAttributes`. It returns `false` in a read-only editor or when nothing needs
-replacing, so `editor.can().normalizeContentAttributes()` detects a document that needs it. Run
-it only when every client shares this version and this heading configuration: a client with an
-older marker vocabulary or fewer heading levels would replace values that another client supports.
+value, and removes every such link, in one transaction outside the undo history and reports it
+with the source `normalizeContentAttributes`. It returns `false` in a read-only editor or when
+nothing needs replacing, so `editor.can().normalizeContentAttributes()` detects a document that
+needs it. Run it only when every client shares this version and this heading and link
+configuration: a client with an older marker vocabulary, fewer heading levels or narrower
+`protocols` would replace values, or remove links, that another client supports. An `unsafe-url`
+removal is the same under every configuration.
+
+`Link.configure({ protocols })` takes schemes such as `'https:'`, in any case and with or without
+the colon, so `['HTTPS']` means `https:`. An entry that is not a scheme, or that is
+`javascript:`, `vbscript:` or `data:`, fails `new Editor(...)` and the SSR helpers with an
+`ExtensionConfigurationError`. `setMark`, `toggleMark` and `updateAttributes` return `false` for a
+link href that is not a string or that the policy refuses, and a stored href does not block a
+change to another attribute. Autolink and link paste create a link only for an allowed address:
+pasted text must be a single line, and an address with credentials is never linked.
 
 `Heading.configure({ levels })` takes a non-empty list of whole numbers from 1 to 6, in any order.
 The first one is the default level for content and commands without a level. Other values fail

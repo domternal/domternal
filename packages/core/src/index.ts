@@ -125,6 +125,9 @@ export {
 // subpath (see clipboard.ts), not here.
 export { writeToClipboard } from './utils/clipboard.js';
 
+// === Content normalization: whether loading JSON content keeps a value ===
+export { isSupportedAttributeValue } from './utils/normalizedAttributes.js';
+
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';
 
