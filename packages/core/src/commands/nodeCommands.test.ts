@@ -288,6 +288,71 @@ describe('nodeCommands', () => {
     });
   });
 
+  describe('setBlockType and toggleBlockType attribute validation', () => {
+    /** A textblock whose stored values can fail validation, and one attribute without a default. */
+    const Note = Node.create({
+      name: 'note',
+      group: 'block',
+      content: 'inline*',
+      addAttributes: () => ({
+        kind: { validate: 'string' },
+        tone: { default: null, validate: 'string|null' },
+      }),
+      parseHTML: () => [{ tag: 'aside', getAttrs: () => ({ kind: 'info' }) }],
+      renderHTML: () => ['aside', 0],
+    });
+
+    it('refuses a level that schema validation rejects without dispatching, as wrapIn does', () => {
+      editor = new Editor({ extensions, content: '<p>Title</p>' });
+      setSelection(editor, 2);
+      const before = editor.state.doc;
+      let transactions = 0;
+      editor.on('transaction', () => { transactions++; });
+      expect(editor.can().setBlockType('heading', { level: 9 })).toBe(false);
+      expect(editor.commands.setBlockType('heading', { level: 9 })).toBe(false);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 'x' })).toBe(false);
+      expect(editor.commands.setBlockType('heading', { level: 2.5 })).toBe(false);
+      expect(editor.state.doc).toBe(before);
+      expect(transactions).toBe(0);
+    });
+
+    it('accepts every heading level, including one the configuration lacks, which renders at the nearest configured level', () => {
+      editor = new Editor({ extensions, content: '<p>Title</p>' });
+      setSelection(editor, 2);
+      expect(editor.commands.setBlockType('heading', { level: 5 })).toBe(true);
+      expect(editor.state.doc.firstChild?.attrs['level']).toBe(5);
+      expect(editor.getHTML()).toBe('<h4>Title</h4>');
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 5 })).toBe(true);
+      expect(editor.getHTML()).toBe('<p>Title</p>');
+    });
+
+    it('refuses before the list item fallback changes anything', () => {
+      editor = new Editor({ extensions: listExtensions, content: '<ul><li><p>Buy milk</p></li></ul>' });
+      setSelection(editor, 3);
+      const before = editor.state.doc;
+      expect(editor.commands.setBlockType('heading', { level: 9 })).toBe(false);
+      expect(editor.state.doc).toBe(before);
+      expect(editor.commands.setBlockType('heading', { level: 3 })).toBe(true);
+      expect(editor.getHTML()).toBe('<h3>Buy milk</h3>');
+    });
+
+    it('judges only the given attributes, so a missing default or a stored value does not block a change', () => {
+      editor = new Editor({ extensions: [...extensions, Note], content: '<aside>A</aside><h2>B</h2>' });
+      setSelection(editor, 1);
+      // The stored kind stands in for its missing default.
+      expect(editor.commands.setBlockType('note', { tone: 'warm' })).toBe(true);
+      expect(editor.state.doc.firstChild?.attrs).toEqual({ kind: 'info', tone: 'warm' });
+      expect(editor.commands.setBlockType('note', { tone: 7 })).toBe(false);
+      // Stored the way a bound collaborative document holds them: without validation.
+      editor.view.dispatch(editor.state.tr.setNodeAttribute(0, 'tone', 7).setNodeAttribute(3, 'level', 99));
+      expect(editor.commands.setBlockType('note', { kind: 'tip' })).toBe(true);
+      expect(editor.state.doc.firstChild?.attrs).toEqual({ kind: 'tip', tone: 7 });
+      setSelection(editor, 5);
+      expect(editor.commands.setBlockType('heading', { level: 3 })).toBe(true);
+      expect(editor.state.doc.lastChild?.attrs['level']).toBe(3);
+    });
+  });
+
   describe('toggleBlockType', () => {
     it('toggles paragraph to heading', () => {
       editor = new Editor({ extensions, content: '<p>Title</p>' });

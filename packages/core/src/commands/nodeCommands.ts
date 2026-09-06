@@ -26,6 +26,22 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
       return false;
     }
 
+    // Block creation does not validate, so refuse given values validation
+    // rejects, as wrapIn does, before the list item fallback changes anything.
+    // Each block's stored values stand in for the attributes not given, so
+    // only the given ones are judged.
+    if (attributes && tr.selection.ranges.some(range => {
+      let refused = false;
+      tr.doc.nodesBetween(range.$from.pos, range.$to.pos, node => {
+        if (refused) return false;
+        if (node.isTextblock) refused = !validAttributes(state.schema, nodeName, attributes, false, node.attrs);
+        return !node.isTextblock;
+      });
+      return refused;
+    })) {
+      return false;
+    }
+
     // Check if any textblock in the selection can be changed
     const canApply = tr.selection.ranges.some((range) => {
       let found = false;
