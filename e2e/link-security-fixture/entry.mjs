@@ -3,9 +3,10 @@
  * browser suite can judge addresses with the URL policy, compare them with
  * what the browser itself reads, and click links the editor renders.
  */
-import { Editor, StarterKit, checkUrl, isValidUrl, generateHTML } from '@domternal/core';
+import { Editor, Extension, StarterKit, checkUrl, isValidUrl, generateHTML } from '@domternal/core';
 import { Image } from '@domternal/extension-image';
 import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
+import { TextSelection } from '@domternal/pm/state';
 
 /** What the browser reads from an href attribute: the resolved address and its scheme. */
 function resolve(value) {
@@ -35,9 +36,21 @@ window.open = (...args) => {
 
 let editor = null;
 
+/** Heading ids, as a table of contents or UniqueID renders them, for fragment links to reach. */
+const HeadingIds = Extension.create({
+  name: 'headingIds',
+  addGlobalAttributes: () => [{
+    types: ['heading'],
+    attributes: {
+      id: { default: null, parseHTML: element => element.id || null, renderHTML: attributes => (attributes.id ? { id: attributes.id } : null) },
+    },
+  }],
+});
+
 function extensions({ link = {}, linkPopover = false } = {}) {
   return [
     StarterKit.configure({ link, linkPopover }),
+    HeadingIds,
     Image.configure({ inline: true }),
     Table, TableRow, TableCell, TableHeader,
   ];
@@ -94,5 +107,17 @@ window.__linkSecurity = {
   getHTML: () => editor?.getHTML() ?? '',
   getJSON: () => editor?.getJSON() ?? null,
   diagnostics: () => diagnostics.map(diagnostic => ({ ...diagnostic })),
+  /** Selects a range and focuses the editor, as a user selection would. */
+  select: (from, to = from) => {
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from, to)));
+    editor.view.focus();
+  },
+  linkHrefs: () => {
+    const found = [];
+    editor?.state.doc.descendants(node => {
+      for (const mark of node.marks) if (mark.type.name === 'link') found.push(mark.attrs.href);
+    });
+    return found;
+  },
   generateHTML: (content, options) => generateHTML(content, extensions(options)),
 };

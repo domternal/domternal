@@ -92,6 +92,40 @@ for (const target of demoTargets) {
       expect(page.url().startsWith(target.baseURL)).toBe(true);
     });
 
+    test('keeps a refused address out of the link popover with a reason, and stores a fragment as typed', async ({ page }) => {
+      await goNotion(page, target);
+      await setJSON(page, { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello world' }] }] });
+      const editor = page.locator(target.editorSelector);
+      // Select the first word as a user would, then open the popover with its shortcut.
+      await page.evaluate((selector) => {
+        const text = document.querySelector(`${selector} p`)?.firstChild;
+        if (!text) return;
+        const range = document.createRange();
+        range.setStart(text, 0);
+        range.setEnd(text, 5);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        document.querySelector<HTMLElement>(selector)?.focus();
+      }, target.editorSelector);
+      await page.keyboard.press('ControlOrMeta+k');
+      const popover = page.locator('.dm-link-popover[data-show]');
+      await expect(popover).toBeVisible();
+      const input = popover.locator('.dm-link-popover-input');
+      await input.fill(`javascript:${FLAG}`);
+      await page.keyboard.press('Enter');
+      await expect(popover).toBeVisible();
+      await expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(await input.evaluate(element => (element as HTMLInputElement).validationMessage)).toBe('This address cannot be used as a link.');
+      await expect(editor.locator('a')).toHaveCount(0);
+      await input.fill('#section');
+      await expect(input).not.toHaveAttribute('aria-invalid', /.*/);
+      await page.keyboard.press('Enter');
+      await expect(popover).toBeHidden();
+      await expect(editor.locator('a')).toHaveAttribute('href', '#section');
+      expect(await page.evaluate(() => (window as unknown as Record<string, unknown>)['__pwned'] ?? null)).toBeNull();
+    });
+
     test('opens the clicked link\'s own href in a new tab without an opener', async ({ page }) => {
       await goNotion(page, target);
       await setJSON(page, { type: 'doc', content: [{ type: 'paragraph', content: [

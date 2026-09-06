@@ -64,6 +64,15 @@ export interface LinkOptions {
    */
   defaultProtocol: string;
   /**
+   * Allows relative links: `/path`, `./page`, `../page`, `page.html`,
+   * `?query` and `#fragment`. They render with their href and open resolved
+   * against the page; a fragment scrolls to its target. A network path
+   * (`//host`), a backslash and a colon in the first segment are refused
+   * either way. `false` refuses every relative link, as 1.2 did.
+   * @default true
+   */
+  allowRelative: boolean;
+  /**
    * Custom validation for autolink
    * Return false to prevent auto-linking specific URLs
    */
@@ -119,7 +128,7 @@ function configuredProtocols(protocols: unknown): readonly string[] {
 
 /** The URL policy of a Link configuration. */
 function linkPolicy(options: LinkOptions): UrlPolicyOptions {
-  return { protocols: configuredProtocols(options.protocols) };
+  return { protocols: configuredProtocols(options.protocols), allowRelative: options.allowRelative };
 }
 
 /** The Link's own attributes, which a refused link does not render. */
@@ -179,6 +188,7 @@ export const Link = Mark.create<LinkOptions>({
       autolink: true,
       linkOnPaste: true,
       defaultProtocol: 'https',
+      allowRelative: true,
       enableClickSelection: false,
     };
   },
@@ -421,6 +431,7 @@ export const Link = Mark.create<LinkOptions>({
         openOnClick: this.options.openOnClick,
         enableClickSelection: this.options.enableClickSelection,
         protocols: configuredProtocols(this.options.protocols),
+        allowRelative: this.options.allowRelative,
         noreferrer: this.options.addRelNoopener,
       })
     );

@@ -38,6 +38,7 @@ describe('Link', () => {
         autolink: true,
         linkOnPaste: true,
         defaultProtocol: 'https',
+        allowRelative: true,
         enableClickSelection: false,
       });
     });

@@ -1715,6 +1715,24 @@
       "searchable": false
     },
     {
+      "id": "core.linkPopover.invalidUrl",
+      "owner": "@domternal/core",
+      "description": "Validation message of the URL input when the editor refuses the typed address, such as a script address.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "This address cannot be used as a link."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "core.linkPopover.remove",
       "owner": "@domternal/core",
       "description": "Remove link action.",

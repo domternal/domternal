@@ -196,6 +196,11 @@ export const coreActionMessages = {
   linkUrlLabel: message('core.linkPopover.urlLabel', 'URL', 'Accessible name of the URL input.'),
   linkApply: message('core.linkPopover.apply', 'Apply link', 'Apply link action.'),
   linkRemove: message('core.linkPopover.remove', 'Remove link', 'Remove link action.'),
+  linkInvalidUrl: message(
+    'core.linkPopover.invalidUrl',
+    'This address cannot be used as a link.',
+    'Validation message of the URL input when the editor refuses the typed address, such as a script address.'
+  ),
   taskStatus: message('core.taskItem.status', 'Task status', 'Accessible name of a task checkbox.'),
   groupFormat: message('core.group.format', 'format', 'Display name of the format toolbar group.'),
   groupBlocks: message('core.group.blocks', 'blocks', 'Display name of the blocks toolbar group.'),

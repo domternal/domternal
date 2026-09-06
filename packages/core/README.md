@@ -274,7 +274,11 @@ without the colon; `'any'` allows every scheme except `file:`), `allowRelative` 
 `isValidUrl(value, options)` answers the same question with a boolean. Use `checkUrl` in a custom
 link or image UI before opening an address yourself, and open it with `noopener`.
 
-The `Link` mark applies the policy with its `protocols` at every entry and again at every sink:
+The `Link` mark applies the policy with its `protocols` and `allowRelative` at every entry and
+again at every sink. `allowRelative` (default `true`) allows relative links: `/docs/page`,
+`./page`, `../page`, `page.html`, `?query` and `#section`. A network path (`//host`), a backslash
+and a colon in the first segment are refused either way; `allowRelative: false` refuses every
+relative link, as 1.2 did.
 
 - HTML parsing, `setLink` and `toggleLink` store only an allowed href, in its cleaned spelling.
 - A stored href the policy refuses, such as one loaded from JSON or written by a collaborator,
@@ -286,12 +290,25 @@ The `Link` mark applies the policy with its `protocols` at every entry and again
   with `noreferrer` unless `addRelNoopener` is `false` and the link's `rel` lacks it. A
   read-only editor leaves clicks to the browser, which follows only a rendered, allowed href.
   `openOnClick: 'whenNotEditable'` never opens links while the editor is editable, and `false`
-  never opens them.
+  never opens them. A relative link opens resolved against the page. A `#fragment` link scrolls
+  to the element with that id, in the editor first and then in the page, without opening a tab
+  or changing the location; nothing happens when no element matches.
 - An allowed link renders its `target` only when it is `_blank`, `_self`, `_parent` or `_top`
   (in any case, written in lower case), and its `title` and `class` only when they are strings.
   With `addRelNoopener` (the default), a `_blank` link's `rel` keeps its stored tokens except
   `opener` and gains `noopener` and `noreferrer`, so `nofollow` renders as
   `nofollow noopener noreferrer`.
+
+The `LinkPopover` stores what the `Link` accepts, so its input follows the same policy. A value
+that starts with `#`, `/`, `./`, `../` or `?` is stored as typed, `//host/x` and a bare host such
+as `example.com` or `localhost:3000` get the Link's `defaultProtocol`, a bare email address
+becomes a `mailto:` link, and anything else with a scheme is stored as typed. A refused address
+keeps the popover open: the input is marked `aria-invalid` and reports the localized
+`core.linkPopover.invalidUrl` message until the value changes. Opening the popover on a stored
+link the Link would not keep shows it already marked invalid. Editing an existing link changes
+only its href and keeps its `title`, `target`, `rel` and `class`. `LinkPopover.configure({
+protocols })` narrows the schemes the popover accepts; the default `null` accepts every scheme
+the Link accepts.
 
 ## Content normalization
 
@@ -313,8 +330,9 @@ or remove the link that carries it, instead of failing the whole document, and r
   mark without an href. `unsafe-url` reports an href no configuration allows: a `javascript:`,
   `vbscript:` or `data:` address, credentials, a hidden control, bidi or format character, or a
   value that is not a string. `unsupported-url` reports an href this configuration does not
-  allow: a scheme outside `protocols`, a network path, a backslash, an address the URL parser
-  rejects, or an empty or missing href. An allowed href is kept exactly as stored.
+  allow: a scheme outside `protocols`, a relative link with `allowRelative: false`, a network
+  path, a backslash, an address the URL parser rejects, or an empty or missing href. An allowed
+  href is kept exactly as stored.
 
 Each diagnostic names the `code`, `nodeType`, `attribute`, and `path` of the replaced value, and
 the `value` itself when it is a finite number or a string of at most 64 characters. For a removed

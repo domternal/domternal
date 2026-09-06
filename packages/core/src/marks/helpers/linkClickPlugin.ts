@@ -6,9 +6,10 @@
  * only for an address the URL policy allows.
  */
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
-import type { Mark, MarkType, Node as PMNode } from '@domternal/pm/model';
+import type { MarkType, Node as PMNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { checkUrl } from '../../helpers/checkUrl.js';
+import { getExactMarkRange } from '../../helpers/getMarkRange.js';
 
 /**
  * Options for the link click plugin
@@ -44,6 +45,13 @@ export interface LinkClickPluginOptions {
   protocols?: readonly string[];
 
   /**
+   * Allows relative references, as for the Link `allowRelative` option. A
+   * fragment, such as `#intro`, scrolls to its target in place.
+   * @default true
+   */
+  allowRelative?: boolean;
+
+  /**
    * Opens a new tab without a referrer as well as without an opener. Without
    * it, only a link whose `rel` holds `noreferrer` hides the referrer.
    * @default true
@@ -74,19 +82,26 @@ function anchorNode(view: EditorView, anchor: Element): { node: PMNode; pos: num
   }
 }
 
-/** The range of the siblings around the node at `pos` that carry exactly this mark. */
-function exactMarkRange(doc: PMNode, pos: number, mark: Mark): { from: number; to: number } {
-  const $pos = doc.resolve(pos);
-  const parent = $pos.parent;
-  let first = $pos.index();
-  let last = first;
-  while (first > 0 && mark.isInSet(parent.child(first - 1).marks)) first--;
-  while (last + 1 < parent.childCount && mark.isInSet(parent.child(last + 1).marks)) last++;
-  let from = $pos.start();
-  for (let index = 0; index < first; index++) from += parent.child(index).nodeSize;
-  let to = from;
-  for (let index = first; index <= last; index++) to += parent.child(index).nodeSize;
-  return { from, to };
+/**
+ * Scrolls to the element a fragment names, in the editor first and then in
+ * the page, and reports whether it found one. The location never changes, so
+ * no history entry is added and a hash router is not triggered. The id is
+ * compared as a value, never built into a selector.
+ */
+function scrollToFragment(view: EditorView, fragment: string): boolean {
+  let id = fragment.slice(1);
+  try {
+    id = decodeURIComponent(id);
+  } catch {
+    // A malformed escape names the raw id, as browsers fall back to it.
+  }
+  if (id === '') return false;
+  const target = Array.from(view.dom.querySelectorAll('[id]')).find(element => element.id === id)
+    ?? view.dom.ownerDocument.getElementById(id);
+  if (!target) return false;
+  // Some environments, such as test DOMs, do not lay out or scroll.
+  if (typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'start' });
+  return true;
 }
 
 /**
@@ -106,6 +121,7 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
     openOnClick = true,
     enableClickSelection = false,
     protocols = DEFAULT_PROTOCOLS,
+    allowRelative = true,
     noreferrer = true,
   } = options;
 
@@ -137,7 +153,7 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
         }
 
         if (enableClickSelection) {
-          const { from, to } = exactMarkRange(view.state.doc, found.pos, mark);
+          const { from, to } = getExactMarkRange(view.state.doc, found.pos, mark);
           view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
           return true;
         }
@@ -147,9 +163,14 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
           return false;
         }
 
-        const check = checkUrl(mark.attrs['href'], { protocols });
+        const check = checkUrl(mark.attrs['href'], { protocols, allowRelative });
         if (check.status !== 'allowed') {
           return false;
+        }
+
+        // A link within the page scrolls there instead of opening a tab.
+        if (check.url.startsWith('#')) {
+          return scrollToFragment(view, check.url);
         }
 
         // The rendered target and rel, as a native click on the anchor would

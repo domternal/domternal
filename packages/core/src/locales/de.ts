@@ -73,6 +73,7 @@ export const deMessages: Readonly<CompleteMessages<typeof coreMessages>> = Objec
     'core.group.utility': 'Werkzeuge',
     'core.heading.level': ({ level }, context) => `Überschrift ${context.number(level)}`,
     'core.linkPopover.apply': 'Link übernehmen',
+    'core.linkPopover.invalidUrl': 'Diese Adresse kann nicht als Link verwendet werden.',
     'core.linkPopover.remove': 'Link entfernen',
     'core.linkPopover.urlLabel': 'URL',
     'core.linkPopover.urlPlaceholder': 'URL eingeben …',

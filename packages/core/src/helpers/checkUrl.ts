@@ -73,8 +73,8 @@ export function normalizeUrlProtocol(protocol: string): string {
   return lower.endsWith(':') ? lower : `${lower}:`;
 }
 
-/** Strips what browsers strip before parsing an address. */
-function clean(value: string): string {
+/** Strips what browsers strip before parsing an address: outer controls and spaces, inner tabs and line breaks. */
+export function cleanUrl(value: string): string {
   let start = 0;
   let end = value.length;
   while (start < end && value.charCodeAt(start) <= 0x20) start++;
@@ -149,7 +149,7 @@ function isImageData(url: string): boolean {
  */
 export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlCheck {
   if (typeof value !== 'string') return value === null || value === undefined ? UNSUPPORTED : UNSAFE;
-  const url = clean(value);
+  const url = cleanUrl(value);
   if (url === '') return UNSUPPORTED;
   if (hasHiddenCharacter(url)) return UNSAFE;
   const {

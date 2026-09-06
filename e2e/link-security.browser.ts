@@ -2,7 +2,7 @@
  * Link and URL security in Chromium, Firefox and WebKit, against the public
  * core build (e2e/link-security.config.ts).
  */
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import type { UrlCheck, UrlPolicyOptions } from '@domternal/core';
 import { test } from './fixtures.js';
 import { checkUrl } from '../packages/core/src/helpers/checkUrl.js';
@@ -513,5 +513,120 @@ test.describe('links in loaded JSON in the browser', () => {
     }
     expect(await opens(page)).toEqual([]);
     await expectNothingRan(page, dialogs);
+  });
+});
+
+test.describe('relative links and the link popover in the browser', () => {
+  test.beforeEach(async ({ context }) => {
+    await context.route(`${LANDING}**`, route => route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><title>landing</title><p>landing</p>',
+    }));
+    await context.route(`${BASE_URL}/docs/**`, route => route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><title>docs</title><p>docs</p>',
+    }));
+  });
+
+  /** Selects the first word, Hello, and opens the popover with Mod-K. */
+  async function openPopover(page: Page): Promise<Locator> {
+    await page.evaluate(() => { (window as unknown as { __linkSecurity: { select: (from: number, to: number) => void } }).__linkSecurity.select(1, 6); });
+    await page.keyboard.press('ControlOrMeta+k');
+    const popover = page.locator('.dm-link-popover[data-show]');
+    await expect(popover).toBeVisible();
+    return popover;
+  }
+
+  const linkHrefs = (page: Page): Promise<unknown[]> =>
+    page.evaluate(() => (window as unknown as { __linkSecurity: { linkHrefs: () => unknown[] } }).__linkSecurity.linkHrefs());
+
+  const inputs: [typed: string, stored: string][] = [
+    ['#intro', '#intro'], ['/docs/page#x', '/docs/page#x'], ['example.com', 'https://example.com'], ['a@b.example', 'mailto:a@b.example'],
+  ];
+  for (const [typed, stored] of inputs) {
+    test(`stores ${typed} typed into the popover as ${stored} (E1, E2, E6)`, async ({ page }) => {
+      await open(page);
+      await setup(page, { content: docOf(paragraph(text('Hello world'))), linkPopover: {} });
+      const popover = await openPopover(page);
+      await popover.locator('input').fill(typed);
+      await page.keyboard.press('Enter');
+      await expect(popover).toBeHidden();
+      expect(await linkHrefs(page)).toEqual([stored]);
+    });
+  }
+
+  test('keeps the popover open with a localized reason for a refused address, and clears it on typing (E8, E14)', async ({ page }) => {
+    await open(page);
+    await setup(page, { content: docOf(paragraph(text('Hello world'))), linkPopover: {} });
+    const popover = await openPopover(page);
+    const input = popover.locator('input');
+    for (const refused of ['javascript:alert(1)', 'data:text/html,x', 'https://google.com@evil.example/']) {
+      await input.fill(refused);
+      await page.keyboard.press('Enter');
+      await expect(popover).toBeVisible();
+      await expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(await input.evaluate(element => (element as HTMLInputElement).validationMessage)).toBe('This address cannot be used as a link.');
+      await expect(input).toBeFocused();
+    }
+    await input.pressSequentially('x');
+    await expect(input).not.toHaveAttribute('aria-invalid', /.*/);
+    expect(await linkHrefs(page)).toEqual([]);
+  });
+
+  test('changes only the href of an existing link and keeps its title, target, rel and class (E12)', async ({ page }) => {
+    await open(page);
+    await setup(page, {
+      linkPopover: {},
+      content: docOf(paragraph(text('Hello', [linkMark(`${LANDING}old`, { title: 'T', target: '_blank', rel: 'nofollow', class: 'c' })]), text(' world'))),
+    });
+    const popover = await openPopover(page);
+    await popover.locator('input').fill('/docs/new');
+    await page.keyboard.press('Enter');
+    await expect(popover).toBeHidden();
+    await expect(page.locator('#fixture a')).toHaveAttribute('href', '/docs/new');
+    await expect(page.locator('#fixture a')).toHaveAttribute('title', 'T');
+    await expect(page.locator('#fixture a')).toHaveAttribute('class', 'c');
+    await expect(page.locator('#fixture a')).toHaveAttribute('rel', 'nofollow noopener noreferrer');
+  });
+
+  test('scrolls to a fragment target in place, without opening a tab or changing the location (C8)', async ({ page }) => {
+    await open(page);
+    const filler = Array.from({ length: 60 }, (_, index) => paragraph(text(`filler ${String(index)}`)));
+    await setup(page, { content: docOf(
+      paragraph(text('INSIDE', [linkMark('#far-target')]), text(' '), text('OUTSIDE', [linkMark('#page-target')]), text(' '), text('NOWHERE', [linkMark('#missing')])),
+      ...filler,
+      { type: 'heading', attrs: { level: 2, id: 'far-target' }, content: [text('Far target')] },
+    ) });
+    await page.evaluate(() => {
+      const target = document.createElement('section');
+      target.id = 'page-target';
+      target.style.marginTop = '3000px';
+      target.textContent = 'Page target';
+      document.body.appendChild(target);
+    });
+    const url = page.url();
+    const none = nextPopup(page, 800);
+    await page.getByText('INSIDE', { exact: true }).last().click();
+    await expect(page.locator('#far-target')).toBeInViewport();
+    await page.evaluate(() => { window.scrollTo(0, 0); document.querySelector('#fixture .ProseMirror')?.scrollTo(0, 0); });
+    await page.getByText('OUTSIDE', { exact: true }).last().click();
+    await expect(page.locator('#page-target')).toBeInViewport();
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.getByText('NOWHERE', { exact: true }).last().click();
+    expect(await none).toBeNull();
+    expect(page.url()).toBe(url);
+    expect(await page.evaluate(() => location.hash)).toBe('');
+    expect(await opens(page)).toEqual([]);
+  });
+
+  test('opens a relative path resolved against the page in a new tab without an opener (C10)', async ({ page }) => {
+    await open(page);
+    await setup(page, { content: docOf(paragraph(text('CLICK', [linkMark('/docs/page?x=1')]))) });
+    const popup = nextPopup(page);
+    await page.getByText('CLICK', { exact: true }).last().click();
+    const opened = await popup;
+    await opened?.waitForLoadState();
+    expect(opened?.url()).toBe(`${BASE_URL}/docs/page?x=1`);
+    expect(await opened?.evaluate(() => window.opener === null)).toBe(true);
   });
 });

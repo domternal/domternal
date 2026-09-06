@@ -454,3 +454,14 @@ const describeDiagnostic = (diagnostic: ContentDiagnostic): string => {
   }
 };
 void describeDiagnostic;
+
+// Relative links follow the Link option; the popover's scheme list only narrows the Link's policy.
+import { Link, LinkPopover } from '@domternal/core';
+import type { LinkOptions, LinkPopoverOptions } from '@domternal/core';
+
+Link.configure({ allowRelative: false, protocols: ['https:'] });
+const popoverSchemes: LinkPopoverOptions['protocols'] = null;
+LinkPopover.configure({ protocols: popoverSchemes });
+LinkPopover.configure({ protocols: ['https:'] });
+const relativeLinks: LinkOptions['allowRelative'] = true;
+void relativeLinks;
