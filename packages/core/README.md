@@ -274,6 +274,18 @@ without the colon; `'any'` allows every scheme except `file:`), `allowRelative` 
 `isValidUrl(value, options)` answers the same question with a boolean. Use `checkUrl` in a custom
 link or image UI before opening an address yourself, and open it with `noopener`.
 
+The `Link` mark applies the policy with its `protocols` at every entry and again at every sink:
+
+- HTML parsing, `setLink` and `toggleLink` store only an allowed href, in its cleaned spelling.
+- A stored href the policy refuses, such as one loaded from JSON or written by a collaborator,
+  renders as plain text in a `span` in the editor, `getHTML()` and `generateHTML`, so there is no
+  anchor to follow or to copy. Rendering never changes the document.
+- A click in an editable editor opens only the clicked link's own href, and only when the policy
+  allows it. `_self`, `_parent` and `_top` targets navigate that browsing context; any other
+  target opens a new tab with `noopener`, so the opened page cannot reach the editor's page, and
+  with `noreferrer` unless `addRelNoopener` is `false` and the link's `rel` lacks it. A
+  read-only editor leaves clicks to the browser, which follows only a rendered, allowed href.
+
 ## Content normalization
 
 JSON content can hold values the editor cannot represent: a list marker this version does not

@@ -1,12 +1,14 @@
 /**
  * Link Click Plugin
  *
- * Handles click on links to open them.
- * When editable: opens on click.
- * When read-only: browser handles link clicks natively.
+ * Handles clicks on links in an editable editor. A read-only editor leaves
+ * clicks to the browser, which follows the rendered anchor: Link renders one
+ * only for an address the URL policy allows.
  */
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
-import type { MarkType } from '@domternal/pm/model';
+import type { Mark, MarkType, Node as PMNode } from '@domternal/pm/model';
+import type { EditorView } from '@domternal/pm/view';
+import { checkUrl } from '../../helpers/checkUrl.js';
 
 /**
  * Options for the link click plugin
@@ -31,6 +33,21 @@ export interface LinkClickPluginOptions {
    * @default false
    */
   enableClickSelection?: boolean;
+
+  /**
+   * The schemes a link may open with, as for the Link `protocols` option. The
+   * URL policy refuses script and data addresses, credentials and hidden
+   * characters whatever this lists.
+   * @default ['http:', 'https:', 'mailto:', 'tel:']
+   */
+  protocols?: readonly string[];
+
+  /**
+   * Opens a new tab without a referrer as well as without an opener. Without
+   * it, only a link whose `rel` holds `noreferrer` hides the referrer.
+   * @default true
+   */
+  noreferrer?: boolean;
 }
 
 /**
@@ -38,95 +55,109 @@ export interface LinkClickPluginOptions {
  */
 export const linkClickPluginKey = new PluginKey('linkClick');
 
+const DEFAULT_PROTOCOLS: readonly string[] = ['http:', 'https:', 'mailto:', 'tel:'];
+/** Targets that name a browsing context of the page instead of a new one. */
+const CONTEXT_TARGETS = new Set(['_self', '_parent', '_top']);
+
+/** The first inline node inside the anchor, whose marks are the anchor's own. */
+function anchorNode(view: EditorView, anchor: Element): { node: PMNode; pos: number } | null {
+  try {
+    const pos = view.posAtDOM(anchor, 0);
+    const node = view.state.doc.nodeAt(pos);
+    return node ? { node, pos } : null;
+  } catch {
+    // The anchor lies outside the editable content, such as inside a node view's own DOM.
+    return null;
+  }
+}
+
+/** The range of the siblings around the node at `pos` that carry exactly this mark. */
+function exactMarkRange(doc: PMNode, pos: number, mark: Mark): { from: number; to: number } {
+  const $pos = doc.resolve(pos);
+  const parent = $pos.parent;
+  let first = $pos.index();
+  let last = first;
+  while (first > 0 && mark.isInSet(parent.child(first - 1).marks)) first--;
+  while (last + 1 < parent.childCount && mark.isInSet(parent.child(last + 1).marks)) last++;
+  let from = $pos.start();
+  for (let index = 0; index < first; index++) from += parent.child(index).nodeSize;
+  let to = from;
+  for (let index = first; index <= last; index++) to += parent.child(index).nodeSize;
+  return { from, to };
+}
+
 /**
  * Creates a plugin that handles clicking on links to open them.
+ *
+ * Only the clicked anchor's own link mark counts, and only an address the URL
+ * policy allows opens. A new tab opens without `window.opener`, so the opened
+ * page cannot navigate the editor's tab. `_self`, `_parent` and `_top` targets
+ * navigate that browsing context; every other target opens a new tab.
  *
  * @param options - Plugin options
  * @returns ProseMirror Plugin
  */
 export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
-  const { type, openOnClick = true, enableClickSelection = false } = options;
+  const {
+    type,
+    openOnClick = true,
+    enableClickSelection = false,
+    protocols = DEFAULT_PROTOCOLS,
+    noreferrer = true,
+  } = options;
 
   return new Plugin({
     key: linkClickPluginKey,
 
     props: {
       handleClick(view, _pos, event) {
-        // Only left clicks
-        if (event.button !== 0) {
+        // Only left clicks, and only while editable: a read-only editor leaves
+        // the click to the browser, which follows only an allowed rendered href.
+        if (event.button !== 0 || !view.editable) {
           return false;
         }
 
-        // When not editable, let browser handle natively (links navigate normally)
-        if (!view.editable) {
+        const target = event.target as Element | null;
+        const anchor = typeof target?.closest === 'function' ? target.closest('a') : null;
+        if (!anchor || !view.dom.contains(anchor)) {
           return false;
         }
 
-        // Find the <a> element from the click target
-        let link: HTMLAnchorElement | null;
-
-        if (event.target instanceof HTMLAnchorElement) {
-          link = event.target;
-        } else {
-          const target = event.target as HTMLElement | null;
-          if (!target) {
-            return false;
-          }
-          link = target.closest<HTMLAnchorElement>('a');
-          if (link && !view.dom.contains(link)) {
-            link = null;
-          }
-        }
-
-        if (!link) {
+        // The mark of the anchor's own first node. The position before the
+        // anchor would report the marks of the node before it, such as an
+        // adjacent link, so it is never used. An anchor without a link mark,
+        // such as one a node view renders, is not a link of this plugin.
+        const found = anchorNode(view, anchor);
+        const mark = found?.node.marks.find(candidate => candidate.type === type);
+        if (!found || !mark) {
           return false;
         }
 
-        // Select full link range on click
         if (enableClickSelection) {
-          const pos = view.posAtDOM(link, 0);
-          const $pos = view.state.doc.resolve(pos);
-
-          if ($pos.marks().some((m) => m.type === type)) {
-            // Find contiguous mark range within the parent text block
-            const parent = $pos.parent;
-            const blockStart = pos - $pos.parentOffset;
-            let rangeStart = pos;
-            let rangeEnd = pos;
-
-            parent.forEach((child, childOffset) => {
-              const childStart = blockStart + childOffset;
-              const childEnd = childStart + child.nodeSize;
-              if (type.isInSet(child.marks) && childStart <= rangeEnd && childEnd >= rangeStart) {
-                rangeStart = Math.min(rangeStart, childStart);
-                rangeEnd = Math.max(rangeEnd, childEnd);
-              }
-            });
-
-            const tr = view.state.tr.setSelection(
-              TextSelection.create(view.state.doc, rangeStart, rangeEnd)
-            );
-            view.dispatch(tr);
-            return true;
-          }
+          const { from, to } = exactMarkRange(view.state.doc, found.pos, mark);
+          view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
+          return true;
         }
 
-        if (openOnClick) {
-          // Get href/target from ProseMirror mark (validated by renderHTML), fallback to DOM
-          const pos = view.posAtDOM(link, 0);
-          const $pos = view.state.doc.resolve(pos);
-          const linkMark = $pos.marks().find((m) => m.type === type);
-
-          const href = (linkMark?.attrs['href'] as string | undefined) ?? link.href;
-          const linkTarget = (linkMark?.attrs['target'] as string | undefined) ?? link.target;
-
-          if (href) {
-            window.open(href, linkTarget || '_blank');
-            return true;
-          }
+        if (!openOnClick) {
+          return false;
         }
 
-        return false;
+        const check = checkUrl(mark.attrs['href'], { protocols });
+        if (check.status !== 'allowed') {
+          return false;
+        }
+
+        const stored: unknown = mark.attrs['target'];
+        const keyword = typeof stored === 'string' ? stored.toLowerCase() : '';
+        if (CONTEXT_TARGETS.has(keyword)) {
+          window.open(check.url, keyword);
+          return true;
+        }
+        const rel: unknown = mark.attrs['rel'];
+        const hidesReferrer = noreferrer || (typeof rel === 'string' && /(^|\s)noreferrer(\s|$)/i.test(rel));
+        window.open(check.url, '_blank', hidesReferrer ? 'noopener,noreferrer' : 'noopener');
+        return true;
       },
     },
   });

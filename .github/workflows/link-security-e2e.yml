@@ -139,8 +139,12 @@ jobs:
           }
 
           status=0
-          # The fixture config covers Chromium, Firefox and WebKit against the
-          # public core build: the URL policy and the link sinks.
+          # Both configs cover Chromium, Firefox and WebKit. The demos suite
+          # runs the default configuration through the four wrappers; the
+          # fixture suite runs the URL policy and the link sinks against the
+          # public core build.
+          run_suite demos --config e2e/playwright.cross-browser.config.ts \
+            'link-security.*\.spec\.ts' || status=$?
           run_suite fixture --config e2e/link-security.config.ts || status=$?
           exit "$status"
 

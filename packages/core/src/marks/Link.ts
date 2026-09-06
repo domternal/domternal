@@ -7,7 +7,7 @@ import { localizedGroup } from '../messages/presentation.js';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import { Mark } from '../Mark.js';
 import type { CommandSpec } from '../types/Commands.js';
-import { isValidUrl } from '../helpers/isValidUrl.js';
+import { checkUrl, type UrlPolicyOptions } from '../helpers/checkUrl.js';
 import { getMarkRange } from '../helpers/getMarkRange.js';
 import { linkClickPlugin } from './helpers/linkClickPlugin.js';
 import { linkPastePlugin } from './helpers/linkPastePlugin.js';
@@ -77,6 +77,14 @@ export interface LinkAttributes {
   class?: string | null;
 }
 
+/** The URL policy of a Link configuration. */
+function linkPolicy(options: LinkOptions): UrlPolicyOptions {
+  return { protocols: options.protocols };
+}
+
+/** The Link's own attributes, which a refused link does not render. */
+const LINK_ATTRIBUTES = ['href', 'target', 'rel', 'title', 'class'];
+
 /**
  * Link mark for hyperlinks
  */
@@ -138,15 +146,14 @@ export const Link = Mark.create<LinkOptions>({
         tag: 'a[href]',
         getAttrs: (node) => {
           if (typeof node === 'string') return false;
-          const href = node.getAttribute('href');
-
-          // Validate URL
-          if (!href || !isValidUrl(href, { protocols: this.options.protocols })) {
+          // Only an address the URL policy allows, stored as the browser reads it.
+          const check = checkUrl(node.getAttribute('href'), linkPolicy(this.options));
+          if (check.status !== 'allowed') {
             return false;
           }
 
           return {
-            href,
+            href: check.url,
             target: node.getAttribute('target'),
             rel: node.getAttribute('rel'),
             title: node.getAttribute('title'),
@@ -160,15 +167,16 @@ export const Link = Mark.create<LinkOptions>({
   renderHTML({ HTMLAttributes }) {
     const attrs = { ...this.options.HTMLAttributes, ...HTMLAttributes };
 
-    // Validate href before rendering
-    if (
-      typeof attrs['href'] === 'string' &&
-      !isValidUrl(attrs['href'], { protocols: this.options.protocols })
-    ) {
-      // Remove the href if invalid, keeping other attributes
-      const { href: _, ...rest } = attrs;
-      return ['a', rest, 0];
+    // A stored href the URL policy refuses, such as a script address or a
+    // value that is not a string, renders as plain text: no anchor to follow
+    // or copy, and none that styles would show as a link. Attributes other
+    // extensions add stay. The document keeps the stored value.
+    const check = checkUrl(attrs['href'], linkPolicy(this.options));
+    if (check.status !== 'allowed') {
+      const rest = Object.fromEntries(Object.entries(HTMLAttributes).filter(([name]) => !LINK_ATTRIBUTES.includes(name)));
+      return ['span', rest, 0];
     }
+    attrs['href'] = check.url;
 
     // Add rel="noopener noreferrer" for external links
     if (
@@ -187,10 +195,11 @@ export const Link = Mark.create<LinkOptions>({
       setLink:
         (attributes: LinkAttributes) =>
         ({ commands }) => {
-          if (!isValidUrl(attributes.href, { protocols: this.options.protocols })) {
+          const check = checkUrl(attributes.href, linkPolicy(this.options));
+          if (check.status !== 'allowed') {
             return false;
           }
-          return commands.setMark('link', attributes);
+          return commands.setMark('link', { ...attributes, href: check.url });
         },
       unsetLink:
         () =>
@@ -233,9 +242,11 @@ export const Link = Mark.create<LinkOptions>({
       toggleLink:
         (attributes: LinkAttributes) =>
         ({ tr, state, dispatch }) => {
-          if (!isValidUrl(attributes.href, { protocols: this.options.protocols })) {
+          const check = checkUrl(attributes.href, linkPolicy(this.options));
+          if (check.status !== 'allowed') {
             return false;
           }
+          const linkAttributes = { ...attributes, href: check.url };
 
           const markType = state.schema.marks['link'];
           if (!markType) return false;
@@ -258,7 +269,7 @@ export const Link = Mark.create<LinkOptions>({
               if (markType.isInSet(cursorMarks)) {
                 tr.removeStoredMark(markType);
               } else {
-                tr.addStoredMark(markType.create(attributes));
+                tr.addStoredMark(markType.create(linkAttributes));
               }
             }
           } else {
@@ -271,7 +282,7 @@ export const Link = Mark.create<LinkOptions>({
               if (hasMark) {
                 tr.removeMark(range.$from.pos, range.$to.pos, markType);
               } else {
-                tr.addMark(range.$from.pos, range.$to.pos, markType.create(attributes));
+                tr.addMark(range.$from.pos, range.$to.pos, markType.create(linkAttributes));
               }
             }
           }
@@ -324,6 +335,8 @@ export const Link = Mark.create<LinkOptions>({
           ? true
           : this.options.openOnClick,
         enableClickSelection: this.options.enableClickSelection,
+        protocols: this.options.protocols,
+        noreferrer: this.options.addRelNoopener,
       })
     );
 

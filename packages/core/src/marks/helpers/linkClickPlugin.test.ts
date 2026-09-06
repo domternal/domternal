@@ -117,9 +117,11 @@ describe('linkClickPlugin', () => {
 
       const result = handler(view, 2, event);
       expect(result).toBe(true);
+      // A new tab never gets window.opener, and by default no referrer.
       expect(openSpy).toHaveBeenCalledWith(
         'https://example.com',
-        '_blank'
+        '_blank',
+        'noopener,noreferrer'
       );
     });
 
@@ -259,7 +261,8 @@ describe('linkClickPlugin', () => {
       handler(view, 2, event);
       expect(openSpy).toHaveBeenCalledWith(
         'https://example.com',
-        '_blank'
+        '_blank',
+        'noopener,noreferrer'
       );
     });
 
