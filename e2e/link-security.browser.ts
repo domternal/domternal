@@ -435,3 +435,60 @@ test.describe('link sinks in the browser', () => {
     await expectNothingRan(page, dialogs);
   });
 });
+
+test.describe('link targets and rel in the browser', () => {
+  test.beforeEach(async ({ context }) => {
+    await context.route(`${LANDING}**`, route => route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><title>landing</title><p>landing</p>',
+    }));
+  });
+
+  test("opens nothing while editable with openOnClick 'whenNotEditable', and the browser follows it read-only (C12)", async ({ page }) => {
+    await open(page);
+    await setup(page, { content: LAYOUTS['after text']?.(`${LANDING}when-not-editable`), link: { openOnClick: 'whenNotEditable' } });
+    const none = nextPopup(page, 800);
+    await page.locator('#fixture a').click();
+    expect(await none).toBeNull();
+    await setup(page, { content: LAYOUTS['after text']?.(`${LANDING}never`), link: { openOnClick: false } });
+    const never = nextPopup(page, 800);
+    await page.locator('#fixture a').click();
+    expect(await never).toBeNull();
+    expect(await opens(page)).toEqual([]);
+    await setup(page, {
+      editable: false,
+      link: { openOnClick: 'whenNotEditable' },
+      content: docOf(paragraph(text('CLICK', [linkMark(`${LANDING}read-only-native`, { target: '_blank' })]))),
+    });
+    const popup = nextPopup(page);
+    await page.locator('#fixture a').click();
+    expect((await popup)?.url()).toBe(`${LANDING}read-only-native`);
+  });
+
+  test('renders a new-tab link whose stored rel grants an opener without it, so a native click opens without an opener (F9)', async ({ page }) => {
+    await open(page);
+    await setup(page, {
+      editable: false,
+      content: docOf(paragraph(text('CLICK', [linkMark(`${LANDING}rel-opener`, { target: '_BLANK', rel: 'opener nofollow' })]))),
+    });
+    const anchor = page.locator('#fixture a');
+    await expect(anchor).toHaveAttribute('target', '_blank');
+    await expect(anchor).toHaveAttribute('rel', 'nofollow noopener noreferrer');
+    const popup = nextPopup(page);
+    await anchor.click();
+    const opened = await popup;
+    await opened?.waitForLoadState();
+    expect(await opened?.evaluate(() => ({ opener: window.opener === null, referrer: document.referrer })))
+      .toEqual({ opener: true, referrer: '' });
+  });
+
+  test('drops a named target, so a read-only click stays in the page instead of reusing a named window', async ({ page }) => {
+    await open(page);
+    await setup(page, {
+      editable: false,
+      content: docOf(paragraph(text('CLICK', [linkMark(`${LANDING}named`, { target: 'preview' })]))),
+    });
+    await expect(page.locator('#fixture a')).not.toHaveAttribute('target', /.*/);
+    await Promise.all([page.waitForURL(`${LANDING}named`), page.locator('#fixture a').click()]);
+  });
+});

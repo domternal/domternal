@@ -20,10 +20,11 @@ export interface LinkClickPluginOptions {
   type: MarkType;
 
   /**
-   * When to open links on click
+   * When to open links on click while the editor is editable. A read-only
+   * editor leaves clicks to the browser, which follows the rendered link.
    * - true: Open on click
    * - false: Never open
-   * - 'whenNotEditable': Only open when editor is read-only (browser handles natively)
+   * - 'whenNotEditable': Never open while editable
    * @default true
    */
   openOnClick?: boolean | 'whenNotEditable';
@@ -58,6 +59,8 @@ export const linkClickPluginKey = new PluginKey('linkClick');
 const DEFAULT_PROTOCOLS: readonly string[] = ['http:', 'https:', 'mailto:', 'tel:'];
 /** Targets that name a browsing context of the page instead of a new one. */
 const CONTEXT_TARGETS = new Set(['_self', '_parent', '_top']);
+const hasToken = (value: string | null, token: string): boolean =>
+  (value ?? '').split(/[\t\n\f\r ]+/).some(candidate => candidate.toLowerCase() === token);
 
 /** The first inline node inside the anchor, whose marks are the anchor's own. */
 function anchorNode(view: EditorView, anchor: Element): { node: PMNode; pos: number } | null {
@@ -139,7 +142,8 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
           return true;
         }
 
-        if (!openOnClick) {
+        // 'whenNotEditable' never opens while editable.
+        if (openOnClick !== true) {
           return false;
         }
 
@@ -148,14 +152,15 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
           return false;
         }
 
-        const stored: unknown = mark.attrs['target'];
-        const keyword = typeof stored === 'string' ? stored.toLowerCase() : '';
+        // The rendered target and rel, as a native click on the anchor would
+        // read them: the Link renders only keyword targets, from the mark or
+        // its HTMLAttributes option.
+        const keyword = (anchor.getAttribute('target') ?? '').toLowerCase();
         if (CONTEXT_TARGETS.has(keyword)) {
           window.open(check.url, keyword);
           return true;
         }
-        const rel: unknown = mark.attrs['rel'];
-        const hidesReferrer = noreferrer || (typeof rel === 'string' && /(^|\s)noreferrer(\s|$)/i.test(rel));
+        const hidesReferrer = noreferrer || hasToken(anchor.getAttribute('rel'), 'noreferrer');
         window.open(check.url, '_blank', hidesReferrer ? 'noopener,noreferrer' : 'noopener');
         return true;
       },

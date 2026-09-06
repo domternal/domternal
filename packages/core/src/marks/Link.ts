@@ -27,15 +27,19 @@ export interface LinkOptions {
    */
   protocols: string[];
   /**
-   * When to open links on click
+   * When an editable editor opens links on click. A read-only editor leaves
+   * clicks to the browser, which follows the rendered link.
    * - true: Open on click (when editable)
    * - false: Never open
-   * - 'whenNotEditable': Only open when editor is read-only
+   * - 'whenNotEditable': Never open while editable, so only a read-only editor opens links
    * @default true
    */
   openOnClick: boolean | 'whenNotEditable';
   /**
-   * Whether to add rel="noopener noreferrer" to links
+   * Whether a link that opens a new tab (target `_blank`) renders with
+   * `noopener noreferrer` merged into its `rel`, without `opener`, and whether
+   * a click opens it without a referrer. A click never gives the new tab an
+   * opener either way.
    * @default true
    */
   addRelNoopener: boolean;
@@ -84,6 +88,29 @@ function linkPolicy(options: LinkOptions): UrlPolicyOptions {
 
 /** The Link's own attributes, which a refused link does not render. */
 const LINK_ATTRIBUTES = ['href', 'target', 'rel', 'title', 'class'];
+
+/** Targets a link renders: the browsing context keywords. A named target is dropped. */
+const LINK_TARGETS = new Set(['_blank', '_self', '_parent', '_top']);
+
+/** The keyword target a value names, in lower case, or null. */
+function linkTarget(value: unknown): string | null {
+  const target = typeof value === 'string' ? value.toLowerCase() : null;
+  return target !== null && LINK_TARGETS.has(target) ? target : null;
+}
+
+/**
+ * The rel of a link that opens a new tab: the stored tokens without `opener`,
+ * which would hand the editor's page to the opened one, plus `noopener` and
+ * `noreferrer` when missing.
+ */
+function newTabRel(value: unknown): string {
+  const tokens = (typeof value === 'string' ? value.split(/[\t\n\f\r ]+/) : [])
+    .filter(token => token !== '' && token.toLowerCase() !== 'opener');
+  for (const required of ['noopener', 'noreferrer']) {
+    if (!tokens.some(token => token.toLowerCase() === required)) tokens.push(required);
+  }
+  return tokens.join(' ');
+}
 
 /**
  * Link mark for hyperlinks
@@ -165,27 +192,31 @@ export const Link = Mark.create<LinkOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const attrs = { ...this.options.HTMLAttributes, ...HTMLAttributes };
-
     // A stored href the URL policy refuses, such as a script address or a
     // value that is not a string, renders as plain text: no anchor to follow
     // or copy, and none that styles would show as a link. Attributes other
     // extensions add stay. The document keeps the stored value.
-    const check = checkUrl(attrs['href'], linkPolicy(this.options));
+    const check = checkUrl({ ...this.options.HTMLAttributes, ...HTMLAttributes }['href'], linkPolicy(this.options));
     if (check.status !== 'allowed') {
       const rest = Object.fromEntries(Object.entries(HTMLAttributes).filter(([name]) => !LINK_ATTRIBUTES.includes(name)));
       return ['span', rest, 0];
     }
+
+    const attrs: Record<string, unknown> = { ...this.options.HTMLAttributes };
+    for (const [name, value] of Object.entries(HTMLAttributes)) {
+      // An array or object would be joined into the attribute; only strings render.
+      if ((name === 'title' || name === 'class') && typeof value !== 'string') continue;
+      attrs[name] = value;
+    }
     attrs['href'] = check.url;
 
-    // Add rel="noopener noreferrer" for external links
-    if (
-      this.options.addRelNoopener &&
-      attrs['target'] === '_blank' &&
-      !attrs['rel']
-    ) {
-      attrs['rel'] = 'noopener noreferrer';
-    }
+    const target = linkTarget(attrs['target']);
+    if (target === null) delete attrs['target'];
+    else attrs['target'] = target;
+
+    // A new tab never gets the editor's page as its opener.
+    if (this.options.addRelNoopener && target === '_blank') attrs['rel'] = newTabRel(attrs['rel']);
+    else if (typeof attrs['rel'] !== 'string') delete attrs['rel'];
 
     return ['a', attrs, 0];
   },
@@ -326,14 +357,12 @@ export const Link = Mark.create<LinkOptions>({
 
     const plugins = [];
 
-    // Click plugin - always added (handles link opening on click)
-    // 'whenNotEditable' → true: browser handles read-only links natively
+    // Click plugin - always added (handles link opening on click while
+    // editable; the browser follows read-only links natively)
     plugins.push(
       linkClickPlugin({
         type: markType,
-        openOnClick: this.options.openOnClick === 'whenNotEditable'
-          ? true
-          : this.options.openOnClick,
+        openOnClick: this.options.openOnClick,
         enableClickSelection: this.options.enableClickSelection,
         protocols: this.options.protocols,
         noreferrer: this.options.addRelNoopener,

@@ -285,6 +285,13 @@ The `Link` mark applies the policy with its `protocols` at every entry and again
   target opens a new tab with `noopener`, so the opened page cannot reach the editor's page, and
   with `noreferrer` unless `addRelNoopener` is `false` and the link's `rel` lacks it. A
   read-only editor leaves clicks to the browser, which follows only a rendered, allowed href.
+  `openOnClick: 'whenNotEditable'` never opens links while the editor is editable, and `false`
+  never opens them.
+- An allowed link renders its `target` only when it is `_blank`, `_self`, `_parent` or `_top`
+  (in any case, written in lower case), and its `title` and `class` only when they are strings.
+  With `addRelNoopener` (the default), a `_blank` link's `rel` keeps its stored tokens except
+  `opener` and gains `noopener` and `noreferrer`, so `nofollow` renders as
+  `nofollow noopener noreferrer`.
 
 ## Content normalization
 
