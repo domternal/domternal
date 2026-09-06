@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.2 (2026-09-06)
+
+### Fixes
+
+- Every `@domternal` peer dependency is bounded at the next major. The ranges read `>=1.0.0 <2.0.0` where they read an open `>=1.0.0`, and the publish transform writes the same ceiling onto the internal runtime dependencies it rewrites at pack time. An open range declares that a 1.x extension supports a 2.x core, which is a compatibility nothing here has tested: a consumer upgrading core on its own would have had the old extension resolved as compatible and installed without a warning, and a mismatch of that kind surfaces as a schema or plugin failure at runtime rather than at install time. The four wrapper READMEs and the `@domternal/pm` README state the bounded range with it. (#176)
+
+### Docs
+
+- The npm listing for every package names the product it belongs to. Descriptions carry the MIT licence and "rich text editor" in place of "Domternal editor", and keywords gain `rich-text-editor` and `typescript`, with `wysiwyg`, `headless`, `self-hosted` and `web-components` where each applies, so a package is findable by the words people search with. Each wrapper keeps only its own framework keyword, so `@domternal/react` cannot answer a search for Angular. (#177)
+
 ## 1.0.1 (2026-08-25)
 
 ### Fixes

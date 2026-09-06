@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-image",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Image node extension for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
