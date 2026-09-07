@@ -158,3 +158,27 @@ test('React allocating selectors render command availability and selection-only 
   await expect(page.getByTestId('selector')).toContainText('"type":"bold"');
   expect(await page.evaluate(() => window.__tutorialLifecycle.stats().renders)).toBeLessThan(100);
 });
+
+test('React all-in-one children stay before the editor while their state and editor selection survive rerender', async ({ page }) => {
+  await open(page, 'react', 'children');
+  await expect(page.getByTestId('child-label')).toHaveText('Initial: provided');
+  await page.getByRole('button', { name: 'Child count 0' }).click();
+  await selectText(page);
+  const before = await page.evaluate(() => window.__tutorialLifecycle.html());
+  const selection = await page.evaluate(() => window.__tutorialLifecycle.selection());
+  await page.evaluate(() => { window.__tutorialLifecycle.rerenderChildren(); });
+  await expect(page.getByRole('button', { name: 'Child count 1' })).toBeVisible();
+  await expect(page.getByTestId('child-label')).toHaveText('Updated: provided');
+  await expect(page.locator('.dm-toolbar')).toHaveCount(0);
+  expect(await page.evaluate(() => {
+    const host = document.querySelector('.dm-editor');
+    return ['children', 'footer'].every(id => {
+      const child = document.querySelector(`[data-testid="${id}"]`);
+      return host && child?.parentElement === host.parentElement
+        && Boolean(child.compareDocumentPosition(host) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+  })).toBe(true);
+  await expect(page.locator('.ProseMirror [data-testid], .dm-editor .child-header, .dm-editor .child-footer')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__tutorialLifecycle.html())).toBe(before);
+  expect(await page.evaluate(() => window.__tutorialLifecycle.selection())).toEqual(selection);
+});
