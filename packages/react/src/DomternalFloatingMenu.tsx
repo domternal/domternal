@@ -309,7 +309,14 @@ function FloatingMenuItemButton({
           dangerouslySetInnerHTML={innerHtml(iconHtml)}
         />
       )}
-      <span className="dm-floating-menu-item-label">{item.label}</span>
+      {item.description ? (
+        <span className="dm-floating-menu-item-text">
+          <span className="dm-floating-menu-item-label">{item.label}</span>
+          <span className="dm-floating-menu-item-description">{item.description}</span>
+        </span>
+      ) : (
+        <span className="dm-floating-menu-item-label">{item.label}</span>
+      )}
       {item.shortcut && (
         <span className="dm-floating-menu-item-shortcut" aria-hidden="true">
           {item.shortcut}
