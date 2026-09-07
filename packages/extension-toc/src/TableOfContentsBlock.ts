@@ -8,7 +8,7 @@ import { Node, splitListForInsert } from '@domternal/core';
 import type { Editor, FloatingMenuItem } from '@domternal/core';
 import type { NodeViewConstructor } from '@domternal/pm/view';
 import { TextSelection } from '@domternal/pm/state';
-import { scrollToHeading } from './helpers/scrollToHeading.js';
+import { navigateToc } from './helpers/tocTracking.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import { getHeadingLabel, setActiveMarker } from './helpers/outlineDom.js';
 import type { TocStorage, HeadingEntry } from './types.js';
@@ -122,9 +122,13 @@ function makeNodeViewConstructor(
 
     const storage = editor.storage['toc'] as TocStorage | undefined;
 
+    let renderedContent: HeadingEntry[] | null = null;
     const refresh = (): void => {
       if (!storage) return;
-      renderBlockContent(dom, storage.content, options.emptyStateText);
+      if (renderedContent !== storage.content) {
+        renderedContent = storage.content;
+        renderBlockContent(dom, storage.content, options.emptyStateText);
+      }
       applyActiveLink(dom, storage.activeId);
     };
 
@@ -172,7 +176,7 @@ function makeNodeViewConstructor(
       // selection - the NodeView is `contenteditable="false"` but
       // PM still tracks clicks on atoms for selection.
       event.preventDefault();
-      scrollToHeading(editor.view, id, { attrName });
+      navigateToc(editor.view, id, { attrName });
     };
     dom.addEventListener('click', onClick);
 

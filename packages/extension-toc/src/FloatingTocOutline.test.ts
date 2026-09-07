@@ -1473,6 +1473,7 @@ describe('FloatingTocOutline - active state', () => {
         Heading,
         BaseKeymap,
         History,
+        UniqueID,
         TableOfContents,
         FloatingTocOutline.configure({ activeRootMargin: customMargin }),
       ],
