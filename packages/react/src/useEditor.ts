@@ -232,12 +232,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
       // attached one (composable consumers adopt via Domternal.Content or
       // EditorContent instead), then announce creation.
       const mount = editorRef.current;
-      if (mount && existing.view.dom.parentElement !== mount) {
-        mount.appendChild(existing.view.dom);
-        // The detached-construction window is over; let a preset: 'notion'
-        // editor paint dm-notion-mode on the host it can now reach.
-        existing.adoptPresetClass();
-      }
+      if (mount) existing.adoptDom(mount);
       callbacksRef.current.onCreate?.(existing);
       return () => {
         destroyCurrentEditor();

@@ -157,12 +157,7 @@ export function useEditor(options: UseEditorOptions = {}): {
       // immediatelyRender path: the editor was created detached during setup.
       // Adopt its DOM into the mount node so it is not left blank.
       const mount = editorRef.value;
-      if (mount && ed.view.dom.parentElement !== mount) {
-        mount.appendChild(ed.view.dom);
-        // The detached-construction window is over; let a preset: 'notion'
-        // editor paint dm-notion-mode on the host it can now reach.
-        ed.adoptPresetClass();
-      }
+      if (mount) ed.adoptDom(mount);
       return;
     }
 

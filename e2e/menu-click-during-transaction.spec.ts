@@ -23,6 +23,7 @@
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
+import { selectTextPrefix } from './menu-selection.js';
 
 const EDITOR = '.dm-editor .ProseMirror';
 /** Any toolbar control that opens a panel; alignment exists in every demo. */
@@ -67,20 +68,9 @@ async function installOverlayProbe(page: Page): Promise<void> {
   });
 }
 
-/** ProseMirror only reads a selectionchange while it holds DOM focus. */
+/** Establish the text range before exercising native menu presses. */
 async function selectFirstWords(page: Page): Promise<void> {
-  await page.evaluate((selector) => {
-    const paragraph = document.querySelector(`${selector} p`);
-    if (!paragraph?.firstChild) throw new Error('no paragraph');
-    const range = document.createRange();
-    range.setStart(paragraph.firstChild, 0);
-    range.setEnd(paragraph.firstChild, 12);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    const editorEl = document.querySelector(selector);
-    if (editorEl instanceof HTMLElement) editorEl.focus();
-  }, EDITOR);
+  await selectTextPrefix(page, EDITOR, 12);
 }
 
 /**
@@ -250,12 +240,11 @@ for (const target of demoTargets) {
 
     const item = page.locator('.dm-slash-command-item', { hasText: 'Heading 1' }).first();
     await expect(item).toBeVisible();
-    // Raw coordinates do not scroll the way `click()` does.
-    await item.scrollIntoViewIfNeeded();
-    const box = await item.boundingBox();
-    if (!box) throw new Error('no box');
-
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // Let Playwright settle scrolling and hit-test the intended row before
+    // the held press. A cached bounding box can point at a different row
+    // while Firefox is still scrolling the document.
+    await item.hover();
+    await expect(item).toHaveAttribute('data-selected', '');
     await page.mouse.down();
     await page.evaluate(() => {
       const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as

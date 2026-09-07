@@ -7,6 +7,7 @@ import type { EditorView } from '@domternal/pm/view';
 import type { EditorState } from '@domternal/pm/state';
 import type { Editor } from '../Editor.js';
 import { positionFloatingOnce } from '../utils/positionFloating.js';
+import { createAdoptablePluginView } from '../utils/createAdoptablePluginView.js';
 
 export const bubbleMenuPluginKey = new PluginKey('bubbleMenu');
 
@@ -240,7 +241,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
       },
     },
 
-    view: (editorView) => {
+    view: (view) => createAdoptablePluginView(editor, view, (editorView) => {
       // Move element inside .dm-editor (position:relative) so it uses
       // position:absolute - CSS compositor handles scroll, zero jitter.
       const editorEl = editorView.dom.closest('.dm-editor');
@@ -408,7 +409,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
           hideMenu();
         },
       };
-    },
+    }),
   });
 }
 

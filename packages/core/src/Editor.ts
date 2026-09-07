@@ -39,6 +39,14 @@ import type {
   FloatingMenuItem,
 } from './types/index.js';
 
+interface EditorDomContext {
+  element: HTMLElement | null;
+  host: HTMLElement | null;
+  hostParent: HTMLElement | null;
+  root: Node;
+  connected: boolean;
+}
+
 /**
  * Main editor class
  *
@@ -121,6 +129,8 @@ export class Editor extends EventEmitter<EditorEvents> {
    * editor itself added, never one the consumer wrote.
    */
   private _presetClassHost: Element | null = null;
+
+  private _domContext: EditorDomContext | null = null;
 
   /**
    * Creates a new Editor instance
@@ -233,17 +243,57 @@ export class Editor extends EventEmitter<EditorEvents> {
    * wrappers call it again after adopting the view's DOM: they construct
    * the editor in a detached element, so the creation-time run cannot see
    * the host yet. Idempotent; a no-op for any other preset. Only a class
-   * added here is removed again on destroy.
+   * added here is removed when the host changes or the editor is destroyed.
    */
   adoptPresetClass(): void {
-    if (this.options.preset !== 'notion' || this._presetClassHost) {
+    if (this.options.preset !== 'notion') {
       return;
     }
     const host = this.view.dom.closest('.dm-editor');
+    if (this._presetClassHost && this._presetClassHost !== host) {
+      this._presetClassHost.classList.remove('dm-notion-mode');
+      this._presetClassHost = null;
+    }
     if (host && !host.classList.contains('dm-notion-mode')) {
       host.classList.add('dm-notion-mode');
       this._presetClassHost = host;
     }
+  }
+
+  /**
+   * Moves the existing view into a mount element without recreating its state.
+   * Host-dependent UI receives an `adopt` event after the move. Calling this
+   * again with the same DOM context is a no-op. The original `mount` and
+   * `create` events remain creation-time events.
+   */
+  adoptDom(element: HTMLElement): this {
+    if (this._isDestroyed) return this;
+
+    if (this.view.dom.parentElement !== element) {
+      element.appendChild(this.view.dom);
+    }
+    this.view.updateRoot();
+    this.adoptPresetClass();
+
+    const previous = this._domContext;
+    const current = this.captureDomContext();
+    this._domContext = current;
+    if (previous?.element === current.element
+      && previous.host === current.host
+      && previous.hostParent === current.hostParent
+      && previous.root === current.root
+      && previous.connected === current.connected) {
+      return this;
+    }
+
+    this.emit('adopt', {
+      editor: this,
+      view: this.view,
+      element,
+      host: current.host,
+      previousHost: previous?.host ?? null,
+    });
+    return this;
   }
 
   /**
@@ -684,6 +734,7 @@ export class Editor extends EventEmitter<EditorEvents> {
 
     // Destroy ProseMirror view
     this.view.destroy();
+    this._domContext = null;
 
     // Destroy managers
     this._extensionManager.destroy();
@@ -826,6 +877,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     // so one option covers styling and behavior; consumers stop writing the
     // class by hand. Only a class this editor added is removed on destroy.
     this.adoptPresetClass();
+    this._domContext = this.captureDomContext();
 
     // 8. Emit mount event - view is now attached to DOM element
     this.emit('mount', { editor: this, view: this.view });
@@ -850,6 +902,17 @@ export class Editor extends EventEmitter<EditorEvents> {
     this.emit('create', { editor: this });
     this.options.onCreate?.({ editor: this });
     this._extensionManager.callOnCreate();
+  }
+
+  private captureDomContext(): EditorDomContext {
+    const host = this.view.dom.closest<HTMLElement>('.dm-editor');
+    return {
+      element: this.view.dom.parentElement,
+      host,
+      hostParent: host?.parentElement ?? null,
+      root: this.view.dom.getRootNode(),
+      connected: this.view.dom.isConnected,
+    };
   }
 
   /**

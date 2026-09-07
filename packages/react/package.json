@@ -22,18 +22,21 @@
     "dist"
   ],
   "peerDependencies": {
+    "@domternal/core": ">=1.0.0 <2.0.0",
     "react": ">=18",
-    "react-dom": ">=18",
-    "@domternal/core": ">=1.0.0 <2.0.0"
+    "react-dom": ">=18"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",
+    "@domternal/pm": "workspace:*",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "jsdom": "^28.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tsup": "^8.5.1",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.10"
   },
   "scripts": {
     "build": "tsup",
@@ -41,7 +44,9 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm build && node ../../scripts/prepare-publish-manifest.mjs",
-    "postpublish": "git checkout package.json"
+    "postpublish": "git checkout package.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "react",

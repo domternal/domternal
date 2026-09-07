@@ -66,13 +66,12 @@ function DomternalContent({ className }: { className?: string }): ReactNode {
     const container = containerRef.current;
     if (!container || !editor || editor.isDestroyed) return;
 
-    const editorDom = editor.view.dom;
-    if (editorDom.parentElement !== container) {
-      container.appendChild(editorDom);
-      // The detached-construction window is over; let a preset: 'notion'
-      // editor paint dm-notion-mode on the host it can now reach.
-      editor.adoptPresetClass();
-    }
+    editor.adoptDom(container);
+    return () => {
+      if (!editor.isDestroyed && editor.view.dom.parentElement === container) {
+        editor.adoptDom(document.createElement('div'));
+      }
+    };
   }, [editor]);
 
   const classes = className ? `dm-editor ${className}` : 'dm-editor';

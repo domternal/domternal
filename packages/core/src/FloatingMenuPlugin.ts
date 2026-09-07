@@ -7,6 +7,7 @@
  * need no dependency on the block-menu package.
  */
 import { positionFloatingOnce } from './utils/positionFloating.js';
+import { createAdoptablePluginView } from './utils/createAdoptablePluginView.js';
 import type { Editor } from './Editor.js';
 import type { FloatingMenuItemsOverride } from './types/FloatingMenu.js';
 import { Plugin, PluginKey } from '@domternal/pm/state';
@@ -313,7 +314,7 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
       },
     },
 
-    view: (editorView) => {
+    view: (view) => createAdoptablePluginView(editor, view, (editorView) => {
       // Move the menu into `.dm-editor` so `position:absolute` resolves against
       // the scrollable editor container (zero jitter on scroll).
       editorEl = editorView.dom.closest('.dm-editor');
@@ -389,6 +390,6 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
           editorEl = null;
         },
       };
-    },
+    }),
   });
 }

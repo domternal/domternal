@@ -27,8 +27,11 @@
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",
+    "@domternal/pm": "workspace:*",
+    "jsdom": "^28.1.0",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3",
+    "vitest": "^4.1.10",
     "vue": "^3.5.41"
   },
   "scripts": {
@@ -37,7 +40,9 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm build && node ../../scripts/prepare-publish-manifest.mjs",
-    "postpublish": "git checkout package.json"
+    "postpublish": "git checkout package.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "vue",

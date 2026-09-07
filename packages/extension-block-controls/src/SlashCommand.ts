@@ -8,6 +8,7 @@
 import {
   Extension,
   FloatingMenuController,
+  createAdoptablePluginView,
 } from '@domternal/core';
 import type {
   Editor,
@@ -334,7 +335,7 @@ export function createSlashCommandPlugin(
       },
     },
 
-    view(editorView) {
+    view: (view) => createAdoptablePluginView(editor, view, (editorView) => {
       // Cooperative dismissal: overlays broadcast `dm:dismiss-overlays` when
       // they open, so two floating menus never coexist. Suppress the handler
       // while WE dispatch, else the synchronous event would self-dismiss the
@@ -448,7 +449,7 @@ export function createSlashCommandPlugin(
           }
         },
       };
-    },
+    }),
 
     props: {
       // handleDOMEvents.keydown (not handleKeyDown) so we intercept keys before
