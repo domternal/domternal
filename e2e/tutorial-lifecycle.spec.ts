@@ -77,6 +77,19 @@ function expectPreserved(current: Snapshot, before: Snapshot): void {
   }
 }
 
+async function selectText(page: Page): Promise<void> {
+  await page.evaluate(() => { window.__tutorialLifecycle.selectText(); });
+  await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe('Alpha');
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+}
+
+async function selectCells(page: Page): Promise<void> {
+  await page.evaluate(() => { window.__tutorialLifecycle.selectCells(); });
+  await expect(page.locator('.selectedCell')).toHaveCount(2);
+  await expect.poll(() => page.evaluate(() => window.__tutorialLifecycle.selection().cell)).toBe(true);
+  await expect(page.getByTestId('merge')).toBeEnabled();
+}
+
 test.afterEach(({ page }) => {
   expect(errors.get(page) ?? []).toEqual([]);
 });
@@ -132,3 +145,16 @@ for (const framework of ['react', 'vue']) {
     }
   }
 }
+
+test('React allocating selectors render command availability and selection-only updates without a loop', async ({ page }) => {
+  await open(page, 'react', 'toolbar');
+  await selectCells(page);
+  await expect(page.getByTestId('selector')).toContainText('"merge":true');
+  await selectText(page);
+  await expect(page.getByTestId('selector')).toContainText('"range":[1,6]');
+  await expect(page.getByTestId('selector')).toContainText('"merge":false');
+  await page.getByTestId('bold').click();
+  await expect(page.getByTestId('selector')).toContainText('"bold":true');
+  await expect(page.getByTestId('selector')).toContainText('"type":"bold"');
+  expect(await page.evaluate(() => window.__tutorialLifecycle.stats().renders)).toBeLessThan(100);
+});
