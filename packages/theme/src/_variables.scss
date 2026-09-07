@@ -1,11 +1,12 @@
 // =============================================================================
 // CSS Custom Properties (Design Tokens)
 // =============================================================================
-// All visual properties are CSS custom properties on .dm-editor.
-// Override any variable on a parent or the component itself to customize.
+// Editor defaults are declared on .dm-editor, with toolbar defaults below.
+// Override variables on their declaring component roots after the theme import.
+// A child's explicit default takes precedence over an inherited parent value.
 //
 // Example:
-//   .my-editor {
+//   .my-editor .dm-editor {
 //     --dm-editor-bg: #fafafa;
 //     --dm-accent: hotpink;
 //   }
