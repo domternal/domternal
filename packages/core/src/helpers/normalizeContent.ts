@@ -82,11 +82,38 @@ export function recordContentDiagnostics(tr: Transaction, source: ContentDiagnos
 export const contentDiagnosticsOf = (tr: Transaction): ContentDiagnosticRecord | undefined =>
   tr.getMeta(DIAGNOSTICS_META) as ContentDiagnosticRecord | undefined;
 
+/** A text node with nothing but its text and marks, which loading joins with a neighbor of the same marks. */
+function isPlainText(value: unknown): value is JSONContent & { text: string } {
+  return !!value && typeof value === 'object' && (value as JSONContent).type === 'text'
+    && typeof (value as JSONContent).text === 'string'
+    && Object.keys(value).every(key => key === 'type' || key === 'text' || key === 'marks');
+}
+
+/**
+ * Joins adjacent text nodes whose marks are the same, as loading joins them,
+ * so content whose link was removed equals the loaded document's JSON: an
+ * application that compares the two, such as a controlled editor, sees no
+ * change where there is none.
+ */
+function joinText(list: unknown[]): unknown[] {
+  const joined: unknown[] = [];
+  for (const item of list) {
+    const previous = joined[joined.length - 1];
+    if (isPlainText(previous) && isPlainText(item) && JSON.stringify(previous.marks ?? []) === JSON.stringify(item.marks ?? [])) {
+      joined[joined.length - 1] = { ...previous, text: previous.text + item.text };
+    } else {
+      joined.push(item);
+    }
+  }
+  return joined;
+}
+
 /**
  * @internal Returns `content` with unsupported attribute values replaced and
  * marks with an unsupported value removed, copying only the objects on the
- * way to a change. Malformed nodes and marks pass through for Node.fromJSON
- * to reject.
+ * way to a change. Adjacent text nodes a removed mark leaves with the same
+ * marks are joined, as loading joins them. Malformed nodes and marks pass
+ * through for Node.fromJSON to reject.
  */
 export function normalizeInto<T>(content: T, schema: Schema, report: ContentReport): T {
   if (normalizedAttributeTypes(schema).size === 0) return content;
@@ -113,13 +140,18 @@ export function normalizeInto<T>(content: T, schema: Schema, report: ContentRepo
   };
   const children = (list: readonly unknown[]): readonly unknown[] => {
     let copy: unknown[] | undefined;
+    const changed = { removedMark: false };
     list.forEach((child, index) => {
       path.push(index);
       const next = node(child);
       path.pop();
-      if (next !== child) (copy ??= [...list])[index] = next;
+      if (next !== child) {
+        (copy ??= [...list])[index] = next;
+        if (isPlainText(next) && (next.marks?.length ?? 0) < ((child as JSONContent).marks?.length ?? 0)) changed.removedMark = true;
+      }
     });
-    return copy ?? list;
+    if (copy === undefined) return list;
+    return changed.removedMark ? joinText(copy) : copy;
   };
   const node = (value: unknown): unknown => {
     if (!value || typeof value !== 'object') return value;

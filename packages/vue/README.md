@@ -116,7 +116,8 @@ heading level the configuration lacks that became the nearest configured level. 
 the initial content arrives once the editor is ready, before `onCreate`. Later reports come from
 `setContent`, including a changed `v-model` or watched `content`, `insertContent`, and
 `normalizeContentAttributes`. With `outputFormat: 'json'`, incoming content that equals the
-document once such values are replaced leaves the document and selection alone.
+document once such values are replaced and refused links removed leaves the document and
+selection alone.
 
 Toolbar, bubble-menu, and floating-menu `icons` props accept raw SVG through `IconSet`.
 Use only trusted, developer-authored constants. Never build an `IconSet` from user input,

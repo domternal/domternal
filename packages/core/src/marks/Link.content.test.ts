@@ -91,6 +91,35 @@ describe('link hrefs in JSON content', () => {
     expect(Object.isFrozen(reports[0]?.diagnostics[0])).toBe(true);
   });
 
+  it('gives normalizeContent the JSON of the loaded document, joining the text a removed link leaves', () => {
+    const schema = new Editor({ extensions: extensions() }).schema;
+    // JSON an editor that allows ftp: links wrote, as a collaborator or older configuration stores it.
+    const written = (html: string): Json => {
+      const writer = new Editor({ extensions: extensions({ protocols: ['https:', 'ftp:'] }), content: html });
+      const json = writer.getJSON();
+      writer.destroy();
+      return json;
+    };
+    for (const html of [
+      '<p>see <a href="ftp://files.example/f">the file</a> now</p>',
+      '<p><strong>a</strong><strong><a href="ftp://x.example/">b</a></strong>c</p>',
+      '<p><a href="ftp://a.example/">one</a><a href="ftp://b.example/">two</a><a href="https://ok.example/">ok</a></p>',
+      '<p><a href="ftp://a.example/">x</a><strong>y</strong></p>',
+      '<p><strong>a<a href="ftp://a.example/">b</a></strong><a href="https://ok.example/">c</a></p><p><a href="ftp://b.example/">d</a>e</p>',
+    ]) {
+      const content = written(html);
+      const loaded = new Editor({ extensions: extensions(), content });
+      expect(JSON.stringify(normalizeContent(content, schema)), html).toBe(JSON.stringify(loaded.getJSON()));
+      loaded.destroy();
+    }
+  });
+
+  it('returns content unchanged when it removes nothing, even with adjacent text of the same marks', () => {
+    const schema = new Editor({ extensions: extensions() }).schema;
+    const content = doc({ type: 'text', text: 'a' }, { type: 'text', text: 'b' });
+    expect(normalizeContent(content, schema)).toBe(content);
+  });
+
   it('removes a link mark without an href attribute', () => {
     const { editor: ed, reports } = mount({ type: 'doc', content: [{ type: 'paragraph', content: [
       { type: 'text', text: 'bare', marks: [{ type: 'link' }, { type: 'bold' }] },
@@ -172,7 +201,8 @@ describe('link hrefs in JSON content', () => {
     created.descendants(node => { marks += node.marks.length; });
     expect(marks).toBe(0);
     const normalized = normalizeContent(content, schema, { onDiagnostic: diagnostic => seen.push(diagnostic) });
-    expect(normalized).toEqual(doc({ type: 'text', text: 'x ' }, { type: 'text', text: 'bad' }));
+    // The text the link leaves joins its neighbor, as loading joins it.
+    expect(normalized).toEqual(doc({ type: 'text', text: 'x bad' }));
     expect(content.content?.[0]?.content?.[1]?.marks).toHaveLength(1);
     expect(generateHTML(content, extensions(), { onDiagnostic: diagnostic => seen.push(diagnostic) })).toBe('<p>x bad</p>');
     expect(generateText(content, extensions())).toBe('x bad');

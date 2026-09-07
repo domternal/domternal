@@ -1,6 +1,6 @@
 import { createApp, defineComponent, h, nextTick, reactive, shallowRef, type App } from 'vue';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Editor, ListItem, OrderedList, type Content, type JSONContent } from '@domternal/core';
+import { Editor, Link, ListItem, OrderedList, type Content, type JSONContent } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { Domternal } from './Domternal.js';
 import { DomternalEditor } from './DomternalEditor.js';
@@ -30,6 +30,18 @@ function holdUnknownMarker(editor: Editor): void {
   });
   editor.view.dispatch(tr);
 }
+
+/** JSON an editor that allows ftp: links wrote: a link the default Link refuses, inside a sentence. */
+function storedLinkDocument(tail = 'tail'): JSONContent {
+  const scratch = new Editor({
+    extensions: [...DEFAULT_EXTENSIONS, Link.configure({ protocols: ['https:', 'ftp:'] })],
+    content: `<p>see <a href="ftp://files.example/f">the file</a> now</p><p>${tail}</p>`,
+  });
+  const json = scratch.getJSON();
+  scratch.destroy();
+  return json;
+}
+const linkExtensions = [Link];
 
 let container: HTMLDivElement;
 let app: App | undefined;
@@ -110,6 +122,58 @@ describe('Vue content reports', () => {
     await nextTick();
     await expectEqualValueKeepsDocument((value) => { model.value = value; }, reports, changes);
   });
+
+  it.each(['v-model', 'useEditor content'] as const)(
+    'keeps the document and selection when an equal %s JSON value holding a link the Link refuses is passed again',
+    async (path) => {
+      const stored = storedLinkDocument();
+      const reports: string[] = [];
+      const changes: unknown[] = [];
+      const onContentDiagnostic = ({ source }: { source: string }): void => { reports.push(source); };
+      let send: (value: JSONContent) => void;
+      if (path === 'v-model') {
+        const model = shallowRef<Content>(structuredClone(stored));
+        mount(() => h(DomternalEditor, {
+          extensions: linkExtensions, outputFormat: 'json', modelValue: model.value, onCreate, onContentDiagnostic,
+          'onUpdate:modelValue': (value: Content) => { changes.push(value); model.value = value; },
+        }));
+        send = (value) => { model.value = value; };
+      } else {
+        const options = reactive<UseEditorOptions>({
+          extensions: linkExtensions, outputFormat: 'json', content: structuredClone(stored), onCreate, onContentDiagnostic,
+        });
+        const HookEditor = defineComponent({
+          setup() {
+            const { editorRef } = useEditor(options);
+            return () => h('div', { class: 'dm-editor' }, [h('div', { ref: editorRef })]);
+          },
+        });
+        mount(() => h(HookEditor));
+        send = (value) => { options.content = value; };
+      }
+      await nextTick();
+      const editor = liveEditor();
+      expect(editor.getText()).toBe('see the file now\n\ntail');
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7)));
+      const doc = editor.state.doc;
+      const selection = editor.state.selection;
+
+      // A new object with the same content, as a parent re-render produces.
+      send(structuredClone(stored));
+      await nextTick();
+      expect(editor.state.doc).toBe(doc);
+      expect(editor.state.selection.eq(selection)).toBe(true);
+      expect(reports).toEqual(['content']);
+      expect(changes).toEqual([]);
+
+      // A genuine change still reaches the editor.
+      send(storedLinkDocument('other'));
+      await nextTick();
+      expect(editor.getText()).toBe('see the file now\n\nother');
+      expect(reports).toEqual(['content', 'setContent']);
+      expect(editors).toHaveLength(1);
+    },
+  );
 
   it('keeps the document and selection when equal useEditor JSON content with an unknown marker is passed again', async () => {
     const stored = storedDocument();

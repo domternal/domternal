@@ -135,8 +135,8 @@ marker or a heading level the configuration lacks that became the nearest config
 report for the initial content is emitted once the editor is ready, before `editorCreated`. Later
 reports come from `setContent`, including a changed `content` input or form value,
 `insertContent`, and `normalizeContentAttributes`. With `outputFormat="json"`, a `content` input
-or form value that equals the document once such values are replaced leaves the document and
-selection alone.
+or form value that equals the document once such values are replaced and refused links removed
+leaves the document and selection alone.
 
 ```html
 <domternal-editor [extensions]="extensions" [formControl]="editorControl" outputFormat="json"

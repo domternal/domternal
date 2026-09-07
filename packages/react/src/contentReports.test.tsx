@@ -1,7 +1,7 @@
 import { act, StrictMode, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Editor, Heading, ListItem, OrderedList, type JSONContent } from '@domternal/core';
+import { Editor, Heading, Link, ListItem, OrderedList, type JSONContent } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { Domternal } from './Domternal.js';
 import { DomternalEditor } from './DomternalEditor.js';
@@ -31,6 +31,18 @@ function holdUnknownMarker(editor: Editor): void {
   });
   editor.view.dispatch(tr);
 }
+
+/** JSON an editor that allows ftp: links wrote: a link the default Link refuses, inside a sentence. */
+function storedLinkDocument(tail = 'tail'): JSONContent {
+  const scratch = new Editor({
+    extensions: [...DEFAULT_EXTENSIONS, Link.configure({ protocols: ['https:', 'ftp:'] })],
+    content: `<p>see <a href="ftp://files.example/f">the file</a> now</p><p>${tail}</p>`,
+  });
+  const json = scratch.getJSON();
+  scratch.destroy();
+  return json;
+}
+const linkExtensions = [Link];
 
 type DiagnosticCallback = NonNullable<UseEditorOptions['onContentDiagnostic']>;
 
@@ -160,6 +172,40 @@ describe('React content reports', () => {
       expect(editor.getText()).toBe('Two\n\ntail');
       expect(reports).toEqual(['content', 'setContent']);
       expect(changes).toEqual([]);
+      expect(editors).toHaveLength(1);
+    },
+  );
+
+  it.each(['value', 'content'] as const)(
+    'keeps the document and selection when an equal JSON %s holding a link the Link refuses is passed again',
+    async (prop) => {
+      const stored = storedLinkDocument();
+      const reports: string[] = [];
+      const changes: unknown[] = [];
+      const render = (json: JSONContent): ReactNode => (
+        <DomternalEditor extensions={linkExtensions} outputFormat="json" onCreate={onCreate}
+          {...(prop === 'value' ? { value: json, onChange: (value: unknown) => { changes.push(value); } } : { content: json })}
+          onContentDiagnostic={({ source }) => { reports.push(source); }} />
+      );
+
+      await update(() => { root.render(render(structuredClone(stored))); });
+      const editor = liveEditor();
+      expect(editor.getText()).toBe('see the file now\n\ntail');
+      await update(() => { editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7))); });
+      const doc = editor.state.doc;
+      const selection = editor.state.selection;
+
+      // A new object with the same content, as a parent re-render produces.
+      await update(() => { root.render(render(structuredClone(stored))); });
+      expect(editor.state.doc).toBe(doc);
+      expect(editor.state.selection.eq(selection)).toBe(true);
+      expect(reports).toEqual(['content']);
+      expect(changes).toEqual([]);
+
+      // A genuine change still reaches the editor.
+      await update(() => { root.render(render(storedLinkDocument('other'))); });
+      expect(editor.getText()).toBe('see the file now\n\nother');
+      expect(reports).toEqual(['content', 'setContent']);
       expect(editors).toHaveLength(1);
     },
   );

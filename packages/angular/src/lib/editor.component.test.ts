@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Editor, ListItem, OrderedList, type Content, type ContentDiagnosticProps, type JSONContent } from '@domternal/core';
+import { Editor, Link, ListItem, OrderedList, type Content, type ContentDiagnosticProps, type JSONContent } from '@domternal/core';
 import { DEFAULT_EXTENSIONS, DomternalEditorComponent } from './editor.component.js';
 
 TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -32,6 +32,17 @@ function holdUnknownMarker(editor: Editor): void {
     if (node.type.name === 'orderedList') tr.setNodeAttribute(pos, 'listStyleType', 'bogus');
   });
   editor.view.dispatch(tr);
+}
+
+/** JSON an editor that allows ftp: links wrote: a link the default Link refuses, inside a sentence. */
+function storedLinkDocument(tail = 'tail'): JSONContent {
+  const scratch = new Editor({
+    extensions: [...DEFAULT_EXTENSIONS, Link.configure({ protocols: ['https:', 'ftp:'] })],
+    content: `<p>see <a href="ftp://files.example/f">the file</a> now</p><p>${tail}</p>`,
+  });
+  const json = scratch.getJSON();
+  scratch.destroy();
+  return json;
 }
 
 type Report = Omit<ContentDiagnosticProps, 'editor'> & { editor: Editor };
@@ -82,6 +93,26 @@ Component({
   imports: [ReactiveFormsModule, DomternalEditorComponent],
   template: `<domternal-editor [extensions]="extensions" outputFormat="json" [formControl]="control" ${outputs} />`,
 })(FormHost);
+
+class LinkContentHost extends Recorder {
+  readonly linkExtensions = [Link];
+  readonly content = signal<Content>(storedLinkDocument());
+}
+Component({
+  selector: 'link-content-host',
+  imports: [DomternalEditorComponent],
+  template: `<domternal-editor [extensions]="linkExtensions" outputFormat="json" [content]="content()" ${outputs} />`,
+})(LinkContentHost);
+
+class LinkFormHost extends Recorder {
+  readonly linkExtensions = [Link];
+  readonly control = new FormControl<Content>(storedLinkDocument(), { nonNullable: true });
+}
+Component({
+  selector: 'link-form-host',
+  imports: [ReactiveFormsModule, DomternalEditorComponent],
+  template: `<domternal-editor [extensions]="linkExtensions" outputFormat="json" [formControl]="control" ${outputs} />`,
+})(LinkFormHost);
 
 beforeEach(() => {
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
@@ -147,6 +178,37 @@ describe('DomternalEditorComponent content reports', () => {
     expect(editor.getText()).toBe('Two\n\ntail');
     expect(host.sources).toEqual(['content', 'setContent']);
     expect(control?.dirty ?? false).toBe(false);
+    expect(host.created).toHaveLength(1);
+  });
+
+  it.each([
+    { path: '[content]', host: LinkContentHost, send: (host: Recorder, value: JSONContent) => { (host as LinkContentHost).content.set(value); } },
+    { path: 'writeValue', host: LinkFormHost, send: (host: Recorder, value: JSONContent) => { (host as LinkFormHost).control.setValue(value); } },
+  ])('keeps the document and selection when $path passes an equal JSON value holding a link the Link refuses again', async ({ host: type, send }) => {
+    const fixture = TestBed.createComponent<Recorder>(type);
+    await fixture.whenStable();
+    const host = fixture.componentInstance;
+    const editor = host.editor;
+    expect(editor.getText()).toBe('see the file now\n\ntail');
+    const doc = editor.state.doc;
+    const selection = editor.state.selection;
+    // Replacing the document would move the selection to its end.
+    expect(selection.from).toBeLessThan(doc.content.size - 2);
+    const control = host instanceof LinkFormHost ? host.control : null;
+
+    // A new object with the same content, as a model write of an unchanged value produces.
+    send(host, storedLinkDocument());
+    await fixture.whenStable();
+    expect(editor.state.doc).toBe(doc);
+    expect(editor.state.selection.eq(selection)).toBe(true);
+    expect(host.sources).toEqual(['content']);
+    expect(control?.dirty ?? false).toBe(false);
+
+    // A genuine change still reaches the editor.
+    send(host, storedLinkDocument('other'));
+    await fixture.whenStable();
+    expect(editor.getText()).toBe('see the file now\n\nother');
+    expect(host.sources).toEqual(['content', 'setContent']);
     expect(host.created).toHaveLength(1);
   });
 

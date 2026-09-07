@@ -400,7 +400,9 @@ Validation accepts every string href, so a document a collaborator with wider `p
 still loads. Run
 `normalizeContent(json, editor.schema, { onDiagnostic })` before handing stored JSON to other
 consumers that validate it, such as y-prosemirror's `prosemirrorJSONToYDoc`. It never mutates its
-input and returns it as is when nothing changes.
+input and returns it as is when nothing changes. Where it removes a link, it joins the text left
+beside a neighbor with the same marks, as loading does, so the result equals the loaded
+document's `getJSON()` for JSON an editor wrote.
 
 A document can still hold such a value: a collaborative document binds without validation, a
 collaborator configured with more heading levels or wider link `protocols` writes them, and undo
