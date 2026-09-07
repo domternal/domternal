@@ -300,7 +300,11 @@ relative link, as 1.2 did.
   `openOnClick: 'whenNotEditable'` never opens links while the editor is editable, and `false`
   never opens them. A relative link opens resolved against the page. A `#fragment` link scrolls
   to the element with that id, in the editor first and then in the page, without opening a tab
-  or changing the location; nothing happens when no element matches.
+  or changing the location; nothing happens when no element matches. A read-only editor does the
+  same for a plain click on a fragment link, so a hash router does not see a route change, and
+  leaves a click that asks for a new tab or window to the browser. HTML from `getHTML()` or
+  `generateHTML()` shown outside an editor follows a fragment link natively, which changes
+  `location.hash`; an app with a hash router handles clicks on `a[href^="#"]` there itself.
 - An allowed link renders its `target` only when it is `_blank`, `_self`, `_parent` or `_top`
   (in any case, written in lower case), and its `title` and `class` only when they are strings.
   With `addRelNoopener` (the default), a `_blank` link's `rel` keeps its stored tokens except

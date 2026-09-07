@@ -3,7 +3,8 @@
  *
  * Handles clicks on links in an editable editor. A read-only editor leaves
  * clicks to the browser, which follows the rendered anchor: Link renders one
- * only for an address the URL policy allows.
+ * only for an address the URL policy allows. A fragment link scrolls in place
+ * in either, so the location never changes.
  */
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { MarkType, Node as PMNode } from '@domternal/pm/model';
@@ -70,6 +71,13 @@ const CONTEXT_TARGETS = new Set(['_self', '_parent', '_top']);
 const hasToken = (value: string | null, token: string): boolean =>
   (value ?? '').split(/[\t\n\f\r ]+/).some(candidate => candidate.toLowerCase() === token);
 
+/** The anchor a click landed on inside the editor, or null. */
+function clickedAnchor(view: EditorView, event: Event): Element | null {
+  const target = event.target as Element | null;
+  const anchor = typeof target?.closest === 'function' ? target.closest('a') : null;
+  return anchor && view.dom.contains(anchor) ? anchor : null;
+}
+
 /** The first inline node inside the anchor, whose marks are the anchor's own. */
 function anchorNode(view: EditorView, anchor: Element): { node: PMNode; pos: number } | null {
   try {
@@ -129,6 +137,28 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
     key: linkClickPluginKey,
 
     props: {
+      handleDOMEvents: {
+        // A read-only editor leaves clicks to the browser, except on a
+        // fragment link: following it would change the location, add a
+        // history entry and trigger a hash router, so it scrolls in place as
+        // it does while editable. A click that asks for a new tab or window,
+        // and every other link, stays the browser's.
+        click(view, event) {
+          if (view.editable || event.defaultPrevented || event.button !== 0
+            || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+            return false;
+          }
+          const anchor = clickedAnchor(view, event);
+          const mark = anchor ? anchorNode(view, anchor)?.node.marks.find(candidate => candidate.type === type) : undefined;
+          if (!mark) return false;
+          const check = checkUrl(mark.attrs['href'], { protocols, allowRelative });
+          if (check.status !== 'allowed' || !check.url.startsWith('#')) return false;
+          event.preventDefault();
+          scrollToFragment(view, check.url);
+          return true;
+        },
+      },
+
       handleClick(view, _pos, event) {
         // Only left clicks, and only while editable: a read-only editor leaves
         // the click to the browser, which follows only an allowed rendered href.
@@ -136,9 +166,8 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
           return false;
         }
 
-        const target = event.target as Element | null;
-        const anchor = typeof target?.closest === 'function' ? target.closest('a') : null;
-        if (!anchor || !view.dom.contains(anchor)) {
+        const anchor = clickedAnchor(view, event);
+        if (!anchor) {
           return false;
         }
 

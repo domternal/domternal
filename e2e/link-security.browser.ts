@@ -619,6 +619,31 @@ test.describe('relative links and the link popover in the browser', () => {
     expect(await opens(page)).toEqual([]);
   });
 
+  test('scrolls to a fragment target in a read-only editor without changing the location a hash router reads', async ({ page }) => {
+    await page.goto(`${BASE_URL}/#/dashboard`);
+    await page.waitForFunction(() => (window as unknown as Partial<FixtureWindow>).__linkSecurity?.ready);
+    await page.evaluate(decodeScript);
+    const filler = Array.from({ length: 60 }, (_, index) => paragraph(text(`filler ${String(index)}`)));
+    await setup(page, { editable: false, content: docOf(
+      paragraph(text('INTRO', [linkMark('#intro')]), text(' '), text('MISSING', [linkMark('#missing')])),
+      ...filler,
+      { type: 'heading', attrs: { level: 2, id: 'intro' }, content: [text('Intro')] },
+    ) });
+    await page.evaluate(() => {
+      (window as unknown as { __hashChanges: number }).__hashChanges = 0;
+      window.addEventListener('hashchange', () => { (window as unknown as { __hashChanges: number }).__hashChanges++; });
+    });
+    await expect(page.locator('#fixture a').first()).toHaveAttribute('href', '#intro');
+    const none = nextPopup(page, 800);
+    await page.getByText('INTRO', { exact: true }).last().click();
+    await expect(page.locator('#intro')).toBeInViewport();
+    await page.getByText('MISSING', { exact: true }).last().focus();
+    await page.keyboard.press('Enter');
+    expect(await none).toBeNull();
+    expect(await page.evaluate(() => location.hash)).toBe('#/dashboard');
+    expect(await page.evaluate(() => (window as unknown as { __hashChanges: number }).__hashChanges)).toBe(0);
+  });
+
   test('opens a relative path resolved against the page in a new tab without an opener (C10)', async ({ page }) => {
     await open(page);
     await setup(page, { content: docOf(paragraph(text('CLICK', [linkMark('/docs/page?x=1')]))) });

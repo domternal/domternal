@@ -167,6 +167,81 @@ describe('fragment links (C8, C9)', () => {
   });
 });
 
+describe('fragment links in a read-only editor', () => {
+  /** A read-only editor in the page whose link points at a heading, and the ids scrolled to. */
+  function readOnly(href: string, options: Partial<LinkOptions> = {}): { anchor: HTMLAnchorElement; scrolled: string[] } {
+    const element = document.body.appendChild(document.createElement('div'));
+    editor = new Editor({
+      element,
+      editable: false,
+      extensions: extensions(options),
+      content: { type: 'doc', content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'go', marks: [{ type: 'link', attrs: { href } }] }] },
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Target' }] },
+      ] },
+    });
+    editor.view.dom.querySelector('h2')!.id = 'section';
+    const scrolled: string[] = [];
+    Element.prototype.scrollIntoView = function (this: Element) { scrolled.push(this.id); };
+    return { anchor: editor.view.dom.querySelector('a')!, scrolled };
+  }
+
+  /** Clicks the anchor as a user would, and reports whether the browser's navigation was prevented. */
+  function clickAnchor(anchor: HTMLAnchorElement, init: MouseEventInit = {}): boolean {
+    const event = new MouseEvent('click', { button: 0, bubbles: true, cancelable: true, ...init });
+    anchor.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  afterEach(() => { editor?.view.dom.parentElement?.remove(); });
+
+  it('scrolls in place without changing the location, so a hash router is not triggered', () => {
+    const hashChanges: string[] = [];
+    const onHashChange = (): void => { hashChanges.push(window.location.hash); };
+    window.addEventListener('hashchange', onHashChange);
+    const before = window.location.href;
+    const { anchor, scrolled } = readOnly('#section');
+    expect(anchor.getAttribute('href')).toBe('#section');
+    expect(clickAnchor(anchor)).toBe(true);
+    expect(scrolled).toEqual(['section']);
+    expect(window.location.href).toBe(before);
+    window.removeEventListener('hashchange', onHashChange);
+    expect(hashChanges).toEqual([]);
+  });
+
+  it('keeps the location when no element matches, and for any openOnClick', () => {
+    for (const openOnClick of [true, false, 'whenNotEditable'] as const) {
+      const { anchor, scrolled } = readOnly('#missing', { openOnClick });
+      expect(clickAnchor(anchor)).toBe(true);
+      expect(scrolled).toEqual([]);
+      editor?.view.dom.parentElement?.remove();
+      editor?.destroy();
+    }
+  });
+
+  it('leaves a click that opens a new tab or window, and any other link, to the browser', () => {
+    const { anchor } = readOnly('#section');
+    for (const init of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }]) {
+      expect(clickAnchor(anchor, init), JSON.stringify(init)).toBe(false);
+    }
+    editor?.view.dom.parentElement?.remove();
+    editor?.destroy();
+    for (const href of ['/docs/page', 'https://example.com/#section', '?q=1#section']) {
+      const other = readOnly(href);
+      expect(clickAnchor(other.anchor), href).toBe(false);
+      expect(other.scrolled).toEqual([]);
+      editor?.view.dom.parentElement?.remove();
+      editor?.destroy();
+    }
+  });
+
+  it('leaves an editable editor to its click handler', () => {
+    const { anchor } = readOnly('#section');
+    editor!.setEditable(true);
+    expect(clickAnchor(anchor)).toBe(false);
+  });
+});
+
 describe('allowRelative: false', () => {
   it.each(RELATIVE)('refuses %s everywhere, as 1.2 did', (href) => {
     const open = spyOpen();
