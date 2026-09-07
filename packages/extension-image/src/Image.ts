@@ -2,8 +2,8 @@
  * Block (default) or inline image element.
  *
  * Sources go through the core URL policy, which reads an address the way
- * browsers do: javascript:, vbscript:, file:, credentials and hidden
- * characters are refused, and data: URLs need `allowBase64` and an image
+ * browsers do: javascript:, vbscript:, file:, credentials in a web address
+ * and hidden characters are refused, and data: URLs need `allowBase64` and an image
  * media type. Checked in parseHTML, renderHTML, the node view, the
  * `setImage` command and the input rule (defense in depth).
  */

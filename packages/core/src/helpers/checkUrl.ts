@@ -47,7 +47,8 @@ export interface UrlPolicyOptions {
  * - `allowed`: `url` is the cleaned spelling to render and open.
  * - `unsafe`: the value can run script or deceive: a `javascript:` or
  *   `vbscript:` address, a `data:` address the options do not allow,
- *   credentials in the address, a control character or a bidi embedding,
+ *   credentials in a web, mail or phone address, where they read as the
+ *   host, a control character or a bidi embedding,
  *   override or isolate anywhere, an invisible format character or bidi mark
  *   in the scheme, the host or the address of a scheme without a host, or a
  *   value that is not a string.
@@ -66,6 +67,10 @@ const UNSAFE: UrlCheck = Object.freeze({ status: 'unsafe' });
 const SCRIPT_SCHEMES = new Set(['javascript:', 'vbscript:']);
 // Browsers read a backslash as a slash in these schemes and in relative references.
 const SPECIAL_SCHEMES = new Set(['http:', 'https:', 'ws:', 'wss:', 'ftp:', 'file:']);
+// A user before the host of these reads as the host itself, as in
+// https://google.com@evil.example. Other schemes name a user as their
+// standard form, such as ssh://git@host/repo.git or ftp://anonymous@host/.
+const CREDENTIAL_SCHEMES = new Set(['http:', 'https:', 'ws:', 'wss:', 'mailto:', 'tel:']);
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 const RELATIVE_BASE = 'https://relative.invalid/';
 const RELATIVE_ORIGIN = 'https://relative.invalid';
@@ -203,12 +208,14 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
       return UNSUPPORTED;
     }
     const parsed = parse(url);
-    // A host never holds `%` once parsed; Chromium keeps an invalid host percent-encoded
-    // where other parsers reject it, so this keeps the decision the same everywhere.
-    if (parsed === null || parsed.hostname.includes('%')) return UNSUPPORTED;
+    if (parsed === null) return UNSUPPORTED;
+    // A web host never holds `%` once parsed; Chromium keeps an invalid one percent-encoded
+    // where other parsers reject it, so this keeps the decision the same everywhere. The
+    // host of another scheme, such as myapp://my%20host, keeps its encoding.
+    if (SPECIAL_SCHEMES.has(scheme) && parsed.hostname.includes('%')) return UNSUPPORTED;
     // No real host holds `&`, and `&#64;` there reads as `@` wherever HTML is decoded.
     if (parsed.hostname.includes('&')) return UNSUPPORTED;
-    if (parsed.username !== '' || parsed.password !== '') return UNSAFE;
+    if (CREDENTIAL_SCHEMES.has(scheme) && (parsed.username !== '' || parsed.password !== '')) return UNSAFE;
     return { status: 'allowed', url };
   }
 

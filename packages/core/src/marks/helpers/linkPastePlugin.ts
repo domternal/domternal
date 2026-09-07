@@ -19,8 +19,8 @@ export interface LinkPastePluginOptions {
   type: MarkType;
 
   /**
-   * Allowed URL protocols. The URL policy also refuses credentials and hidden
-   * characters, whatever this lists.
+   * Allowed URL protocols. The URL policy also refuses credentials in web,
+   * mail and phone addresses and hidden characters, whatever this lists.
    * @default ['http:', 'https:']
    */
   protocols?: readonly string[];

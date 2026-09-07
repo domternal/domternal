@@ -20,8 +20,8 @@ export interface AutolinkPluginOptions {
   type: MarkType;
 
   /**
-   * Allowed URL protocols. The URL policy also refuses credentials and hidden
-   * characters, whatever this lists.
+   * Allowed URL protocols. The URL policy also refuses credentials in web,
+   * mail and phone addresses and hidden characters, whatever this lists.
    * @default ['http:', 'https:']
    */
   protocols?: readonly string[];
@@ -109,8 +109,8 @@ export function autolinkPlugin(options: AutolinkPluginOptions): Plugin {
           return false;
         }
 
-        // The URL policy first: an allowed scheme, no credentials, no hidden
-        // characters. Custom validation only sees an address the policy allows.
+        // The URL policy first: an allowed scheme, no credentials in a web
+        // address, no hidden characters. Custom validation only sees an address the policy allows.
         const check = checkUrl(lastMatch.href, { protocols });
         const href = check.status === 'allowed' ? check.url : null;
         const linked = href !== null && (!shouldAutoLink || shouldAutoLink(href));

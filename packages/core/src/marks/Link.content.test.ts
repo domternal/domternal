@@ -131,6 +131,18 @@ describe('link hrefs in JSON content', () => {
     expect(isSupportedAttributeValue(ed.schema, 'link', 'href', 'https://example.com\u200c/')).toBe(false);
   });
 
+  it('keeps links with a user where it is the standard form of a listed scheme, such as ssh: or ftp:', () => {
+    const values = ['ssh://git@github.com/org/repo.git', 'ftp://anonymous@ftp.example/pub/', 'smb://user@fileserver/share', 'myapp://my%20host/path'];
+    const { editor: ed, reports } = mount(doc(...values.flatMap((href, index) => [linked(`L${String(index)}`, href), { type: 'text', text: ' ' }])),
+      { protocols: ['https:', 'ssh:', 'ftp:', 'smb:', 'myapp:'] });
+    expect(hrefs(ed)).toEqual(values);
+    expect(reports).toEqual([]);
+    expect(Array.from(ed.view.dom.querySelectorAll('a'), anchor => anchor.getAttribute('href'))).toEqual(values);
+    ed.commands.selectAll();
+    expect(ed.commands.setLink({ href: 'ssh://git@example.com/repo.git' })).toBe(true);
+    expect(ed.commands.setLink({ href: 'https://google.com@evil.example/' })).toBe(false);
+  });
+
   it('allows the schemes the Link protocols list', () => {
     const { editor: ed, reports } = mount(doc(linked('f', 'ftp://files.example/f')), { protocols: ['https:', 'ftp:'] });
     expect(hrefs(ed)).toEqual(['ftp://files.example/f']);

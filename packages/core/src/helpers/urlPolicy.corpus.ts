@@ -93,6 +93,12 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A11', value: 'https://user:pass@example.com/', link: 'unsafe', image: UNSAFE },
   { id: 'A11', value: 'https://google.com@evil.example/', link: 'unsafe', image: UNSAFE },
   { id: 'A11', value: '//user:pass@cdn.example/x.png', link: 'unsupported', image: UNSAFE },
+  { id: 'A11', value: 'https:google.com@evil.example', link: 'unsafe', image: UNSAFE },
+  { id: 'A11', value: 'wss://user@example.com/', link: 'unsupported', image: UNSAFE },
+  { id: 'A11', value: 'mailto://google.com@evil.example', link: 'unsafe', image: UNSAFE },
+  // A user is the standard form of schemes without a web page, such as ssh: or ftp:, and names no host.
+  { id: 'A11', value: 'ftp://anonymous@ftp.example/pub/', link: 'unsupported', image: ALLOWED },
+  { id: 'A11', value: 'ssh://git@github.com/org/repo.git', link: 'unsupported', image: ALLOWED },
   { id: 'A12', value: 'file:///etc/passwd', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A12', value: 'FILE:///C:/x.png', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A13', value: 'blob:https://example.com/0000', link: 'unsupported', image: ALLOWED },
@@ -100,6 +106,9 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A13', value: 'ftp://x.example/f', link: 'unsupported', image: ALLOWED },
   { id: 'A13', value: 'sms:+385', link: 'unsupported', image: ALLOWED },
   { id: 'A13', value: 'myapp://open', link: 'unsupported', image: ALLOWED },
+  // A host of a scheme without a web host keeps its percent-encoding; an `&` there is still refused (A30).
+  { id: 'A13', value: 'myapp://my%20host/path', link: 'unsupported', image: ALLOWED },
+  { id: 'A13', value: 'myapp://a&#64;b/path', link: 'unsupported', image: UNSUPPORTED },
   // Relative references.
   { id: 'A14', value: '/path/page', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
   { id: 'A14', value: './page', link: 'allowed', absolute: 'unsupported', image: ALLOWED },

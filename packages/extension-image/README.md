@@ -92,8 +92,8 @@ which reads an address the way a browser does: leading and trailing spaces and c
 stripped and tabs and line breaks removed before the scheme is judged. Any scheme is allowed except
 `javascript:`, `vbscript:`, `data:` other than an image with `allowBase64`, and `file:`; relative
 and network-path sources, `blob:` and custom schemes such as `app://` keep working. An address with
-credentials, a control character or bidi override anywhere, or a format character such as a
-zero-width joiner in its scheme or host is refused.
+credentials in a web address, a control character or bidi override anywhere, or a format
+character such as a zero-width joiner in its scheme or host is refused.
 
 - HTML parsing stores an allowed source in its cleaned spelling and a refused one as no source.
 - `setImage` and the Markdown input rule refuse a source the policy refuses.

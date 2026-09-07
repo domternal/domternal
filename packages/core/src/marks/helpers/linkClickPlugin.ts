@@ -38,8 +38,8 @@ export interface LinkClickPluginOptions {
 
   /**
    * The schemes a link may open with, as for the Link `protocols` option. The
-   * URL policy refuses script and data addresses, credentials and hidden
-   * characters whatever this lists.
+   * URL policy refuses script and data addresses, credentials in web, mail
+   * and phone addresses and hidden characters whatever this lists.
    * @default ['http:', 'https:', 'mailto:', 'tel:']
    */
   protocols?: readonly string[];

@@ -147,6 +147,44 @@ describe('checkUrl', () => {
     });
   });
 
+  describe('credentials', () => {
+    it('refuses them in web, mail and phone addresses, where a user reads as the host', () => {
+      const protocols = ['http:', 'https:', 'ws:', 'wss:', 'mailto:', 'tel:'];
+      for (const value of ['https://google.com@evil.example/', 'http://user:pass@example.com/', 'HTTPS://a:@example.com/',
+        'https://:pass@example.com/', 'https:google.com@evil.example', 'ws://a@example.com/', 'wss://a@example.com/',
+        'mailto://google.com@evil.example', 'tel://user@host']) {
+        expect(checkUrl(value, { protocols }).status, value).toBe('unsafe');
+      }
+    });
+
+    it('allows a user where it is the standard form of a scheme the options list', () => {
+      const protocols = ['ssh:', 'ftp:', 'smb:', 'git+ssh:', 'sftp:', 'rtsp:', 'ldap:'];
+      for (const value of ['ssh://git@github.com/org/repo.git', 'ftp://anonymous@ftp.example.com/pub/', 'smb://user@fileserver/share',
+        'git+ssh://git@github.com/org/repo.git', 'sftp://user:secret@host.example/dir', 'rtsp://viewer@camera.local/stream',
+        'ldap://cn=admin@ldap.example/']) {
+        expect(checkUrl(value, { protocols }), value).toEqual({ status: 'allowed', url: value });
+      }
+      expect(checkUrl('ssh://git@github.com/org/repo.git', { protocols: 'any' }).status).toBe('allowed');
+    });
+
+    it('still refuses them in a network path, which reads as a web address', () => {
+      expect(checkUrl('//user@cdn.example/x.png', { allowRelative: true, allowNetworkPath: true }).status).toBe('unsafe');
+    });
+  });
+
+  describe('hosts of schemes without a web host', () => {
+    it('keep their percent-encoding, which only a web host never holds once parsed', () => {
+      const protocols = ['myapp:', 'smb:', 'https:'];
+      expect(checkUrl('myapp://my%20host/path', { protocols })).toEqual({ status: 'allowed', url: 'myapp://my%20host/path' });
+      expect(checkUrl('smb://file%2Dserver/share', { protocols }).status).toBe('allowed');
+      expect(checkUrl('https://exa%20mple.com/', { protocols }).status).toBe('unsupported');
+    });
+
+    it('still refuse an `&`, where a character reference could spell another host or a user', () => {
+      expect(checkUrl('myapp://a&#64;b/path', { protocols: ['myapp:'] }).status).toBe('unsupported');
+    });
+  });
+
   describe('data images', () => {
     it('allows only image media types, compared without case and outer spaces', () => {
       const options = { protocols: 'any' as const, allowDataImages: true };

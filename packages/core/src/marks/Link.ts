@@ -25,8 +25,10 @@ export interface LinkOptions {
   HTMLAttributes: Record<string, unknown>;
   /**
    * The schemes a link may use, such as `'https:'`, in any case, with or
-   * without the colon. The URL policy refuses credentials and hidden
-   * characters whatever this lists. `javascript:`, `vbscript:` and `data:`
+   * without the colon. The URL policy refuses credentials in web, mail and
+   * phone addresses and hidden characters whatever this lists; a user stays
+   * allowed where it is the standard form of a listed scheme, such as
+   * `ssh://git@host/repo.git`. `javascript:`, `vbscript:` and `data:`
    * fail editor creation with an ExtensionConfigurationError.
    * @default ['http:', 'https:', 'mailto:', 'tel:']
    */
