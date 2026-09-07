@@ -7,11 +7,21 @@
  * to avoid overwriting the background inline style. CSS attribute selectors
  * in _table-controls.scss apply the actual text-align / vertical-align.
  *
- * The background is written into the style attribute only when it is a safe
- * CSS value: one that cannot add a declaration or load a resource.
+ * The background is written into the style attribute, and inline styles
+ * (getHTML({ styled: true }), inlineStyles) turn both alignments into
+ * declarations, so each renders only when it is a safe CSS value: one that
+ * cannot add a declaration or load a resource.
  */
 import { isSafeCssValue } from '@domternal/core';
 import type { AttributeSpecs } from '@domternal/core';
+
+/** An alignment to parse or render: a safe CSS value, or null. The document keeps any stored value. */
+function safeAlignment(value: unknown): string | null {
+  return value && isSafeCssValue(value) ? value as string : null;
+}
+
+/** Cell attributes written into a declaration, which setCellAttribute accepts only as safe CSS values. */
+export const CSS_CELL_ATTRIBUTES: ReadonlySet<string> = new Set(['background', 'textAlign', 'verticalAlign']);
 
 export function cellAttributes(): AttributeSpecs {
   return {
@@ -69,24 +79,18 @@ export function cellAttributes(): AttributeSpecs {
     },
     textAlign: {
       default: null,
-      parseHTML: (element: HTMLElement) => {
-        return element.getAttribute('data-text-align') ?? null;
-      },
+      parseHTML: (element: HTMLElement) => safeAlignment(element.getAttribute('data-text-align')),
       renderHTML: (attrs: Record<string, unknown>) => {
-        const align = attrs['textAlign'] as string | null;
-        if (!align) return null;
-        return { 'data-text-align': align };
+        const align = safeAlignment(attrs['textAlign']);
+        return align === null ? null : { 'data-text-align': align };
       },
     },
     verticalAlign: {
       default: null,
-      parseHTML: (element: HTMLElement) => {
-        return element.getAttribute('data-vertical-align') ?? null;
-      },
+      parseHTML: (element: HTMLElement) => safeAlignment(element.getAttribute('data-vertical-align')),
       renderHTML: (attrs: Record<string, unknown>) => {
-        const align = attrs['verticalAlign'] as string | null;
-        if (!align) return null;
-        return { 'data-vertical-align': align };
+        const align = safeAlignment(attrs['verticalAlign']);
+        return align === null ? null : { 'data-vertical-align': align };
       },
     },
   };

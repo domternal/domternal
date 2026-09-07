@@ -50,6 +50,26 @@ describe('inlineStyles', () => {
     expect(result).toContain('vertical-align: bottom');
   });
 
+  it.each([
+    'left; position: fixed; inset: 0; z-index: 2147483647',
+    'center;background-image:url(https://probe.test/x)',
+    'url(https://probe.test/x)',
+    'center !important',
+    'left&#59;position:fixed',
+  ])('writes no declaration for the unsafe cell alignment %j, on td and th', (value) => {
+    const escaped = value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const result = inlineStyles(`<table><tbody><tr><td data-text-align="${escaped}" data-vertical-align="${escaped}">a</td>`
+      + `<th data-text-align="${escaped}" data-vertical-align="${escaped}">b</th></tr></tbody></table>`);
+    const host = document.createElement('div');
+    host.innerHTML = result;
+    for (const cell of Array.from(host.querySelectorAll<HTMLElement>('td, th'))) {
+      expect(cell.getAttribute('style')).not.toMatch(/position|probe\.test|url\(|!important/);
+      expect(cell.style.position).toBe('');
+      expect(cell.style.textAlign === '' || cell.style.textAlign === 'left').toBe(true);
+      expect(cell.style.verticalAlign).toBe('');
+    }
+  });
+
   // === Code ===
 
   it('adds background and font-family to inline code', () => {

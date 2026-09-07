@@ -737,6 +737,39 @@ test.describe('stored table cell backgrounds in the browser', () => {
     const safe = page.locator('#fixture td').filter({ hasText: /^SAFE$/ });
     expect(await safe.evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(1, 2, 3)');
   });
+
+  test('writes no declaration an unsafe cell alignment would add to styled HTML and inlineStyles output', async ({ page }) => {
+    const requests: string[] = [];
+    await page.context().route(`${PROBE}**`, route => {
+      requests.push(route.request().url());
+      return route.fulfill({ status: 204, body: '' });
+    });
+    await open(page);
+    const overlay = `left; position: fixed; inset: 0; z-index: 2147483647; background: url(${PROBE}align)`;
+    const cell = (attrs: Json, value: string, type = 'tableCell'): Json => ({ type, attrs, content: [paragraph(text(value))] });
+    const content = docOf({ type: 'table', content: [{ type: 'tableRow', content: [
+      cell({ textAlign: overlay }, 'TEXT'),
+      cell({ verticalAlign: `top;background-image:url(${PROBE}vertical)` }, 'VERTICAL'),
+      cell({ textAlign: overlay, verticalAlign: overlay }, 'HEADER', 'tableHeader'),
+      cell({ textAlign: 'center', verticalAlign: 'bottom' }, 'SAFE'),
+    ] }] });
+    await setup(page, { content });
+    interface StyledWindow { __linkSecurity: { getStyledHTML: () => string; inlineStyles: (html: string) => string; generateHTML: (json: Json) => string; show: (html: string) => void; fixedElements: () => string[] } }
+    const outputs = await page.evaluate(json => {
+      const probe = (window as unknown as StyledWindow).__linkSecurity;
+      return [probe.getStyledHTML(), probe.inlineStyles(probe.generateHTML(json))];
+    }, content);
+    for (const output of outputs) {
+      expect(output).not.toContain('probe.test');
+      expect(output).not.toContain('position');
+    }
+    await page.evaluate(markup => { (window as unknown as StyledWindow).__linkSecurity.show(markup); }, outputs.join(''));
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => (window as unknown as StyledWindow).__linkSecurity.fixedElements())).toEqual([]);
+    expect(requests).toEqual([]);
+    const safe = page.locator('#sink td').filter({ hasText: /^SAFE$/ }).first();
+    expect(await safe.evaluate(element => [getComputedStyle(element).textAlign, getComputedStyle(element).verticalAlign])).toEqual(['center', 'bottom']);
+  });
 });
 
 test.describe('image sources in the browser', () => {

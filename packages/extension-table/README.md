@@ -101,6 +101,12 @@ A cell background is written into the cell's `style` only when it is a safe CSS 
 returns `false` for such a value. Parsing HTML reads `data-background` only when it is safe, and
 otherwise the cell's `background-color`.
 
+`textAlign` and `verticalAlign` render as `data-text-align` and `data-vertical-align`, which
+inline styles (`getHTML({ styled: true })`, `inlineStyles` and a `clipboardHTMLTransform` built on
+it) turn into `text-align` and `vertical-align` declarations. So they follow the same rule: an
+unsafe value is not rendered, not parsed from HTML and refused by `setCellAttribute`, and
+`inlineStyles` writes a declaration only for a safe value, whatever HTML it is given.
+
 The package also exports the `TableView` node view, the `createTable` and
 `deleteTableWhenAllCellsSelected` helpers, and re-exports `CellSelection` and
 `TableMap` (which originate in `prosemirror-tables`) from `@domternal/pm/tables`,

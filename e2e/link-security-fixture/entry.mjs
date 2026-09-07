@@ -4,7 +4,7 @@
  * what the browser itself reads, and click links the editor renders.
  */
 import {
-  Editor, Extension, StarterKit, checkUrl, isValidUrl, generateHTML,
+  Editor, Extension, StarterKit, checkUrl, isValidUrl, generateHTML, inlineStyles,
   TextStyle, TextColor, Highlight, FontFamily, FontSize, TextAlign, LineHeight,
 } from '@domternal/core';
 import { Image } from '@domternal/extension-image';
@@ -109,6 +109,8 @@ window.__linkSecurity = {
   opens: () => opens.map(call => [...call]),
   editor: () => editor,
   getHTML: () => editor?.getHTML() ?? '',
+  getStyledHTML: () => editor?.getHTML({ styled: true }) ?? '',
+  inlineStyles: (html) => inlineStyles(html),
   getJSON: () => editor?.getJSON() ?? null,
   diagnostics: () => diagnostics.map(diagnostic => ({ ...diagnostic })),
   /** Selects a range and focuses the editor, as a user selection would. */

@@ -41,6 +41,7 @@ import {
 
 import { tableMessages } from './messages.js';
 import { TableView } from './TableView.js';
+import { CSS_CELL_ATTRIBUTES } from './helpers/cellAttributes.js';
 import { createTable } from './helpers/createTable.js';
 import { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCellsSelected.js';
 import { addColumnWithWidths } from './helpers/constrainedColumn.js';
@@ -342,8 +343,8 @@ export const Table = Node.create<TableOptions>({
       setCellAttribute:
         (name: string, value: unknown) =>
         ({ state, dispatch }) => {
-          // A background is written into the cell's style, so only a safe CSS value is stored.
-          if (name === 'background' && value !== null && !isSafeCssValue(value)) return false;
+          // These are written into a declaration, so only a safe CSS value is stored.
+          if (CSS_CELL_ATTRIBUTES.has(name) && value !== null && !isSafeCssValue(value)) return false;
           return setCellAttr(name, value)(state, dispatch);
         },
 
