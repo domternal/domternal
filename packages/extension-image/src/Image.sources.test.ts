@@ -214,6 +214,52 @@ describe('data images and allowBase64 (F2)', () => {
   });
 });
 
+describe('judging a stored source again', () => {
+  /** Counts the URL parser's runs while `run` executes. */
+  function parses(run: () => void): number {
+    const Native = globalThis.URL;
+    let count = 0;
+    globalThis.URL = class extends Native {
+      constructor(...args: ConstructorParameters<typeof URL>) {
+        super(...args);
+        count++;
+      }
+    };
+    try {
+      run();
+    } finally {
+      globalThis.URL = Native;
+    }
+    return count;
+  }
+
+  it('judges the source of an unchanged image once, however often the document renders', () => {
+    mount({ type: 'doc', content: [{ type: 'image', attrs: { src: 'https://example.com/a.png' } }, { type: 'paragraph' }] });
+    const count = parses(() => {
+      for (let run = 0; run < 5; run++) editor!.getHTML();
+      // Typing elsewhere changes the document but not the image node.
+      editor!.view.dispatch(editor!.state.tr.insertText('typed', editor!.state.doc.content.size - 1));
+      editor!.getHTML();
+    });
+    expect(count).toBeLessThanOrEqual(1);
+    expect(editor!.getHTML()).toContain('src="https://example.com/a.png"');
+  });
+
+  it('judges a changed source again, in renders and in the node view', () => {
+    mount(imageDoc('https://example.com/a.png'));
+    editor!.getHTML();
+    editor!.view.dispatch(editor!.state.tr.setNodeMarkup(0, undefined, { ...editor!.state.doc.firstChild!.attrs, src: ' javascript:alert(1)' }));
+    expect(editor!.getHTML()).toContain('src=""');
+    expect(editor!.view.dom.querySelector('img')?.hasAttribute('src')).toBe(false);
+  });
+
+  it('judges a source for each allowBase64 setting on its own', () => {
+    const content = imageDoc(PNG);
+    expect(renderedSources(content, true)).toEqual([PNG, PNG, PNG]);
+    expect(renderedSources(content, false)).toEqual([null, '', '']);
+  });
+});
+
 describe('no source (F4)', () => {
   it.each([[null], ['']])('keeps %j as no source, with no src in the node view or the HTML', (source) => {
     const [view, html, generated] = renderedSources(imageDoc(source));

@@ -273,6 +273,52 @@ describe('checkUrl', () => {
     });
   });
 
+  describe('long data images', () => {
+    /** Counts the URL parser's runs while `run` executes. */
+    function parses(run: () => void): number {
+      const Native = globalThis.URL;
+      let count = 0;
+      globalThis.URL = class extends Native {
+        constructor(...args: ConstructorParameters<typeof URL>) {
+          super(...args);
+          count++;
+        }
+      };
+      try {
+        run();
+      } finally {
+        globalThis.URL = Native;
+      }
+      return count;
+    }
+    const data = `data:image/png;base64,${'A'.repeat(4 * 1024 * 1024)}`;
+
+    it('judges a data image without the URL parser, which can reject none', () => {
+      expect(parses(() => {
+        expect(checkUrl(data, imageProfile(true))).toEqual({ status: 'allowed', url: data });
+        expect(checkUrl(` DATA: Image/PNG;base64,${'A'.repeat(64)}`, imageProfile(true)).status).toBe('allowed');
+      })).toBe(0);
+      expect(parses(() => { checkUrl('https://example.com/a.png', imageProfile(true)); })).toBe(1);
+    });
+
+    it('still refuses a hidden character anywhere in a long data image', () => {
+      for (const hidden of ['\u0000', '\u0085', '\u202e', '\u2066', '\ud800', '\udc00', '\uffff']) {
+        const middle = data.length / 2;
+        const value = `${data.slice(0, middle)}${hidden}${data.slice(middle)}`;
+        expect(checkUrl(value, imageProfile(true)).status, JSON.stringify(hidden)).toBe('unsafe');
+      }
+      expect(checkUrl(`${data}\ud83d\ude00`, imageProfile(true)).status).toBe('allowed');
+    });
+
+    it('checks a long data image in a few milliseconds per megabyte', () => {
+      checkUrl(data, imageProfile(true));
+      const start = performance.now();
+      for (let run = 0; run < 10; run++) checkUrl(data, imageProfile(true));
+      // About 2 ms per run here, where scanning every character took about 16 ms; generous for slow machines.
+      expect((performance.now() - start) / 10).toBeLessThan(10);
+    });
+  });
+
   describe('results', () => {
     it('returns frozen refusals and the cleaned spelling when allowed', () => {
       expect(Object.isFrozen(checkUrl('javascript:x'))).toBe(true);

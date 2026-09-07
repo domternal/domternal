@@ -185,7 +185,9 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
   if (typeof value !== 'string') return value === null || value === undefined ? UNSUPPORTED : UNSAFE;
   const url = cleanUrl(value);
   if (url === '') return UNSUPPORTED;
-  if (hasHiddenCharacter(url)) return UNSAFE;
+  // Printable ASCII, such as the body of a data image, holds no hidden
+  // character; one pattern test settles it several times faster than the scan.
+  if (/[^ -~]/.test(url) && hasHiddenCharacter(url)) return UNSAFE;
   const {
     protocols = DEFAULT_PROTOCOLS,
     allowRelative = false,
@@ -204,9 +206,12 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
     if (SCRIPT_SCHEMES.has(scheme)) return UNSAFE;
     if (scheme === 'data:') {
       if (!allowDataImages || !isImageData(url)) return UNSAFE;
-    } else if (!allowedScheme(scheme, protocols)) {
-      return UNSUPPORTED;
+      // An image media type follows the colon, so the parser reads an opaque
+      // path that it never rejects and that holds no host or credentials. A
+      // long image need not be parsed on every render.
+      return { status: 'allowed', url };
     }
+    if (!allowedScheme(scheme, protocols)) return UNSUPPORTED;
     const parsed = parse(url);
     if (parsed === null) return UNSUPPORTED;
     // A web host never holds `%` once parsed; Chromium keeps an invalid one percent-encoded

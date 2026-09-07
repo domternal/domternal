@@ -78,14 +78,33 @@ function imageSource(value: unknown, allowBase64: boolean): string | null | unde
   return check.status === 'allowed' ? check.url : undefined;
 }
 
+/**
+ * Sources already judged, by the attributes object of the node that holds
+ * them and by `allowBase64`. An unchanged node keeps its attributes object,
+ * so rendering a document again, as getHTML does on every change, does not
+ * judge a long data image again, and the cache lets go of a source when its
+ * node goes.
+ */
+const judgedWithData = new WeakMap<object, string | null | undefined>();
+const judgedWithoutData = new WeakMap<object, string | null | undefined>();
+
+/** The source of an image node's attributes, as {@link imageSource} judges it. */
+function nodeSource(attrs: Record<string, unknown>, allowBase64: boolean): string | null | undefined {
+  const judged = allowBase64 ? judgedWithData : judgedWithoutData;
+  if (judged.has(attrs)) return judged.get(attrs);
+  const src = imageSource(attrs['src'], allowBase64);
+  judged.set(attrs, src);
+  return src;
+}
+
 /** Whether a source may be stored: no source, or one the URL policy allows. */
 function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
   return imageSource(value, allowBase64) !== undefined;
 }
 
 /** Loads the source into the node view's image only when the policy allows it. */
-function applySource(img: HTMLImageElement, value: unknown, allowBase64: boolean): void {
-  const src = imageSource(value, allowBase64);
+function applySource(img: HTMLImageElement, attrs: Record<string, unknown>, allowBase64: boolean): void {
+  const src = nodeSource(attrs, allowBase64);
   if (typeof src === 'string') {
     if (img.getAttribute('src') !== src) img.src = src;
   } else {
@@ -344,7 +363,7 @@ export const Image = Node.create<ImageOptions>({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const src = imageSource(node.attrs['src'], this.options.allowBase64);
+    const src = nodeSource(node.attrs, this.options.allowBase64);
 
     // Checked again on render, for a source stored by JSON or a collaborator:
     // a refused one renders an empty src, so an HTML round trip keeps the node.
@@ -490,7 +509,7 @@ export const Image = Node.create<ImageOptions>({
       applyPlacement(node.attrs['float'], node.attrs['align']);
 
       const img = document.createElement('img');
-      applySource(img, node.attrs['src'], allowBase64());
+      applySource(img, node.attrs, allowBase64());
       if (node.attrs['alt']) img.alt = node.attrs['alt'] as string;
       if (node.attrs['title']) img.title = node.attrs['title'] as string;
       applyWidth(img, node.attrs['width']);
@@ -559,7 +578,7 @@ export const Image = Node.create<ImageOptions>({
         dom,
         update(updatedNode: PmNode) {
           if (updatedNode.type.name !== 'image') return false;
-          applySource(img, updatedNode.attrs['src'], allowBase64());
+          applySource(img, updatedNode.attrs, allowBase64());
           // A null alt/title would be written as the literal string "null".
           img.alt = (updatedNode.attrs['alt'] as string | null) ?? '';
           img.title = (updatedNode.attrs['title'] as string | null) ?? '';
