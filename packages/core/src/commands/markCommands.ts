@@ -1,7 +1,7 @@
 /**
  * Mark commands - toggleMark, setMark, unsetMark, unsetAllMarks
  */
-import type { Attrs, MarkType } from '@domternal/pm/model';
+import type { AttributeSpec, Attrs, MarkType } from '@domternal/pm/model';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import { Mark } from '../Mark.js';
@@ -18,6 +18,25 @@ function acceptsAttributes(state: EditorState, markName: string, attributes: Att
   if (!attributes) return true;
   return validAttributes(state.schema, markName, attributes, true, current)
     && supportedAttributes(state.schema, markName, attributes);
+}
+
+/**
+ * Whether a text node's own mark can change whether the given attributes
+ * are accepted: only when the mark type's schema validates an attribute or
+ * requires one without a default. Otherwise creating the mark cannot fail.
+ */
+function judgesStoredValues(markType: MarkType): boolean {
+  return Object.values<AttributeSpec>(markType.spec.attrs ?? {})
+    .some(spec => spec.validate !== undefined || !Object.hasOwn(spec, 'default'));
+}
+
+/** The stored values a verdict depends on, or undefined for values JSON cannot spell. */
+function verdictKey(attrs: Attrs | undefined): string | undefined {
+  try {
+    return JSON.stringify(attrs ?? null);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -177,12 +196,28 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
 
     // Each text node merges the given attributes into its own mark, so its
     // stored values stand in; without text, the given attributes apply alone.
+    // can() runs for every toolbar item on every transaction, so the given
+    // values are judged once, and a text node's own mark only where it can
+    // change the verdict, once for each distinct stored value.
+    if (attributes && !supportedAttributes(state.schema, markName, attributes)) return false;
+    const perNode = attributes !== undefined && judgesStoredValues(markType);
+    const verdicts = new Map<string, boolean>();
     const judged = { refused: false, sawText: false };
     for (const range of ranges) {
       tr.doc.nodesBetween(range.$from.pos, range.$to.pos, (node) => {
-        if (judged.refused || !node.isText) return;
+        if (judged.refused || (judged.sawText && !perNode)) return false;
+        if (!node.isText) return true;
         judged.sawText = true;
-        judged.refused = !acceptsAttributes(state, markName, attributes, markType.isInSet(node.marks)?.attrs);
+        if (!perNode) return false;
+        const current = markType.isInSet(node.marks)?.attrs;
+        const key = verdictKey(current);
+        let accepted = key === undefined ? undefined : verdicts.get(key);
+        if (accepted === undefined) {
+          accepted = validAttributes(state.schema, markName, attributes, true, current);
+          if (key !== undefined) verdicts.set(key, accepted);
+        }
+        judged.refused = !accepted;
+        return false;
       });
     }
     if (judged.refused || (!judged.sawText && !acceptsAttributes(state, markName, attributes))) {
