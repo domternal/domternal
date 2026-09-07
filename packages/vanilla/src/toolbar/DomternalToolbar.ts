@@ -522,7 +522,7 @@ export class DomternalToolbar extends EventTarget {
           btn.setAttribute('role', 'menuitem');
           btn.tabIndex = -1;
           btn.setAttribute('aria-label', sub.label);
-          btn.title = sub.label;
+          btn.title = getTooltip(sub);
           btn.style.backgroundColor = sub.color;
           btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
           btn.addEventListener('click', (e) => { this.#onDropdownItemClick(sub, e); });
@@ -534,6 +534,7 @@ export class DomternalToolbar extends EventTarget {
           btn.setAttribute('role', 'menuitem');
           btn.tabIndex = -1;
           btn.setAttribute('aria-label', sub.label);
+          btn.title = getTooltip(sub);
           btn.innerHTML = this.#iconCache.getItemContent(sub.icon, sub.label);
           btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
           btn.addEventListener('click', (e) => { this.#onDropdownItemClick(sub, e); });
@@ -557,7 +558,7 @@ export class DomternalToolbar extends EventTarget {
       btn.setAttribute('role', 'menuitem');
       btn.tabIndex = -1;
       btn.setAttribute('aria-label', sub.label);
-      btn.title = sub.label;
+      btn.title = getTooltip(sub);
       btn.innerHTML = this.#iconCache.getItemContent(sub.icon, sub.label, dd.displayMode);
       if (sub.style) btn.setAttribute('style', sub.style);
       btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
