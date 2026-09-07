@@ -25,7 +25,8 @@ export interface LinkOptions {
   HTMLAttributes: Record<string, unknown>;
   /**
    * The schemes a link may use, such as `'https:'`, in any case, with or
-   * without the colon. The URL policy refuses credentials in web, mail and
+   * without the colon or slashes (`'https'`, `'https://'`), or as Tiptap's
+   * `{ scheme: 'tel' }`. Left unset (`undefined` or `null`), the default. The URL policy refuses credentials in web, mail and
    * phone addresses and hidden characters whatever this lists; a user stays
    * allowed where it is the standard form of a listed scheme, such as
    * `ssh://git@host/repo.git`. `javascript:`, `vbscript:` and `data:`
@@ -99,26 +100,42 @@ export interface LinkAttributes {
 
 /** Schemes no Link configuration may allow: each can run script or show a document of its own. */
 const FORBIDDEN_PROTOCOLS = new Set(['javascript:', 'vbscript:', 'data:']);
+const DEFAULT_PROTOCOLS: readonly string[] = Object.freeze(['http:', 'https:', 'mailto:', 'tel:']);
 const checkedProtocols = new WeakMap<object, readonly string[]>();
 
 /**
+ * @internal The scheme a `protocols` entry names, spelled as the URL parser
+ * reports it, or null: a scheme in any case, with or without its colon or
+ * slashes (`'https'`, `'HTTPS:'`, `'https://'`), or an object with a
+ * `scheme`, as Tiptap's `{ scheme: 'tel', optionalSlashes: true }` writes it.
+ */
+export function protocolScheme(entry: unknown): string | null {
+  const scheme: unknown = entry !== null && typeof entry === 'object' ? (entry as { scheme?: unknown }).scheme : entry;
+  if (typeof scheme !== 'string') return null;
+  const name = /^([a-z][a-z0-9+.-]*)(?::(?:\/\/)?)?$/i.exec(scheme)?.[1];
+  return name === undefined ? null : normalizeUrlProtocol(name);
+}
+
+/**
  * Checks the `protocols` option and spells each entry as the URL parser
- * reports a scheme, so `'HTTPS'` means `https:`. A list that is not a list of
- * schemes, or that names a script or data scheme, fails loudly: silently
- * ignoring it would leave links the application expects, or allow ones it
- * never should.
+ * reports a scheme, so `'HTTPS'` and `'https://'` mean `https:`. An unset
+ * option, such as `Link.configure({ protocols: props.protocols })` without the
+ * prop, means the default schemes. A value that is not a list of schemes, or
+ * that names a script or data scheme, fails loudly: silently ignoring it would
+ * leave links the application expects, or allow ones it never should.
  */
 function configuredProtocols(protocols: unknown): readonly string[] {
+  if (protocols === undefined || protocols === null) return DEFAULT_PROTOCOLS;
   if (!Array.isArray(protocols)) {
     throw new ExtensionConfigurationError("Link: protocols must be a list of schemes, such as ['https:']");
   }
   const cached = checkedProtocols.get(protocols);
   if (cached) return cached;
   const schemes = (protocols as unknown[]).map(entry => {
-    if (typeof entry !== 'string' || !/^[a-z][a-z0-9+.-]*:?$/i.test(entry)) {
+    const scheme = protocolScheme(entry);
+    if (scheme === null) {
       throw new ExtensionConfigurationError(`Link: protocols entry ${JSON.stringify(entry)} is not a URL scheme`);
     }
-    const scheme = normalizeUrlProtocol(entry);
     if (FORBIDDEN_PROTOCOLS.has(scheme)) {
       throw new ExtensionConfigurationError(`Link: protocols cannot allow ${scheme}, which can run script`);
     }
@@ -184,7 +201,7 @@ export const Link = Mark.create<LinkOptions>({
   addOptions(): LinkOptions {
     return {
       HTMLAttributes: {},
-      protocols: ['http:', 'https:', 'mailto:', 'tel:'],
+      protocols: [...DEFAULT_PROTOCOLS],
       openOnClick: true,
       addRelNoopener: true,
       autolink: true,

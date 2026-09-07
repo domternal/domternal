@@ -319,8 +319,9 @@ keeps the popover open: the input is marked `aria-invalid` and reports the local
 `core.linkPopover.invalidUrl` message until the value changes. Opening the popover on a stored
 link the Link would not keep shows it already marked invalid. Editing an existing link changes
 only its href and keeps its `title`, `target`, `rel` and `class`. `LinkPopover.configure({
-protocols })` narrows the schemes the popover accepts; the default `null` accepts every scheme
-the Link accepts.
+protocols })` narrows the schemes the popover accepts, read the way the Link reads its own; the
+default `null` accepts every scheme the Link accepts, and an entry that names no scheme fails
+editor creation with an `ExtensionConfigurationError`.
 
 ## Style values
 
@@ -428,9 +429,12 @@ configuration: a client with an older marker vocabulary, fewer heading levels or
 removal is the same under every configuration.
 
 `Link.configure({ protocols })` takes schemes such as `'https:'`, in any case and with or without
-the colon, so `['HTTPS']` means `https:`. An entry that is not a scheme, or that is
-`javascript:`, `vbscript:` or `data:`, fails `new Editor(...)` and the SSR helpers with an
-`ExtensionConfigurationError`. `setMark`, `toggleMark` and `updateAttributes` return `false` for a
+the colon or slashes, so `['HTTPS']` and `['https://']` mean `https:`, and Tiptap's
+`{ scheme: 'tel', optionalSlashes: true }` means `tel:`. An unset value (`undefined` or `null`),
+such as `Link.configure({ protocols: props.protocols })` without the prop, means the default
+schemes. An entry that names no scheme, or that is `javascript:`, `vbscript:` or `data:`, fails
+`new Editor(...)` and the SSR helpers with an `ExtensionConfigurationError`, and so does a value
+that is not a list. `setMark`, `toggleMark` and `updateAttributes` return `false` for a
 link href that is not a string or that the policy refuses, and a stored href does not block a
 change to another attribute. Autolink and link paste create a link only for an allowed address:
 pasted text must be a single line, and an address with credentials is never linked.

@@ -334,11 +334,32 @@ describe('link commands', () => {
 });
 
 describe('Link protocols configuration', () => {
-  it.each([[['javascript:']], [['DATA']], [['vbscript']], [['https', 'data:']], [['']], [['1abc:']], [['https:', 42]], ['https:']])(
+  it.each([
+    [['javascript:']], [['DATA']], [['vbscript']], [['https', 'data:']], [['']], [['1abc:']], [['https:', 42]], ['https:'],
+    [['https://example.com']], [['https:/']], [[{ scheme: 'javascript' }]], [[{ scheme: 42 }]], [[{}]], [[null]], [[['https:']]],
+  ])(
     'refuses %j with an ExtensionConfigurationError', (protocols) => {
       expect(() => new Editor({ extensions: extensions({ protocols: protocols as string[] }) })).toThrow(ExtensionConfigurationError);
       expect(() => generateHTML(doc({ type: 'text', text: 'x' }), extensions({ protocols: protocols as string[] }))).toThrow(ExtensionConfigurationError);
     });
+
+  it.each([[undefined], [null]])('uses the default schemes for protocols %j, as an unset option', (protocols) => {
+    const links = [linked('w', 'https://x.example/'), linked('h', 'http://x.example/'), linked('m', 'mailto:a@b.example'),
+      linked('t', 'tel:+385123'), linked('f', 'ftp://x.example/')];
+    const { editor: ed, reports } = mount(doc(...links), { protocols: protocols as unknown as string[] });
+    expect(hrefs(ed)).toEqual(['https://x.example/', 'http://x.example/', 'mailto:a@b.example', 'tel:+385123']);
+    expect(reports[0]?.diagnostics.map(diagnostic => diagnostic.value)).toEqual(['ftp://x.example/']);
+    expect(generateHTML(doc(linked('m', 'mailto:a@b.example')), extensions({ protocols: protocols as unknown as string[] })))
+      .toBe('<p><a href="mailto:a@b.example">m</a></p>');
+  });
+
+  it('reads a scheme written with its slashes, such as http://, and Tiptap entries by their scheme', () => {
+    const protocols = ['http://', 'HTTPS://', { scheme: 'tel', optionalSlashes: true }, { scheme: 'FTP:' }] as unknown as string[];
+    const { editor: ed, reports } = mount(doc(linked('h', 'http://x.example/'), linked('s', 'https://x.example/'),
+      linked('t', 'tel:+385123'), linked('f', 'ftp://x.example/'), linked('m', 'mailto:a@b.example')), { protocols });
+    expect(hrefs(ed)).toEqual(['http://x.example/', 'https://x.example/', 'tel:+385123', 'ftp://x.example/']);
+    expect(reports[0]?.diagnostics.map(diagnostic => diagnostic.value)).toEqual(['mailto:a@b.example']);
+  });
 
   it('reads entries in any case, with or without the colon', () => {
     for (const protocols of [['HTTPS'], ['https'], ['Https:']]) {

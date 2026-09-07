@@ -11,6 +11,7 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
 import { deMessages } from '../locales/de.js';
+import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 
 // floating-ui measures client rects, which jsdom does not lay out.
 Element.prototype.getClientRects = function () {
@@ -258,6 +259,20 @@ describe('LinkPopover edits of an existing link (E12)', () => {
 });
 
 describe('LinkPopover options', () => {
+  it('reads its own protocols the way the Link does, and refuses an entry that names no scheme', () => {
+    mount({ link: { protocols: ['https:', 'ftp:'] }, popover: { protocols: ['FTP://', { scheme: 'https' }] as unknown as string[] } });
+    select(1, 6);
+    openPopover();
+    apply('ftp://files.example/f');
+    expect(hrefs()).toEqual(['ftp://files.example/f']);
+    editor!.destroy();
+    for (const protocols of [[42], ['https://example.com'], [{}], 'https:']) {
+      expect(() => new Editor({
+        extensions: [Document, Paragraph, Text, Link, LinkPopover.configure({ protocols: protocols as unknown as string[] })],
+      }), JSON.stringify(protocols)).toThrow(ExtensionConfigurationError);
+    }
+  });
+
   it('defaults protocols to null, so the Link decides', () => {
     expect(LinkPopover.options.protocols).toBeNull();
     expect(LinkPopover.configure({ protocols: ['https:'] }).options.protocols).toEqual(['https:']);

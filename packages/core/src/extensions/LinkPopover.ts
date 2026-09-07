@@ -19,6 +19,8 @@ import type { Mark as PMMark, MarkType } from '@domternal/pm/model';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import { Extension } from '../Extension.js';
 import { cleanUrl, normalizeUrlProtocol } from '../helpers/checkUrl.js';
+import { protocolScheme } from '../marks/Link.js';
+import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 import { getExactMarkRange } from '../helpers/getMarkRange.js';
 import { isSupportedAttributeValue } from '../utils/normalizedAttributes.js';
 import { defaultIcons } from '../icons/index.js';
@@ -67,8 +69,27 @@ function addressFor(value: string, defaultProtocol: string): string {
 
 const linkPopoverPluginKey = new PluginKey('linkPopover');
 
+/**
+ * The popover's own schemes, read the way the Link reads its `protocols`, or
+ * null to accept every scheme the Link accepts. A value that names no scheme
+ * fails editor creation, as it does for the Link.
+ */
+function narrowingSchemes(protocols: unknown): string[] | null {
+  if (protocols === undefined || protocols === null) return null;
+  if (!Array.isArray(protocols)) {
+    throw new ExtensionConfigurationError("LinkPopover: protocols must be null or a list of schemes, such as ['https:']");
+  }
+  return (protocols as unknown[]).map(entry => {
+    const scheme = protocolScheme(entry);
+    if (scheme === null) {
+      throw new ExtensionConfigurationError(`LinkPopover: protocols entry ${JSON.stringify(entry)} is not a URL scheme`);
+    }
+    return scheme;
+  });
+}
+
 function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOptions): Plugin {
-  const narrowed = protocols?.map(normalizeUrlProtocol) ?? null;
+  const narrowed = narrowingSchemes(protocols);
   const linkOptions = editor.extensionManager.extensions.find(extension => extension.name === markType.name)?.options as
     { defaultProtocol?: unknown } | undefined;
   const defaultProtocol = typeof linkOptions?.defaultProtocol === 'string' && /^[a-z][a-z0-9+.-]*$/i.test(linkOptions.defaultProtocol)
