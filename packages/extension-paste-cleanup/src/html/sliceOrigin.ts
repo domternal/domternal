@@ -45,19 +45,25 @@ function onlyElement(parent: Root | Element): Element | undefined {
 function locate(tree: Root, markers: number): SliceAnchor | undefined {
   if (markers !== 1) return undefined;
   const element = firstElement(tree);
-  const context = element === undefined ? undefined : cleanSliceContext(element.properties['dataPmSlice']);
-  if (element === undefined || context === undefined) return undefined;
-  const wrappers = Number(/^\d+ \d+ -(\d+) /.exec(context)?.[1] ?? 0);
-  if (wrappers === 0) return { element, context, target: element };
-  // ProseMirror descends N times through first element children and drops their siblings.
-  if (onlyElement(tree) !== element) return undefined;
-  let container = element;
-  for (let level = 1; level < wrappers; level++) {
-    const next = onlyElement(container);
-    if (next === undefined) return undefined;
-    container = next;
+  const valid = element === undefined ? undefined : cleanSliceContext(element.properties['dataPmSlice']);
+  if (element === undefined || valid === undefined) return undefined;
+  const wrappers = Number(/^\d+ \d+ -(\d+) /.exec(valid)?.[1] ?? 0);
+  let target: Element | undefined = element;
+  if (wrappers > 0) {
+    // ProseMirror descends N times through first element children and drops their siblings.
+    if (onlyElement(tree) !== element) return undefined;
+    let container = element;
+    for (let level = 1; level < wrappers; level++) {
+      const next = onlyElement(container);
+      if (next === undefined) return undefined;
+      container = next;
+    }
+    target = firstElement(container);
   }
-  return { element, context, target: firstElement(container) };
+  // The innermost wrapper must hold what ProseMirror parses first, and no wrapper holds bare text.
+  const context = target === undefined ? (valid.endsWith(' []') ? valid : undefined)
+    : cleanSliceContext(element.properties['dataPmSlice'], undefined, target);
+  return context === undefined ? undefined : { element, context, target };
 }
 
 function count(tree: Root): { markers: number; copies: Element[] } {

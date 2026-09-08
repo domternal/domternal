@@ -42,6 +42,8 @@ interface ProbeWindow {
     ready: boolean;
     framework: string;
     editor: Editor;
+    results: { html: string }[];
+    serializeSelection: () => { html: string; text: string };
     operations: PasteOperationResult[];
     select: (from: number, to?: number) => void;
     clearObservations: () => void;
@@ -346,3 +348,42 @@ for (const cleanup of [false, true]) {
     });
   }
 }
+
+test('PasteCleanup keeps the table and details contexts a Domternal copy writes', async ({ page }) => {
+  await open(page, 'vanilla', true);
+  const structures: [string, string][] = [
+    ['<table><tr><td><p>One</p><p>Two</p></td><td><p>B</p></td></tr></table>', '["table",'],
+    ['<table><tr><td><blockquote><p>One</p><p>Two</p></blockquote></td></tr></table>', '["table",'],
+    ['<details open><summary>Title</summary><div data-details-content><p>One</p><p>Two</p></div></details>', '["details",'],
+    ['<ul><li><p>Item</p><details open><summary>Title</summary><div data-details-content><p>One</p><p>Two</p></div></details></li></ul>', '["bulletList",'],
+  ];
+  for (const [content, prefix] of structures) {
+    const outcome = await page.evaluate(async content => {
+      const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+      const editor = probe.editor;
+      if (!editor.setContent(content, false)) throw new Error('Could not seed the editor');
+      let from = -1;
+      let to = -1;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'One') from = pos + 1;
+        if (node.isText && node.text === 'Two') to = pos + node.nodeSize - 1;
+      });
+      probe.select(from, to);
+      const copied = probe.serializeSelection().html;
+      if (!editor.setContent('<p></p>', false)) throw new Error('Could not reset the editor');
+      probe.clearObservations();
+      const data = new DataTransfer();
+      data.setData('text/html', copied);
+      data.setData('text/plain', 'ne\n\nTw');
+      const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+      if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+      editor.view.dom.dispatchEvent(event);
+      for (let attempt = 0; attempt < 20 && probe.operations.length === 0; attempt++) await new Promise(resolve => setTimeout(resolve, 0));
+      const marker = (html: string): string | undefined => /data-pm-slice="([^"]*)"/.exec(html)?.[1]?.replaceAll('&quot;', '"').replaceAll('&#x22;', '"');
+      return { copied: marker(copied), cleaned: marker(probe.results[0]?.html ?? ''), status: probe.operations.map(operation => operation.status),
+        text: editor.state.doc.textContent };
+    }, content);
+    expect(outcome.copied).toContain(prefix);
+    expect(outcome).toEqual({ copied: outcome.copied, cleaned: outcome.copied, status: ['applied'], text: 'neTw' });
+  }
+});

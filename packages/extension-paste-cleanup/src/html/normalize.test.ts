@@ -73,8 +73,8 @@ describe('normalizePasteHTML', () => {
   });
 
   it('does not trust data-pm-slice to bypass sanitization', () => {
-    const result = normalizePasteHTML('<p data-pm-slice=\'1 1 ["paragraph",{"onclick":"alert(1)"}]\' onclick="alert(2)">Text</p>');
-    expect(result.html).toBe('<p data-pm-slice="1 1 [&#x22;paragraph&#x22;,{}]">Text</p>');
+    const result = normalizePasteHTML('<p data-pm-slice=\'1 1 ["blockquote",{"onclick":"alert(1)"}]\' onclick="alert(2)">Text</p>');
+    expect(result.html).toBe('<p data-pm-slice="1 1 [&#x22;blockquote&#x22;,{}]">Text</p>');
   });
 
   it('rejects excess input before parsing and never returns raw HTML', () => {

@@ -87,8 +87,10 @@ describe('bounded explicit list marker preservation', () => {
   });
 
   it('preserves null defaults without treating them as explicit marker demand', () => {
-    const context = `1 1 ${JSON.stringify(['orderedList', { listStyleType: null }, 'bulletList', { listStyleType: null }, 'taskList', { listStyleType: null }])}`;
-    expect(cleanSliceContext(context)).toBe(`1 1 ${JSON.stringify(['orderedList', { listStyleType: null }, 'bulletList', { listStyleType: null }, 'taskList', {}])}`);
+    const context = `1 1 ${JSON.stringify(['orderedList', { listStyleType: null }, 'listItem', null, 'bulletList', { listStyleType: null },
+      'listItem', null, 'taskList', { listStyleType: null }, 'taskItem', null])}`;
+    expect(cleanSliceContext(context)).toBe(`1 1 ${JSON.stringify(['orderedList', { listStyleType: null }, 'listItem', null,
+      'bulletList', { listStyleType: null }, 'listItem', null, 'taskList', {}, 'taskItem', null])}`);
     expect(demand(normalizePasteHTML(`<p data-pm-slice='${context}'>Part</p>`).html)).toEqual([]);
     expect(demand(normalizePasteHTML('<ol><li>Item</li></ol><ul><li>Other</li></ul>').html)).toEqual(['ordered-list', 'bullet-list']);
   });

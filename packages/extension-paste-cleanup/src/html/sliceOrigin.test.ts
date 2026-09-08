@@ -70,14 +70,14 @@ describe('foreign data-pm-slice markers', () => {
   });
 
   it('keeps structural context and drops context formatting that adapt removes', () => {
-    const context = JSON.stringify(['tableCell', { colspan: 2, background: '#ff0000', verticalAlign: 'top' }, 'paragraph', { textAlign: 'center' }]);
+    const context = JSON.stringify(['tableRow', null, 'tableCell', { colspan: 2, background: '#ff0000', verticalAlign: 'top', textAlign: 'center' }]);
     const html = `<p data-pm-slice='2 2 ${context}'>Cell</p>`;
     expect(slices(normalizePasteHTML(html).html)).toEqual([`2 2 ${context}`]);
     const adapted = normalizePasteHTML(html, { formatting: 'adapt' });
-    expect(slices(adapted.html)).toEqual([`2 2 ${JSON.stringify(['tableCell', { colspan: 2, verticalAlign: 'top' }, 'paragraph', {}])}`]);
+    expect(slices(adapted.html)).toEqual([`2 2 ${JSON.stringify(['tableRow', null, 'tableCell', { colspan: 2, verticalAlign: 'top' }])}`]);
     expect(adapted.diagnostics).toEqual([{ code: 'formatting-adapted', severity: 'info', offset: 0 }]);
     expect(slices(normalizePasteHTML(html, { formatting: 'adapt', preserveTextAlignment: true }).html))
-      .toEqual([`2 2 ${JSON.stringify(['tableCell', { colspan: 2, verticalAlign: 'top' }, 'paragraph', { textAlign: 'center' }])}`]);
+      .toEqual([`2 2 ${JSON.stringify(['tableRow', null, 'tableCell', { colspan: 2, verticalAlign: 'top', textAlign: 'center' }])}`]);
   });
 
   it('treats every fragment as external in the standalone entry, even with a copy marker', () => {

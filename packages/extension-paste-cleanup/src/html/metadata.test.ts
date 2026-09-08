@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { normalizePasteHTML } from './index.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './index.js';
 import { normalizeClipboardHTML } from './normalize.js';
+import type { Element } from 'hast';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
 
 // A verified own copy: the anchor carries a nonce that the private verifier confirms.
@@ -104,8 +105,8 @@ describe('validated clipboard metadata', () => {
       })
     ).toEqual({});
     expect(
-      contextOf(cleanSliceContext(`1 1 ${JSON.stringify(['paragraph', { background: value }])}`))
-    ).toEqual(['paragraph', {}]);
+      contextOf(cleanSliceContext(`1 1 ${JSON.stringify(['tableCell', { background: value }])}`))
+    ).toEqual(['tableCell', {}]);
   });
 
   it('ignores unknown data attributes and active HTML properties', () => {
@@ -136,8 +137,8 @@ describe('validated clipboard metadata', () => {
     const value = `1 1 -2 ${JSON.stringify(context)}`;
 
     expect(cleanSliceContext(value)).toBe(value);
-    expect(contextOf(cleanSliceContext('1 1 ["paragraph",{"id":null,"textAlign":null}]'))).toEqual([
-      'paragraph',
+    expect(contextOf(cleanSliceContext('1 1 ["tableCell",{"id":null,"textAlign":null}]'))).toEqual([
+      'tableCell',
       { id: null, textAlign: null },
     ]);
   });
@@ -155,17 +156,17 @@ describe('validated clipboard metadata', () => {
 
   it('does not retain unknown context keys merely because their values are null', () => {
     const value =
-      '1 1 ["paragraph",{"id":null,"onclick":null,"src":null,"style":null,"constructor":null,"__proto__":null}]';
-    expect(contextOf(cleanSliceContext(value))).toEqual(['paragraph', { id: null }]);
+      '1 1 ["blockquote",{"id":null,"onclick":null,"src":null,"style":null,"constructor":null,"__proto__":null}]';
+    expect(contextOf(cleanSliceContext(value))).toEqual(['blockquote', { id: null }]);
   });
 
   it.each([
     '1 1 ["unregisteredNode",{"id":"unsafe"}]',
-    '1 1 ["paragraph",{},"unregisteredNode",{}]',
-    '1 1 ["paragraph"]',
-    '1 1 ["paragraph",[]]',
-    '1 1 ["paragraph","not an object"]',
-    '1 1 {"paragraph":{}}',
+    '1 1 ["blockquote",{},"unregisteredNode",{}]',
+    '1 1 ["blockquote"]',
+    '1 1 ["blockquote",[]]',
+    '1 1 ["blockquote","not an object"]',
+    '1 1 {"blockquote":{}}',
     '1 1 [invalid JSON]',
     '129 1 []',
     '1 129 []',
@@ -180,10 +181,11 @@ describe('validated clipboard metadata', () => {
   it('bounds context arrays and serialized metadata length', () => {
     expect(
       cleanSliceContext(
-        `1 1 ${JSON.stringify(Array.from({ length: 65 }, () => ['paragraph', null]).flat())}`
+        `1 1 ${JSON.stringify(Array.from({ length: 65 }, () => ['blockquote', null]).flat())}`
       )
     ).toBeUndefined();
-    expect(cleanSliceContext(`1 1 ["paragraph",{"id":"${'a'.repeat(16_384)}"}]`)).toBeUndefined();
+    expect(cleanSliceContext(`1 1 ${JSON.stringify(Array.from({ length: 64 }, () => ['blockquote', null]).flat())}`)).toBeDefined();
+    expect(cleanSliceContext(`1 1 ["blockquote",{"id":"${'a'.repeat(16_384)}"}]`)).toBeUndefined();
     expect(cleanSliceContext(null)).toBeUndefined();
   });
 
@@ -217,5 +219,103 @@ describe('validated clipboard metadata', () => {
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({ code: 'formatting-adapted' })
     );
+  });
+});
+
+describe('clipboard context ProseMirror could have written', () => {
+  const value = (context: unknown[], open = '1 1'): string => `${open} ${JSON.stringify(context)}`;
+  const element = (tagName: string, properties: Record<string, unknown> = {}): Element =>
+    ({ type: 'element', tagName, properties, children: [] }) as Element;
+
+  it.each([
+    ['paragraph', null], ['heading', { level: 2 }], ['detailsSummary', null],
+    ['blockquote', null, 'paragraph', null], ['listItem', null, 'heading', { level: 1 }],
+    ['details', null, 'detailsSummary', null], ['tableCell', null, 'paragraph', { textAlign: 'center' }],
+  ])('refuses a context naming a textblock, which ProseMirror never writes: %j', (...context) => {
+    expect(cleanSliceContext(value(context))).toBeUndefined();
+    const html = `<p data-pm-slice='${value(context)}'>Pasted</p>`;
+    expect(normalizePasteHTML(html).html).toBe('<p>Pasted</p>');
+    expect(normalizePasteHTML(html).diagnostics).toEqual([]);
+  });
+
+  it.each([
+    [['bulletList', null, 'taskItem', null]], [['taskList', null, 'listItem', null]], [['orderedList', null, 'blockquote', null]],
+    [['listItem', null, 'listItem', null]], [['table', null, 'tableCell', null]], [['tableRow', null, 'listItem', null]],
+    [['table', null, 'blockquote', null]], [['details', null, 'blockquote', null]], [['columns', null, 'blockquote', null]],
+    [['blockquote', null, 'listItem', null]], [['blockquote', null, 'tableRow', null]], [['tableCell', null, 'column', null]],
+    [['blockquote', null, 'detailsContent', null]], [['listItem', null, 'tableCell', null]],
+  ])('refuses a wrapper that cannot hold the next one: %j', context => {
+    expect(cleanSliceContext(value(context))).toBeUndefined();
+  });
+
+  it.each([
+    [['blockquote', null, 'blockquote', null]], [['bulletList', { listStyleType: 'square' }, 'listItem', null]],
+    [['orderedList', { start: 3 }, 'listItem', null, 'bulletList', null, 'listItem', null]],
+    [['taskList', null, 'taskItem', { checked: true }, 'taskList', null]], [['table', null, 'tableRow', null, 'tableHeader', { colspan: 2 }]],
+    [['details', { open: true }, 'detailsContent', null, 'table', null]], [['columns', null, 'column', null, 'blockquote', null]],
+    [['listItem', null, 'details', null]], [['tableCell', null, 'columns', null]],
+  ])('keeps a chain of wrappers that each hold the next: %j', context => {
+    expect(cleanSliceContext(value(context))).toBe(value(context));
+  });
+
+  it.each([
+    [['bulletList', null], 'li', true], [['bulletList', null], 'p', false], [['orderedList', null], 'li', true],
+    [['taskList', null], 'li', true], [['taskList', null], 'ul', false],
+    [['table', null], 'tr', true], [['table', null], 'td', false], [['table', null], 'p', false],
+    [['tableRow', null], 'td', true], [['tableRow', null], 'th', true], [['tableRow', null], 'tr', false],
+    [['tableCell', null], 'p', true], [['tableCell', null], 'ul', true], [['tableCell', null], 'span', false],
+    [['tableCell', null], 'li', false], [['tableHeader', null], 'h2', true],
+    [['listItem', null], 'p', true], [['listItem', null], 'strong', false], [['listItem', null], 'td', false],
+    [['taskItem', null], 'p', true], [['blockquote', null], 'blockquote', true], [['blockquote', null], 'a', false],
+    [['blockquote', null], 'summary', false], [['detailsContent', null], 'pre', true], [['column', null], 'p', true],
+    [['details', null], 'summary', true], [['details', null], 'p', false], [['columns', null], 'p', false],
+    [[], 'span', true], [[], 'td', true],
+  ])('checks that the innermost wrapper of %j can hold a <%s>', (context, tagName, kept) => {
+    expect(cleanSliceContext(value(context), undefined, element(tagName))).toBe(kept ? value(context) : undefined);
+  });
+
+  it('recognizes details content and column elements by their Domternal markup', () => {
+    expect(cleanSliceContext(value(['details', null]), undefined, element('div', { dataDetailsContent: '' }))).toBeDefined();
+    expect(cleanSliceContext(value(['details', null]), undefined, element('div', { dataType: 'detailsContent' }))).toBeDefined();
+    expect(cleanSliceContext(value(['details', null]), undefined, element('div'))).toBeUndefined();
+    expect(cleanSliceContext(value(['columns', null]), undefined, element('div', { dataType: 'column' }))).toBeDefined();
+    expect(cleanSliceContext(value(['columns', null]), undefined, element('div', { dataType: 'columns' }))).toBeUndefined();
+  });
+
+  it('no longer keeps a level attribute, which only headings had', () => {
+    expect(contextOf(cleanSliceContext(value(['blockquote', { level: 2, id: 'quote' }])))).toEqual(['blockquote', { id: 'quote' }]);
+  });
+
+  it.each([
+    ['a list context around a paragraph', `<p data-pm-slice='${value(['bulletList', null])}'>Pasted</p>`, '<p>Pasted</p>'],
+    ['a table context around a paragraph', `<p data-pm-slice='${value(['table', null])}'>Pasted</p>`, '<p>Pasted</p>'],
+    ['a row context around a row wrapper', '<table data-pm-slice=\'1 1 -2 ["tableRow",null]\'><tbody><tr><td>A</td></tr></tbody></table>',
+      '<table><tbody><tr><td>A</td></tr></tbody></table>'],
+    ['a cell context around an inline anchor', `<span data-pm-slice='${value(['tableCell', null])}'>Pasted</span>`, '<span>Pasted</span>'],
+  ])('removes %s from standalone HTML without a diagnostic', (_name, html, expected) => {
+    const result = normalizePasteHTML(html);
+    expect(result.html).toBe(expected);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it.each([
+    ['a list item', `<li data-pm-slice='${value(['bulletList', null], '2 2')}'><p>Item</p></li>`],
+    ['cells behind table wrappers', '<table data-pm-slice=\'1 1 -3 ["table",null,"tableRow",null]\'><tbody><tr><td><p>A</p></td></tr></tbody></table>'],
+    ['rows behind table wrappers', '<table data-pm-slice=\'1 1 -2 ["table",null]\'><tbody><tr><td><p>A</p></td></tr></tbody></table>'],
+    ['a details summary', `<summary data-pm-slice='${value(['details', { open: true }])}'>Summary</summary>`],
+    ['blocks in a cell', `<p data-pm-slice='${value(['table', null, 'tableRow', null, 'tableCell', { colspan: 2 }], '2 2')}'>Cell</p>`],
+  ])('keeps the context on %s as ProseMirror writes it', (_name, html) => {
+    const before = /data-pm-slice='([^']*)'/.exec(html)?.[1];
+    const after = [...normalizePasteHTML(html).html.matchAll(/data-pm-slice="([^"]*)"/g)].map(match => (match[1] ?? '').replaceAll('&#x22;', '"'));
+    expect(after).toEqual([before]);
+  });
+});
+
+describe('clipboard context around a descent that ends without an element', () => {
+  it('keeps only an empty context when ProseMirror would parse no element inside the wrappers', () => {
+    expect(normalizePasteHTML('<table data-pm-slice=\'1 1 -2 ["table",null]\'><tbody> </tbody></table>').html)
+      .toBe('<table><tbody> </tbody></table>');
+    expect(normalizePasteHTML('<table data-pm-slice="1 1 -2 []"><tbody> </tbody></table>').html)
+      .toBe('<table data-pm-slice="1 1 -2 []"><tbody> </tbody></table>');
   });
 });
