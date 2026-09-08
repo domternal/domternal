@@ -233,13 +233,19 @@ describe('TableOfContents activity ownership', () => {
   it('shares navigation overrides with inline blocks and restores measured activity afterward', async () => {
     const editor = mount({ block: true, toc: { clickOverrideMs: 20 } });
     await flush();
-    const links = editor.view.dom.querySelectorAll<HTMLButtonElement>('.dm-toc-block-link');
-    links[1]!.click();
-    expect(storageOf(editor).activeId).toBe('two');
-    activeObservers()[0]!.fire();
-    expect(storageOf(editor).activeId).toBe('two');
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    expect(storageOf(editor).activeId).toBe('one');
+    // Fake clocks keep the 20 ms override window independent of machine load.
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    try {
+      const links = editor.view.dom.querySelectorAll<HTMLButtonElement>('.dm-toc-block-link');
+      links[1]!.click();
+      expect(storageOf(editor).activeId).toBe('two');
+      activeObservers()[0]!.fire();
+      expect(storageOf(editor).activeId).toBe('two');
+      vi.advanceTimersByTime(30);
+      expect(storageOf(editor).activeId).toBe('one');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('recomputes after a layout-only change and isolates errors in onUpdate', async () => {
