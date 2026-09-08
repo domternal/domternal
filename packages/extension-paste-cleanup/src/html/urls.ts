@@ -24,12 +24,16 @@ export function safeLink(value: unknown, sourceURL?: string): string | undefined
 
 /** Controls, invisible format characters and the noncharacters U+FFFE and U+FFFF. */
 const HIDDEN_CHARACTER = /[\p{Cc}\p{Cf}\ufffe\uffff]/u;
+/** LRM, LRE, LRI, PDF and PDI, which keep text left to right and reorder none without right-to-left letters. */
+const LEFT_TO_RIGHT_CONTROLS = /[\u200e\u202a\u202c\u2066\u2069]/g;
+const RIGHT_TO_LEFT_SCRIPT = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefe\u{10800}-\u{10fff}\u{1e800}-\u{1efff}]/u;
 
 /**
  * Whether a mail or phone address hides a character from the reader once the
  * mail client or dialer decodes it, judged at least as strictly as the core URL
  * policy: everything before the query, and for `mailto:` also the `to`, `cc`
- * and `bcc` fields.
+ * and `bcc` fields. A link without right-to-left letters may hold the controls
+ * that keep it left to right, as right-to-left environments write it.
  */
 function hidesCharacter(href: string, protocol: string): boolean {
   const end = href.search(/[?#]/);
@@ -41,7 +45,9 @@ function hidesCharacter(href: string, protocol: string): boolean {
       if (equals > 0 && /^(?:to|cc|bcc)$/i.test(percentDecoded(field.slice(0, equals)))) address += ` ${field.slice(equals + 1)}`;
     }
   }
-  return HIDDEN_CHARACTER.test(percentDecoded(address));
+  const decoded = percentDecoded(address);
+  const leftToRight = !href.startsWith('//', protocol.length) && !RIGHT_TO_LEFT_SCRIPT.test(percentDecoded(href));
+  return HIDDEN_CHARACTER.test(leftToRight ? decoded.replace(LEFT_TO_RIGHT_CONTROLS, '') : decoded);
 }
 
 /** `value` with every run of percent-encoded bytes read as UTF-8, a malformed sequence as U+FFFD and a byte order mark kept. */

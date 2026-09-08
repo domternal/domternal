@@ -227,6 +227,21 @@ describe('parity with the core URL policy (H8)', () => {
     }
   });
 
+  it('keeps a phone number or mail address held left to right, as right-to-left environments write it', () => {
+    for (const [value, href] of [
+      ['tel:\u202a+972-3-123-4567\u202c', 'tel:%E2%80%AA+972-3-123-4567%E2%80%AC'],
+      ['tel:\u200e+15551234567', 'tel:%E2%80%8E+15551234567'],
+      ['mailto:\u200eperson@example.com', 'mailto:%E2%80%8Eperson@example.com'],
+    ]) {
+      expect(safeLink(value), value).toBe(href);
+      expect(isValidUrl(href, LINK), href).toBe(true);
+    }
+    for (const value of ['tel:\u200f+972 3-123-4567', 'tel:\u202b+1\u202c', 'mailto:\u200e\u05e9\u05dc\u05d5\u05dd@example.com', 'mailto:\u200ea@b.example?subject=\u05e9']) {
+      expect(safeLink(value), value).toBeUndefined();
+      expect(isValidUrl(value, LINK), value).toBe(false);
+    }
+  });
+
   it('keeps only addresses core allows, for a corpus and a seeded fuzz', () => {
     const corpus = [
       'https://example.com/', 'HTTPS://EXAMPLE.COM/A', 'http://example.com/a b', 'https://ｅxample.com/', 'https://example.com/‮',
@@ -239,7 +254,8 @@ describe('parity with the core URL policy (H8)', () => {
     const random = (): number => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
     const pieces = ['https:', 'http:', 'mailto:', 'tel:', 'javascript:', 'data:', '//', '/', '\\', '#', '?', '%', '&', ';', ':', '@',
       'a', 'b.example', ' ', '\t', '\n', '\u0000', ' ', '​', '‮', 'ｊ', 'а', '%0a', '&#58;', '..', 'x',
-      '%E2%80%AE', '%E2%80%8B', '%E2%80%8E', '%C2%AD', '\u00ad', '\u200e', '\u202a', '\u202c', '?cc=', '&bcc=', '?subject='];
+      '%E2%80%AE', '%E2%80%8B', '%E2%80%8E', '%C2%AD', '\u00ad', '\u200e', '\u202a', '\u202c', '?cc=', '&bcc=', '?subject=',
+      '\u200f', '\u2066', '\u2069', '%E2%80%AA', '\u05e9', '%D7%A9', '+972'];
     for (let run = 0; run < 3000; run++) {
       const length = 1 + Math.floor(random() * 6);
       corpus.push(Array.from({ length }, () => pieces[Math.floor(random() * pieces.length)] ?? '').join(''));

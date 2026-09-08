@@ -217,7 +217,16 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A31', value: 'https:exa\u200bmple.com', link: 'unsafe', image: UNSAFE },
   { id: 'A31', value: 'http\u200bs://example.com/', link: 'unsafe', image: UNSAFE },
   { id: 'A31', value: 'mailto:a\u200db@example.com', link: 'unsafe', image: UNSAFE },
-  { id: 'A31', value: 'tel:+385\u200e1234', link: 'unsafe', image: UNSAFE },
+  // Right-to-left environments hold a phone number or mail address left to right with LRM, an LRE and PDF pair or an LRI and PDI pair, which
+  // cannot reorder an address without right-to-left letters; RLM, RLE, RLO and the others can.
+  { id: 'A31', value: 'tel:+385\u200e1234', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: 'tel:\u202a+972-3-123-4567\u202c', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: 'mailto:\u200eperson@example.com', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: 'tel:%E2%81%A6+1 555 123 4567%E2%81%A9', link: 'allowed', image: ALLOWED },
+  { id: 'A31', value: 'tel:\u200f+972 3-123-4567', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'tel:\u202b+972 3-123-4567\u202c', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'mailto:\u200e\u05e9\u05dc\u05d5\u05dd@example.com', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https://example.com/\u202ax\u202c', link: 'unsafe', image: UNSAFE },
   { id: 'A31', value: '//cdn\u200c.example/x.png', link: 'unsafe', image: UNSAFE },
   { id: 'A31', value: '\\\\cdn\u200c.example\\x.png', link: 'unsafe', image: UNSAFE },
   { id: 'A31', value: '\ufeffjavascript:alert(1)', link: 'unsafe', image: UNSAFE },

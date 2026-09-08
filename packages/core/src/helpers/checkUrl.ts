@@ -53,7 +53,9 @@ export interface UrlPolicyOptions {
  *   in the scheme, the host or the address of a scheme without a host, where
  *   a percent-encoded one counts too (the address is everything before the
  *   query, and for `mailto:` also the `to`, `cc` and `bcc` fields), or a
- *   value that is not a string.
+ *   value that is not a string. A `mailto:`, `tel:` or `sms:` link without
+ *   right-to-left letters may hold LRM, LRE, LRI, PDF and PDI, which
+ *   right-to-left environments write to keep it left to right.
  * - `unsupported`: the value is harmless but these options do not allow it:
  *   another scheme, a relative or network-path reference, a backslash, an
  *   `&` where a character reference could spell a scheme or a host, an
@@ -73,6 +75,19 @@ const SPECIAL_SCHEMES = new Set(['http:', 'https:', 'ws:', 'wss:', 'ftp:', 'file
 // https://google.com@evil.example. Other schemes name a user as their
 // standard form, such as ssh://git@host/repo.git or ftp://anonymous@host/.
 const CREDENTIAL_SCHEMES = new Set(['http:', 'https:', 'ws:', 'wss:', 'mailto:', 'tel:']);
+// Mail, phone and message addresses, which their handler shows to the reader.
+const ADDRESS_SCHEMES = new Set(['mailto:', 'tel:', 'sms:']);
+/**
+ * The bidi controls that only keep text left to right: LRM, LRE and LRI, and
+ * the PDF and PDI that end an embedding or isolate. Right-to-left
+ * environments write them around a phone number or mail address so it reads
+ * in its own order, and in text without right-to-left letters none of them
+ * changes the order it is shown in. RLM, ALM, RLE, RLO, LRO, RLI and FSI do,
+ * even in a phone number, so they stay unsafe.
+ */
+const LEFT_TO_RIGHT_CONTROLS = /[\u200e\u202a\u202c\u2066\u2069]/g;
+/** A character of a right-to-left script, whose order a left-to-right control can change. */
+const RIGHT_TO_LEFT_SCRIPT = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefe\u{10800}-\u{10fff}\u{1e800}-\u{1efff}]/u;
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 /**
  * An `&` that starts a character reference: a numeric one, which HTML reads
@@ -224,9 +239,6 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
   if (typeof value !== 'string') return value === null || value === undefined ? UNSUPPORTED : UNSAFE;
   const url = cleanUrl(value);
   if (url === '') return UNSUPPORTED;
-  // Printable ASCII, such as the body of a data image, holds no hidden
-  // character; one pattern test settles it several times faster than the scan.
-  if (/[^ -~]/.test(url) && hasHiddenCharacter(url)) return UNSAFE;
   const {
     protocols = DEFAULT_PROTOCOLS,
     allowRelative = false,
@@ -239,8 +251,17 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
   // A scheme without an authority, such as mailto: or tel:, hands its whole
   // address to a handler that decodes it, so the decoded address is judged.
   const opaque = scheme !== null && scheme !== 'data:' && !SPECIAL_SCHEMES.has(scheme) && !url.startsWith('//', schemeLength);
-  const destination = percentDecoded(opaque ? addressOf(url, scheme) : destinationOf(url, schemeLength));
-  if (/[^ -~]/.test(destination) && (hasHiddenCharacter(destination) || FORMAT_CHARACTER.test(destination))) return UNSAFE;
+  // A mail, phone or message link without right-to-left letters may hold the
+  // controls that keep it left to right; they are left out of the judgment.
+  const decodedLink = opaque && ADDRESS_SCHEMES.has(scheme) ? percentDecoded(url) : '';
+  const leftToRight = /[^ -~]/.test(decodedLink) && !RIGHT_TO_LEFT_SCRIPT.test(decodedLink);
+  const judged = leftToRight ? url.replace(LEFT_TO_RIGHT_CONTROLS, '') : url;
+  // Printable ASCII, such as the body of a data image, holds no hidden
+  // character; one pattern test settles it several times faster than the scan.
+  if (/[^ -~]/.test(judged) && hasHiddenCharacter(judged)) return UNSAFE;
+  const destination = percentDecoded(opaque ? addressOf(judged, scheme) : destinationOf(judged, schemeLength));
+  const shown = leftToRight ? destination.replace(LEFT_TO_RIGHT_CONTROLS, '') : destination;
+  if (/[^ -~]/.test(shown) && (hasHiddenCharacter(shown) || FORMAT_CHARACTER.test(shown))) return UNSAFE;
 
   if (!allowNetworkPath && (scheme === null || SPECIAL_SCHEMES.has(scheme)) && beforeQuery(url).includes('\\')) {
     return UNSUPPORTED;

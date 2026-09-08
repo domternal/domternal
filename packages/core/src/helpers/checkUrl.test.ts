@@ -109,6 +109,10 @@ describe('checkUrl', () => {
       '\u00ad', '\u0600', '\u06dd', '\u070f', '\u180e', '\u206a', '\u206f', '\ufff9', '\ufffb', '\u{110bd}', '\u{1d173}', '\u{e0001}', '\u{e0041}', '\u{e007f}'];
     const BIDI_CONTROLS = ['\u202a', '\u202b', '\u202c', '\u202d', '\u202e', '\u2066', '\u2067', '\u2068', '\u2069'];
     const options = { protocols: ['https:', 'mailto:', 'tel:', 'myapp:'], allowRelative: true };
+    // A mail or phone address without right-to-left letters may hold the controls that keep it left to right.
+    const LEFT_TO_RIGHT_CONTROLS = new Set(['\u200e', '\u202a', '\u202c', '\u2066', '\u2069']);
+    const expectedFor = (value: string, char: string): string =>
+      LEFT_TO_RIGHT_CONTROLS.has(char) && /^(?:mailto|tel):(?!\/\/)/.test(value) ? 'allowed' : 'unsafe';
 
     it('allows each joiner and mark in a path, query or fragment, where browsers percent-encode it', () => {
       for (const char of FORMAT) {
@@ -127,8 +131,8 @@ describe('checkUrl', () => {
           `https://example.com${char}?q`, `https://example.com${char}#f`, `https://example.com:443${char}/`, `https:exa${char}mple.com`,
           `mailto:a${char}@b.example`, `mailto:a@b.example${char}?subject=x`, `tel:+385${char}123`, `myapp://ho${char}st/path`,
           `myapp:a${char}b`, `//exa${char}mple.com/x`, `/\\exa${char}mple.com/x`, `ja${char}vascript:alert(1)`, `a${char}b:c`]) {
-          expect(checkUrl(value, { ...options, allowNetworkPath: true }).status, JSON.stringify(value)).toBe('unsafe');
-          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
+          expect(checkUrl(value, { ...options, allowNetworkPath: true }).status, JSON.stringify(value)).toBe(expectedFor(value, char));
+          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe(expectedFor(value, char));
         }
       }
     });
@@ -148,7 +152,7 @@ describe('checkUrl', () => {
       for (const char of FORMAT) {
         for (const value of [`mailto:a/b@ev${char}il.example`, `mailto:a@b/c${char}d`, `tel:+1/${char}234`, `tel:+1\\${char}2`,
           `myapp:a/b${char}c`, `mailto:a@b.example/x${char}?subject=y`]) {
-          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
+          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe(expectedFor(value, char));
         }
       }
     });
@@ -157,7 +161,7 @@ describe('checkUrl', () => {
       for (const char of [...FORMAT, ...BIDI_CONTROLS, '\u0000', '\n', '\u001f', '\u007f', '\u0085', '￾', '￿']) {
         for (const value of [`mailto:${encoded(char)}moc.elgoog@evil.example`, `mailto:a${encoded(char)}b@x.example`,
           `mailto:a@x${encoded(char)}.example`, `tel:${encoded(char)}1234`, `tel:+385${encoded(char).toLowerCase()}1`, `myapp:a${encoded(char)}b`]) {
-          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
+          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe(expectedFor(value, char));
         }
       }
       // A malformed sequence reads as U+FFFD, which hides nothing; a valid one next to it still counts.
@@ -193,6 +197,54 @@ describe('checkUrl', () => {
         'mailto:%61@b.example', 'tel:%2B385']) {
         expect(checkUrl(value, options), JSON.stringify(value)).toEqual({ status: 'allowed', url: value });
       }
+    });
+
+    describe('mail, phone and message links written in a right-to-left environment', () => {
+      // LRM, LRE, LRI, and the PDF and PDI that end an embedding or isolate: they only keep text left to right.
+      const LEFT_TO_RIGHT = ['\u200e', '\u202a', '\u202c', '\u2066', '\u2069'];
+      // RLM, ALM, RLE, RLO, LRO, RLI and FSI reorder even a phone number, such as +972 3-123-4567 shown as 3-123-4567 972+.
+      const REORDERING = ['\u200f', '\u061c', '\u202b', '\u202e', '\u202d', '\u2067', '\u2068'];
+      const addressOptions = { protocols: ['https:', 'mailto:', 'tel:', 'sms:', 'myapp:'] };
+
+      it('allows the controls that keep a phone number or mail address left to right, as they write it', () => {
+        for (const value of ['tel:\u202a+972-3-123-4567\u202c', 'tel:\u200e+1 555 123 4567', 'tel:\u2066+1 555 123 4567\u2069', 'mailto:\u200eperson@example.com',
+          'mailto:\u202aperson@example.com\u202c?subject=Hi', 'sms:\u202a+385 1 234 5678\u202c', 'tel:%E2%80%8E+1%20555', 'mailto:%E2%80%AAa@b.example%E2%80%AC',
+          'mailto:a@b.example?cc=\u200ec@d.example', 'mailto:a@b.example?subject=x\u202ay\u202c', 'tel:+1\u200e;ext=\u200e12']) {
+          expect(checkUrl(value, addressOptions), JSON.stringify(value)).toEqual({ status: 'allowed', url: value });
+        }
+      });
+
+      it('refuses the controls that reorder an address, literal or percent-encoded', () => {
+        for (const char of REORDERING) {
+          for (const value of [`tel:${char}+972-3-123-4567`, `tel:+972 3${char}-123-4567`, `mailto:${char}person@example.com`,
+            `sms:${char}+385`, `tel:${encoded(char)}+1`, `mailto:a@b.example?cc=${encoded(char)}c@d.example`]) {
+            expect(checkUrl(value, addressOptions).status, JSON.stringify(value)).toBe('unsafe');
+          }
+        }
+      });
+
+      it('refuses them in a link with right-to-left letters, which a left-to-right control can reorder', () => {
+        for (const char of LEFT_TO_RIGHT) {
+          for (const value of [`mailto:${char}\u05e9\u05dc\u05d5\u05dd@example.com`, `mailto:\u0633\u0644${char}\u0627\u0645@example.com`,
+            `mailto:${char}a@b.example?subject=\u05e9`, `tel:${char}+972%D7%A9`, `mailto:a@b.example?subject=\u05e9${char}`]) {
+            const check = checkUrl(value, addressOptions).status;
+            // A bidi mark in a query outside the address stays allowed, as in a web address; the embeddings and isolates do not.
+            const expected = char === '\u200e' && value.includes('?subject=\u05e9\u200e') ? 'allowed' : 'unsafe';
+            expect(check, JSON.stringify(value)).toBe(expected);
+          }
+        }
+      });
+
+      it('keeps refusing them in web addresses, in custom schemes and in a mail address with a host', () => {
+        for (const char of LEFT_TO_RIGHT) {
+          for (const value of [`https://${char}example.com/`, `https://example.com${char}/`, `myapp:${char}a`, `mailto://${char}ex.example`]) {
+            expect(checkUrl(value, addressOptions).status, JSON.stringify(value)).toBe('unsafe');
+          }
+        }
+        for (const char of ['\u202a', '\u202c', '\u2066', '\u2069']) {
+          expect(checkUrl(`https://example.com/a${char}b`, addressOptions).status).toBe('unsafe');
+        }
+      });
     });
 
     it('stays linear when a long value holds them', () => {
