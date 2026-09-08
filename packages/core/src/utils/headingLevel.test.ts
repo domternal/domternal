@@ -72,12 +72,41 @@ describe('heading level rule', () => {
 });
 
 describe('configured heading levels', () => {
-  it.each([[[1, 2, 3, 4]], [[4, 2]], [[1, 1, 2]], [[6]], [[1, 2, 3, 4, 5, 6]]])('accepts %j', levels => {
+  it.each([[[1, 2, 3, 4]], [[4, 2]], [[6]], [[1, 2, 3, 4, 5, 6]]])('accepts %j', levels => {
     expect(configuredHeadingLevels(levels)).toEqual(levels);
+  });
+
+  it('accepts a repeated level and counts it once', () => {
+    expect(configuredHeadingLevels([1, 1, 2])).toEqual([1, 2]);
   });
 
   it.each([[[]], [[0]], [[7]], [['3']], [[1.5]], [[1, Number.NaN]], [[1, null]], ['1,2'], [undefined], [null], [{ 0: 1, length: 1 }]])('refuses %j', levels => {
     expect(() => configuredHeadingLevels(levels)).toThrow(ExtensionConfigurationError);
     expect(() => configuredHeadingLevels(levels)).toThrow('Heading: levels must be a non-empty list of whole numbers from 1 to 6');
+  });
+});
+
+describe('configuredHeadingLevels with repeated levels', () => {
+  it('keeps each level once, at its first position, in a frozen list', () => {
+    const levels = configuredHeadingLevels([4, 2, 2, 4, 1]);
+    expect(levels).toEqual([4, 2, 1]);
+    expect(Object.isFrozen(levels)).toBe(true);
+  });
+
+  it('returns the same list for the same option until the option changes', () => {
+    const option = [3, 3, 1];
+    const first = configuredHeadingLevels(option);
+    expect(configuredHeadingLevels(option)).toBe(first);
+    option.push(2);
+    expect(configuredHeadingLevels(option)).toEqual([3, 1, 2]);
+    option.length = 0;
+    expect(() => configuredHeadingLevels(option)).toThrow(ExtensionConfigurationError);
+  });
+
+  it('never changes the option it reads', () => {
+    const option = [2, 2];
+    configuredHeadingLevels(option);
+    expect(option).toEqual([2, 2]);
+    expect(Object.isFrozen(option)).toBe(false);
   });
 });

@@ -28,7 +28,8 @@ declare module '@domternal/core' {
 export interface HeadingOptions {
   /**
    * The heading levels this editor offers: a non-empty list of whole numbers
-   * from 1 to 6. The first one is the default level.
+   * from 1 to 6. The first one is the default level. A repeated level counts
+   * once, at its first position.
    */
   levels: number[];
   HTMLAttributes: Record<string, unknown>;
@@ -67,7 +68,7 @@ export const Heading = Node.create<HeadingOptions>({
 
   parseHTML() {
     // `this` is properly typed via ThisType<NodeContext<HeadingOptions>>
-    return this.options.levels.map((level) => ({
+    return configuredHeadingLevels(this.options.levels).map((level) => ({
       tag: `h${String(level)}`,
       attrs: { level },
     }));
@@ -76,7 +77,7 @@ export const Heading = Node.create<HeadingOptions>({
   renderHTML({ node, HTMLAttributes }) {
     // A stored level the configuration lacks, for example from a client with
     // more levels, renders at the nearest configured level; the document keeps it.
-    const level = resolveHeadingLevel(node.attrs['level'], this.options.levels);
+    const level = resolveHeadingLevel(node.attrs['level'], configuredHeadingLevels(this.options.levels));
     return [`h${String(level)}`, { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
@@ -86,8 +87,9 @@ export const Heading = Node.create<HeadingOptions>({
       setHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
-          const level = attributes?.level ?? options.levels[0] ?? 1;
-          if (!options.levels.includes(level)) {
+          const levels = configuredHeadingLevels(options.levels);
+          const level = attributes?.level ?? levels[0] ?? 1;
+          if (!levels.includes(level)) {
             return false;
           }
           return commands.setBlockType(name, { level });
@@ -95,8 +97,9 @@ export const Heading = Node.create<HeadingOptions>({
       toggleHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
-          const level = attributes?.level ?? options.levels[0] ?? 1;
-          if (!options.levels.includes(level)) {
+          const levels = configuredHeadingLevels(options.levels);
+          const level = attributes?.level ?? levels[0] ?? 1;
+          if (!levels.includes(level)) {
             return false;
           }
           return commands.toggleBlockType(name, 'paragraph', { level });
@@ -108,7 +111,7 @@ export const Heading = Node.create<HeadingOptions>({
     const shortcuts: Record<string, () => boolean> = {};
     const { options, editor } = this;
 
-    options.levels.forEach((level) => {
+    configuredHeadingLevels(options.levels).forEach((level) => {
       shortcuts[`Mod-Alt-${String(level)}`] = () => {
         return editor?.commands['toggleHeading']?.({ level }) ?? false;
       };
@@ -185,7 +188,7 @@ export const Heading = Node.create<HeadingOptions>({
       4: 'textHFour',
     };
 
-    const headingItems: ToolbarButton[] = this.options.levels
+    const headingItems: ToolbarButton[] = configuredHeadingLevels(this.options.levels)
       .filter((level) => level <= 4)
       .map((level) => ({
         type: 'button' as const,
@@ -235,7 +238,7 @@ export const Heading = Node.create<HeadingOptions>({
       3: localizedDescription(this.editor?.i18n, coreMessages.headingSmallDescription),
     };
     // Only levels 1-3 in the quick-insert menu; deeper levels stay toolbar-only.
-    return this.options.levels
+    return configuredHeadingLevels(this.options.levels)
       .filter((level) => level <= 3)
       .map((level): FloatingMenuItem => ({
         name: `heading-${String(level)}`,
@@ -261,7 +264,7 @@ export const Heading = Node.create<HeadingOptions>({
     // where Alt produces special characters on macOS, preventing the
     // regular keymap from matching.
     const codeToLevel: Record<string, number> = {};
-    for (const level of options.levels) {
+    for (const level of configuredHeadingLevels(options.levels)) {
       codeToLevel[`Digit${String(level)}`] = level;
     }
     // Also handle Mod-Alt-0 for setParagraph
@@ -323,7 +326,8 @@ export const Heading = Node.create<HeadingOptions>({
       return [];
     }
 
-    const maxLevel = Math.max(...options.levels);
+    const levels = configuredHeadingLevels(options.levels);
+    const maxLevel = Math.max(...levels);
     return [
       textblockTypeInputRule({
         find: new RegExp(`^(#{1,${String(maxLevel)}})\\s$`),
@@ -335,7 +339,7 @@ export const Heading = Node.create<HeadingOptions>({
           }
           const level = hashes.length;
           // Only convert if this level is enabled
-          if (!options.levels.includes(level)) {
+          if (!levels.includes(level)) {
             return null;
           }
           return { level };

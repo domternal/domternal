@@ -11,12 +11,25 @@ export function isHeadingLevel(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 6;
 }
 
-/** Checks the Heading `levels` option: a non-empty list of heading levels, in any order. */
+/** The levels read from each option list, with the entries they were read from. */
+const configured = new WeakMap<readonly unknown[], { entries: readonly unknown[]; levels: readonly number[] }>();
+
+/**
+ * Checks the Heading `levels` option, a non-empty list of heading levels in any
+ * order, and returns the levels it offers: each level once, at its first
+ * position, so the first stays the default. The option itself is never changed.
+ */
 export function configuredHeadingLevels(levels: unknown): readonly number[] {
   if (!Array.isArray(levels) || levels.length === 0 || ![...levels as unknown[]].every(isHeadingLevel)) {
     throw new ExtensionConfigurationError('Heading: levels must be a non-empty list of whole numbers from 1 to 6');
   }
-  return levels as readonly number[];
+  const option = levels as readonly number[];
+  const cached = configured.get(option);
+  // An application may change its option list in place; the copy notices.
+  if (cached?.entries.length === option.length && cached.entries.every((entry, index) => entry === option[index])) return cached.levels;
+  const unique = Object.freeze([...new Set(option)]);
+  configured.set(option, { entries: [...option], levels: unique });
+  return unique;
 }
 
 /**

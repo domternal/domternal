@@ -94,11 +94,51 @@ describe('configured heading levels', () => {
     expect(() => generateHTML({ type: 'doc', content: [] }, [Document, Paragraph, Text, configured])).toThrow(ExtensionConfigurationError);
   });
 
-  it('accepts levels in any order and with duplicates', () => {
+  it('accepts levels in any order and counts a repeated level once, at its first position', () => {
     const ed = mount([4, 2, 2], '<h2>A</h2><h4>B</h4><h3>C</h3>');
     expect(ed.getHTML()).toBe('<h2>A</h2><h4>B</h4><p>C</p>');
     select(ed, ed.state.doc.content.size - 1);
     expect(ed.commands.setBlockType('heading')).toBe(true);
     expect(ed.state.doc.lastChild?.attrs['level']).toBe(4);
+  });
+});
+
+describe('repeated heading levels', () => {
+  const headingOf = (ed: Editor): typeof Heading | undefined =>
+    ed.extensionManager.extensions.find((extension): extension is typeof Heading => extension.name === 'heading');
+
+  it('offers each level once in the toolbar, in the order first configured', () => {
+    const ed = mount([4, 2, 2, 4]);
+    const dropdown = ed.extensionManager.toolbarItems.find(item => item.name === 'heading');
+    expect(dropdown?.type === 'dropdown' ? dropdown.items.map(item => item.name) : []).toEqual(['paragraph', 'heading4', 'heading2']);
+  });
+
+  it('offers each level once in the floating menu', () => {
+    const ed = mount([2, 1, 2, 1, 3]);
+    expect(ed.extensionManager.floatingMenuItems.map(item => item.name).filter(name => name.startsWith('heading-')))
+      .toEqual(['heading-2', 'heading-1', 'heading-3']);
+  });
+
+  it('builds one parse rule and one shortcut per level', () => {
+    const ed = mount([4, 2, 2]);
+    expect(ed.schema.nodes['heading']?.spec.parseDOM?.map(rule => rule.tag)).toEqual(['h4', 'h2']);
+    const shortcuts = Object.keys(headingOf(ed)?.config.addKeyboardShortcuts?.call(headingOf(ed) as never) ?? {})
+      .filter(key => key.startsWith('Mod-Alt-'));
+    expect(shortcuts).toEqual(['Mod-Alt-4', 'Mod-Alt-2']);
+  });
+
+  it.each([[[2, 2], [2]], [[1, 1, 1, 1], [1]], [[4, 2, 2], [4, 2]]])('treats %j as %j and keeps the first as the default', (levels, effective) => {
+    const ed = mount(levels, '<p>Text</p>');
+    expect(ed.schema.nodes['heading']?.spec.parseDOM?.map(rule => rule.tag)).toEqual(effective.map(level => `h${String(level)}`));
+    select(ed, 1);
+    expect(ed.commands.setHeading()).toBe(true);
+    expect(ed.state.doc.firstChild?.attrs['level']).toBe(effective[0]);
+  });
+
+  it('leaves the configured option as the application wrote it', () => {
+    const levels = [4, 2, 2];
+    const ed = mount(levels);
+    expect(headingOf(ed)?.options.levels).toEqual([4, 2, 2]);
+    expect(levels).toEqual([4, 2, 2]);
   });
 });
