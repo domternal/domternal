@@ -401,7 +401,8 @@ describe('checkUrl', () => {
     });
   });
 
-  describe('long data images', () => {
+  // Each case scans a 4 MiB source; coverage instrumentation in a parallel run needs more than the default 5 s.
+  describe('long data images', { timeout: 60_000 }, () => {
     /** Counts the URL parser's runs while `run` executes. */
     function parses(run: () => void): number {
       const Native = globalThis.URL;
@@ -466,7 +467,8 @@ describe('checkUrl', () => {
     });
   });
 
-  describe('fuzz invariants (A29)', () => {
+  // Twenty thousand fuzzed addresses, some parsed as HTML; coverage instrumentation needs more than the default 5 s.
+  describe('fuzz invariants (A29)', { timeout: 60_000 }, () => {
     const base = 'https://page.example/dir/';
     const resolve = (value: string): URL | null => {
       try {
