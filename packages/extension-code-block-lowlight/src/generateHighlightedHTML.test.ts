@@ -4,7 +4,7 @@
  * rewritten, code text is decoded once, and every ordinary output stays byte
  * for byte what it was (the snapshot was written by the previous version).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createLowlight, common } from 'lowlight';
 import { Document, Text, Paragraph, Link, Bold, HardBreak } from '@domternal/core';
 import type { AnyExtension, JSONContent } from '@domternal/core';
@@ -122,5 +122,15 @@ describe('ordinary output is unchanged (K3)', () => {
 
   it.each(CORPUS)('writes %s as before', (_label, content, options) => {
     expect(generateHighlightedHTML(content, extensions, lowlight, options)).toMatchSnapshot();
+  });
+});
+
+describe('the document option', () => {
+  it('serializes with the given document and highlights the same way', () => {
+    const other = document.implementation.createHTMLDocument('');
+    const createElement = vi.spyOn(other, 'createElement');
+    const content = doc(code('const a = 1', 'javascript'));
+    expect(generateHighlightedHTML(content, extensions, lowlight, { document: other })).toBe(generateHighlightedHTML(content, extensions, lowlight));
+    expect(createElement).toHaveBeenCalled();
   });
 });
