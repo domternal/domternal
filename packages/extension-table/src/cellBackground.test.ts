@@ -113,4 +113,16 @@ describe('table cell background (G6)', () => {
     expect(editor.commands.setCellAttribute('background', null)).toBe(true);
     expect(editor.state.doc.firstChild?.firstChild?.firstChild?.attrs['background']).toBeNull();
   });
+
+  it.each(['', '  '])('setCellAttribute clears a style attribute given the empty value %j, as 1.2 accepted it', (value) => {
+    editor = new Editor({ extensions, content: '<table><tr><td data-background="#fef08a" data-text-align="center" data-vertical-align="bottom"><p>A</p></td></tr></table>' });
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 4)));
+    const cell = (): Record<string, unknown> => editor!.state.doc.firstChild?.firstChild?.firstChild?.attrs ?? {};
+    expect(cell()).toMatchObject({ background: '#fef08a', textAlign: 'center', verticalAlign: 'bottom' });
+    for (const name of ['background', 'textAlign', 'verticalAlign']) {
+      expect(editor.commands.setCellAttribute(name, value), name).toBe(true);
+    }
+    expect(cell()).toMatchObject({ background: null, textAlign: null, verticalAlign: null });
+    expect(editor.getHTML()).toBe('<table><tbody><tr><td><p>A</p></td></tr></tbody></table>');
+  });
 });

@@ -343,8 +343,12 @@ export const Table = Node.create<TableOptions>({
       setCellAttribute:
         (name: string, value: unknown) =>
         ({ state, dispatch }) => {
-          // These are written into a declaration, so only a safe CSS value is stored.
-          if (CSS_CELL_ATTRIBUTES.has(name) && value !== null && !isSafeCssValue(value)) return false;
+          // These are written into a declaration, so only a safe CSS value is
+          // stored; an empty one, as 1.2 accepted it, clears the attribute.
+          if (CSS_CELL_ATTRIBUTES.has(name) && value !== null) {
+            if (typeof value === 'string' && value.trim() === '') return setCellAttr(name, null)(state, dispatch);
+            if (!isSafeCssValue(value)) return false;
+          }
           return setCellAttr(name, value)(state, dispatch);
         },
 

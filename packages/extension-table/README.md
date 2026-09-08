@@ -105,7 +105,8 @@ otherwise the cell's `background-color`.
 inline styles (`getHTML({ styled: true })`, `inlineStyles` and a `clipboardHTMLTransform` built on
 it) turn into `text-align` and `vertical-align` declarations. So they follow the same rule: an
 unsafe value is not rendered, not parsed from HTML and refused by `setCellAttribute`, and
-`inlineStyles` writes a declaration only for a safe value, whatever HTML it is given.
+`inlineStyles` writes a declaration only for a safe value, whatever HTML it is given. An empty
+value clears any of the three, as `null` does.
 
 The package also exports the `TableView` node view, the `createTable` and
 `deleteTableWhenAllCellsSelected` helpers, and re-exports `CellSelection` and

@@ -5,6 +5,9 @@
  * declaration in a style attribute.
  */
 
+/** @internal A value that names no style: an empty or blank string, which the style commands take as unset. */
+export const isBlankStyleValue = (value: unknown): value is string => typeof value === 'string' && value.trim() === '';
+
 /** Functions a value may call: colors and arithmetic, none of which loads anything. */
 const ALLOWED_FUNCTIONS = new Set([
   'rgb', 'rgba', 'hsl', 'hsla', 'hwb', 'lab', 'lch', 'oklab', 'oklch', 'color', 'color-mix', 'light-dark',

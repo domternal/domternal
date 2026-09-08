@@ -347,6 +347,8 @@ isSafeCssValue('url(https://example.com/x)'); // false
   does not change. The other values of the same mark still render.
 - `setTextColor`, `setHighlight`, `toggleHighlight` (when it adds a highlight), `setFontFamily`,
   `setFontSize`, `setTextAlign` and `setLineHeight` return `false` for a value that is not safe.
+  An empty or blank value, such as a "Default" option's `''`, clears the style instead, as the
+  matching unset command does, and returns `true`.
 - Alignment renders only the keywords `left`, `center`, `right`, `justify`, `start` and `end`,
   in lower case. `setTextAlign` also needs the value in `alignments`.
 - A font family list is written with each name that holds a space quoted, and quotes in the stored

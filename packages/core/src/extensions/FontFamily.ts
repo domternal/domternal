@@ -29,7 +29,7 @@ import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import { TextStyle } from '../marks/TextStyle.js';
-import { isSafeCssValue } from '../helpers/isSafeCssValue.js';
+import { isBlankStyleValue, isSafeCssValue } from '../helpers/isSafeCssValue.js';
 
 /**
  * The CSS value of a stored font family list, or null when it is not safe to
@@ -102,6 +102,8 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
       setFontFamily:
         (fontFamily: string) =>
         ({ commands }) => {
+          // An empty value, such as a "Default" option, clears the family.
+          if (isBlankStyleValue(fontFamily)) return commands.unsetFontFamily();
           if (fontFamilyValue(fontFamily) === null) return false;
           return commands.setMark('textStyle', { fontFamily });
         },

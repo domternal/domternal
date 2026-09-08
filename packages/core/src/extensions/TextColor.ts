@@ -28,7 +28,7 @@ import { normalizeColor } from '../helpers/normalizeColor.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import { TextStyle } from '../marks/TextStyle.js';
-import { isSafeCssValue } from '../helpers/isSafeCssValue.js';
+import { isBlankStyleValue, isSafeCssValue } from '../helpers/isSafeCssValue.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -134,6 +134,8 @@ export const TextColor = Extension.create<TextColorOptions>({
       setTextColor:
         (color: string) =>
         ({ commands }) => {
+          // An empty value, such as a "Default" option, clears the color.
+          if (isBlankStyleValue(color)) return commands.unsetTextColor();
           if (!isSafeCssValue(color)) return false;
           return commands.setMark('textStyle', { color, colorToken: null });
         },

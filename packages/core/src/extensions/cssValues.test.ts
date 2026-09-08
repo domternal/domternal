@@ -217,7 +217,7 @@ describe('line height (G8)', () => {
 });
 
 describe('style commands (G7)', () => {
-  const REFUSED = ['red;position:fixed', 'url(x)', 'red !important', ''];
+  const REFUSED = ['red;position:fixed', 'url(x)', 'red !important'];
 
   it.each(REFUSED)('refuse %j and change nothing', (value) => {
     mount();
@@ -241,6 +241,29 @@ describe('style commands (G7)', () => {
     expect(editor!.state.doc.firstChild?.firstChild?.marks[0]?.attrs).toMatchObject({
       color: '#123456', backgroundColor: 'hsl(60 100% 50%)', fontFamily: 'Times New Roman', fontSize: 'calc(1em + 2px)',
     });
+  });
+
+  it.each(['', '   '])('treat the empty value %j as unset, so a "Default" option clears the style as 1.2 did', (value) => {
+    mount('<p><span style="font-family: Georgia; font-size: 20px; color: #ff0000; background-color: yellow">styled</span> plain</p>');
+    select(1, 7);
+    expect(editor!.can().setTextColor(value)).toBe(true);
+    expect(editor!.commands.setTextColor(value)).toBe(true);
+    expect(editor!.commands.setHighlight({ color: value })).toBe(true);
+    expect(editor!.commands.setFontFamily(value)).toBe(true);
+    expect(editor!.commands.setFontSize(value)).toBe(true);
+    expect(editor!.getHTML()).toBe('<p>styled plain</p>');
+    // Clearing text without the style is still a change nobody refuses.
+    select(8, 13);
+    expect(editor!.commands.setFontFamily(value)).toBe(true);
+    expect(editor!.commands.toggleHighlight({ color: value })).toBe(true);
+    expect(editor!.getHTML()).toBe('<p>styled plain</p>');
+  });
+
+  it('clear only the style they name when given an empty value', () => {
+    mount('<p><span style="font-family: Georgia; color: #ff0000">styled</span></p>');
+    select(1, 7);
+    expect(editor!.commands.setTextColor('')).toBe(true);
+    expect(editor!.state.doc.firstChild?.firstChild?.marks[0]?.attrs).toMatchObject({ fontFamily: 'Georgia', color: null });
   });
 
   it('toggleHighlight still removes an existing highlight whatever color it is given', () => {
