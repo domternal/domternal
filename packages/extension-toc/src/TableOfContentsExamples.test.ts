@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor, Document, Text, Paragraph, Heading, UniqueID, History } from '@domternal/core';
+import { Fragment, Slice } from '@domternal/pm/model';
 import { TableOfContents } from './TableOfContents.js';
 import { TableOfContentsBlock } from './TableOfContentsBlock.js';
 import type { TocStorage } from './types.js';
@@ -33,6 +34,53 @@ afterEach(() => {
 });
 
 describe('TOC documentation examples', () => {
+  it.each([true, false])('keeps stable heading links with headingOnly=%s through HTML and JSON reloads', async (headingOnly) => {
+    const editor = createEditor(headingOnly);
+    await flush();
+    const ids = storageOf(editor).content.map((entry) => entry.id);
+    expect(ids[0]).toBe('retained-heading');
+    expect(ids[1]).toBeTruthy();
+    expect(new Set(ids).size).toBe(2);
+
+    const expectConfiguredIDs = (): void => {
+      expect(storageOf(editor).content.map((entry) => entry.id)).toEqual(ids);
+      const paragraphs = [...editor.view.dom.querySelectorAll('p')];
+      expect(paragraphs).toHaveLength(2);
+      for (const paragraph of paragraphs) {
+        expect(paragraph.hasAttribute('id')).toBe(!headingOnly);
+      }
+      expect([...editor.view.dom.querySelectorAll('h2')].map((heading) => heading.id)).toEqual(ids);
+    };
+    expectConfiguredIDs();
+    editor.setContent(editor.getHTML());
+    await flush();
+    expectConfiguredIDs();
+    editor.setContent(editor.getJSON());
+    await flush();
+    expectConfiguredIDs();
+  });
+
+  it('gives a pasted heading a distinct TOC target while retaining the original heading-only ID', async () => {
+    const editor = createEditor(true);
+    await flush();
+    const previous = storageOf(editor).content.map((entry) => entry.id);
+    expect(editor.commands.focus('end')).toBe(true);
+    let slice = new Slice(Fragment.from(editor.state.doc.firstChild), 0, 0);
+    editor.view.someProp('transformPasted', (transform) => {
+      slice = transform(slice, editor.view, false);
+    });
+    editor.view.dispatch(editor.state.tr.insert(editor.state.doc.content.size, slice.content));
+    await flush();
+    const ids = storageOf(editor).content.map((entry) => entry.id);
+    expect(ids.slice(0, 2)).toEqual(previous);
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
+    expect(storageOf(editor).content.map((entry) => entry.textContent)).toEqual([
+      'Repeated title', 'Repeated title', 'Repeated title',
+    ]);
+    expect(editor.view.dom.querySelectorAll('p[id]')).toHaveLength(0);
+  });
+
   it('inserts the documented JSON node in a chain and reloads its canonical name', async () => {
     const editor = createEditor(true);
     await flush();
