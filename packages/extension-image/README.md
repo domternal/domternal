@@ -93,7 +93,10 @@ stripped and tabs and line breaks removed before the scheme is judged. Any schem
 `javascript:`, `vbscript:`, `data:` other than an image with `allowBase64`, and `file:`; relative
 and network-path sources, `blob:` and custom schemes such as `app://` keep working. An address with
 credentials in a web address, a control character or bidi override anywhere, or a format
-character such as a zero-width joiner in its scheme or host is refused.
+character such as a zero-width joiner in its scheme or host is refused, and so is a relative source
+whose first segment holds a character reference, such as `&#106;avascript:x` or `javascript&colon;x`,
+which HTML that leaves `&` unescaped would decode into a scheme. A plain `&`, as in `R&D-chart.png`
+or `images/Q&A.png`, keeps working.
 
 - HTML parsing stores an allowed source in its cleaned spelling and a refused one as no source.
 - `setImage` and the Markdown input rule refuse a source the policy refuses.

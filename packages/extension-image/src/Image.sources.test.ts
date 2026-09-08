@@ -38,6 +38,11 @@ const ALLOWED: [source: string, url: string][] = [
   ['https:example.com/a.png', 'https:example.com/a.png'],
   ['javascript%3Aalert(1)', 'javascript%3Aalert(1)'],
   ['images/a&b.png', 'images/a&b.png'],
+  // An `&` that starts no character reference cannot spell a scheme, so these names load as in 1.2.0.
+  ['R&D-chart.png', 'R&D-chart.png'],
+  ['Q&A.png', 'Q&A.png'],
+  ['Tom&Jerry.gif', 'Tom&Jerry.gif'],
+  ['&copy2024.png', '&copy2024.png'],
 ];
 
 /** Sources no configuration allows. */
@@ -46,6 +51,9 @@ const REFUSED: string[] = [
   // that reads it, so a character reference in the first segment could spell a scheme.
   '&#106;avascript:alert(1)',
   '&#100;ata:image/png;base64,iVBORw0KGgo=',
+  'javascript&colon;alert(1)',
+  'javascript&#58alert(1)',
+  'R&amp;D.png',
   'javascript:alert(1)',
   'JaVaScRiPt:alert(1)',
   ' javascript:alert(1)',

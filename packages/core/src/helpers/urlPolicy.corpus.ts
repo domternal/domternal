@@ -139,8 +139,9 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A19', value: '1abc:x', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A20', value: 'javascript%3Aalert(1)', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
   // Character references: HTML that leaves `&` unescaped in an attribute, as linkedom writes it, is
-  // decoded by the browser that reads it, so `&colon;` or `&#106;` there spells a scheme. An `&` in the
-  // first segment of a relative reference, after its leading slash or in a host is refused.
+  // decoded by the browser that reads it, so `&colon;` or `&#106;` there spells a scheme. An `&` that
+  // starts a reference (`&#`, or a name and `;`) in the first segment of a relative reference or after
+  // its leading slash is refused, and any `&` in a host.
   { id: 'A30', value: 'javascript&colon;alert(1)', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A30', value: '&#106;avascript:alert(1)', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A30', value: '&#x6A;avascript&#x3A;alert(1)', link: 'unsupported', image: UNSUPPORTED },
@@ -152,7 +153,21 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A30', value: 'https://a.example&#64;evil.example/', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A30', value: 'https://a.example&commat;evil.example/', link: 'unsupported', image: UNSUPPORTED },
   { id: 'A30', value: 'https:&#47;&#47;evil.example/', link: 'unsupported', image: UNSUPPORTED },
-  { id: 'A30', value: 'faq&help.html', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: 'javascript&#58alert(1)', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: 'javascript&#x3a;alert(1)', link: 'unsupported', image: UNSUPPORTED },
+  { id: 'A30', value: '/&bsol;evil.example/x', link: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: 'R&amp;D.png', link: 'unsupported', image: UNSUPPORTED },
+  // An `&` that starts no reference stays text wherever HTML is decoded: without a `;` only the legacy
+  // names are read, as Latin-1 letters and signs, never a `:`, `/` or `\`, and none before a letter or
+  // digit. So file names that 1.2.0 loaded keep working.
+  { id: 'A30', value: 'faq&help.html', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: 'R&D-chart.png', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: 'Q&A.png', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: 'Tom&Jerry.gif', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: '&copy2024.png', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: 'a&amp.png', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: '/&x/y', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
+  { id: 'A30', value: '/&lt/y', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
   // An `&` past those places cannot spell a scheme or a host, so queries and paths keep it.
   { id: 'A30', value: '/search?a=1&b=2', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
   { id: 'A30', value: '?q=x&copy;y', link: 'allowed', absolute: 'unsupported', image: ALLOWED },
@@ -215,6 +230,8 @@ const FUZZ_PIECES = [
   'javascript', 'JaVaScRiPt', 'vbscript', 'data', 'http', 'https', 'mailto', 'tel', 'file', 'ftp', 'blob',
   ':', ':', '/', '//', '\\', '#', '?', '%', '%3A', '%0a', '&', '&colon;', '&#58;', '&#x3a;', '&#106;', '&#47;',
   '&sol;', '&bsol;', '&commat;', '&Tab;', '&amp;', ';', ',', '@', '.', '-', '+',
+  // References without a `;`: numeric ones are decoded, named ones only as the legacy Latin-1 names.
+  '&#58', '&#x3A', '&#47', '&colon', '&sol', '&amp', '&lt', '&nbsp', '&not', 'R&D',
   '\t', '\n', '\r', '\u0000', '\u0001', '\u001f', ' ', '\u00a0', '\u200b', '\u200c', '\u200d', '\u200e', '\u202e', '\u2066', '\ufeff',
   '\uff4a', '\u0430', '\ud800', 'x', 'example.com', 'evil.example', 'alert(1)', 'image/png', 'text/html',
   'base64', 'user:pass', '0', '9',

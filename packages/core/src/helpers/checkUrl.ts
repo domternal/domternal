@@ -72,6 +72,13 @@ const SPECIAL_SCHEMES = new Set(['http:', 'https:', 'ws:', 'wss:', 'ftp:', 'file
 // standard form, such as ssh://git@host/repo.git or ftp://anonymous@host/.
 const CREDENTIAL_SCHEMES = new Set(['http:', 'https:', 'ws:', 'wss:', 'mailto:', 'tel:']);
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
+/**
+ * An `&` that starts a character reference: a numeric one, which HTML reads
+ * without its `;` too, or a name and a `;`. The names HTML reads without a
+ * `;` are the legacy Latin-1 ones, none of which spells a `:`, `/` or `\`.
+ */
+const CHARACTER_REFERENCE = /&(?:#|[a-z][a-z0-9]*;)/i;
+const REFERENCE_AFTER_LEADING_SLASH = /^[/\\]&(?:#|[a-z][a-z0-9]*;)/i;
 const RELATIVE_BASE = 'https://relative.invalid/';
 const RELATIVE_ORIGIN = 'https://relative.invalid';
 
@@ -230,13 +237,17 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
   // RFC 3986 path-noscheme: a colon in the first segment reads as a scheme to
   // some consumers and hides a look-alike one, such as a fullwidth letter.
   // HTML that leaves `&` unescaped in an attribute, as linkedom writes it, is
-  // read with its character references decoded, so an `&` there, as in
+  // read with its character references decoded, so a reference there, as in
   // `javascript&colon;` or `&#106;avascript:`, could spell a scheme, and one
-  // right after the leading slash, as in `/&#47;host`, a network path.
+  // right after the leading slash, as in `/&#47;host`, a network path. An `&`
+  // that starts no reference, as in `R&D.png`, stays text: without a `;` only
+  // the legacy names are read, as Latin-1 letters and signs.
   const firstSegmentEnd = url.search(/[/\\?#]/);
   const firstSegment = url.slice(0, firstSegmentEnd < 0 ? url.length : firstSegmentEnd);
-  if (firstSegment.includes(':') || firstSegment.includes('&')) return UNSUPPORTED;
-  if (!allowNetworkPath && /^[/\\]&/.test(url)) return UNSUPPORTED;
+  // The `#` of a numeric reference, as in `&#106;avascript:`, ends the segment
+  // for the URL parser but not for the HTML decoder, so the test reaches it.
+  if (firstSegment.includes(':') || CHARACTER_REFERENCE.test(url.slice(0, firstSegment.length + 1))) return UNSUPPORTED;
+  if (!allowNetworkPath && REFERENCE_AFTER_LEADING_SLASH.test(url)) return UNSUPPORTED;
   const resolved = parse(url, RELATIVE_BASE);
   if (resolved === null || resolved.hostname.includes('%') || resolved.hostname.includes('&')) return UNSUPPORTED;
   if (!allowNetworkPath && resolved.origin !== RELATIVE_ORIGIN) return UNSUPPORTED;

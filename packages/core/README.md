@@ -270,10 +270,13 @@ isValidUrl('https://example.com/');          // true
 - `unsupported`: a harmless value these options do not allow, such as another scheme, a relative
   reference without `allowRelative`, a network path (`//host`) or a backslash, which browsers
   read as a slash in web addresses, an address the URL parser rejects, and empty values, `null`
-  and `undefined`. So is an `&` in a host, in the first segment of a relative reference or right
-  after its leading slash: HTML that leaves `&` unescaped in an attribute, as linkedom writes it,
+  and `undefined`. So is an `&` in a host, and an `&` that starts a character reference (`&#`, or
+  a name and `;`, such as `&colon;`) in the first segment of a relative reference or right after
+  its leading slash: HTML that leaves `&` unescaped in an attribute, as linkedom writes it,
   reaches the browser with character references decoded, where `javascript&colon;x` or
-  `&#106;avascript:x` would spell a scheme. An `&` in a path, query or fragment stays allowed.
+  `&#106;avascript:x` would spell a scheme. Any other `&`, as in `R&D-chart.png`, and every `&`
+  in a path, query or fragment stays allowed: without a `;` HTML reads only the legacy Latin-1
+  names, none of which spells a `:`, `/` or `\`.
 
 The options are `protocols` (default `['http:', 'https:']`, compared in lower case with or
 without the colon; `'any'` allows every scheme except `file:`), `allowRelative` (`/path`,

@@ -216,6 +216,25 @@ describe('checkUrl', () => {
       expect(checkUrl('a/b:c', relative).status).toBe('allowed');
     });
 
+    it('refuses a character reference in the first segment, where a browser that decodes it reads a scheme', () => {
+      // A numeric reference's `#` ends the segment for the URL parser, not for the HTML decoder.
+      for (const value of ['javascript&colon;alert(1)', 'javascript&#58alert(1)', 'javascript&#x3A;alert(1)', 'javascript&#0058;x',
+        '&#106;avascript:alert(1)', 'java&#115;cript&#58;x', 'a&amp;b.png', 'x&#35;y']) {
+        expect(checkUrl(value, relative).status, value).toBe('unsupported');
+        expect(checkUrl(value, { ...relative, allowNetworkPath: true }).status, value).toBe('unsupported');
+      }
+    });
+
+    it('keeps an & that starts no reference, which stays text wherever HTML is decoded', () => {
+      for (const value of ['R&D.png', 'Q&A.png', 'a&b', 'a&b/c:d', '&copy2024.png', 'a&amp.png', 'x&lt.png', '&', '&;', '&#']) {
+        const expected = value === '&#' ? 'unsupported' : 'allowed';
+        expect(checkUrl(value, relative).status, value).toBe(expected);
+      }
+      expect(checkUrl('/&x/y', relative)).toEqual({ status: 'allowed', url: '/&x/y' });
+      expect(checkUrl('/&#47;evil.example/x', relative).status).toBe('unsupported');
+      expect(checkUrl('/&sol;evil.example/x', relative).status).toBe('unsupported');
+    });
+
     it('refuses network paths and backslashes unless allowNetworkPath is set', () => {
       expect(checkUrl('//cdn.example/x', relative).status).toBe('unsupported');
       expect(checkUrl('\\/cdn.example/x', relative).status).toBe('unsupported');
