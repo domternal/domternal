@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.check.json",
+  "include": ["tutorial-storage.ts", "tutorial-storage.cts"]
+}

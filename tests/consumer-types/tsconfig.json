@@ -1,0 +1,6 @@
+{
+  // Editor and ESLint project discovery only. The consumer gate deliberately
+  // uses the independent tsconfig.check*.json and tsconfig.tutorial-storage.json
+  // files so automatic workspace project references cannot bypass built dists.
+  "extends": "./tsconfig.tutorial-storage.json"
+}
