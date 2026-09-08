@@ -98,10 +98,10 @@ store or render.
 - Serializing writes a link the editor would not render, such as a stored `javascript:` href or one
   a collaborator wrote, as its text with a `lossy-attribute` warning, and omits such an image with
   an `unsupported-node` warning. An allowed href is written in its cleaned spelling.
-- Destinations percent-encode an `&` that starts a character reference, such as `&colon;` or
-  `&#106;`, so a renderer that writes it into an attribute unescaped can never let the browser decode
-  it into a scheme; they also encode `<`, `>` and spaces as `%3C`, `%3E` and `%20` and escape `\`,
-  `(`, `)` and `"` with a backslash. Titles are written on one line, with `\`, `"`, `&`, `<` and `>`
+- Destinations write an `&` that starts a character reference, such as `&colon;` or `&#106;`, as
+  `&amp;`: renderers decode it once into the stored `&`, so the reference stays text and a query
+  such as `?q=x&copy;y` keeps its meaning. They also encode `<`, `>` and spaces as `%3C`, `%3E` and
+  `%20` and escape `\`, `(`, `)` and `"` with a backslash. Titles are written on one line, with `\`, `"`, `&`, `<` and `>`
   escaped.
 - The `<url>` autolink form is used only for `http:`, `https:` and `mailto:` links whose text is
   their href; any other link, such as `tel:`, is written as `[text](href)`.

@@ -187,8 +187,9 @@ describe('serializing links the editor would not render (J6)', () => {
 describe('serializing destinations and titles (J7, J8, J9)', () => {
   it('escapes a destination so it stays one address (J7)', () => {
     const { markdown } = serializeMarkdown(stored('https://ok.example/a b<c>&colon;', 'x'));
-    expect(markdown).toBe('[x](https://ok.example/a%20b%3Cc%3E%26colon;)');
-    expect(renderedHrefs(markdown)).toEqual(['https://ok.example/a%20b%3Cc%3E%26colon;']);
+    expect(markdown).toBe('[x](https://ok.example/a%20b%3Cc%3E&amp;colon;)');
+    // The renderer decodes `&amp;` once, so the attribute holds the stored `&colon;` as text.
+    expect(renderedHrefs(markdown)).toEqual(['https://ok.example/a%20b%3Cc%3E&colon;']);
   });
 
   it.each(['javascript&colon;alert(1)', '&#106;avascript:alert(1)', 'javascript&#58alert(1)'])(
@@ -200,6 +201,27 @@ describe('serializing destinations and titles (J7, J8, J9)', () => {
       expect(warnings.map(warning => warning.code)).toEqual(['lossy-attribute']);
     },
   );
+
+  it.each([
+    'https://example.com/?q=x&copy;y',
+    'https://example.com/?a=1&amp;b=2',
+    'https://example.com/?a=b&#top',
+    '/search?a=1&lt=2',
+    'mailto:a@b.example?subject=Q&amp;A',
+  ])('writes an & that starts a reference as &amp;, so %j reads back and renders as stored', (href) => {
+    const { markdown } = serializeMarkdown(stored(href, 'x'));
+    expect(markdown).not.toContain('%26');
+    const parsed = parseMarkdown(markdown, schema);
+    expect(links(parsed)).toEqual([['x', href]]);
+    expect(renderedHrefs(markdown)).toEqual([href]);
+  });
+
+  it('writes an image source with an & that starts a reference the same way', () => {
+    const image = schema.node('doc', null, [schema.node('paragraph', null, [schema.nodes['image']!.create({ src: 'https://ok.example/a.png?x=1&copy;y', alt: 'a' })])]);
+    const { markdown } = serializeMarkdown(image);
+    expect(markdown).toBe('![a](https://ok.example/a.png?x=1&amp;copy;y)');
+    expect(renderedHrefs(markdown)).toEqual(['https://ok.example/a.png?x=1&copy;y']);
+  });
 
   it('keeps an ampersand that starts no reference, so a query keeps its parameters', () => {
     expect(serializeMarkdown(stored('https://ok.example/?a=1&b=2&c', 'x')).markdown).toBe('[x](https://ok.example/?a=1&b=2&c)');

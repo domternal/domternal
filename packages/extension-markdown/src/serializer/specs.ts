@@ -41,16 +41,16 @@ function warnLossyBlockAttrs(state: MarkdownSerializerState, node: PMNode): void
 
 /**
  * A link destination that every renderer reads as one address. An `&` that
- * starts a character reference, such as `&colon;` or `&#106;`, is
- * percent-encoded: a renderer that writes it into an attribute unescaped
- * would otherwise let the browser decode it into a scheme such as
- * `javascript:`. `<`, `>` and spaces are percent-encoded too, and `\`, `(`,
- * `)` and `"` are backslash-escaped.
+ * starts a character reference, such as `&colon;` or `&#106;`, is written as
+ * `&amp;`: a renderer decodes it once into the stored `&`, so the reference
+ * stays text and the address keeps its meaning, where percent-encoding it
+ * would change a query. `<`, `>` and spaces are percent-encoded, and `\`,
+ * `(`, `)` and `"` are backslash-escaped.
  */
 function escapeLinkDestination(url: string): string {
   // Backslash included: a literal `\` must not neutralize the next escape.
   return url
-    .replace(/&(?=#|[a-z][a-z0-9]*;)/gi, '%26')
+    .replace(/&(?=#|[a-z][a-z0-9]*;)/gi, '&amp;')
     .replace(/[\\()"]/g, '\\$&')
     .replace(/[<> ]/g, (char) => (char === '<' ? '%3C' : char === '>' ? '%3E' : '%20'));
 }
