@@ -272,6 +272,36 @@ describe('serializing destinations and titles (J7, J8, J9)', () => {
     expect(renderedHrefs(markdown)).toEqual(['https://ok.example/a.png?x=1&copy;y']);
   });
 
+  // Every character JavaScript's \s matches, which marked reads as the end of a destination, that an
+  // allowed href can hold: the policy removes tabs and line breaks and refuses the other controls.
+  const UNICODE_SPACES = [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '　', '﻿'];
+
+  const codePoint = (char: string): string => `U+${(char.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}`;
+
+  it.each(UNICODE_SPACES.map(space => [codePoint(space), space]))('percent-encodes %s in a destination, so no renderer ends the address there', (_label, space) => {
+    const href = `https://x.example/a${space}*b*${space}https://evil.example/`;
+    const { markdown } = serializeMarkdown(stored(href, 'x'));
+    const encoded = encodeURIComponent(space);
+    expect(markdown).toBe(`[x](https://x.example/a${encoded}*b*${encoded}https://evil.example/)`);
+    expect(/\s/.test(markdown)).toBe(false);
+    const parsed = links(parseMarkdown(markdown, schema));
+    expect(parsed).toHaveLength(1);
+    expect(new URL(parsed[0]![1] as string).href).toBe(new URL(href).href);
+    expect(renderedHrefs(markdown)).toHaveLength(1);
+  });
+
+  it('percent-encodes a Unicode space at the end of a destination, which a renderer would drop', () => {
+    const { markdown } = serializeMarkdown(stored('https://x.example/a ', 'x'));
+    expect(markdown).toBe('[x](https://x.example/a%C2%A0)');
+    expect(links(parseMarkdown(markdown, schema))).toEqual([['x', 'https://x.example/a%C2%A0']]);
+  });
+
+  it('percent-encodes a Unicode space in an image source and a relative destination', () => {
+    const image = schema.node('doc', null, [schema.node('paragraph', null, [schema.nodes['image']!.create({ src: 'images/a　b.png', alt: 'a' })])]);
+    expect(serializeMarkdown(image).markdown).toBe('![a](images/a%E3%80%80b.png)');
+    expect(serializeMarkdown(stored('/docs/a b#c d', 'x')).markdown).toBe('[x](/docs/a%E2%80%A8b#c%C2%A0d)');
+  });
+
   it('keeps an ampersand that starts no reference, so a query keeps its parameters', () => {
     expect(serializeMarkdown(stored('https://ok.example/?a=1&b=2&c', 'x')).markdown).toBe('[x](https://ok.example/?a=1&b=2&c)');
   });

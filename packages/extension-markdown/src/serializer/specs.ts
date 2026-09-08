@@ -44,15 +44,16 @@ function warnLossyBlockAttrs(state: MarkdownSerializerState, node: PMNode): void
  * starts a character reference, such as `&colon;` or `&#106;`, is written as
  * `&amp;`: a renderer decodes it once into the stored `&`, so the reference
  * stays text and the address keeps its meaning, where percent-encoding it
- * would change a query. `<`, `>` and spaces are percent-encoded, and `\`,
- * `(`, `)` and `"` are backslash-escaped.
+ * would change a query. `<`, `>` and every space are percent-encoded, a
+ * Unicode one such as U+00A0 or U+3000 too, which some renderers read as the
+ * end of the destination, and `\`, `(`, `)` and `"` are backslash-escaped.
  */
 function escapeLinkDestination(url: string): string {
   // Backslash included: a literal `\` must not neutralize the next escape.
   return url
     .replace(/&(?=#|[a-z][a-z0-9]*;)/gi, '&amp;')
     .replace(/[\\()"]/g, '\\$&')
-    .replace(/[<> ]/g, (char) => (char === '<' ? '%3C' : char === '>' ? '%3E' : '%20'));
+    .replace(/[<>\s]/g, (char) => encodeURIComponent(char));
 }
 
 /**

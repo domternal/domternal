@@ -100,8 +100,9 @@ store or render.
   an `unsupported-node` warning. An allowed href is written in its cleaned spelling.
 - Destinations write an `&` that starts a character reference, such as `&colon;` or `&#106;`, as
   `&amp;`: renderers decode it once into the stored `&`, so the reference stays text and a query
-  such as `?q=x&copy;y` keeps its meaning. They also encode `<`, `>` and spaces as `%3C`, `%3E` and
-  `%20` and escape `\`, `(`, `)` and `"` with a backslash. Titles are written on one line, with `\`, `"`, `&`, `<` and `>`
+  such as `?q=x&copy;y` keeps its meaning. They also percent-encode `<`, `>` and every space, a
+  Unicode one such as U+00A0 or U+3000 too, which some renderers read as the end of the
+  destination (`%3C`, `%3E`, `%20`, `%E3%80%80`), and escape `\`, `(`, `)` and `"` with a backslash. Titles are written on one line, with `\`, `"`, `&`, `<` and `>`
   escaped.
 - The `<url>` autolink form is used only for `http:`, `https:` and `mailto:` links whose text is
   their href; any other link, such as `tel:`, is written as `[text](href)`.
