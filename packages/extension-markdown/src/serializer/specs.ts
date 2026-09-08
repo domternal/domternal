@@ -59,11 +59,14 @@ function escapeLinkDestination(url: string): string {
  * What makes stored LaTeX unsafe to write between dollar signs. A `$`, a
  * backtick or a line break could end the math early, so the rest would be
  * read as Markdown, and a renderer without math reads all of it as Markdown:
- * there a `<` that opens a tag, comment or autolink would be raw HTML, and a
- * `](` or `][` a link. So could a `$$` in a block.
+ * there a `<` that opens a tag, comment or autolink would be raw HTML or a
+ * link, as would a `<` before an email address, whose first character need
+ * not be a letter, and a `](` or `][` a link. So could a `$$` in a block, and
+ * a `]:`, which ends the label of every link reference definition, in a
+ * quote or a list item too, that any `[label]` of the export would link to.
  */
-const INLINE_MATH_BREAKOUT = /[$`\r\n]|<[a-z/!?]|\]\(|\]\[/i;
-const BLOCK_MATH_BREAKOUT = /\$\$|`|<[a-z/!?]|\]\(|\]\[|^ {0,3}(?:~~~|\[)/im;
+const INLINE_MATH_BREAKOUT = /[$`\r\n]|<[a-z/!?]|<[^\s<>]*@|\]\(|\]\[/i;
+const BLOCK_MATH_BREAKOUT = /\$\$|`|<[a-z/!?]|<[^\s<>]*@|\]\(|\]\[|\]:|^ {0,3}~~~/im;
 
 /** The longest run of backticks in `text`, so a code span or fence around it can be longer. */
 function longestBacktickRun(text: string): number {

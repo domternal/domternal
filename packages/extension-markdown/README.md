@@ -114,11 +114,14 @@ without math, the serializer uses the forms GitHub and GitLab read as math inste
 can close and every other renderer shows as code:
 
 - inline math as `` $`latex`$ `` (with a longer backtick run when the LaTeX holds backticks) when it
-  holds a `$`, a backtick, a `<` that opens a tag, comment or autolink, a `](` or `][`, a space at
+  holds a `$`, a backtick, a `<` that opens a tag, comment or autolink (an email autolink such as
+  `<1@example.com>` too, whose first character need not be a letter), a `](` or `][`, a space at
   either end or a `\` at the end, or when a digit follows it, which parsers take for currency.
   Line breaks are written as spaces, as TeX reads them in math;
-- block math as a `math` code fence when it holds a `$$`, a backtick, a `<` that opens a tag, a
-  `](` or `][`, or a line that starts with `[` or `~~~`.
+- block math as a `math` code fence when it holds a `$$`, a backtick, a `<` that opens a tag or
+  autolink, a `](` or `][`, a `]:`, which ends the label of every link reference definition, also
+  one in a quote or a list item, that any `[label]` of the export would link to, or a line that
+  starts with `~~~`.
 
 Empty inline math is omitted with a `lossy-structure` warning. The parser reads both forms back into
 the math nodes; a `math` fence becomes block math only when the schema has it.

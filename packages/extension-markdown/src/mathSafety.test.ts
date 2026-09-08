@@ -69,6 +69,9 @@ describe('serializing ordinary math', () => {
   it.each([
     'a^2+b^2', 'e^{i\\pi}+1=0', '0 < x < 1', 'a<1', 'a > b', '\\left[0,1\\right]', '[0,1]', 'x_1 + y_2',
     '\\frac{a}{b}', 'f(x) = \\sqrt{x}', '\\text{if } x \\ge 0', 'a & b', '\\{x \\mid x > 0\\}', '\\mathbb{1}_{[0,1]}(x)',
+    // A shortcut reference links only to a definition, which no export holds outside code; an `@`
+    // makes an email autolink only right after a `<`.
+    '[a]', 'x < y @ z', 'a@b',
   ])('keeps the dollar form for %j and parses it back', (latex) => {
     const { markdown, warnings } = serializeMarkdown(inline(latex));
     expect(markdown).toBe(`a $${latex}$ b`);
@@ -78,6 +81,8 @@ describe('serializing ordinary math', () => {
 
   it.each([
     'x = 1', 'a^2 + b^2 = c^2\n\\sum_{i=1}^n i', '\\begin{aligned}\na &= b \\\\\nc &= d\n\\end{aligned}', '\\left[0,1\\right]\n0 < x',
+    // A line that starts with a bracket is no definition without the colon right after the label.
+    '[0,1] \\times [0,1]\n[a, b] \\cap [c, d]',
   ])('keeps the $$ form for the block %j and parses it back', (latex) => {
     const { markdown, warnings } = serializeMarkdown(block(latex));
     expect(markdown).toBe(`$$\n${latex}\n$$`);
@@ -110,6 +115,10 @@ describe('serializing inline math that could end early or read as Markdown', () 
     ['a space at the end', 'x '],
     ['only spaces', '   '],
     ['a bracket pair followed by a parenthesis', '[0,1](x)'],
+    // An email autolink needs no letter after the `<`: its local part may start with any atext character.
+    ['an email autolink that starts with a digit', '<1@evil.example>'],
+    ['an email autolink that starts with a dot', 'x <.@evil.example> y'],
+    ['an email autolink that starts with a plus', '<+x@evil.example>'],
   ])('writes %s in the code span form, inert without math, and parses it back', (_label, latex) => {
     const { markdown, warnings } = serializeMarkdown(inline(latex));
     expect(markdown).toMatch(/^a \$`+ ?[\s\S]* ?`+\$ b$/);
@@ -171,6 +180,19 @@ describe('serializing block math that could end early or read as Markdown', () =
     ['a comment', '<!--\nx'],
     ['a link', 'a](javascript:alert(1))'],
     ['a link reference definition', 'x\n[ref]: javascript:alert(1)'],
+    // A definition inside a container prefix is still a definition, and any shortcut reference in
+    // the export, `$[a]$` included, would link to it.
+    ['a link reference definition in a quote', 'x [a]\n> [a]: /phish'],
+    ['a link reference definition in a dash list item', 'x [a]\n- [a]: /phish'],
+    ['a link reference definition in a star list item', 'x [a]\n * [a]: /phish'],
+    ['a link reference definition in a plus list item', 'x [a]\n+ [a]: /phish'],
+    ['a link reference definition in an ordered list item', 'x [a]\n1. [a]: /phish'],
+    ['a link reference definition in an ordered list item closed by a parenthesis', 'x [a]\n1) [a]: /phish'],
+    ['a link reference definition in a list item in a quote', 'x [a]\n> - [a]: /phish'],
+    ['a link reference definition whose label spans two lines', 'x [a b]\n> [a\nb]: /phish'],
+    ['a footnote definition in a list item', 'x [^1]\n- [^1]: /phish'],
+    ['an email autolink that starts with a digit', '<1@evil.example>'],
+    ['an email autolink that starts with a plus', 'x\n<+x@evil.example>'],
     ['a code fence that would close a later fence', 'x\n````\ny'],
     ['a tilde fence', 'x\n~~~\ny'],
     ['backticks', 'a`b'],
@@ -180,6 +202,17 @@ describe('serializing block math that could end early or read as Markdown', () =
     expect(warnings).toEqual([]);
     expect(unexpectedElements(markdown)).toEqual([]);
     expect(maths(parseMarkdown(markdown, schema))).toEqual([['mathBlock', latex.replace(/\r\n?/g, '\n')]]);
+  });
+
+  it('keeps a shortcut reference in inline math from linking to a definition in block math', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('paragraph', null, [schema.nodes['mathInline']!.create({ latex: '[a]' })]),
+      schema.nodes['mathBlock']!.create({ latex: 'y\n> [a]: /phish' }),
+    ]);
+    const { markdown } = serializeMarkdown(doc);
+    expect(markdown).toBe('$[a]$\n\n```math\ny\n> [a]: /phish\n```');
+    expect(unexpectedElements(markdown)).toEqual([]);
+    expect(maths(parseMarkdown(markdown, schema))).toEqual([['mathInline', '[a]'], ['mathBlock', 'y\n> [a]: /phish']]);
   });
 
   it('writes a fence longer than any backtick run inside', () => {
