@@ -126,7 +126,7 @@ export {
 export { writeToClipboard } from './utils/clipboard.js';
 
 // === Content normalization: whether loading JSON content keeps a value ===
-export { isSupportedAttributeValue } from './utils/normalizedAttributes.js';
+export { isSupportedAttributeValue, resolveAttributeValue } from './utils/normalizedAttributes.js';
 
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';

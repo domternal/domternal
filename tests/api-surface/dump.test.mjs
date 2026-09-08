@@ -590,3 +590,11 @@ test('a default export is judged by the declaration it is bound to', () => {
 test('the rendered snapshot marks tagged names and keeps the name order', () => {
   assert.equal(renderSnapshot(new Set(['b', 'a', 'c']), new Set(['c', 'a'])), 'a @experimental\nb\nc @experimental\n');
 });
+
+test('the committed Core snapshot marks the attribute registry helpers experimental', () => {
+  const core = readFileSync(join(here, 'snapshots/core.txt'), 'utf8').trimEnd().split('\n');
+  assert.deepEqual(core.filter((line) => line.endsWith(' @experimental')), [
+    'isSupportedAttributeValue @experimental',
+    'resolveAttributeValue @experimental',
+  ]);
+});

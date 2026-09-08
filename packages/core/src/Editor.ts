@@ -19,6 +19,7 @@ import { contentDiagnosticsOf, contentReport, type ContentDiagnosticRecord } fro
 import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js';
 import { serializeChildren } from './utils/serializeChildren.js';
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
+import { resolveAttributeValue } from './utils/normalizedAttributes.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
 import {
@@ -482,7 +483,7 @@ export class Editor extends EventEmitter<EditorEvents> {
         selection as { node?: { type: typeof nodeType; attrs: Record<string, unknown> } }
       ).node;
       if (selNode?.type === nodeType) {
-        return attrs ? this.matchAttributes(selNode.attrs, attrs) : true;
+        return attrs ? this.matchNodeAttributes(nodeType.name, selNode.attrs, attrs) : true;
       }
 
       // Check both $from and $to paths - the node must be an ancestor
@@ -503,11 +504,11 @@ export class Editor extends EventEmitter<EditorEvents> {
             if (inListGroup) {
               // First (innermost) list ancestor - only match if it's the target type
               if (node.type !== nodeType) return false;
-              return attrs ? this.matchAttributes(node.attrs, attrs) : true;
+              return attrs ? this.matchNodeAttributes(nodeType.name, node.attrs, attrs) : true;
             }
           } else {
             if (node.type === nodeType) {
-              return attrs ? this.matchAttributes(node.attrs, attrs) : true;
+              return attrs ? this.matchNodeAttributes(nodeType.name, node.attrs, attrs) : true;
             }
           }
         }
@@ -552,13 +553,28 @@ export class Editor extends EventEmitter<EditorEvents> {
       for (let depth = $from.depth; depth >= 0; depth--) {
         const node = $from.node(depth);
         if (node.type === nodeType) {
-          return { ...node.attrs };
+          return Object.fromEntries(Object.entries(node.attrs)
+            .map(([key, value]) => [key, resolveAttributeValue(schema, nodeType.name, key, value)]));
         }
       }
       return {};
     }
 
     return {};
+  }
+
+  /**
+   * Whether a node's attributes, read as they render, hold every key/value
+   * pair from source: a heading level the configuration lacks reads as the
+   * level it renders at. See `resolveAttributeValue`.
+   */
+  private matchNodeAttributes(
+    typeName: string,
+    target: Record<string, unknown>,
+    source: Record<string, unknown>
+  ): boolean {
+    const { schema } = this.state;
+    return Object.entries(source).every(([key, value]) => resolveAttributeValue(schema, typeName, key, target[key]) === value);
   }
 
   /**

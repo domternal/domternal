@@ -6,6 +6,7 @@ import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import { liftCurrentListItem } from '../utils/liftCurrentListItem.js';
 import { validAttributes } from './attributeCommands.js';
+import { resolveAttributeValue } from '../utils/normalizedAttributes.js';
 
 /**
  * SetBlockType command - changes the block type of the selection
@@ -142,10 +143,12 @@ export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: st
       }
     });
 
+    // A block matches as it renders: a heading level the configuration lacks
+    // counts as the level it renders at, as isActive reads it for the toolbar.
     const allMatch = contentBlocks.length > 0 && contentBlocks.every(({ node }) => {
       const typeMatches = node.type === nodeType;
       const attrsMatch = !attributes || Object.keys(attributes).every(
-        (key) => node.attrs[key] === attributes[key]
+        (key) => resolveAttributeValue(state.schema, nodeName, key, node.attrs[key]) === attributes[key]
       );
       return typeMatches && attrsMatch;
     });

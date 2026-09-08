@@ -111,9 +111,9 @@ export const diagnosticCode = (normalizer: AttributeNormalizer, value: unknown):
   normalizer.codeFor?.(value) ?? normalizer.code;
 
 /**
- * Whether loading JSON content keeps this value of the attribute: false when
- * it would replace the value or remove the mark that carries it. True for an
- * attribute the editor does not normalize.
+ * @experimental Whether loading JSON content keeps this value of the attribute:
+ * false when it would replace the value or remove the mark that carries it.
+ * True for an attribute the editor does not normalize.
  */
 export function isSupportedAttributeValue(schema: Schema, typeName: string, attribute: string, value: unknown): boolean {
   let supported = true;
@@ -121,4 +121,20 @@ export function isSupportedAttributeValue(schema: Schema, typeName: string, attr
     if (name === attribute) supported = false;
   });
   return supported;
+}
+
+/**
+ * @experimental The value of a normalized attribute as this configuration
+ * renders and reads it: the value itself when loading keeps it or the
+ * attribute is not normalized, otherwise its replacement, so a heading level
+ * the `levels` lack reads as the level it renders at. For a mark attribute
+ * whose unsupported value removes the mark, such as a refused link href, the
+ * result is `null`: the mark does not apply. The stored value is never changed.
+ */
+export function resolveAttributeValue(schema: Schema, typeName: string, attribute: string, value: unknown): unknown {
+  let resolved = value;
+  forEachNormalizedAttribute(schema, typeName, { [attribute]: value }, 'unsupported', (name, found, normalizer) => {
+    if (name === attribute) resolved = normalizer.removesMark ? null : normalizer.replacement(found);
+  });
+  return resolved;
 }

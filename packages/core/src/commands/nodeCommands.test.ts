@@ -322,7 +322,10 @@ describe('nodeCommands', () => {
       expect(editor.commands.setBlockType('heading', { level: 5 })).toBe(true);
       expect(editor.state.doc.firstChild?.attrs['level']).toBe(5);
       expect(editor.getHTML()).toBe('<h4>Title</h4>');
-      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 5 })).toBe(true);
+      // The block reads as the level it renders at, 4, so toggling level 5 would turn level 5 on,
+      // which it already stores; toggling the rendered level turns it off.
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 5 })).toBe(false);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 4 })).toBe(true);
       expect(editor.getHTML()).toBe('<p>Title</p>');
     });
 

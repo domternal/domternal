@@ -428,10 +428,21 @@ collaborator configured with more heading levels or wider link `protocols` write
 can restore a removed node. A pasted slice keeps a valid level the configuration lacks, so moving content in a shared
 document never rewrites another client's heading, and only an invalid level is replaced.
 Rendering shows the replacement in the view, `getHTML()`, and the SSR helpers without changing
-the document, and a refused link renders as its text and never opens, so `getJSON()`,
-`isActive`, `getAttributes`, and exports still see the stored value.
+the document, and a refused link renders as its text and never opens. `getJSON()` and
+`node.attrs` keep the stored value. The readers that drive editing UI read a node attribute as it
+renders: `isActive` and `getAttributes` report a heading level the `levels` lack as the level it
+renders at, such as `4` for a stored `5` with levels 1 to 4, and an unknown list marker as
+`null`, and `toggleHeading` and `toggleBlockType` toggle off a block that renders at the
+requested level. So the toolbar marks the level a reader sees, and nothing is rewritten until an
+explicit write such as `setHeading` stores a new value. Mark attributes read as stored, so a link
+editor can still fix or remove a refused href.
+
+Two experimental helpers answer the same questions for your own code.
 `isSupportedAttributeValue(editor.schema, 'link', 'href', href)` answers whether loading would
 keep a value; check it before a custom link UI opens or exports a stored href.
+`resolveAttributeValue(editor.schema, 'heading', 'level', node.attrs.level)` returns the value
+as this configuration renders and reads it, `null` for a mark the value removes; use it where
+you read stored attributes yourself, such as in an exporter.
 
 `editor.commands.normalizeContentAttributes()` is the explicit migration. It replaces every such
 value, and removes every such link, in one transaction outside the undo history and reports it

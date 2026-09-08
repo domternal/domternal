@@ -191,7 +191,7 @@ isInsideTableCell
 isNodeEmpty
 IsNodeEmptyOptions
 isSafeCssValue
-isSupportedAttributeValue
+isSupportedAttributeValue @experimental
 isValidUrl
 IsValidUrlOptions
 Italic
@@ -280,6 +280,7 @@ RawCommands
 refocusEditorAfterCommand
 registerProseMirrorCopy
 resetAttributes
+resolveAttributeValue @experimental
 resolveBubbleMenuItems
 ResolveBubbleMenuItemsOptions
 resolveBubbleNames
