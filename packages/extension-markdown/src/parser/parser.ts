@@ -327,7 +327,7 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
   const imageType = node('image');
   if (imageType !== undefined) {
     handlers['image'] = (state, token) => {
-      const src = allowedImageSource(attrFrom(token, 'src'));
+      const src = allowedImageSource(imageType, attrFrom(token, 'src'));
       const alt = altText(token);
       // A source the Image would not load keeps the alternative text.
       if (src === null) {

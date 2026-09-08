@@ -12,6 +12,7 @@ import {
   Editor,
   HardBreak,
   Link,
+  Node,
   Paragraph,
   Text,
 } from '@domternal/core';
@@ -133,6 +134,54 @@ describe('parsing images', () => {
     const doc = parseMarkdown(markdown, schema);
     expect(images(doc)).toEqual([]);
     expect(doc.textContent).toBe('alt');
+  });
+});
+
+describe('images and the Image configuration', () => {
+  const withoutData = (() => {
+    const editor = new Editor({ extensions: [Document, Text, Paragraph, Image.configure({ inline: true, allowBase64: false }), Link] });
+    const { schema: target } = editor;
+    editor.destroy();
+    return target;
+  })();
+  const sources = (doc: PMNode): unknown[] => {
+    const found: unknown[] = [];
+    doc.descendants(node => { if (node.type.name === 'image') found.push(node.attrs['src']); });
+    return found;
+  };
+  const DATA = 'data:image/png;base64,iVBORw0KGgo=';
+
+  it('keeps the alternative text of a data image the Image refuses with allowBase64 false', () => {
+    const doc = parseMarkdown(`![pic](${DATA}) and ![web](https://example.com/a.png)`, withoutData);
+    expect(sources(doc)).toEqual(['https://example.com/a.png']);
+    // The kept image contributes its alternative text as leaf text.
+    expect(doc.textContent).toBe('pic and web');
+  });
+
+  it('omits a stored data image the Image refuses with allowBase64 false, with a warning', () => {
+    const image = withoutData.nodes['image']!;
+    const doc = withoutData.node('doc', null, [withoutData.node('paragraph', null, [image.create({ src: DATA, alt: 'pic' }), withoutData.text(' x')])]);
+    const { markdown, warnings } = serializeMarkdown(doc);
+    expect(markdown).toBe(' x');
+    expect(warnings).toContainEqual(expect.objectContaining({ code: 'unsupported-node', nodeType: 'image' }));
+    expect(serializeMarkdown(schema.node('doc', null, [schema.node('paragraph', null, [schema.nodes['image']!.create({ src: DATA, alt: 'pic' })])])).markdown)
+      .toBe(`![pic](${DATA})`);
+  });
+
+  it('reads a source from an image node that wraps its img, and keeps judging it by the URL policy', () => {
+    const Figure = Node.create({
+      name: 'image',
+      group: 'inline',
+      inline: true,
+      atom: true,
+      addAttributes: () => ({ src: { default: null }, alt: { default: null }, title: { default: null } }),
+      parseHTML: () => [{ tag: 'img[src]' }],
+      renderHTML: ({ HTMLAttributes }) => ['span', { class: 'figure' }, ['img', HTMLAttributes]],
+    });
+    const editor = new Editor({ extensions: [Document, Text, Paragraph, Figure] });
+    const { schema: target } = editor;
+    editor.destroy();
+    expect(sources(parseMarkdown('![a](https://example.com/a.png) ![b](javascript:x) ![c](file:///x.png)', target))).toEqual(['https://example.com/a.png']);
   });
 });
 

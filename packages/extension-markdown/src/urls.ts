@@ -4,7 +4,7 @@
  * store or render.
  */
 import { checkUrl, isSupportedAttributeValue } from '@domternal/core';
-import type { Schema } from '@domternal/pm/model';
+import type { NodeType, Schema } from '@domternal/pm/model';
 
 /** The image profile of the URL policy: any scheme but file:, relative and network paths, data images. */
 const IMAGE_POLICY = { protocols: 'any', allowRelative: true, allowNetworkPath: true, allowDataImages: true } as const;
@@ -33,8 +33,38 @@ export function allowedLinkHref(schema: Schema, markName: string, href: unknown)
   return cleanUrl(href);
 }
 
-/** The spelling of an image source the Image renders, or null. */
-export function allowedImageSource(src: unknown): string | null {
+/**
+ * The src an image node's DOM output spec gives an element, found without a
+ * DOM, or undefined when the spec shows none, such as one that builds its
+ * elements itself.
+ */
+function renderedSource(spec: unknown): unknown {
+  if (!Array.isArray(spec)) return undefined;
+  const [, attrs, ...children] = spec as unknown[];
+  const isAttrs = attrs !== null && typeof attrs === 'object' && !Array.isArray(attrs)
+    && Object.getPrototypeOf(attrs) === Object.prototype;
+  if (isAttrs && 'src' in attrs) return (attrs as { src?: unknown }).src;
+  for (const child of isAttrs ? children : [attrs, ...children]) {
+    const src = renderedSource(child);
+    if (src !== undefined) return src;
+  }
+  return undefined;
+}
+
+/**
+ * The spelling of an image source the schema's image node renders, or null:
+ * the image profile of the URL policy, and then the node's own rendering,
+ * which applies its configuration, such as the Image's `allowBase64`.
+ */
+export function allowedImageSource(type: NodeType, src: unknown): string | null {
   const check = checkUrl(src, IMAGE_POLICY);
-  return check.status === 'allowed' ? check.url : null;
+  if (check.status !== 'allowed') return null;
+  let rendered: unknown;
+  try {
+    rendered = renderedSource(type.spec.toDOM?.(type.create({ src: check.url })));
+  } catch {
+    // A node that cannot be created or rendered from its source alone is judged by the policy.
+    return check.url;
+  }
+  return rendered === undefined || rendered === check.url ? check.url : null;
 }

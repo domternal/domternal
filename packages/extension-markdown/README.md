@@ -92,8 +92,8 @@ store or render.
 - Parsing opens a link only for an href the schema's `Link` keeps with its `protocols` and
   `allowRelative`: `[a](#intro)` and `[a](/docs/page)` become links by default, while
   `[a](ftp://x)`, `[a](//host/x)`, `[a](data:image/png;base64,...)` and a link with credentials
-  keep their text without a link. An image whose source the `Image` would not load keeps its
-  alternative text. markdown-it's own check still refuses `javascript:`, `vbscript:` and `file:`
+  keep their text without a link. An image whose source the `Image` would not load, such as a
+  `data:` image with `allowBase64: false`, keeps its alternative text. markdown-it's own check still refuses `javascript:`, `vbscript:` and `file:`
   first. Markdown pastes behave the same.
 - Serializing writes a link the editor would not render, such as a stored `javascript:` href or one
   a collaborator wrote, as its text with a `lossy-attribute` warning, and omits such an image with

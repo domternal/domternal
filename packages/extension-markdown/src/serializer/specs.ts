@@ -298,7 +298,7 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
       state.warn('unsupported-node', 'Image without src omitted', node.type.name);
       return;
     }
-    const src = allowedImageSource(node.attrs['src']);
+    const src = allowedImageSource(node.type, node.attrs['src']);
     if (src === null) {
       state.warn('unsupported-node', 'Image with a source the editor does not load omitted', node.type.name);
       return;
