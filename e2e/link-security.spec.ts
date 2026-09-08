@@ -17,7 +17,11 @@ interface DemoEditor {
   getHTML: () => string;
   getText: () => string;
   schema: { marks: Record<string, { create: (attrs: Record<string, unknown>) => unknown }> };
-  state: { doc: { content: { size: number } }; tr: { addMark: (from: number, to: number, mark: unknown) => unknown } };
+  state: {
+    doc: { content: { size: number } };
+    selection: { from: number; to: number };
+    tr: { addMark: (from: number, to: number, mark: unknown) => unknown };
+  };
   view: { dispatch: (tr: unknown) => void };
 }
 
@@ -96,18 +100,25 @@ for (const target of demoTargets) {
       await goNotion(page, target);
       await setJSON(page, { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello world' }] }] });
       const editor = page.locator(target.editorSelector);
-      // Select the first word as a user would, then open the popover with its shortcut.
-      await page.evaluate((selector) => {
-        const text = document.querySelector(`${selector} p`)?.firstChild;
-        if (!text) return;
+      // Select the first word as a user would, then open the popover with its shortcut. The editor
+      // reads a selection made through the DOM on its selectionchange event, and on gaining focus it
+      // restores its own unless it has read that one, which a loaded Firefox can deliver too late,
+      // so the range is set again until the editor holds it.
+      await expect.poll(() => page.evaluate((selector) => {
+        const { from, to } = ((window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as DemoEditor).state.selection;
+        if (from === 1 && to === 6) return true;
+        const root = document.querySelector<HTMLElement>(selector);
+        const text = root?.querySelector('p')?.firstChild;
+        if (!root || !text) return false;
+        root.focus();
         const range = document.createRange();
         range.setStart(text, 0);
         range.setEnd(text, 5);
         const selection = window.getSelection();
         selection?.removeAllRanges();
         selection?.addRange(range);
-        document.querySelector<HTMLElement>(selector)?.focus();
-      }, target.editorSelector);
+        return false;
+      }, target.editorSelector)).toBe(true);
       await page.keyboard.press('ControlOrMeta+k');
       const popover = page.locator('.dm-link-popover[data-show]');
       await expect(popover).toBeVisible();
