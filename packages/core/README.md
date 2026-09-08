@@ -263,12 +263,14 @@ isValidUrl('https://example.com/');          // true
   `https://google.com@evil.example/` (a user stays allowed where it is the standard form of a
   scheme `protocols` lists, such as `ssh://git@host/repo.git` or `ftp://anonymous@host/`), control
   characters and bidi embeddings, overrides and isolates anywhere, invisible format characters
-  and bidi marks in the scheme, the host or the address of a scheme without a host (such as
+  (every Unicode `Cf` character, such as a zero-width joiner, a bidi mark, a soft hyphen or a tag
+  character) in the scheme, the host or the address of a scheme without a host (such as
   `mailto:` or `tel:`, whose address is everything before the query, and for `mailto:` also the
   `to`, `cc` and `bcc` fields), where a percent-encoded one counts too, since a mail client or
   dialer decodes the address, and values that are not strings (an array would otherwise be
-  stringified into an address). The zero-width joiners and marks of Persian, Arabic, Indic and emoji text
-  stay allowed in a path, query or fragment, which browsers percent-encode.
+  stringified into an address). Format characters, such as the zero-width joiners and marks of
+  Persian, Arabic, Indic and emoji text, stay allowed in a path, query or fragment, which browsers
+  percent-encode.
 - `unsupported`: a harmless value these options do not allow, such as another scheme, a relative
   reference without `allowRelative`, a network path (`//host`) or a backslash, which browsers
   read as a slash in web addresses, an address the URL parser rejects, and empty values, `null`

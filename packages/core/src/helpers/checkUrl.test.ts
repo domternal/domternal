@@ -102,7 +102,11 @@ describe('checkUrl', () => {
   });
 
   describe('format characters', () => {
-    const FORMAT = ['\u061c', '\u200b', '\u200c', '\u200d', '\u200e', '\u200f', '\u2060', '\u2061', '\u2062', '\u2063', '\u2064', '\ufeff'];
+    // Every invisible format character (Unicode Cf): the joiners and marks, and the soft hyphen, the Arabic and
+    // Syriac signs, the Mongolian vowel separator, the deprecated format controls, the interlinear annotation
+    // controls, the musical symbol format controls and the tag characters.
+    const FORMAT = ['\u061c', '\u200b', '\u200c', '\u200d', '\u200e', '\u200f', '\u2060', '\u2061', '\u2062', '\u2063', '\u2064', '\ufeff',
+      '\u00ad', '\u0600', '\u06dd', '\u070f', '\u180e', '\u206a', '\u206f', '\ufff9', '\ufffb', '\u{110bd}', '\u{1d173}', '\u{e0001}', '\u{e0041}', '\u{e007f}'];
     const BIDI_CONTROLS = ['\u202a', '\u202b', '\u202c', '\u202d', '\u202e', '\u2066', '\u2067', '\u2068', '\u2069'];
     const options = { protocols: ['https:', 'mailto:', 'tel:', 'myapp:'], allowRelative: true };
 

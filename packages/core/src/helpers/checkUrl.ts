@@ -126,12 +126,14 @@ function hasHiddenCharacter(value: string): boolean {
 }
 
 /**
- * The bidi marks and invisible format characters, such as the zero-width
- * joiners of Persian, Arabic, Indic and emoji text. Browsers percent-encode
- * them in a path, query or fragment, where they are ordinary text, but in a
- * scheme or a host they hide what a reader sees.
+ * The invisible format characters (Unicode Cf), such as the zero-width
+ * joiners of Persian, Arabic, Indic and emoji text, the bidi marks, the soft
+ * hyphen and the tag characters. Browsers percent-encode them in a path,
+ * query or fragment, where they are ordinary text, but in a scheme, a host or
+ * the address of a scheme without a host they hide what a reader sees, even
+ * where a URL parser drops them from a host.
  */
-const FORMAT_CHARACTER = /[\u061c\u200b-\u200f\u2060-\u2064\ufeff]/;
+const FORMAT_CHARACTER = /\p{Cf}/u;
 
 /**
  * The part of an address that says where it leads: the scheme and the

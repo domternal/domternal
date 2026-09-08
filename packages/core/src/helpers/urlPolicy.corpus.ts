@@ -230,6 +230,13 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A31', value: 'https://ex%E2%80%8Bample.com/', link: 'unsafe', image: UNSAFE },
   { id: 'A31', value: 'mailto:a@b.example?subject=%E2%80%AE', link: 'allowed', image: ALLOWED },
   { id: 'A31', value: 'https://example.com/\u202eexe.txt', link: 'unsafe', image: UNSAFE },
+  // Every invisible format character counts, such as a soft hyphen or a tag character, which a URL parser may drop
+  // from a host while the reader never sees it.
+  { id: 'A31', value: 'https://exa\u00admple.com/', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https://ex\u206aample.com/', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'mailto:ad\u00admin@bank.example', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'mailto:admin@bank.example\u{e0041}', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https://example.com/long\u00adword?q=\u180e#\u{e0041}', link: 'allowed', image: ALLOWED },
   { id: 'A31', value: '?q=\u2067x', link: 'unsafe', image: UNSAFE },
 ];
 
