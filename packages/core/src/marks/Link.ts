@@ -150,6 +150,18 @@ function linkPolicy(options: LinkOptions): UrlPolicyOptions {
   return { protocols: configuredProtocols(options.protocols), allowRelative: options.allowRelative };
 }
 
+/**
+ * @internal The URL policy of a link extension's options, for a UI that
+ * stores links itself, such as LinkPopover: the Link's `protocols` and
+ * `allowRelative` when the options carry them, or null for a custom link mark
+ * without them. It holds whatever the schema's href attribute looks like, such
+ * as an extended Link that redefines it without the parent's validator.
+ */
+export function linkUrlPolicy(options: unknown): UrlPolicyOptions | null {
+  if (options === null || typeof options !== 'object' || !('protocols' in options) || !('allowRelative' in options)) return null;
+  return { protocols: configuredProtocols(options.protocols), allowRelative: options.allowRelative !== false };
+}
+
 /** The Link's own attributes, which a refused link does not render. */
 const LINK_ATTRIBUTES = ['href', 'target', 'rel', 'title', 'class'];
 

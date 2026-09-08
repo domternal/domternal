@@ -22,7 +22,7 @@ import { isSupportedAttributeValue } from '../utils/normalizedAttributes.js';
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 import type { ContentDiagnostic, JSONContent } from '../types/Content.js';
 import type { ContentDiagnosticProps } from '../types/EditorEvents.js';
-import type { AnyExtension } from '../types/index.js';
+import type { AnyExtension, AttributeSpec } from '../types/index.js';
 
 type Json = JSONContent;
 const linked = (text: string, href: unknown, attrs: Record<string, unknown> = {}): Json =>
@@ -330,6 +330,40 @@ describe('link commands', () => {
     select(ed, 1, 6);
     expect(ed.commands.setMark('bold')).toBe(true);
     expect(ed.commands.toggleMark('bold')).toBe(true);
+  });
+});
+
+describe('a Link that redefines href', () => {
+  it('keeps the checks when the new spec spreads the parent href, as the docs show', () => {
+    const Extended = Link.extend({
+      addAttributes() {
+        const parent = (this.parent?.() ?? {}) as Record<string, AttributeSpec> & { href?: AttributeSpec };
+        return { ...parent, href: { ...parent.href, parseHTML: (element: HTMLElement) => element.getAttribute('href') } };
+      },
+    });
+    const reports: ContentDiagnosticProps[] = [];
+    editor = new Editor({
+      extensions: [Document, Paragraph, Text, Extended],
+      content: doc(linked('bad', 'javascript:alert(1)'), linked('ok', 'https://ok.example/')),
+      onContentDiagnostic: props => reports.push(props),
+    });
+    expect(hrefs(editor)).toEqual(['https://ok.example/']);
+    expect(reports[0]?.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['unsafe-url']);
+    expect(isSupportedAttributeValue(editor.schema, 'link', 'href', 'javascript:alert(1)')).toBe(false);
+    expect(() => editor!.schema.nodeFromJSON(doc(linked('x', ['javascript:alert(1)'])))).toThrow(RangeError);
+  });
+
+  it('still renders a refused href as text and never opens it when the new spec drops the validator', () => {
+    const Extended = Link.extend({
+      addAttributes() {
+        return { ...(this.parent?.() as Record<string, AttributeSpec>), href: { default: null } };
+      },
+    });
+    const content = doc(linked('bad', 'javascript:alert(1)'));
+    editor = new Editor({ extensions: [Document, Paragraph, Text, Extended], content });
+    expect(editor.view.dom.querySelector('a')).toBeNull();
+    expect(editor.getHTML()).toBe('<p><span>bad</span></p>');
+    expect(generateHTML(content, [Document, Paragraph, Text, Extended])).toBe('<p><span>bad</span></p>');
   });
 });
 

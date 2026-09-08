@@ -439,6 +439,22 @@ link href that is not a string or that the policy refuses, and a stored href doe
 change to another attribute. Autolink and link paste create a link only for an allowed address:
 pasted text must be a single line, and an address with credentials is never linked.
 
+The link `href` is recognized by its validator, so an extension that redefines the attribute
+keeps the parent's spec to keep JSON loading, validation and `isSupportedAttributeValue` on the
+policy:
+
+```ts
+const MyLink = Link.extend({
+  addAttributes() {
+    const parent = this.parent?.() ?? {};
+    return { ...parent, href: { ...parent.href, parseHTML: element => element.getAttribute('href') } };
+  },
+});
+```
+
+Rendering, clicks and the LinkPopover apply the Link's `protocols` and `allowRelative` either way,
+and the LinkPopover refuses a script address for any link mark.
+
 `Heading.configure({ levels })` takes a non-empty list of whole numbers from 1 to 6, in any order.
 The first one is the default level for content and commands without a level. Other values fail
 `new Editor(...)` and the SSR helpers with an `ExtensionConfigurationError`. `updateAttributes`,

@@ -18,8 +18,8 @@ import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { Mark as PMMark, MarkType } from '@domternal/pm/model';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import { Extension } from '../Extension.js';
-import { cleanUrl, normalizeUrlProtocol } from '../helpers/checkUrl.js';
-import { protocolScheme } from '../marks/Link.js';
+import { checkUrl, cleanUrl, normalizeUrlProtocol } from '../helpers/checkUrl.js';
+import { linkUrlPolicy, protocolScheme } from '../marks/Link.js';
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 import { getExactMarkRange } from '../helpers/getMarkRange.js';
 import { isSupportedAttributeValue } from '../utils/normalizedAttributes.js';
@@ -48,6 +48,8 @@ interface LinkPopoverPluginOptions {
 
 /** A relative reference as typed: a fragment, a path, a dot path or a query. */
 const RELATIVE_INPUT = /^(?:#|\/(?!\/)|\.\.?\/|\?)/;
+/** Every address that can run no script and hides nothing: the floor under any link mark. */
+const SCRIPT_FLOOR = { protocols: 'any', allowRelative: true, allowNetworkPath: true } as const;
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 
 /**
@@ -96,12 +98,18 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
     ? linkOptions.defaultProtocol
     : 'https';
 
+  const policy = linkUrlPolicy(linkOptions);
+
   /**
    * Whether the Link stores this address: its URL policy, as loading JSON
-   * content applies it, and the popover's own scheme list when one narrows it.
+   * content applies it, the policy of its options again, which holds when an
+   * extension redefines the href attribute, no script address for a custom
+   * link mark, and the popover's own scheme list when one narrows it.
    */
   const accepts = (href: string): boolean => {
     if (!isSupportedAttributeValue(editor.schema, markType.name, 'href', href)) return false;
+    if (policy !== null && checkUrl(href, policy).status !== 'allowed') return false;
+    if (checkUrl(href, SCRIPT_FLOOR).status === 'unsafe') return false;
     const scheme = SCHEME.exec(href)?.[1];
     return narrowed === null || scheme === undefined || narrowed.includes(normalizeUrlProtocol(scheme));
   };

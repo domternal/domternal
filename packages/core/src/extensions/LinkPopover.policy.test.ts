@@ -10,6 +10,8 @@ import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
+import { Mark } from '../Mark.js';
+import type { AttributeSpec } from '../types/index.js';
 import { deMessages } from '../locales/de.js';
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 
@@ -271,6 +273,48 @@ describe('LinkPopover options', () => {
         extensions: [Document, Paragraph, Text, Link, LinkPopover.configure({ protocols: protocols as unknown as string[] })],
       }), JSON.stringify(protocols)).toThrow(ExtensionConfigurationError);
     }
+  });
+
+  it('follows the Link policy even when an extended Link redefines href without its validator', () => {
+    const Extended = Link.extend({
+      addAttributes() {
+        return { ...(this.parent?.() as Record<string, AttributeSpec>), href: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute('href') } };
+      },
+    });
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Extended.configure({ protocols: ['https:'], allowRelative: false }), LinkPopover],
+      content: '<p>Hello world</p>',
+    });
+    for (const address of ['ftp://files.example/f', 'javascript:alert(1)', 'https://google.com@evil.example/', '#intro']) {
+      select(1, 6);
+      openPopover();
+      apply(address);
+      expect(hrefs(), address).toEqual([]);
+      expect(input().getAttribute('aria-invalid'), address).toBe('true');
+    }
+    select(1, 6);
+    openPopover();
+    apply('https://ok.example/');
+    expect(hrefs()).toEqual(['https://ok.example/']);
+  });
+
+  it('refuses a script address for a custom link mark without a URL policy of its own', () => {
+    const Custom = Mark.create({
+      name: 'link',
+      addAttributes: () => ({ href: { default: null } }),
+      parseHTML: () => [{ tag: 'a[href]' }],
+      renderHTML: ({ HTMLAttributes }) => ['a', HTMLAttributes, 0],
+    });
+    editor = new Editor({ element: host, extensions: [Document, Text, Paragraph, Custom, LinkPopover], content: '<p>Hello world</p>' });
+    select(1, 6);
+    openPopover();
+    apply('javascript:alert(1)');
+    expect(input().getAttribute('aria-invalid')).toBe('true');
+    expect(popover().style.display).not.toBe('none');
+    // Any other address is left to the mark's own commands.
+    apply('myapp://open/x');
+    expect(input().getAttribute('aria-invalid')).toBeNull();
   });
 
   it('defaults protocols to null, so the Link decides', () => {
