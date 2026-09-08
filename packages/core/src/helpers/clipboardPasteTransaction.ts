@@ -12,6 +12,29 @@ interface ArmedPaste {
 }
 
 const armedPastes = new WeakMap<EditorView, ArmedPaste>();
+const nativeEvents = new WeakMap<EditorView, Event>();
+
+/** @internal Core's direct paste and drop handlers record the event before any plugin handler runs. */
+export function recordNativeClipboardEvent(view: EditorView, event: Event): void {
+  nativeEvents.set(view, event);
+}
+
+/**
+ * Prevents the browser's own paste or drop once ProseMirror starts parsing its
+ * data. ProseMirror prevents it only after inserting, so an exception anywhere
+ * in the paste pipeline would otherwise let the browser insert the clipboard
+ * HTML itself, bypassing every paste transform. A transform runs only for a
+ * paste or drop ProseMirror then handles, so this claims nothing it would
+ * leave to the browser. An event outside its own dispatch is never touched.
+ */
+function claimNativeClipboardEvent(view: EditorView): void {
+  const event = nativeEvents.get(view);
+  if (event === undefined) return;
+  try {
+    if (event.eventPhase === 0) nativeEvents.delete(view);
+    else if (event.currentTarget === view.dom && !event.defaultPrevented) event.preventDefault();
+  } catch { /* An event that cannot be read stays ProseMirror's to handle. */ }
+}
 
 /** @internal Begin an independent paste attempt before parsing or plugin interception. */
 export function clearPendingClipboardPasteTransaction(view: EditorView): void {
@@ -39,6 +62,7 @@ export class ClipboardEditorView extends EditorView {
   override someProp<N extends keyof EditorProps, R>(name: N, callback: (value: NonNullable<EditorProps[N]>) => R): R | undefined;
   override someProp<N extends keyof EditorProps>(name: N): NonNullable<EditorProps[N]> | undefined;
   override someProp<N extends keyof EditorProps, R>(name: N, callback?: (value: NonNullable<EditorProps[N]>) => R): R | NonNullable<EditorProps[N]> | undefined {
+    if ((name === 'transformPastedHTML' || name === 'transformPastedText') && callback !== undefined) claimNativeClipboardEvent(this);
     const value = clipboardPreparationSomeProp(this, name, callback,
       () => callback === undefined ? super.someProp(name) : super.someProp(name, callback));
     // ProseMirror parses the HTML its transformPastedHTML callback holds after every prop ran.

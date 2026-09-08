@@ -21,7 +21,9 @@ import { serializeChildren } from './utils/serializeChildren.js';
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
-import { ClipboardEditorView, claimClipboardPasteTransaction, clearPendingClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
+import {
+  ClipboardEditorView, claimClipboardPasteTransaction, clearPendingClipboardPasteTransaction, recordNativeClipboardEvent,
+} from './helpers/clipboardPasteTransaction.js';
 import { beginNativeClipboardPasteAttempt } from './helpers/clipboardHTMLPreparation.js';
 import { repairSliceContext } from './utils/sliceContext.js';
 import { I18nService } from './i18n/index.js';
@@ -934,7 +936,12 @@ export class Editor extends EventEmitter<EditorEvents> {
       handleDOMEvents: {
         paste: (view, event) => {
           clearPendingClipboardPasteTransaction(view);
+          recordNativeClipboardEvent(view, event);
           beginNativeClipboardPasteAttempt(view, event);
+          return false;
+        },
+        drop: (view, event) => {
+          recordNativeClipboardEvent(view, event);
           return false;
         },
         focus: (_view, event) => {

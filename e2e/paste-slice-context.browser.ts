@@ -60,8 +60,8 @@ interface Outcome {
   status: string[];
 }
 
-async function open(page: Page, framework: string, cleanup: boolean): Promise<void> {
-  const query = new URLSearchParams({ framework, details: '1', ...(cleanup ? {} : { 'paste-cleanup': 'off' }) });
+async function open(page: Page, framework: string, cleanup: boolean, extra: Record<string, string> = {}): Promise<void> {
+  const query = new URLSearchParams({ framework, details: '1', ...(cleanup ? {} : { 'paste-cleanup': 'off' }), ...extra });
   await page.goto(`${BASE_URL}/?${query.toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
   await expect(page.locator('.ProseMirror')).toBeVisible();
@@ -233,55 +233,67 @@ async function watchRequests(page: Page): Promise<{ requests: string[]; drain: (
   };
 }
 
+/** Seeds the editor, then pastes HTML a page copy handler wrote with trusted keyboard shortcuts. */
+async function keyboardPaste(page: Page, html: string, seed = '<p></p>'): Promise<void> {
+  await page.evaluate(({ html, seed }) => {
+    const target = window as unknown as ProbeWindow;
+    const probe = target.__pasteCleanup;
+    if (!probe.editor.setContent(seed, false)) throw new Error('Could not seed the editor');
+    probe.clearObservations();
+    target.__sliceErrors.length = 0;
+    document.getElementById('slice-source')?.remove();
+    const source = document.body.appendChild(document.createElement('textarea'));
+    source.id = 'slice-source';
+    source.value = 'source';
+    source.addEventListener('copy', event => {
+      event.clipboardData?.setData('text/html', html);
+      event.clipboardData?.setData('text/plain', 'Pasted bold');
+      event.preventDefault();
+    });
+    const record = document.body.dataset;
+    delete record['slicePrevented'];
+    window.addEventListener('paste', event => { record['slicePrevented'] = String(event.defaultPrevented); }, { once: true });
+  }, { html, seed });
+  await page.locator('#slice-source').focus();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('ControlOrMeta+c');
+  await page.locator('.ProseMirror').focus();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press('ControlOrMeta+v');
+  await expect.poll(() => page.evaluate(() => document.body.dataset['slicePrevented'])).toBe('true');
+}
+
+/** What the editor holds and shows after a paste, and the errors the page reported. */
+function editorState(page: Page): Promise<{ errors: string[]; text: string; images: string[]; domImages: number; bold: number; domText: string }> {
+  return page.evaluate(async () => {
+    // A native insertion reaches the document through ProseMirror's DOM observer after the event.
+    await new Promise<void>(resolve => { requestAnimationFrame(() => { setTimeout(resolve, 50); }); });
+    const target = window as unknown as ProbeWindow;
+    const editor = target.__pasteCleanup.editor;
+    const images: string[] = [];
+    editor.state.doc.descendants(node => { if (node.type.name === 'image') images.push(String(node.attrs['src'])); });
+    return {
+      errors: [...target.__sliceErrors], text: editor.state.doc.textContent, images,
+      domImages: editor.view.dom.querySelectorAll('img').length,
+      bold: editor.view.dom.querySelectorAll('strong, b').length,
+      domText: editor.view.dom.textContent,
+    };
+  });
+}
+
 for (const cleanup of [false, true]) {
   test(`trusted keyboard paste of a crafted context ${cleanup ? 'with' : 'without'} PasteCleanup never falls back to a native paste`, async ({ page }) => {
     await open(page, 'vanilla', cleanup);
     const watched = await watchRequests(page);
     for (const context of ['["heading",null]', '["text",null]', 'null', '["details",null]', '["blockquote",null,"paragraph",null]', '["paragraph",null]']) {
       const name = context.replace(/[^a-z]+/gi, '-');
-      const html = `<p data-pm-slice="0 0 ${context.replace(/"/g, '&quot;')}">Pasted <b>bold</b><img src="https://paste-probe.invalid/${name}.png"></p>`;
-      await page.evaluate(html => {
-        const target = window as unknown as ProbeWindow;
-        const probe = target.__pasteCleanup;
-        if (!probe.editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
-        probe.clearObservations();
-        target.__sliceErrors.length = 0;
-        document.getElementById('slice-source')?.remove();
-        const source = document.body.appendChild(document.createElement('textarea'));
-        source.id = 'slice-source';
-        source.value = 'source';
-        source.addEventListener('copy', event => {
-          event.clipboardData?.setData('text/html', html);
-          event.clipboardData?.setData('text/plain', 'Pasted bold');
-          event.preventDefault();
-        });
-        const record = document.body.dataset;
-        delete record['slicePrevented'];
-        window.addEventListener('paste', event => { record['slicePrevented'] = String(event.defaultPrevented); }, { once: true });
-      }, html);
-      await page.locator('#slice-source').focus();
-      await page.keyboard.press('ControlOrMeta+a');
-      await page.keyboard.press('ControlOrMeta+c');
-      await page.locator('.ProseMirror').focus();
-      await page.keyboard.press('ControlOrMeta+v');
-      await expect.poll(() => page.evaluate(() => document.body.dataset['slicePrevented'])).toBe('true');
+      await keyboardPaste(page, `<p data-pm-slice="0 0 ${context.replace(/"/g, '&quot;')}">Pasted <b>bold</b><img src="https://paste-probe.invalid/${name}.png"></p>`);
       if (cleanup) {
         await expect.poll(() => page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.map(o => o.status)))
           .toEqual(['applied']);
       }
-      const state = await page.evaluate(() => {
-        const target = window as unknown as ProbeWindow;
-        const editor = target.__pasteCleanup.editor;
-        const images: string[] = [];
-        editor.state.doc.descendants(node => { if (node.type.name === 'image') images.push(String(node.attrs['src'])); });
-        return {
-          errors: [...target.__sliceErrors], text: editor.state.doc.textContent, images,
-          domImages: editor.view.dom.querySelectorAll('img').length,
-          bold: editor.view.dom.querySelectorAll('strong, b').length,
-        };
-      });
-      expect({ context, ...state }).toEqual({
-        context, errors: [], text: 'Pasted bold', bold: 1,
+      expect({ context, ...await editorState(page) }).toEqual({
+        context, errors: [], text: 'Pasted bold', bold: 1, domText: 'Pasted bold',
         // Core keeps a remote image as a node; PasteCleanup removes it before any request.
         images: cleanup ? [] : [`https://paste-probe.invalid/${name}.png`], domImages: cleanup ? 0 : 1,
       });
@@ -289,4 +301,48 @@ for (const cleanup of [false, true]) {
     await watched.drain();
     if (cleanup) expect(watched.requests).toEqual([]);
   });
+
+  const label = cleanup ? 'with PasteCleanup' : 'without PasteCleanup';
+  for (const failure of ['html', 'slice', 'handle'] as const) {
+    test(`a throwing ${failure} paste hook ${label} lets no native paste insert the clipboard HTML`, async ({ page }) => {
+      await open(page, 'vanilla', cleanup, { 'paste-failure': failure });
+      const watched = await watchRequests(page);
+      await keyboardPaste(page, `<p>Pasted <b>bold</b><img src="https://paste-probe.invalid/native-${failure}.png"></p>`, '<p>Keep</p>');
+      expect(await editorState(page)).toEqual({
+        errors: ['Synthetic paste handler failure'], text: 'Keep', images: [], domImages: 0, bold: 0, domText: 'Keep',
+      });
+      await watched.drain();
+      expect(watched.requests).toEqual([]);
+    });
+  }
+
+  for (const failure of ['html', 'slice'] as const) {
+    test(`a throwing ${failure} paste hook ${label} lets no native drop insert dragged HTML`, async ({ page }) => {
+      await open(page, 'vanilla', cleanup, { 'paste-failure': failure });
+      const watched = await watchRequests(page);
+      await page.evaluate(() => {
+        const target = window as unknown as ProbeWindow;
+        if (!target.__pasteCleanup.editor.setContent('<p>Keep</p>', false)) throw new Error('Could not seed the editor');
+        target.__sliceErrors.length = 0;
+        const source = document.body.appendChild(document.createElement('div'));
+        source.id = 'drag-source';
+        source.draggable = true;
+        source.textContent = 'Drag me';
+        source.addEventListener('dragstart', event => {
+          event.dataTransfer?.setData('text/html', `<p>Dropped <b>bold</b><img src="https://paste-probe.invalid/drop.png"></p>`);
+          event.dataTransfer?.setData('text/plain', 'Dropped bold');
+        });
+        const record = document.body.dataset;
+        delete record['slicePrevented'];
+        window.addEventListener('drop', event => { record['slicePrevented'] = String(event.defaultPrevented); }, { once: true });
+      });
+      await page.dragAndDrop('#drag-source', '.ProseMirror p');
+      await expect.poll(() => page.evaluate(() => document.body.dataset['slicePrevented'])).toBe('true');
+      expect(await editorState(page)).toEqual({
+        errors: ['Synthetic paste handler failure'], text: 'Keep', images: [], domImages: 0, bold: 0, domText: 'Keep',
+      });
+      await watched.drain();
+      expect(watched.requests).toEqual([]);
+    });
+  }
 }

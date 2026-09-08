@@ -183,6 +183,18 @@ const AssetHookObserver = Extension.create({
   } })],
 });
 
+// A paste handler that fails, for the native paste claim. It runs before every other paste hook.
+const pasteFailure = query.get('paste-failure');
+const FailingPasteHook = Extension.create({
+  name: 'pasteFixtureFailure',
+  priority: 10000,
+  addProseMirrorPlugins: () => {
+    const fail = () => { throw new Error('Synthetic paste handler failure'); };
+    return [new Plugin({ props: pasteFailure === 'html' ? { transformPastedHTML: fail }
+      : pasteFailure === 'slice' ? { transformPasted: fail } : { handlePaste: fail } })];
+  },
+});
+
 const PasteVeto = Extension.create({
   name: 'pasteFixtureVeto',
   priority: 1400,
@@ -245,6 +257,7 @@ const extensions = [
     ...(coordinatedAssets ? { uploadHandler: async () => { assetUploads++; return 'https://paste-probe.invalid/unexpected-upload.png'; } } : {}),
   })]), Table, TableRow, TableCell, TableHeader,
   ...(details ? [Details, DetailsSummary, DetailsContent] : []),
+  ...(pasteFailure === null ? [] : [FailingPasteHook]),
   Markdown, SmartPaste,
   ...(lifecycle === 'veto' ? [PasteVeto] : []),
   ...(lifecycle === 'destroy-before-observe' ? [DestroyBeforeReceiptObserver] : []),
