@@ -274,7 +274,7 @@ describe('serializing destinations and titles (J7, J8, J9)', () => {
 
   // Every character JavaScript's \s matches, which marked reads as the end of a destination, that an
   // allowed href can hold: the policy removes tabs and line breaks and refuses the other controls.
-  const UNICODE_SPACES = [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '　', '﻿'];
+  const UNICODE_SPACES = ['\u00a0', '\u1680', '\u2000', '\u2005', '\u200a', '\u2028', '\u2029', '\u202f', '\u205f', '\u3000', '\ufeff'];
 
   const codePoint = (char: string): string => `U+${(char.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}`;
 
@@ -291,15 +291,15 @@ describe('serializing destinations and titles (J7, J8, J9)', () => {
   });
 
   it('percent-encodes a Unicode space at the end of a destination, which a renderer would drop', () => {
-    const { markdown } = serializeMarkdown(stored('https://x.example/a ', 'x'));
+    const { markdown } = serializeMarkdown(stored('https://x.example/a\u00a0', 'x'));
     expect(markdown).toBe('[x](https://x.example/a%C2%A0)');
     expect(links(parseMarkdown(markdown, schema))).toEqual([['x', 'https://x.example/a%C2%A0']]);
   });
 
   it('percent-encodes a Unicode space in an image source and a relative destination', () => {
-    const image = schema.node('doc', null, [schema.node('paragraph', null, [schema.nodes['image']!.create({ src: 'images/a　b.png', alt: 'a' })])]);
+    const image = schema.node('doc', null, [schema.node('paragraph', null, [schema.nodes['image']!.create({ src: 'images/a\u3000b.png', alt: 'a' })])]);
     expect(serializeMarkdown(image).markdown).toBe('![a](images/a%E3%80%80b.png)');
-    expect(serializeMarkdown(stored('/docs/a b#c d', 'x')).markdown).toBe('[x](/docs/a%E2%80%A8b#c%C2%A0d)');
+    expect(serializeMarkdown(stored('/docs/a\u2028b#c\u00a0d', 'x')).markdown).toBe('[x](/docs/a%E2%80%A8b#c%C2%A0d)');
   });
 
   it('keeps an ampersand that starts no reference, so a query keeps its parameters', () => {

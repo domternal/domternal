@@ -158,7 +158,7 @@ describe('checkUrl', () => {
     });
 
     it('judges that address percent-decoded, as a mail client or dialer reads it', () => {
-      for (const char of [...FORMAT, ...BIDI_CONTROLS, '\u0000', '\n', '\u001f', '\u007f', '\u0085', '￾', '￿']) {
+      for (const char of [...FORMAT, ...BIDI_CONTROLS, '\u0000', '\n', '\u001f', '\u007f', '\u0085', '\ufffe', '\uffff']) {
         for (const value of [`mailto:${encoded(char)}moc.elgoog@evil.example`, `mailto:a${encoded(char)}b@x.example`,
           `mailto:a@x${encoded(char)}.example`, `tel:${encoded(char)}1234`, `tel:+385${encoded(char).toLowerCase()}1`, `myapp:a${encoded(char)}b`]) {
           expect(checkUrl(value, options).status, JSON.stringify(value)).toBe(expectedFor(value, char));
@@ -173,13 +173,13 @@ describe('checkUrl', () => {
 
     it('judges the to, cc and bcc fields of a mailto: query, which name recipients too', () => {
       for (const field of ['to', 'cc', 'bcc', 'CC', 'c%63', 'b%63c']) {
-        for (const value of [`mailto:a@b.example?${field}=%E2%80%AEmoc.elgoog@evil.example`, `mailto:a@b.example?subject=x&${field}=e‍vil@x.example`,
+        for (const value of [`mailto:a@b.example?${field}=%E2%80%AEmoc.elgoog@evil.example`, `mailto:a@b.example?subject=x&${field}=e\u200dvil@x.example`,
           `mailto:?${field}=x%00@y.example`]) {
           expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
         }
       }
       // Free text fields and web queries keep what browsers percent-encode.
-      for (const value of ['mailto:a@b.example?subject=%E2%80%AE', 'mailto:a@b.example?body=a%0D%0Ab', 'mailto:a@b.example?subject=a‌b',
+      for (const value of ['mailto:a@b.example?subject=%E2%80%AE', 'mailto:a@b.example?body=a%0D%0Ab', 'mailto:a@b.example?subject=a\u200cb',
         'mailto:a@b.example?in-reply-to=%E2%80%8B', 'mailto:a@b.example?cc', 'https://example.com/?cc=%E2%80%AE', 'https://example.com/%E2%80%8B']) {
         expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('allowed');
       }
