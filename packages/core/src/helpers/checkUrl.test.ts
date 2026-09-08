@@ -310,12 +310,21 @@ describe('checkUrl', () => {
       expect(checkUrl(`${data}\ud83d\ude00`, imageProfile(true)).status).toBe('allowed');
     });
 
-    it('checks a long data image in a few milliseconds per megabyte', () => {
-      checkUrl(data, imageProfile(true));
-      const start = performance.now();
-      for (let run = 0; run < 10; run++) checkUrl(data, imageProfile(true));
-      // About 2 ms per run here, where scanning every character took about 16 ms; generous for slow machines.
-      expect((performance.now() - start) / 10).toBeLessThan(10);
+    it('checks a long data image in about the time of a few pattern passes over it', () => {
+      const median = (run: () => void): number => {
+        const times: number[] = [];
+        for (let index = 0; index < 7; index++) {
+          const start = performance.now();
+          run();
+          times.push(performance.now() - start);
+        }
+        return times.sort((a, b) => a - b)[3] ?? 0;
+      };
+      const pass = median(() => { /[^ -~]/.test(data); });
+      const check = median(() => { checkUrl(data, imageProfile(true)); });
+      // Measured against one pass on the same machine, so a loaded runner slows both alike:
+      // a scan of every character and a URL parse took about six passes, the check now about one.
+      expect(check).toBeLessThan(Math.max(3 * pass, 3));
     });
   });
 
