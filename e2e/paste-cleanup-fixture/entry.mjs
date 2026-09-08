@@ -7,6 +7,7 @@ import { Plugin, TextSelection } from '@domternal/pm/state';
 import { undoDepth, redoDepth, closeHistory } from '@domternal/pm/history';
 import { Image } from '@domternal/extension-image';
 import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
+import { Details, DetailsSummary, DetailsContent } from '@domternal/extension-details';
 import { Markdown } from '@domternal/extension-markdown';
 import { SmartPaste } from '@domternal/extension-block-controls';
 import { PasteCleanup, getPasteAffectedReferences } from '@domternal/extension-paste-cleanup';
@@ -29,6 +30,9 @@ const lists = query.get('schema') !== 'no-lists';
 // A Link that stores only https: addresses, for the destination link probe.
 const httpsLinks = query.get('link-protocols') === 'https';
 const listMarkers = query.get('list-markers') === '1';
+// Core paste without PasteCleanup, for behavior applications see without the extension.
+const withoutPasteCleanup = query.get('paste-cleanup') === 'off';
+const details = query.get('details') === '1';
 if (listMarkers) await import('@domternal/theme/css');
 // Test-only older/custom schema control: keep list structure but omit the marker attribute.
 const withoutMarker = extension => extension.extend({ addAttributes() {
@@ -42,7 +46,7 @@ const disabledExtensions = capabilityMinimal ? new Set([
   'bold', 'italic', 'underline', 'strike', 'link', 'textStyle', 'textColor', 'highlight',
   'fontFamily', 'fontSize', 'textAlign', 'heading', 'bulletList', 'orderedList', 'listItem',
   'blockquote', 'codeBlock', 'hardBreak', 'image', 'table', 'tableRow', 'tableCell', 'tableHeader',
-]) : new Set();
+]) : new Set(withoutPasteCleanup ? ['pasteCleanup'] : []);
 const limits = query.get('limits') === 'small'
   ? { maxInputLength: 1024, maxNodes: 80, maxDepth: 8, maxTableCells: 16 }
   : undefined;
@@ -240,6 +244,7 @@ const extensions = [
     allowBase64: imagePolicy !== 'no-base64',
     ...(coordinatedAssets ? { uploadHandler: async () => { assetUploads++; return 'https://paste-probe.invalid/unexpected-upload.png'; } } : {}),
   })]), Table, TableRow, TableCell, TableHeader,
+  ...(details ? [Details, DetailsSummary, DetailsContent] : []),
   Markdown, SmartPaste,
   ...(lifecycle === 'veto' ? [PasteVeto] : []),
   ...(lifecycle === 'destroy-before-observe' ? [DestroyBeforeReceiptObserver] : []),

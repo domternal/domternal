@@ -23,6 +23,7 @@ import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
 import { ClipboardEditorView, claimClipboardPasteTransaction, clearPendingClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
 import { beginNativeClipboardPasteAttempt } from './helpers/clipboardHTMLPreparation.js';
+import { repairSliceContext } from './utils/sliceContext.js';
 import { I18nService } from './i18n/index.js';
 import { coreMessages } from './messages/core.js';
 import {
@@ -926,6 +927,9 @@ export class Editor extends EventEmitter<EditorEvents> {
             this._extensionManager.schema
           )
         : {}),
+      // Direct props run before extension plugins, so every plugin sees a slice
+      // whose clipboard context wrappers can hold their content.
+      transformPasted: (slice) => repairSliceContext(slice),
       // Direct DOM handlers run before extension plugin handlers.
       handleDOMEvents: {
         paste: (view, event) => {

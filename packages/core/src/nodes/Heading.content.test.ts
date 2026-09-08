@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TextSelection } from '@domternal/pm/state';
 import type { Schema } from '@domternal/pm/model';
 import { Editor } from '../Editor.js';
@@ -213,22 +213,47 @@ describe('pasted slice context with heading levels', () => {
     return ed;
   }
 
-  it('replaces an invalid level so the saved JSON loads again', () => {
-    const ed = paste(['heading', { level: 99 }]);
-    expect(levels(ed.getJSON())).toEqual([4]);
-    expect(() => { ed.state.doc.check(); }).not.toThrow();
-    expect(ed.setContent(ed.getJSON())).toBe(true);
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it.each([99, '5', 6, 2])('ignores a heading context, which ProseMirror never writes, whatever its level (%s)', level => {
+    const ed = paste(['heading', { level }]);
+    expect(levels(ed.getJSON())).toEqual([]);
+    expect(ed.getHTML()).toBe('<p>first</p><p>X</p>');
   });
 
-  it('replaces a level written as a decimal string with its nearest configured level', () => {
-    const ed = paste(['heading', { level: '5' }]);
-    expect(levels(ed.getJSON())).toEqual([4]);
-    expect(() => { ed.state.doc.check(); }).not.toThrow();
-  });
+  // The context guard cannot read the HTML under a Trusted Types policy that refuses it,
+  // so ProseMirror applies the heading context and the pasted attribute guard remains.
+  describe('when the context guard cannot read the HTML', () => {
+    function pasteUnread(context: unknown[]): Editor {
+      const { editor: ed } = mount({ content: '<p>first</p><p></p>' });
+      const end = ed.state.doc.content.size - 1;
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, end)));
+      // Only the guard's read fails; ProseMirror's own read of the HTML comes after it.
+      vi.spyOn(document.implementation, 'createHTMLDocument').mockImplementationOnce(() => {
+        throw new TypeError('This document requires TrustedHTML assignment');
+      });
+      expect(ed.view.pasteHTML(sliceHTML(context), new Event('paste') as ClipboardEvent)).toBe(true);
+      return ed;
+    }
 
-  it('keeps a valid level the configuration lacks, as another client may have written it', () => {
-    const ed = paste(['heading', { level: 6 }]);
-    expect(levels(ed.getJSON())).toEqual([6]);
-    expect(ed.getHTML()).toBe('<p>first</p><h4>X</h4>');
+    it('replaces an invalid level so the saved JSON loads again', () => {
+      const ed = pasteUnread(['heading', { level: 99 }]);
+      expect(levels(ed.getJSON())).toEqual([4]);
+      expect(() => { ed.state.doc.check(); }).not.toThrow();
+      expect(ed.setContent(ed.getJSON())).toBe(true);
+    });
+
+    it('replaces a level written as a decimal string with its nearest configured level', () => {
+      const ed = pasteUnread(['heading', { level: '5' }]);
+      expect(levels(ed.getJSON())).toEqual([4]);
+      expect(() => { ed.state.doc.check(); }).not.toThrow();
+    });
+
+    it('keeps a valid level the configuration lacks, as another client may have written it', () => {
+      const ed = pasteUnread(['heading', { level: 6 }]);
+      expect(levels(ed.getJSON())).toEqual([6]);
+      expect(ed.getHTML()).toBe('<p>first</p><h4>X</h4>');
+    });
   });
 });
+

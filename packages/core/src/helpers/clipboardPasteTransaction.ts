@@ -4,6 +4,7 @@ import type { EditorProps } from '@domternal/pm/view';
 import type { DOMSerializer } from '@domternal/pm/model';
 import { clipboardPreparationSomeProp, runClipboardPasteAttempt } from './clipboardHTMLPreparation.js';
 import { annotateClipboardSerializer } from './clipboardCopyAnnotation.js';
+import { guardSliceContextHTML } from '../utils/sliceContext.js';
 
 interface ArmedPaste {
   key: PluginKey;
@@ -40,6 +41,12 @@ export class ClipboardEditorView extends EditorView {
   override someProp<N extends keyof EditorProps, R>(name: N, callback?: (value: NonNullable<EditorProps[N]>) => R): R | NonNullable<EditorProps[N]> | undefined {
     const value = clipboardPreparationSomeProp(this, name, callback,
       () => callback === undefined ? super.someProp(name) : super.someProp(name, callback));
+    // ProseMirror parses the HTML its transformPastedHTML callback holds after every prop ran.
+    // The slice context guard runs last, on that HTML, so no prop can add a context after it.
+    if (name === 'transformPastedHTML' && callback !== undefined && value === undefined) {
+      const guard: NonNullable<EditorProps['transformPastedHTML']> = html => guardSliceContextHTML(html, this.state.schema);
+      return callback(guard as NonNullable<EditorProps[N]>);
+    }
     // ProseMirror resolves the copy serializer without a callback, after its own transformCopied.
     if (name !== 'clipboardSerializer' || callback !== undefined) return value;
     return annotateClipboardSerializer(this, value as DOMSerializer | undefined) as NonNullable<EditorProps[N]> | undefined;
