@@ -23,3 +23,26 @@ test('lowercase explicit Shift bindings execute while toolbar hints remain displ
   await button.click();
   await expect(editable).toHaveText('buttonunchanged');
 });
+
+test('literal insertion replaces inline text while parsed insertion preserves block semantics', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const { editor, seed } = window.__TUTORIAL_MENUS__;
+    seed('<p><strong>aReplaceb</strong></p>', 2, 9);
+    editor.chain().focus().insertText('<b>&amp;\nnext</b>').run();
+  });
+  const editable = page.locator('#editor .ProseMirror');
+  await expect(editable.locator(':scope > p')).toHaveCount(1);
+  await expect(editable.locator('strong')).toHaveText('a<b>&amp;\nnext</b>b');
+  await expect(editable.locator('b')).toHaveCount(0);
+  await page.keyboard.type('!');
+  await expect(editable.locator('strong')).toHaveText('a<b>&amp;\nnext</b>!b');
+
+  await page.evaluate(() => {
+    const { editor, seed } = window.__TUTORIAL_MENUS__;
+    seed('<p>ab</p>', 2);
+    editor.chain().focus().insertContent('<strong>X &amp; Y</strong>').run();
+  });
+  await expect(editable.locator(':scope > p')).toHaveText(['a', 'X & Y', 'b']);
+  await expect(editable.locator('strong')).toHaveText('X & Y');
+});
