@@ -40,6 +40,14 @@ function warnLossyBlockAttrs(state: MarkdownSerializerState, node: PMNode): void
 }
 
 /**
+ * An `&` that starts a character reference, such as `&colon;`, `&#106;` or
+ * `&amp;`. Written as `&amp;`, it reaches the output as the stored `&` in
+ * every renderer, which decodes the reference once; a backslash before it
+ * does not stop marked from decoding the reference that follows.
+ */
+const CHARACTER_REFERENCE = /&(?=#|[a-z][a-z0-9]*;)/gi;
+
+/**
  * A link destination that every renderer reads as one address. An `&` that
  * starts a character reference, such as `&colon;` or `&#106;`, is written as
  * `&amp;`: a renderer decodes it once into the stored `&`, so the reference
@@ -51,7 +59,7 @@ function warnLossyBlockAttrs(state: MarkdownSerializerState, node: PMNode): void
 function escapeLinkDestination(url: string): string {
   // Backslash included: a literal `\` must not neutralize the next escape.
   return url
-    .replace(/&(?=#|[a-z][a-z0-9]*;)/gi, '&amp;')
+    .replace(CHARACTER_REFERENCE, '&amp;')
     .replace(/[\\()"]/g, '\\$&')
     .replace(/[<>\s]/g, (char) => encodeURIComponent(char));
 }
@@ -93,9 +101,12 @@ function inlineMath(latex: string, next: PMNode | null): string {
   return `$${ticks}${pad}${text}${pad}${ticks}$`;
 }
 
-/** A title on one line, with every character that could close it or start markup escaped. */
+/**
+ * A title on one line, with every character that could close it or start
+ * markup escaped, and an `&` that starts a character reference as `&amp;`.
+ */
 function escapeLinkTitle(title: string): string {
-  return title.replace(/\r\n?|\n/g, ' ').replace(/[\\"&<>]/g, '\\$&');
+  return title.replace(/\r\n?|\n/g, ' ').replace(CHARACTER_REFERENCE, '&amp;').replace(/[\\"<>]/g, '\\$&');
 }
 
 /** The schemes whose `<url>` autolink form every renderer links. */

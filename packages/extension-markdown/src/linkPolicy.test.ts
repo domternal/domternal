@@ -316,6 +316,28 @@ describe('serializing destinations and titles (J7, J8, J9)', () => {
   });
 
   it.each([
+    ['Tom &amp; Jerry &copy;', 'Tom &amp;amp; Jerry &amp;copy;'],
+    ['x &#106; y &#x6A;', 'x &amp;#106; y &amp;#x6A;'],
+    ['R&D', 'R&D'],
+    ['a & b', 'a & b'],
+    ['&copy2024 &amp', '&copy2024 &amp'],
+    ['a\\&b', 'a\\\\&b'],
+  ])('writes an & that starts a reference in the title %j as &amp;, which every renderer decodes once', (title, written) => {
+    const { markdown } = serializeMarkdown(stored('https://ok.example/', 'x', title));
+    expect(markdown).toBe(`[x](https://ok.example/ "${written}")`);
+    const host = document.createElement('div');
+    host.innerHTML = md.render(markdown);
+    expect(host.querySelector('a')?.getAttribute('title')).toBe(title);
+    const link = parseMarkdown(markdown, schema).firstChild?.firstChild?.marks.find(mark => mark.type.name === 'link');
+    expect(link?.attrs['title']).toBe(title);
+  });
+
+  it('writes an image title with an & that starts a reference the same way', () => {
+    const image = schema.node('doc', null, [schema.node('paragraph', null, [schema.nodes['image']!.create({ src: 'https://ok.example/a.png', alt: 'a', title: 'Q&amp;A' })])]);
+    expect(serializeMarkdown(image).markdown).toBe('![a](https://ok.example/a.png "Q&amp;amp;A")');
+  });
+
+  it.each([
     ['https://example.com/', '<https://example.com/>'],
     ['http://example.com/', '<http://example.com/>'],
     ['mailto:a@b.example', '<mailto:a@b.example>'],

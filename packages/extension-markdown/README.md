@@ -102,8 +102,10 @@ store or render.
   `&amp;`: renderers decode it once into the stored `&`, so the reference stays text and a query
   such as `?q=x&copy;y` keeps its meaning. They also percent-encode `<`, `>` and every space, a
   Unicode one such as U+00A0 or U+3000 too, which some renderers read as the end of the
-  destination (`%3C`, `%3E`, `%20`, `%E3%80%80`), and escape `\`, `(`, `)` and `"` with a backslash. Titles are written on one line, with `\`, `"`, `&`, `<` and `>`
-  escaped.
+  destination (`%3C`, `%3E`, `%20`, `%E3%80%80`), and escape `\`, `(`, `)` and `"` with a backslash.
+  Titles are written on one line, with `\`, `"`, `<` and `>` escaped with a backslash and an `&`
+  that starts a character reference written as `&amp;`, as in destinations, so every renderer,
+  marked included, shows the stored title.
 - The `<url>` autolink form is used only for `http:`, `https:` and `mailto:` links whose text is
   their href; any other link, such as `tel:`, is written as `[text](href)`.
 
