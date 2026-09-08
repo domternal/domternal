@@ -23,7 +23,7 @@ createSlashSuggestionRenderer
 DEFAULT_BLOCK_MATCHERS
 DEFAULT_NESTED_NODES
 dismissSlashCommand
-DropZoneProvider
+DropZoneProvider @experimental
 DropZoneQuery
 filterSlashItems
 FloatingMenu

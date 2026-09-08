@@ -31,6 +31,7 @@ import {
   collectRuntimeTargets,
   collectTypeTargets,
   discoverTargets,
+  experimentalExports,
   exportEntriesOf,
   exportOrigin,
   extractExports,
@@ -507,4 +508,85 @@ test('locale API contracts reject extra, missing, unknown and mismatched public 
     ).errors.join(),
     /surfaces differ/
   );
+});
+
+/** One declaration file published as both halves of a dual entry. */
+function taggedPackage(t, esm, cjs = esm) {
+  const root = fixture(t, {
+    thing: {
+      manifest: { name: '@domternal/thing', exports: { '.': dualEntry() } },
+      files: { 'dist/index.d.ts': esm, 'dist/index.d.cts': cjs },
+    },
+  });
+  const { targets } = discoverTargets(root);
+  return planSnapshots(targets, '/snapshots');
+}
+
+const TAGGED_DECLARATIONS = `import { EditorView } from '@domternal/pm/view';
+/** Stable. */
+declare function stable(view: EditorView): void;
+/**
+ * May still change.
+ * @experimental Registry based.
+ */
+declare function helper(value: unknown): unknown;
+/** @experimental A type. */
+interface Shape { a: string }
+/** @experimental Behind an alias. */
+declare const original: number;
+declare const plain: number;
+/** Mentions the word experimental without the tag. */
+declare const prose: number;
+export { type Shape, helper, original as renamed, plain, prose, stable };
+export { reexported } from './elsewhere';
+/** @experimental Declared inline. */
+export declare class Inline {}
+`;
+
+test('a name whose own declaration carries @experimental is recorded with the tag', (t) => {
+  const { planned, errors } = taggedPackage(t, TAGGED_DECLARATIONS);
+  assert.deepEqual(errors, []);
+  assert.equal([...planned.values()][0]?.out, [
+    'helper @experimental', 'Inline @experimental', 'plain', 'prose', 'reexported', 'renamed @experimental',
+    'Shape @experimental', 'stable',
+  ].join('\n') + '\n');
+});
+
+test('a tag the ESM and CommonJS declarations disagree on fails the entry', (t) => {
+  const { planned, errors } = taggedPackage(t, TAGGED_DECLARATIONS, TAGGED_DECLARATIONS.replace('@experimental Registry based.', 'Registry based.'));
+  assert.equal(planned.size, 0);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /declaration surfaces differ between/);
+});
+
+test('the committed snapshots record the experimental Core clipboard names', () => {
+  const clipboard = readFileSync(join(here, 'snapshots/core__clipboard.txt'), 'utf8').trimEnd().split('\n');
+  assert.ok(clipboard.length > 0);
+  assert.deepEqual(clipboard.filter((line) => !line.endsWith(' @experimental')), []);
+});
+
+test('experimental names are read from the JSDoc block directly above their own declaration', () => {
+  assert.deepEqual([...experimentalExports(TAGGED_DECLARATIONS)].sort(), ['Inline', 'Shape', 'helper', 'renamed']);
+});
+
+test('a tag on another declaration, the file or a re-export never reaches a name', () => {
+  const content = `/** @experimental The whole file. */
+import { a } from './a';
+/** @experimental Only the first. */
+declare function first(): void;
+declare function second(): void;
+export { first, second };
+export { third } from './third';
+export * from './star';
+`;
+  assert.deepEqual([...experimentalExports(content)], ['first']);
+});
+
+test('a default export is judged by the declaration it is bound to', () => {
+  const content = '/** @experimental Default. */\ndeclare class Source {}\nexport { Source as default };\n';
+  assert.deepEqual([...experimentalExports(content)], ['default(Source)']);
+});
+
+test('the rendered snapshot marks tagged names and keeps the name order', () => {
+  assert.equal(renderSnapshot(new Set(['b', 'a', 'c']), new Set(['c', 'a'])), 'a @experimental\nb\nc @experimental\n');
 });
