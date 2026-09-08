@@ -57,6 +57,11 @@ export interface LineHeightOptions {
   defaultLineHeight: string | null;
 }
 
+/** A stored line height as CSS: a finite number, such as 1.5, is written as its digits. */
+function cssLineHeight(value: unknown): unknown {
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : value;
+}
+
 export const LineHeight = Extension.create<LineHeightOptions>({
   name: 'lineHeight',
 
@@ -79,7 +84,7 @@ export const LineHeight = Extension.create<LineHeightOptions>({
               return element.style.lineHeight || this.options.defaultLineHeight;
             },
             renderHTML: (attributes: Record<string, unknown>) => {
-              const lineHeight = attributes['lineHeight'] as string | null;
+              const lineHeight = cssLineHeight(attributes['lineHeight']) as string | null;
 
               // Don't render if it's the default
               if (!lineHeight || lineHeight === this.options.defaultLineHeight) {
@@ -95,7 +100,8 @@ export const LineHeight = Extension.create<LineHeightOptions>({
               }
 
               // Without a list, only a value that cannot add a declaration
-              // or load a resource is written; the document keeps any other.
+              // or load a resource is written, such as 1.5 stored as a
+              // number; the document keeps any other.
               if (!isSafeCssValue(lineHeight)) return null;
 
               return { style: `line-height: ${lineHeight}` };
@@ -118,7 +124,7 @@ export const LineHeight = Extension.create<LineHeightOptions>({
           ) {
             return false;
           }
-          if (!isSafeCssValue(lineHeight)) return false;
+          if (!isSafeCssValue(cssLineHeight(lineHeight))) return false;
 
           return this.options.types
             .map((type) => commands.updateAttributes(type, { lineHeight }))

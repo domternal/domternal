@@ -30,7 +30,8 @@ const MAX_LENGTH = 256;
  * balanced parentheses, and no function other than the color and arithmetic
  * functions `rgb`, `rgba`, `hsl`, `hsla`, `hwb`, `lab`, `lch`, `oklab`,
  * `oklch`, `color`, `color-mix`, `light-dark`, `var`, `calc`, `min`, `max`
- * and `clamp`.
+ * and `clamp`. Inside those, a parenthesis may also group arithmetic, as in
+ * `calc(1rem + (2vw - 1rem) * 0.5)`.
  *
  * Such a value cannot add another declaration, leave the style attribute or
  * load a resource: `url()`, `image-set()` and `expression()` are refused. It
@@ -59,7 +60,9 @@ export function isSafeCssValue(value: unknown): boolean {
     const char = value[index];
     if (char === '(') {
       const name = /[a-z-]*$/i.exec(value.slice(0, index))?.[0].toLowerCase() ?? '';
-      if (!ALLOWED_FUNCTIONS.has(name)) return false;
+      // A parenthesis without a name groups arithmetic, which only an allowed
+      // function holds; it loads nothing.
+      if (name === '' ? depth === 0 : !ALLOWED_FUNCTIONS.has(name)) return false;
       depth++;
     } else if (char === ')' && --depth < 0) {
       return false;

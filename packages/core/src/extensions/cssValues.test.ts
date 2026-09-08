@@ -111,7 +111,7 @@ function expectNoStyle(result: Rendered): void {
 describe.each([
   ['color', 'color', ['#ff0000', 'rgb(1, 2, 3)', 'red', 'var(--c)']],
   ['backgroundColor', 'background-color', ['#ff0000', 'rgb(1, 2, 3)', 'yellow', 'var(--c)']],
-  ['fontSize', 'font-size', ['18px', '1.2em', 'larger', 'calc(1em + 2px)']],
+  ['fontSize', 'font-size', ['18px', '1.2em', 'larger', 'calc(1em + 2px)', 'calc(1rem + (2vw - 1rem) * 0.5)']],
 ])('the %s attribute (G1, G2, G4)', (attribute, property, safe) => {
   it.each(safe)('renders the safe value %j in the editor, getHTML and generateHTML', (value) => {
     expectDeclaration(rendered(styled({ [attribute]: value })), property);
@@ -177,12 +177,24 @@ describe('font family (G3)', () => {
 });
 
 describe('text alignment (G5)', () => {
-  it.each(['center', 'right', 'justify', 'start', 'end', 'CENTER'])('renders the keyword %s', (textAlign) => {
-    expect(rendererStyle(TextAlign, 'textAlign', { textAlign })).toBe(`text-align: ${textAlign.toLowerCase()}`);
+  it.each(['center', 'right', 'justify', 'start', 'end', 'CENTER', '-webkit-center', 'match-parent', 'justify-all', 'var(--align)'])('renders the value %s as stored', (textAlign) => {
+    expect(rendererStyle(TextAlign, 'textAlign', { textAlign })).toBe(`text-align: ${textAlign}`);
+  });
+
+  it.each(['center', 'right', 'justify', 'start', 'end', 'CENTER', 'match-parent'])('renders the keyword %s in the editor, getHTML and generateHTML', (textAlign) => {
     expectDeclaration(rendered(block({ textAlign })), 'text-align');
   });
 
-  it.each(['left;position:fixed;inset:0', 'center !important', 'url(x)', 'middle', 'var(--align)'])('does not render %j, and keeps it stored', (textAlign) => {
+  it('keeps the alignment Chrome writes for centered content copied from a page', () => {
+    // jsdom's CSSOM drops a declaration it does not know, so the browser suite checks the markup.
+    mount({ type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: '-webkit-center' }, content: [{ type: 'text', text: 'x' }] }] });
+    expect(rendererStyle(TextAlign, 'textAlign', { textAlign: '-webkit-center' })).toBe('text-align: -webkit-center');
+    expect(editor!.state.doc.firstChild?.attrs['textAlign']).toBe('-webkit-center');
+    select(1, 2);
+    expect(editor!.commands.setTextAlign('-webkit-center')).toBe(false);
+  });
+
+  it.each(['left;position:fixed;inset:0', 'center !important', 'url(x)', 'center;background:url(x)'])('does not render %j, and keeps it stored', (textAlign) => {
     expectNoStyle(rendered(block({ textAlign })));
     expect(editor!.state.doc.firstChild?.attrs['textAlign']).toBe(textAlign);
   });
@@ -197,11 +209,38 @@ describe('text alignment (G5)', () => {
   });
 });
 
+describe('grouping parentheses (G4)', () => {
+  it.each(['calc(1rem + (2vw - 1rem) * 0.5)', 'clamp(1rem, calc((100vw - 20rem) / 50), 2rem)', 'min((1em + 2px), 3em)'])(
+    'writes the font size %j as stored, and setFontSize accepts it',
+    (fontSize) => {
+      expect(rendererStyle(FontSize, 'fontSize', { fontSize })).toBe(`font-size: ${fontSize}`);
+      mount();
+      select(1, 6);
+      expect(editor!.commands.setFontSize(fontSize)).toBe(true);
+      expect(editor!.state.doc.firstChild?.firstChild?.marks[0]?.attrs['fontSize']).toBe(fontSize);
+    },
+  );
+});
+
 describe('line height (G8)', () => {
   it('renders only configured values, as before', () => {
     expectDeclaration(rendered(block({ lineHeight: '1.5' })), 'line-height');
     editor!.destroy();
     expectNoStyle(rendered(block({ lineHeight: '3' })));
+  });
+
+  it('renders a number stored as the line height when the list is empty, as 1.2 did', () => {
+    const list = [Document, Paragraph, Text, LineHeight.configure({ lineHeights: [] })];
+    expect(rendererStyle(LineHeight.configure({ lineHeights: [] }), 'lineHeight', { lineHeight: 1.5 })).toBe('line-height: 1.5');
+    expectDeclaration(rendered(block({ lineHeight: 1.5 }), list), 'line-height');
+    select(1, 2);
+    expect(editor!.commands.setLineHeight(2 as unknown as string)).toBe(true);
+    expect(editor!.state.doc.firstChild?.attrs['lineHeight']).toBe(2);
+    expect(editor!.getHTML()).toBe('<p style="line-height: 2;">x</p>');
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(rendererStyle(LineHeight.configure({ lineHeights: [] }), 'lineHeight', { lineHeight: value })).toBeUndefined();
+      expect(editor!.commands.setLineHeight(value as unknown as string)).toBe(false);
+    }
   });
 
   it('renders only safe values when the list is empty, and the command refuses unsafe ones', () => {

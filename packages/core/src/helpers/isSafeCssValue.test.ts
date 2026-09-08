@@ -12,6 +12,9 @@ describe('isSafeCssValue', () => {
     '18px', '1.2em', 'larger', 'xx-small', '120%', '1.5',
     'Arial', 'Times New Roman', 'Times New Roman, serif', '微软雅黑', 'Noto Sans JP', 'Comic Sans MS, cursive',
     'center', 'justify', 'RGB(1, 2, 3)', 'Calc(1px + 1px)', 'a'.repeat(256),
+    // Grouping parentheses inside an allowed function, as fluid type scales write them.
+    'calc(1rem + (2vw - 1rem) * 0.5)', 'clamp(1rem, calc((100vw - 20rem) / 50), 2rem)', 'min((1px + 2px), 3px)',
+    'rgb(calc((10 + 5) * 2) 0 0)', 'calc(((1px)))', '-webkit-center', 'match-parent',
   ])('allows %j (G1, G3, G4)', (value) => {
     expect(isSafeCssValue(value)).toBe(true);
   });
@@ -31,6 +34,10 @@ describe('isSafeCssValue', () => {
     ['an attribute read', 'attr(title)'],
     ['an environment read', 'env(safe-area-inset-top)'],
     ['a parenthesis without a function', '(1px)'],
+    ['a parenthesis without a function after a value', 'red (1px)'],
+    ['a resource inside grouping parentheses', 'calc(1px + (url(https://probe.test/x)))'],
+    ['an unclosed grouping parenthesis', 'calc((1px + 2px)'],
+    ['a grouping parenthesis closed twice', 'calc((1px)) + 2px)'],
     ['a function name separated by a space', 'rgb (1, 2, 3)'],
     ['importance', 'red !important'],
     ['a comment', 'red/**/'],

@@ -725,6 +725,19 @@ test.describe('stored style values in the browser', () => {
     expect(computed).toEqual({ color: 'rgb(1, 2, 3)', background: 'rgb(4, 5, 6)', family: expect.stringMatching(/^"?Times New Roman"?, serif$/) as unknown as string, size: '18px' });
     expect(await page.locator('#fixture p').evaluate(element => getComputedStyle(element).textAlign)).toBe('center');
   });
+
+  test('renders arithmetic grouped in parentheses, which the browser applies (G4)', async ({ page }) => {
+    await open(page);
+    const content = docOf(paragraph(styled('FLUID', { fontSize: 'calc(1rem + (2vw - 1rem) * 0.5)' })));
+    await setup(page, { content });
+    // Browsers may simplify the expression when they serialize it, so the check reads the size it gives.
+    const html = await page.evaluate(() => (window as unknown as EditorWindow).__linkSecurity.getHTML());
+    const generated = await page.evaluate(json => (window as unknown as EditorWindow).__linkSecurity.generateHTML(json), content);
+    for (const output of [html, generated]) expect(output).toMatch(/font-size: calc\(/);
+    const size = await page.locator('#fixture').getByText('FLUID', { exact: true }).evaluate(element => getComputedStyle(element).fontSize);
+    // Half a rem plus one viewport width percent: never the 16px a dropped declaration would leave.
+    expect(Number.parseFloat(size)).toBeCloseTo(8 + page.viewportSize()!.width / 100, 0);
+  });
 });
 
 test.describe('stored table cell backgrounds in the browser', () => {

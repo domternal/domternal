@@ -8,6 +8,7 @@ import { localizedGroup } from '../messages/presentation.js';
  * Uses addGlobalAttributes to inject textAlign attribute into nodes.
  */
 import { Extension } from '../Extension.js';
+import { isSafeCssValue } from '../helpers/isSafeCssValue.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
@@ -38,15 +39,6 @@ export interface TextAlignOptions {
   defaultAlignment: string;
 }
 
-/** The `text-align` keywords an alignment may render as. */
-const TEXT_ALIGN_KEYWORDS = new Set(['left', 'center', 'right', 'justify', 'start', 'end']);
-
-/** The keyword a stored alignment names, in lower case, or null. */
-function textAlignKeyword(value: unknown): string | null {
-  const keyword = typeof value === 'string' ? value.toLowerCase() : null;
-  return keyword !== null && TEXT_ALIGN_KEYWORDS.has(keyword) ? keyword : null;
-}
-
 export const TextAlign = Extension.create<TextAlignOptions>({
   name: 'textAlign',
 
@@ -72,9 +64,10 @@ export const TextAlign = Extension.create<TextAlignOptions>({
               if (textAlign === this.options.defaultAlignment) {
                 return null;
               }
-              // Only a keyword renders; the document keeps any other value.
-              const keyword = textAlignKeyword(textAlign);
-              return keyword === null ? null : { style: `text-align: ${keyword}` };
+              // A stored value that could add a declaration or load a
+              // resource is not written; the document keeps it. Any other,
+              // such as the -webkit-center Chrome writes, renders as stored.
+              return isSafeCssValue(textAlign) ? { style: `text-align: ${textAlign}` } : null;
             },
           },
         },
@@ -87,7 +80,7 @@ export const TextAlign = Extension.create<TextAlignOptions>({
       setTextAlign:
         (alignment: string) =>
         ({ commands }) => {
-          if (!this.options.alignments.includes(alignment) || textAlignKeyword(alignment) === null) {
+          if (!this.options.alignments.includes(alignment) || !isSafeCssValue(alignment)) {
             return false;
           }
 

@@ -330,7 +330,8 @@ written into a `style` attribute when rendered. `isSafeCssValue(value)` decides 
 may be written there: a string of at most 256 characters with no control character, none of
 `; { } [ ] < > \ " ' ! @ &`, no comment, balanced parentheses, and no function other than the
 color and arithmetic functions (`rgb`, `rgba`, `hsl`, `hsla`, `hwb`, `lab`, `lch`, `oklab`,
-`oklch`, `color`, `color-mix`, `light-dark`, `var`, `calc`, `min`, `max`, `clamp`). Such a value
+`oklch`, `color`, `color-mix`, `light-dark`, `var`, `calc`, `min`, `max`, `clamp`), inside which
+parentheses may also group arithmetic, as in `calc(1rem + (2vw - 1rem) * 0.5)`. Such a value
 cannot add a declaration, such as `position: fixed`, or load a resource through `url()`.
 
 ```ts
@@ -349,8 +350,9 @@ isSafeCssValue('url(https://example.com/x)'); // false
   `setFontSize`, `setTextAlign` and `setLineHeight` return `false` for a value that is not safe.
   An empty or blank value, such as a "Default" option's `''`, clears the style instead, as the
   matching unset command does, and returns `true`.
-- Alignment renders only the keywords `left`, `center`, `right`, `justify`, `start` and `end`,
-  in lower case. `setTextAlign` also needs the value in `alignments`.
+- Alignment renders any safe value as stored, such as the `-webkit-center` Chrome writes for
+  centered content. `setTextAlign` also needs the value in `alignments`.
+- A line height stored as a finite number, such as `1.5`, renders as that number.
 - A font family list is written with each name that holds a space quoted, and quotes in the stored
   value are dropped first, so `"Times New Roman", serif` renders as `'Times New Roman', serif`.
 - `LineHeight` renders only its configured `lineHeights`; with an empty list, any safe value.
