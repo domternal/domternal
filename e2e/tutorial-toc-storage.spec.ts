@@ -123,6 +123,25 @@ test('the observer handles the initial hash without a block or floating outline'
   await expect(page).toHaveURL(/#second$/);
 });
 
+test('documented JSON insertion keeps the TOC schema name and shared block navigation after reload', async ({ page }) => {
+  await openFixture(page, 'mode=blocks');
+  await expect.poll(async () => (await snapshot(page)).entries.length).toBe(3);
+  expect(await page.evaluate(() => window.__TUTORIAL_TOC__.insertBlock())).toBe(true);
+  await expect(page.locator('.dm-toc-block')).toHaveCount(1);
+  expect(await page.evaluate(() => window.__TUTORIAL_TOC__.insertBlock())).toBe(true);
+  await expect(page.locator('.dm-toc-block')).toHaveCount(2);
+  await page.evaluate(() => { window.__TUTORIAL_TOC__.reloadJSON(); });
+  await expect(page.locator('.dm-toc-block')).toHaveCount(2);
+  await expect(page.locator('.dm-toc-block-link')).toHaveCount(6);
+  await page.locator('.dm-toc-block').first().getByRole('button', { name: 'Third section' }).click();
+  await expect.poll(async () => (await snapshot(page)).activeId).toBe('third');
+  await expect(page.locator('.dm-toc-block-link--active')).toHaveCount(2);
+  await expect(page).toHaveURL(/#third$/);
+  expect((await snapshot(page)).windowScroll).toBe(0);
+  expect((await snapshot(page)).incoherentUpdates).toBe(0);
+  await expect(page.locator('.ProseMirror > p[id]')).toHaveCount(0);
+});
+
 for (const language of ['ts', 'project-ts', 'unavailable-language']) {
   test(`language picker preserves saved ${language} and changes only on user selection`, async ({ page }) => {
     await openFixture(page, `mode=picker&language=${language}`);
