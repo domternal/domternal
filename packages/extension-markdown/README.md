@@ -49,6 +49,13 @@ const saved = downloadMarkdown(editor, 'notes.md');
 
 Markdown-looking plain-text pastes convert automatically. Syntax-highlighted source copies, such as Markdown copied from VS Code, convert too when their HTML contains only source wrappers (`pre`, `div`, `span`, `br`), preserves whitespace, and matches the clipboard's plain text. HTML display formatting may expand tabs, but the original Markdown and its indentation are used for parsing. HTML with rich-text elements or editor metadata, copied editor code blocks, plain prose, and pastes into code blocks keep their usual handling. Disable with `Markdown.configure({ paste: false })`. The test the plugin applies is exported as `looksLikeMarkdown(text)`, so a handler that takes over the paste path can reuse the same heuristic.
 
+Headings follow the editor's `Heading` `levels`, as HTML and JSON content do. Import places a
+level the configuration lacks at the nearest configured level, so with levels 1 to 4 a
+`#####` heading becomes a level 4 heading, and export writes each heading at the level it
+renders at, so the Markdown matches `getHTML()` even for a level stored by a collaborator
+configured with more levels. A heading node that does not use `Heading`'s level rules keeps
+the level as written.
+
 ## Options
 
 | Option | Default | Description |

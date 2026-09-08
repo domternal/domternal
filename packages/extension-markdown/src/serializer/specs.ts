@@ -4,6 +4,7 @@
  * warning instead of raw HTML: the output stays valid everywhere.
  */
 import type { Mark, Node as PMNode } from '@domternal/pm/model';
+import { resolveAttributeValue } from '@domternal/core';
 import {
   backticksFor,
   MarkdownSerializerState,
@@ -243,7 +244,9 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
 
   heading: (state, node) => {
     warnLossyBlockAttrs(state, node);
-    const level = attrNumber(node, 'level') ?? 1;
+    // The level the heading renders at, so the export matches getHTML.
+    const rendered = resolveAttributeValue(node.type.schema, node.type.name, 'level', node.attrs['level']);
+    const level = typeof rendered === 'number' && Number.isFinite(rendered) ? rendered : 1;
     state.write('#'.repeat(Math.min(Math.max(level, 1), 6)) + ' ');
     state.renderInline(node, false);
     state.closeBlock(node);

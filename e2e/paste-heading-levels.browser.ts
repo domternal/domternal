@@ -92,3 +92,37 @@ for (const cleanup of [false, true]) {
     });
   }
 }
+
+/** Pastes Markdown as plain text, which the Markdown extension converts. */
+function pasteMarkdown(page: Page, markdown: string): Promise<{ levels: unknown[]; codes: string[]; notice: boolean }> {
+  return page.evaluate(async markdown => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    const editor = probe.editor;
+    if (!editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
+    editor.commands.focus('start');
+    probe.clearObservations();
+    const data = new DataTransfer();
+    data.setData('text/plain', markdown);
+    const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+    if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+    editor.view.dom.dispatchEvent(event);
+    for (let attempt = 0; attempt < 20 && probe.operations.length === 0; attempt++) await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const levels: unknown[] = [];
+    editor.state.doc.descendants(node => { if (node.type.name === 'heading') levels.push(node.attrs['level']); });
+    const region = document.querySelector('[role="region"][aria-label="Paste notice"]');
+    return {
+      levels, codes: probe.operations.flatMap(operation => operation.diagnostics.map(diagnostic => diagnostic.code)),
+      notice: region instanceof HTMLElement && !region.hidden && region.textContent.includes('heading'),
+    };
+  }, markdown);
+}
+
+for (const cleanup of [false, true]) {
+  for (const [levels, expected] of [[undefined, [1, 4, 4]], ['narrow', [2, 3, 3]]] as const) {
+    test(`Markdown paste ${cleanup ? 'with' : 'without'} PasteCleanup lands headings at the nearest of levels ${levels === 'narrow' ? '2 and 3' : '1 to 4'}`, async ({ page }) => {
+      await open(page, 'vanilla', { cleanup, ...(levels === undefined ? {} : { levels }) });
+      expect(await pasteMarkdown(page, '# A\n\n##### B\n\n###### C')).toEqual({ levels: expected, codes: [], notice: false });
+    });
+  }
+}

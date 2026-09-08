@@ -8,6 +8,7 @@
 import MarkdownIt from 'markdown-it';
 import { Fragment } from '@domternal/pm/model';
 import type { Node as PMNode, NodeType, Schema } from '@domternal/pm/model';
+import { resolveAttributeValue } from '@domternal/core';
 import { addMathBlockRule, addMathInlineRule } from './mathRules.js';
 import { MarkdownParseState } from './state.js';
 import { allowedImageSource, allowedLinkHref } from '../urls.js';
@@ -244,7 +245,12 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
   };
 
   block('paragraph', 'paragraph');
-  block('heading', 'heading', (token) => ({ level: Number(token.tag.slice(1)) || 1 }), 'paragraph');
+  // A level the Heading configuration lacks parses at the nearest configured
+  // level, as HTML and JSON content do; a heading node without Heading's level
+  // rules keeps the level as written.
+  block('heading', 'heading', (token) => ({
+    level: resolveAttributeValue(schema, 'heading', 'level', Number(token.tag.slice(1)) || 1),
+  }), 'paragraph');
   block('blockquote', 'blockquote');
   block('bullet_list', 'bulletList');
   block('ordered_list', 'orderedList', (token) => {
