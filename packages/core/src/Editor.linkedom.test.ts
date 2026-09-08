@@ -11,6 +11,7 @@ Object.assign(globalThis, { window: server.window, document: server.document });
 const { Editor } = await import('./Editor.js');
 const { StarterKit } = await import('./extensions/StarterKit.js');
 const { inlineStyles } = await import('./utils/inlineStyles.js');
+const { Schema } = await import('@domternal/pm/model');
 
 /** The link attributes a browser reads from the HTML: parsing decodes character references. */
 function receivedLink(html: string): Record<string, string | null> {
@@ -32,5 +33,35 @@ describe('a headless editor on linkedom', () => {
 
   it('writes attribute values in inlineStyles as they arrived', () => {
     expect(receivedLink(inlineStyles(editor.getHTML()))).toEqual(stored);
+  });
+});
+
+describe('rgb() colors in getHTML on linkedom', () => {
+  // linkedom writes `<` and `>` in an attribute value as they are, so a start tag is read to its real end.
+  const schema = new Schema({
+    nodes: {
+      doc: { content: 'paragraph+' },
+      paragraph: { content: 'inline*', toDOM: () => ['p', 0], parseDOM: [{ tag: 'p' }] },
+      text: { group: 'inline', inline: true },
+    },
+    marks: {
+      styled: { attrs: { title: { default: null }, style: { default: null } }, toDOM: (mark) => ['span', { title: mark.attrs['title'], style: mark.attrs['style'] }, 0] },
+    },
+  });
+  const text = 'a <b> style="color: rgb(255, 0, 0)" c';
+  const editor = new Editor({
+    schema,
+    content: { type: 'doc', content: [{ type: 'paragraph', content: [
+      { type: 'text', text: 'x', marks: [{ type: 'styled', attrs: { title: 'a > b style="rgb(1, 2, 3)"', style: 'color: rgb(255, 0, 0)' } }] },
+      { type: 'text', text },
+    ] }] },
+  });
+
+  it('writes a style attribute color as hex and leaves text and other attributes as stored', () => {
+    const received = parseHTML(`<!DOCTYPE html><html><body>${editor.getHTML()}</body></html>`).document;
+    const span = received.querySelector('span');
+    expect(span?.getAttribute('title')).toBe('a > b style="rgb(1, 2, 3)"');
+    expect(span?.getAttribute('style')).toMatch(/^color: #ff0000;?$/);
+    expect(received.querySelector('p')?.textContent).toBe(`x${text}`);
   });
 });

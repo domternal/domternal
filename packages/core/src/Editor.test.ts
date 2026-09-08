@@ -568,11 +568,32 @@ describe('Editor', () => {
         colorEditor.destroy();
       });
 
-      it('does not alter text content containing rgb()', () => {
-        const html = editor.getHTML();
-        // The basic editor has no rgb() in style attrs, so this just verifies
-        // getHTML works normally without style attrs
-        expect(html).toContain('Initial content');
+      it('does not alter text content that reads like a style attribute holding rgb()', () => {
+        const text = 'CSS: style="color: rgb(255, 0, 0)" is red, and style="background: rgba(0, 0, 255, 0.5)" is blue';
+        const textEditor = new Editor({ extensions: [Document, Text, Paragraph], content: `<p>${text}</p>` });
+        expect(textEditor.getHTML()).toBe(`<p>${text}</p>`);
+        expect(textEditor.getHTML({ styled: true })).toContain(text);
+        textEditor.destroy();
+      });
+
+      it('converts rgb() only in a style attribute, not in an attribute whose name ends in style', () => {
+        const schemaWithStyle = new Schema({
+          nodes: {
+            doc: { content: 'paragraph+' },
+            paragraph: { content: 'inline*', toDOM() { return ['p', 0]; }, parseDOM: [{ tag: 'p' }] },
+            text: { group: 'inline', inline: true },
+          },
+          marks: {
+            textStyle: {
+              attrs: { style: { default: null } },
+              toDOM(mark) { return ['span', { 'data-style': mark.attrs['style'], style: mark.attrs['style'] }, 0]; },
+              parseDOM: [{ tag: 'span[style]', getAttrs: (dom: HTMLElement) => ({ style: dom.getAttribute('style') }) }],
+            },
+          },
+        });
+        const colorEditor = new Editor({ schema: schemaWithStyle, content: '<p><span style="color: rgb(255, 0, 0)">red</span></p>' });
+        expect(colorEditor.getHTML()).toBe('<p><span data-style="color: rgb(255, 0, 0)" style="color: #ff0000;">red</span></p>');
+        colorEditor.destroy();
       });
     });
 
