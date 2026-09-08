@@ -17,8 +17,38 @@ export function safeLink(value: unknown, sourceURL?: string): string | undefined
     if (url.username !== '' || url.password !== '') return undefined;
     // No real host holds `&`, and `&#64;` there reads as `@` wherever HTML is decoded.
     if (url.hostname.includes('&')) return undefined;
+    if ((url.protocol === 'mailto:' || url.protocol === 'tel:') && hidesCharacter(url.href, url.protocol)) return undefined;
     return url.href;
   } catch { return undefined; }
+}
+
+/** Controls, invisible format characters and the noncharacters U+FFFE and U+FFFF. */
+const HIDDEN_CHARACTER = /[\p{Cc}\p{Cf}\ufffe\uffff]/u;
+
+/**
+ * Whether a mail or phone address hides a character from the reader once the
+ * mail client or dialer decodes it, judged at least as strictly as the core URL
+ * policy: everything before the query, and for `mailto:` also the `to`, `cc`
+ * and `bcc` fields.
+ */
+function hidesCharacter(href: string, protocol: string): boolean {
+  const end = href.search(/[?#]/);
+  let address = end < 0 ? href : href.slice(0, end);
+  const query = href.indexOf('?');
+  if (protocol === 'mailto:' && query >= 0) {
+    for (const field of href.slice(query + 1).split('&')) {
+      const equals = field.indexOf('=');
+      if (equals > 0 && /^(?:to|cc|bcc)$/i.test(percentDecoded(field.slice(0, equals)))) address += ` ${field.slice(equals + 1)}`;
+    }
+  }
+  return HIDDEN_CHARACTER.test(percentDecoded(address));
+}
+
+/** `value` with every run of percent-encoded bytes read as UTF-8, a malformed sequence as U+FFFD and a byte order mark kept. */
+function percentDecoded(value: string): string {
+  if (!value.includes('%')) return value;
+  const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+  return value.replace(/(?:%[\da-f]{2})+/gi, run => decoder.decode(new Uint8Array(run.slice(1).split('%').map(hex => parseInt(hex, 16)))));
 }
 
 /** Raster data only. SVG, blob, local file, and external clipboard references are never durable assets. */

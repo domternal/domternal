@@ -214,17 +214,32 @@ describe('parity with the core URL policy (H8)', () => {
     expect(safeLink('https://example.com/a?b=1&c=2')).toBe('https://example.com/a?b=1&c=2');
   });
 
+  it('refuses a mail or phone address whose decoded form hides a character, which a mail client or dialer decodes', () => {
+    for (const value of ['mailto:%E2%80%AEmoc.elgoog@evil.example', 'mailto:\u202emoc.elgoog@evil.example', 'mailto:a/b@ev\u200dil.example',
+      'tel:%E2%80%8B1234', 'tel:+1%00', 'mailto:a@b.example?cc=%E2%80%AEx@y.example', 'mailto:a@b.example?subject=x&bcc=\u200bx@y.example',
+      'mailto://ex\u200bample.com/']) {
+      expect(safeLink(value), value).toBeUndefined();
+      expect(isValidUrl(value, LINK), value).toBe(false);
+    }
+    for (const value of ['mailto:a@b.example?subject=%E2%80%AE', 'tel:+1%20555', 'mailto:J%C3%B6rg@example.com']) {
+      expect(safeLink(value), value).toBe(value);
+      expect(isValidUrl(value, LINK), value).toBe(true);
+    }
+  });
+
   it('keeps only addresses core allows, for a corpus and a seeded fuzz', () => {
     const corpus = [
       'https://example.com/', 'HTTPS://EXAMPLE.COM/A', 'http://example.com/a b', 'https://ｅxample.com/', 'https://example.com/‮',
       'mailto:a@b.example', 'mailto:‮@b.example', 'tel:+385 1', 'https://user:pass@example.com/', 'https://exa mple.com/',
       'ftp://example.com/', 'https:example.com', 'https:\\\\example.com', '//example.com/', '/relative', '#fragment',
       'https://example.com/%00', 'https://[::1]/', 'https://example.com/?q=<script>', 'mailto:?subject=x', 'tel:',
+      'mailto:%E2%80%AEa@b.example', 'mailto:a@b.example?cc=%E2%80%8Bx@y', 'tel:+1%E2%80%8B2', 'mailto://ex%E2%80%8Bample.com/',
     ];
     let seed = 7;
     const random = (): number => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
     const pieces = ['https:', 'http:', 'mailto:', 'tel:', 'javascript:', 'data:', '//', '/', '\\', '#', '?', '%', '&', ';', ':', '@',
-      'a', 'b.example', ' ', '\t', '\n', '\u0000', ' ', '​', '‮', 'ｊ', 'а', '%0a', '&#58;', '..', 'x'];
+      'a', 'b.example', ' ', '\t', '\n', '\u0000', ' ', '​', '‮', 'ｊ', 'а', '%0a', '&#58;', '..', 'x',
+      '%E2%80%AE', '%E2%80%8B', '%E2%80%8E', '%C2%AD', '\u00ad', '\u200e', '\u202a', '\u202c', '?cc=', '&bcc=', '?subject='];
     for (let run = 0; run < 3000; run++) {
       const length = 1 + Math.floor(random() * 6);
       corpus.push(Array.from({ length }, () => pieces[Math.floor(random() * pieces.length)] ?? '').join(''));

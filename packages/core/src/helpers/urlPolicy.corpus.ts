@@ -221,6 +221,14 @@ export const URL_CORPUS: readonly UrlCorpusRow[] = [
   { id: 'A31', value: '//cdn\u200c.example/x.png', link: 'unsafe', image: UNSAFE },
   { id: 'A31', value: '\\\\cdn\u200c.example\\x.png', link: 'unsafe', image: UNSAFE },
   { id: 'A31', value: '\ufeffjavascript:alert(1)', link: 'unsafe', image: UNSAFE },
+  // A mail client or dialer decodes the address it is handed, where a `/` means nothing, and a mail client reads
+  // the to, cc and bcc fields as addresses too; a host is judged decoded as well.
+  { id: 'A31', value: 'mailto:%E2%80%AEmoc.elgoog@evil.example', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'tel:%E2%80%AE1234', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'mailto:a/b@ev\u200dil.example', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'mailto:a@b.example?cc=%E2%80%8Bx@y.example', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'https://ex%E2%80%8Bample.com/', link: 'unsafe', image: UNSAFE },
+  { id: 'A31', value: 'mailto:a@b.example?subject=%E2%80%AE', link: 'allowed', image: ALLOWED },
   { id: 'A31', value: 'https://example.com/\u202eexe.txt', link: 'unsafe', image: UNSAFE },
   { id: 'A31', value: '?q=\u2067x', link: 'unsafe', image: UNSAFE },
 ];

@@ -138,6 +138,59 @@ describe('checkUrl', () => {
       }
     });
 
+    const encoded = (char: string): string => encodeURIComponent(char);
+
+    it('judges the whole address of a scheme without a host, where a slash means nothing', () => {
+      for (const char of FORMAT) {
+        for (const value of [`mailto:a/b@ev${char}il.example`, `mailto:a@b/c${char}d`, `tel:+1/${char}234`, `tel:+1\\${char}2`,
+          `myapp:a/b${char}c`, `mailto:a@b.example/x${char}?subject=y`]) {
+          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
+        }
+      }
+    });
+
+    it('judges that address percent-decoded, as a mail client or dialer reads it', () => {
+      for (const char of [...FORMAT, ...BIDI_CONTROLS, '\u0000', '\n', '\u001f', '\u007f', '\u0085', '￾', '￿']) {
+        for (const value of [`mailto:${encoded(char)}moc.elgoog@evil.example`, `mailto:a${encoded(char)}b@x.example`,
+          `mailto:a@x${encoded(char)}.example`, `tel:${encoded(char)}1234`, `tel:+385${encoded(char).toLowerCase()}1`, `myapp:a${encoded(char)}b`]) {
+          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
+        }
+      }
+      // A malformed sequence reads as U+FFFD, which hides nothing; a valid one next to it still counts.
+      expect(checkUrl('tel:%FF1', options).status).toBe('allowed');
+      expect(checkUrl('tel:+1%E2%80', options).status).toBe('allowed');
+      expect(checkUrl('tel:+385%E2%80%AE%80', options).status).toBe('unsafe');
+      expect(checkUrl('mailto:a%0D%0ABcc:x@y.example', options).status).toBe('unsafe');
+    });
+
+    it('judges the to, cc and bcc fields of a mailto: query, which name recipients too', () => {
+      for (const field of ['to', 'cc', 'bcc', 'CC', 'c%63', 'b%63c']) {
+        for (const value of [`mailto:a@b.example?${field}=%E2%80%AEmoc.elgoog@evil.example`, `mailto:a@b.example?subject=x&${field}=e‍vil@x.example`,
+          `mailto:?${field}=x%00@y.example`]) {
+          expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
+        }
+      }
+      // Free text fields and web queries keep what browsers percent-encode.
+      for (const value of ['mailto:a@b.example?subject=%E2%80%AE', 'mailto:a@b.example?body=a%0D%0Ab', 'mailto:a@b.example?subject=a‌b',
+        'mailto:a@b.example?in-reply-to=%E2%80%8B', 'mailto:a@b.example?cc', 'https://example.com/?cc=%E2%80%AE', 'https://example.com/%E2%80%8B']) {
+        expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('allowed');
+      }
+    });
+
+    it('judges a host percent-decoded, so an encoded character is refused like a written one', () => {
+      for (const value of ['https://ex%E2%80%8Bample.com/', 'https://ex%E2%80%AEample.com/', 'myapp://ho%E2%80%8Bst/path', 'https://example.com%00/']) {
+        expect(checkUrl(value, options).status, JSON.stringify(value)).toBe('unsafe');
+      }
+      expect(checkUrl('//cdn%E2%80%8C.example/x.png', { ...options, allowNetworkPath: true }).status).toBe('unsafe');
+    });
+
+    it('keeps ordinary encoded addresses', () => {
+      for (const value of ['tel:+1%20555%20123', 'mailto:J%C3%B6rg@example.com', 'mailto:a@b.example?subject=Gr%C3%BC%C3%9Fe', 'myapp://my%20host/path',
+        'mailto:%61@b.example', 'tel:%2B385']) {
+        expect(checkUrl(value, options), JSON.stringify(value)).toEqual({ status: 'allowed', url: value });
+      }
+    });
+
     it('stays linear when a long value holds them', () => {
       const start = performance.now();
       checkUrl(`https://example.com/${'\u200c'.repeat(1_000_000)}`, LINK_PROFILE);

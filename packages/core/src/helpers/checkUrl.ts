@@ -50,7 +50,9 @@ export interface UrlPolicyOptions {
  *   credentials in a web, mail or phone address, where they read as the
  *   host, a control character or a bidi embedding,
  *   override or isolate anywhere, an invisible format character or bidi mark
- *   in the scheme, the host or the address of a scheme without a host, or a
+ *   in the scheme, the host or the address of a scheme without a host, where
+ *   a percent-encoded one counts too (the address is everything before the
+ *   query, and for `mailto:` also the `to`, `cc` and `bcc` fields), or a
  *   value that is not a string.
  * - `unsupported`: the value is harmless but these options do not allow it:
  *   another scheme, a relative or network-path reference, a backslash, an
@@ -133,11 +135,10 @@ const FORMAT_CHARACTER = /[\u061c\u200b-\u200f\u2060-\u2064\ufeff]/;
 
 /**
  * The part of an address that says where it leads: the scheme and the
- * authority, such as `https://host:port`, or for a scheme without an
- * authority, such as `mailto:name@host` or `tel:+1234`, everything up to the
- * first `/`, `\`, `?` or `#`. A relative reference says it only as a network
- * path (`//host`), or where its first segment holds a colon and so reads as a
- * scheme to some consumers; any other relative reference stays on the page.
+ * authority, such as `https://host:port`. A relative reference says it only
+ * as a network path (`//host`), or where its first segment holds a colon and
+ * so reads as a scheme to some consumers; any other relative reference stays
+ * on the page. A scheme without an authority is judged by `addressOf`.
  */
 function destinationOf(url: string, schemeLength: number): string {
   if (schemeLength === 0 && !/^[/\\]{2}/.test(url)) {
@@ -149,6 +150,35 @@ function destinationOf(url: string, schemeLength: number): string {
   while (url[start] === '/' || url[start] === '\\') start++;
   const end = url.slice(start).search(/[/\\?#]/);
   return end < 0 ? url : url.slice(0, start + end);
+}
+
+/**
+ * The address of a scheme without an authority, such as `mailto:` or `tel:`,
+ * as its handler reads it: everything before the query or fragment, where a
+ * `/` means nothing, and for `mailto:` also the `to`, `cc` and `bcc` fields,
+ * which name recipients too.
+ */
+function addressOf(url: string, scheme: string): string {
+  let address = beforeQuery(url);
+  const query = url.indexOf('?');
+  if (scheme === 'mailto:' && query >= 0) {
+    for (const field of url.slice(query + 1).split('&')) {
+      const equals = field.indexOf('=');
+      if (equals > 0 && /^(?:to|cc|bcc)$/i.test(percentDecoded(field.slice(0, equals)))) address += ` ${field.slice(equals + 1)}`;
+    }
+  }
+  return address;
+}
+
+/**
+ * `value` with every run of percent-encoded bytes read as UTF-8, and a
+ * malformed sequence as U+FFFD, as a mail client or dialer reads an address.
+ * A leading byte order mark is kept, as it is a character of the address.
+ */
+function percentDecoded(value: string): string {
+  if (!value.includes('%')) return value;
+  const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+  return value.replace(/(?:%[\da-f]{2})+/gi, run => decoder.decode(new Uint8Array(run.slice(1).split('%').map(hex => parseInt(hex, 16)))));
 }
 
 /** The part of an address before its query or fragment. */
@@ -203,7 +233,12 @@ export function checkUrl(value: unknown, options: UrlPolicyOptions = {}): UrlChe
   } = options;
   const match = SCHEME.exec(url);
   const scheme = match ? normalizeUrlProtocol(match[1] ?? '') : null;
-  if (FORMAT_CHARACTER.test(destinationOf(url, match?.[0].length ?? 0))) return UNSAFE;
+  const schemeLength = match?.[0].length ?? 0;
+  // A scheme without an authority, such as mailto: or tel:, hands its whole
+  // address to a handler that decodes it, so the decoded address is judged.
+  const opaque = scheme !== null && scheme !== 'data:' && !SPECIAL_SCHEMES.has(scheme) && !url.startsWith('//', schemeLength);
+  const destination = percentDecoded(opaque ? addressOf(url, scheme) : destinationOf(url, schemeLength));
+  if (/[^ -~]/.test(destination) && (hasHiddenCharacter(destination) || FORMAT_CHARACTER.test(destination))) return UNSAFE;
 
   if (!allowNetworkPath && (scheme === null || SPECIAL_SCHEMES.has(scheme)) && beforeQuery(url).includes('\\')) {
     return UNSUPPORTED;
