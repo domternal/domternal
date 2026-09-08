@@ -394,6 +394,13 @@ or remove the link that carries it, instead of failing the whole document, and r
   `allowRelative: false`, a network path, a backslash, an address the URL parser rejects, or an
   empty or missing href. An allowed href is kept exactly as stored.
 
+HTML follows the same placement without a report, since HTML is converted rather than loaded:
+initial and set HTML content, `insertContent`, `createDocument`, `generateJSON`, and a paste or
+drop without PasteCleanup parse every `h1` to `h6` tag as a heading at the nearest configured
+level, so with levels 1 to 4 an `h5` becomes a level 4 heading instead of a paragraph. A tag the
+levels lack ranks below other parse rules, so an application node that parses such a tag keeps
+it.
+
 Each diagnostic names the `code`, `nodeType`, `attribute`, and `path` of the replaced value, and
 the `value` itself when it is a finite number or a string of at most 64 characters. For a removed
 link, `nodeType` is the node that carried it, such as `text` or an inline `image`, and `markType`

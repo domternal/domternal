@@ -74,17 +74,18 @@ describe('Heading', () => {
   });
 
   describe('parseHTML', () => {
-    it('returns rules for all configured levels', () => {
+    it('returns a rule for every heading tag, the configured levels first', () => {
       const rules = Heading.config.parseHTML?.call(Heading);
-      expect(rules).toHaveLength(4);
-      expect(rules?.[0]).toEqual({ tag: 'h1', attrs: { level: 1 } });
-      expect(rules?.[3]).toEqual({ tag: 'h4', attrs: { level: 4 } });
+      expect(rules).toEqual([
+        { tag: 'h1' }, { tag: 'h2' }, { tag: 'h3' }, { tag: 'h4' }, { tag: 'h5', priority: 1 }, { tag: 'h6', priority: 1 },
+      ]);
     });
 
-    it('only parses configured levels', () => {
+    it('ranks a tag the configured levels lack below other rules', () => {
       const CustomHeading = Heading.configure({ levels: [1, 2] });
       const rules = CustomHeading.config.parseHTML?.call(CustomHeading);
-      expect(rules).toHaveLength(2);
+      expect(rules?.filter(rule => rule.priority === undefined).map(rule => rule.tag)).toEqual(['h1', 'h2']);
+      expect(rules?.filter(rule => rule.priority === 1).map(rule => rule.tag)).toEqual(['h3', 'h4', 'h5', 'h6']);
     });
   });
 
@@ -237,14 +238,15 @@ describe('Heading', () => {
       expect(editor.getHTML()).toBe('<h2>My Heading</h2>');
     });
 
-    it('respects configured levels for parsing', () => {
+    it('parses a tag the configured levels lack at the nearest configured level', () => {
       const CustomHeading = Heading.configure({ levels: [1, 2] });
       editor = new Editor({
         extensions: [Document, Text, Paragraph, CustomHeading],
         content: '<h1>H1</h1><h3>H3</h3>',
       });
-      expect(editor.state.doc.child(0).type.name).toBe('heading');
-      expect(editor.state.doc.child(1).type.name).toBe('paragraph');
+      expect(editor.state.doc.child(0).attrs['level']).toBe(1);
+      expect(editor.state.doc.child(1).type.name).toBe('heading');
+      expect(editor.state.doc.child(1).attrs['level']).toBe(2);
     });
   });
 

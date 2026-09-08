@@ -191,11 +191,13 @@ describe('normalizeContentAttributes with heading levels', () => {
   });
 
   it('follows the configured levels and leaves configured ones alone', () => {
+    // The h1 of the content parses at level 2, the nearest configured level.
     const { editor: ed } = mountHeadings([2, 3]);
+    expect(levels(ed)).toEqual([2, 2, 3]);
     expect(ed.can().normalizeContentAttributes()).toBe(false);
     store(ed, [1, 4]);
     expect(ed.commands.normalizeContentAttributes()).toBe(true);
-    expect(levels(ed)).toEqual([2, 3]);
+    expect(levels(ed)).toEqual([2, 3, 3]);
   });
 
   it('migrates markers and levels in one transaction outside the undo history', () => {

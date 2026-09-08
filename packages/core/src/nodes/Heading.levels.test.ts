@@ -95,8 +95,8 @@ describe('configured heading levels', () => {
   });
 
   it('accepts levels in any order and counts a repeated level once, at its first position', () => {
-    const ed = mount([4, 2, 2], '<h2>A</h2><h4>B</h4><h3>C</h3>');
-    expect(ed.getHTML()).toBe('<h2>A</h2><h4>B</h4><p>C</p>');
+    const ed = mount([4, 2, 2], '<h2>A</h2><h4>B</h4><h3>C</h3><p>D</p>');
+    expect(ed.getHTML()).toBe('<h2>A</h2><h4>B</h4><h4>C</h4><p>D</p>');
     select(ed, ed.state.doc.content.size - 1);
     expect(ed.commands.setBlockType('heading')).toBe(true);
     expect(ed.state.doc.lastChild?.attrs['level']).toBe(4);
@@ -119,9 +119,9 @@ describe('repeated heading levels', () => {
       .toEqual(['heading-2', 'heading-1', 'heading-3']);
   });
 
-  it('builds one parse rule and one shortcut per level', () => {
+  it('builds one parse rule per heading tag and one shortcut per level', () => {
     const ed = mount([4, 2, 2]);
-    expect(ed.schema.nodes['heading']?.spec.parseDOM?.map(rule => rule.tag)).toEqual(['h4', 'h2']);
+    expect(ed.schema.nodes['heading']?.spec.parseDOM?.map(rule => rule.tag)).toEqual(['h4', 'h2', 'h1', 'h3', 'h5', 'h6']);
     const shortcuts = Object.keys(headingOf(ed)?.config.addKeyboardShortcuts?.call(headingOf(ed) as never) ?? {})
       .filter(key => key.startsWith('Mod-Alt-'));
     expect(shortcuts).toEqual(['Mod-Alt-4', 'Mod-Alt-2']);
@@ -129,7 +129,8 @@ describe('repeated heading levels', () => {
 
   it.each([[[2, 2], [2]], [[1, 1, 1, 1], [1]], [[4, 2, 2], [4, 2]]])('treats %j as %j and keeps the first as the default', (levels, effective) => {
     const ed = mount(levels, '<p>Text</p>');
-    expect(ed.schema.nodes['heading']?.spec.parseDOM?.map(rule => rule.tag)).toEqual(effective.map(level => `h${String(level)}`));
+    const configured = ed.schema.nodes['heading']?.spec.parseDOM?.filter(rule => rule.priority === undefined);
+    expect(configured?.map(rule => rule.tag)).toEqual(effective.map(level => `h${String(level)}`));
     select(ed, 1);
     expect(ed.commands.setHeading()).toBe(true);
     expect(ed.state.doc.firstChild?.attrs['level']).toBe(effective[0]);

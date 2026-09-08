@@ -54,9 +54,10 @@ export const Heading = Node.create<HeadingOptions>({
     return {
       level: {
         ...headingLevelAttribute(levels),
+        // Every heading tag parses at the level it renders at, as JSON content loads it.
         parseHTML: (element: HTMLElement) => {
-          const match = /^H(\d)$/i.exec(element.tagName);
-          return match?.[1] ? parseInt(match[1], 10) : levels[0];
+          const match = /^H([1-6])$/i.exec(element.tagName);
+          return match?.[1] ? resolveHeadingLevel(parseInt(match[1], 10), levels) : levels[0];
         },
         renderHTML: () => {
           // Level is used in the tag name, not as an attribute
@@ -68,10 +69,15 @@ export const Heading = Node.create<HeadingOptions>({
 
   parseHTML() {
     // `this` is properly typed via ThisType<NodeContext<HeadingOptions>>
-    return configuredHeadingLevels(this.options.levels).map((level) => ({
-      tag: `h${String(level)}`,
-      attrs: { level },
-    }));
+    // Every heading tag parses as a heading at the nearest configured level, as
+    // JSON content loads it, instead of as a paragraph. A tag the levels lack
+    // ranks below other rules, so an application node that parses it wins.
+    const levels = configuredHeadingLevels(this.options.levels);
+    const unconfigured = [1, 2, 3, 4, 5, 6].filter((level) => !levels.includes(level));
+    return [
+      ...levels.map((level) => ({ tag: `h${String(level)}` })),
+      ...unconfigured.map((level) => ({ tag: `h${String(level)}`, priority: 1 })),
+    ];
   },
 
   renderHTML({ node, HTMLAttributes }) {
