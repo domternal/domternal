@@ -46,3 +46,50 @@ test('literal insertion replaces inline text while parsed insertion preserves bl
   await expect(editable.locator(':scope > p')).toHaveText(['a', 'X & Y', 'b']);
   await expect(editable.locator('strong')).toHaveText('X & Y');
 });
+
+test('mention and math HTML round trips preserve identity and escaping across attribute order', async ({ page }) => {
+  await open(page);
+  const result = await page.evaluate(() => {
+    const { editor, seed } = window.__TUTORIAL_MENUS__;
+    const attributes = {
+      'data-id': 'user"&<42>', 'data-label': 'A & <B> "C"',
+      'data-type': 'mention', 'data-mention-type': 'user',
+    };
+    const mention = document.createElement('span');
+    for (const [name, value] of Object.entries(attributes)) mention.setAttribute(name, value);
+    mention.textContent = '@A & <B> "C"';
+    const inline = document.createElement('span');
+    inline.setAttribute('data-latex', 'x < y & z > "q"');
+    inline.setAttribute('data-type', 'math-inline');
+    const block = document.createElement('div');
+    block.setAttribute('data-latex', 'a & b < c');
+    block.setAttribute('data-type', 'math-block');
+    seed(`<p>${mention.outerHTML}${inline.outerHTML}</p>${block.outerHTML}`);
+    const before = editor.getJSON();
+    const serialized = document.createElement('div');
+    serialized.innerHTML = editor.getHTML();
+    const outputMention = serialized.querySelector('[data-type="mention"]');
+    const outputInline = serialized.querySelector('[data-type="math-inline"]');
+    const outputBlock = serialized.querySelector('[data-type="math-block"]');
+    const semantic = {
+      mention: Object.fromEntries(Object.keys(attributes).map(name => [name, outputMention?.getAttribute(name)])),
+      inlineLatex: outputInline?.getAttribute('data-latex'),
+      blockLatex: outputBlock?.getAttribute('data-latex'),
+      injectedElements: serialized.querySelectorAll('script, img, b').length,
+    };
+    for (const element of serialized.querySelectorAll('*')) {
+      const attrs = Array.from(element.attributes).reverse().map(attr => [attr.name, attr.value] as const);
+      for (const [name] of attrs) element.removeAttribute(name);
+      for (const [name, value] of attrs) element.setAttribute(name, value);
+    }
+    editor.setContent(serialized.innerHTML, false);
+    return { before, after: editor.getJSON(), semantic, expectedAttributes: attributes };
+  });
+  expect(result.after).toEqual(result.before);
+  expect(result.semantic).toEqual({
+    mention: result.expectedAttributes,
+    inlineLatex: 'x < y & z > "q"',
+    blockLatex: 'a & b < c',
+    injectedElements: 0,
+  });
+});
