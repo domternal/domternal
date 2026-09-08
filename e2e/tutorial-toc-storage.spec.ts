@@ -123,3 +123,36 @@ test('the observer handles the initial hash without a block or floating outline'
   await expect(page).toHaveURL(/#second$/);
 });
 
+for (const language of ['ts', 'project-ts', 'unavailable-language']) {
+  test(`language picker preserves saved ${language} and changes only on user selection`, async ({ page }) => {
+    await openFixture(page, `mode=picker&language=${language}`);
+    const picker = page.getByLabel('Code language');
+    await expect(picker).toHaveValue(language);
+    const before = await snapshot(page);
+    expect(before.language).toBe(language);
+    expect(before.canonicalLanguages).toContain('typescript');
+    expect(before.canonicalLanguages).not.toContain(language);
+    expect(before.wrongStorageKeyPresent).toBe(false);
+    expect(before.sameDoc).toBe(true);
+    expect(before.transactions).toBe(0);
+    expect(before.html).toContain(`language-${language}`);
+    const option = picker.locator('option:checked');
+    if (language === 'unavailable-language') {
+      await expect(option).toHaveText(`${language} (unavailable)`);
+      await expect(page.locator('.ProseMirror code [class*="hljs-"]')).toHaveCount(0);
+    } else {
+      await expect(option).toHaveText(`${language} (alias)`);
+      await expect(page.locator('.ProseMirror code .hljs-keyword').first()).toBeVisible();
+    }
+
+    await picker.selectOption('typescript');
+    await expect(picker).toHaveValue('typescript');
+    expect((await snapshot(page)).language).toBe('typescript');
+    await expect(page.locator('.ProseMirror code .hljs-keyword').first()).toBeVisible();
+    expect((await snapshot(page)).html).toContain('language-typescript');
+    await picker.selectOption('');
+    await expect(picker).toHaveValue('');
+    expect((await snapshot(page)).language).toBeNull();
+    await expect(page.locator('.ProseMirror code [class*="hljs-"]')).toHaveCount(0);
+  });
+}
