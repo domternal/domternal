@@ -227,34 +227,45 @@ for (const target of demoTargets) {
     await page.waitForSelector(target.editorSelector);
     await page.evaluate(() => {
       const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { setContent: (h: string, emit: boolean) => void }
+        | {
+          setContent: (h: string, emit: boolean) => void;
+          commands: { focus: (position: 'end') => boolean };
+        }
         | undefined;
-      editor?.setContent('<p>The sentence under the pointer.</p>', false);
+      if (!editor) throw new Error('no editor');
+      editor.setContent('<p>The sentence under the pointer.</p>', false);
+      // Native End can keep scrolling the page while the later mouse press is held.
+      editor.commands.focus('end');
     });
     await expect(page.locator(`${target.editorSelector} h1`)).toHaveCount(0);
-
-    await page.click(`${target.editorSelector} > *:first-child`);
-    await page.keyboard.press('End');
+    await expect(page.locator(target.editorSelector)).toBeFocused();
     await page.keyboard.press('Enter');
     await page.keyboard.type('/');
 
     const item = page.locator('.dm-slash-command-item', { hasText: 'Heading 1' }).first();
     await expect(item).toBeVisible();
-    // Let Playwright settle scrolling and hit-test the intended row before
-    // the held press. A cached bounding box can point at a different row
-    // while Firefox is still scrolling the document.
-    await item.hover();
-    await expect(item).toHaveAttribute('data-selected', '');
-    await page.mouse.down();
-    await page.evaluate(() => {
-      const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { view: { state: { tr: unknown }; dispatch: (tr: unknown) => void } }
-        | undefined;
-      if (!editor) throw new Error('no editor');
-      editor.view.dispatch(editor.view.state.tr);
+    // Keep scrolling and hit testing inside the native click. The page can
+    // still scroll after hover, leaving a separate mouse.down at a stale point.
+    await item.evaluate((button) => {
+      button.addEventListener('mousedown', (event) => {
+        const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+          | { view: { state: { tr: unknown }; dispatch: (tr: unknown) => void } }
+          | undefined;
+        if (!editor) throw new Error('no editor');
+        const pressed = event.target as Node | null;
+        editor.view.dispatch(editor.view.state.tr);
+        // A locator retry must not conceal a button rebuilt by the transaction.
+        (window as unknown as Record<string, unknown>)['__SLASH_PRESS_PROBE__'] = {
+          buttonPreserved: button.isConnected,
+          pressedTargetPreserved: Boolean(pressed?.isConnected && button.contains(pressed)),
+        };
+      }, { once: true });
     });
-    await page.mouse.up();
+    await item.click({ delay: 150 });
 
+    expect(await page.evaluate(
+      () => (window as unknown as Record<string, unknown>)['__SLASH_PRESS_PROBE__'],
+    )).toEqual({ buttonPreserved: true, pressedTargetPreserved: true });
     await expect(page.locator(`${target.editorSelector} h1`)).toHaveCount(1);
     await expect(page.locator(target.editorSelector)).not.toContainText('/');
   });
