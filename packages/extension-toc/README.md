@@ -29,6 +29,9 @@ also requires the `UniqueID` extension (from `@domternal/core`) to be loaded: it
 reads UniqueID's `id` attribute on headings as the navigation anchor and stays
 inert without it.
 
+Version 1.1 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+
 ## Usage
 
 ```ts
@@ -75,6 +78,24 @@ list into the document.
 - `onUpdate` - called with the storage object whenever the heading list or the
   active heading changes
 
+Activity tracking belongs to `TableOfContents`, so `HeadingEntry.domNode`,
+`isActive`, and `isScrolledOver` stay current even without `FloatingTocOutline`.
+The inline block, floating outline, and `scrollToHeading` command share its
+navigation state. These observer options are also accepted:
+
+- `activeScrollParent` (default `null`, meaning the window): the scroll container
+- `activeRootMargin` (default `'0px 0px -85% 0px'`): the observer margin that
+  schedules measurements
+- `activeOffset` (default `0`): the activation line in pixels below the scroll
+  root's inner top
+- `clickOverrideMs` (default `500`): how long a navigation target stays active
+  while scrolling catches up
+
+Explicit `TableOfContents` options take precedence. Omitted scroll-parent,
+root-margin, and click-override options inherit the corresponding legacy
+`FloatingTocOutline` options, preserving existing configurations. Use
+`activeOffset` to move the activation line; root margin controls observation.
+
 `FloatingTocOutline.configure({ ... })`:
 
 - `anchor` (default `'editor'`) - `'editor'` pins the outline to the editor
@@ -88,7 +109,7 @@ list into the document.
   for the active-heading tracker. Set it when the editor lives in its own
   scrolling region
 - `activeRootMargin` (default `'0px 0px -85% 0px'`) - `IntersectionObserver`
-  rootMargin defining the active zone
+  rootMargin used to schedule active-heading measurements
 - `clickOverrideMs` (default `500`) - how long scroll-derived updates are ignored
   after a tick is clicked, so the click target stays active until the scroll lands
 - `hoverInDelay` / `hoverOutDelay` (defaults `120` / `350`) - ms before the
@@ -121,3 +142,7 @@ import {
 `walkHeadings`, `scrollToHeading`, and `createActiveStateTracker` are exposed as
 standalone helpers so you can build a custom outline UI on top of the same
 data layer and active-tracking rule.
+
+The tracker snapshot type is exported as `ActiveStateSnapshot`, with `activeId`
+and `scrolledOverIds`. The saved inline node remains `tableOfContents`; no
+document migration or change to `UniqueID` defaults is required.

@@ -22,6 +22,9 @@ pnpm add @domternal/extension-mention
 `@domternal/core` and `@domternal/pm` are peer dependencies and are already installed
 with the editor.
 
+Version 1.1 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+
 ## Usage
 
 ```ts

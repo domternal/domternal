@@ -55,6 +55,14 @@ The example above wires the minimum schema by hand to show the headless model; i
 
 > **[Getting Started Guide](https://domternal.dev/v1/getting-started)** - headless core, themed UI with toolbar, and Angular/React/Vue component setup
 
+## Version compatibility
+
+The 1.1 release adds DOM adoption, custom slash-menu icons, and shared table-of-contents
+activity tracking. Existing editor APIs and saved document formats remain compatible.
+Upgrade installed `@domternal/*` packages together: 1.1 wrappers require core
+`>=1.1.0 <2.0.0`, and extensions require both core and pm in that range. See
+[CHANGELOG.md](CHANGELOG.md) for the release contents.
+
 ## Packages
 
 | Package                                                                                                              | Description                                                                                                                                                                  |

@@ -27,6 +27,9 @@ it yourself and pass a configured instance via the required `lowlight` option. F
 smaller bundle, start from an empty `createLowlight()` and register only the languages you
 need with `lowlight.register(name, syntax)`.
 
+Version 1.1 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+
 ## Usage
 
 ```ts
