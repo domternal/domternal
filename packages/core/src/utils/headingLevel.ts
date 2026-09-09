@@ -49,6 +49,47 @@ export function nearestHeadingLevel(level: number, levels: readonly number[]): n
   return deeper ?? deepest;
 }
 
+/**
+ * The parse rule priority of a heading tag the levels lack: below 1, so every
+ * rule at priority 1 or above wins, and higher the nearer the level it takes
+ * is by the rule above, so among nodes built from Heading the one whose levels
+ * hold the nearest deeper level wins, otherwise the nearest shallower one.
+ */
+export function unconfiguredTagPriority(level: number, levels: readonly number[]): number {
+  const taken = nearestHeadingLevel(level, levels);
+  const distance = taken > level ? taken - level : 10 + level - taken;
+  return (100 - distance) / 100;
+}
+
+// Elements whose text ProseMirror's parser never reads.
+const UNREAD = new Set(['HEAD', 'NOSCRIPT', 'OBJECT', 'SCRIPT', 'STYLE', 'TEMPLATE', 'TITLE']);
+
+/** Whether a node before the heading holds text the parser reads into the list item. */
+function holdsText(node: ChildNode): boolean {
+  if (node.nodeType === 3) return /\S/.test(node.nodeValue ?? '');
+  return node.nodeType === 1 && !UNREAD.has((node as Element).tagName.toUpperCase()) && /\S/.test(node.textContent ?? '');
+}
+
+/**
+ * Whether a heading element sits where a heading cannot stand, as 1.2 found
+ * every tag the levels lacked: in a summary or a preformatted block, whose
+ * content is inline, or before any text of its list item, whose first block
+ * must be a paragraph. ProseMirror would move a heading out of each, splitting
+ * the list or emptying the summary, so the tag keeps parsing as a paragraph.
+ */
+export function headingCannotStand(element: HTMLElement): boolean {
+  if (element.parentElement?.closest('summary, pre')) return true;
+  // A table cell, blockquote or details inside the item holds blocks of its own.
+  const item = element.parentElement?.closest('li, td, th, blockquote, details');
+  if (item?.tagName.toUpperCase() !== 'LI') return false;
+  for (let node: ChildNode | null = element; node !== null && node !== item; node = node.parentNode as ChildNode | null) {
+    for (let before = node.previousSibling; before !== null; before = before.previousSibling) {
+      if (holdsText(before)) return false;
+    }
+  }
+  return true;
+}
+
 /** A decimal number written as a string, such as a level stored as "5". */
 const decimal = /^\s*[+-]?\d+(?:\.\d+)?\s*$/;
 

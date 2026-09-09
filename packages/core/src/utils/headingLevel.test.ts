@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
-import { configuredHeadingLevels, isHeadingLevel, nearestHeadingLevel, resolveHeadingLevel } from './headingLevel.js';
+import {
+  configuredHeadingLevels, headingCannotStand, isHeadingLevel, nearestHeadingLevel, resolveHeadingLevel, unconfiguredTagPriority,
+} from './headingLevel.js';
 
 /**
  * Every non-empty set of configured levels, as a bit mask where bit `level - 1` marks a
@@ -108,5 +110,62 @@ describe('configuredHeadingLevels with repeated levels', () => {
     configuredHeadingLevels(option);
     expect(option).toEqual([2, 2]);
     expect(Object.isFrozen(option)).toBe(false);
+  });
+});
+
+describe('unconfiguredTagPriority', () => {
+  it('ranks every mapped tag below 1, a nearer deeper level above any shallower one', () => {
+    expect(unconfiguredTagPriority(5, [1, 2, 3, 4])).toBe(0.89);
+    expect(unconfiguredTagPriority(6, [1, 2, 3, 4])).toBe(0.88);
+    expect(unconfiguredTagPriority(1, [2, 3])).toBe(0.99);
+    expect(unconfiguredTagPriority(1, [6])).toBe(0.95);
+    expect(unconfiguredTagPriority(6, [1])).toBe(0.85);
+    for (const level of LEVELS) {
+      for (const levels of [[1], [6], [2, 4], [1, 2, 3, 4, 5]]) {
+        if (levels.includes(level)) continue;
+        const priority = unconfiguredTagPriority(level, levels);
+        expect(priority).toBeLessThan(1);
+        expect(priority).toBeGreaterThan(0.8);
+      }
+    }
+  });
+});
+
+describe('headingCannotStand', () => {
+  const heading = (html: string): HTMLElement => {
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    const found = host.querySelector<HTMLElement>('#h');
+    if (!found) throw new Error('No heading');
+    return found;
+  };
+
+  it.each([
+    '<ul><li><h5 id="h">a</h5></li></ul>',
+    '<ul><li> \n <h5 id="h">a</h5></li></ul>',
+    '<ul><li><!-- note --><h5 id="h">a</h5></li></ul>',
+    '<ul><li><span></span><h5 id="h">a</h5></li></ul>',
+    '<ul><li><style>p{}</style><script>x()</script><h5 id="h">a</h5></li></ul>',
+    '<ul><li><label><input type="checkbox"></label><div><h5 id="h">a</h5></div></li></ul>',
+    '<ol><li>Parent<ul><li><h5 id="h">a</h5></li></ul></li></ol>',
+    '<details><summary><b><h5 id="h">a</h5></b></summary></details>',
+    '<pre><h5 id="h">a</h5></pre>',
+  ])('finds %s where a heading cannot stand', html => {
+    expect(headingCannotStand(heading(html))).toBe(true);
+  });
+
+  it.each([
+    '<h5 id="h">a</h5>',
+    '<blockquote><h5 id="h">a</h5></blockquote>',
+    '<ul><li>Text<h5 id="h">a</h5></li></ul>',
+    '<ul><li><p>x</p><h5 id="h">a</h5></li></ul>',
+    '<ul><li><p>x</p><div><h5 id="h">a</h5></div></li></ul>',
+    '<details><summary>S</summary><h5 id="h">a</h5></details>',
+    '<table><tr><td><h5 id="h">a</h5></td></tr></table>',
+    '<ul><li><table><tr><td><h5 id="h">a</h5></td></tr></table></li></ul>',
+    '<ul><li><blockquote><h5 id="h">a</h5></blockquote></li></ul>',
+    '<ul><li><p>Label</p><details><summary>S</summary><div><h5 id="h">a</h5></div></details></li></ul>',
+  ])('lets a heading stand in %s', html => {
+    expect(headingCannotStand(heading(html))).toBe(false);
   });
 });

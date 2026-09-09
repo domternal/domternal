@@ -12,7 +12,9 @@ import { Node } from '../Node.js';
 import { textblockTypeInputRule } from '../helpers/textblockTypeInputRule.js';
 import { keymap } from '@domternal/pm/keymap';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
-import { configuredHeadingLevels, headingLevelAttribute, resolveHeadingLevel } from '../utils/headingLevel.js';
+import {
+  configuredHeadingLevels, headingCannotStand, headingLevelAttribute, resolveHeadingLevel, unconfiguredTagPriority,
+} from '../utils/headingLevel.js';
 import { pastedAttributesPlugin } from '../utils/pastedAttributes.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
@@ -71,12 +73,20 @@ export const Heading = Node.create<HeadingOptions>({
     // `this` is properly typed via ThisType<NodeContext<HeadingOptions>>
     // Every heading tag parses as a heading at the nearest configured level, as
     // JSON content loads it, instead of as a paragraph. A tag the levels lack
-    // ranks below other rules, so an application node that parses it wins.
+    // ranks below every rule at priority 1 or above, so an application node that
+    // parses it wins, and among nodes built from Heading the one whose levels
+    // hold the nearest level wins. Where a heading cannot stand, such a tag
+    // keeps the paragraph it parsed as before, instead of moving out of its list
+    // item, summary or preformatted block.
     const levels = configuredHeadingLevels(this.options.levels);
     const unconfigured = [1, 2, 3, 4, 5, 6].filter((level) => !levels.includes(level));
     return [
       ...levels.map((level) => ({ tag: `h${String(level)}` })),
-      ...unconfigured.map((level) => ({ tag: `h${String(level)}`, priority: 1 })),
+      ...unconfigured.map((level) => ({
+        tag: `h${String(level)}`,
+        priority: unconfiguredTagPriority(level, levels),
+        getAttrs: (element: HTMLElement) => (headingCannotStand(element) ? null : {}),
+      })),
     ];
   },
 

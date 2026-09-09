@@ -76,16 +76,32 @@ describe('Heading', () => {
   describe('parseHTML', () => {
     it('returns a rule for every heading tag, the configured levels first', () => {
       const rules = Heading.config.parseHTML?.call(Heading);
-      expect(rules).toEqual([
-        { tag: 'h1' }, { tag: 'h2' }, { tag: 'h3' }, { tag: 'h4' }, { tag: 'h5', priority: 1 }, { tag: 'h6', priority: 1 },
+      expect(rules?.map(rule => [rule.tag, rule.priority])).toEqual([
+        ['h1', undefined], ['h2', undefined], ['h3', undefined], ['h4', undefined], ['h5', 0.89], ['h6', 0.88],
       ]);
     });
 
-    it('ranks a tag the configured levels lack below other rules', () => {
+    it('ranks a tag the configured levels lack below other rules, nearer levels first', () => {
       const CustomHeading = Heading.configure({ levels: [1, 2] });
       const rules = CustomHeading.config.parseHTML?.call(CustomHeading);
       expect(rules?.filter(rule => rule.priority === undefined).map(rule => rule.tag)).toEqual(['h1', 'h2']);
-      expect(rules?.filter(rule => rule.priority === 1).map(rule => rule.tag)).toEqual(['h3', 'h4', 'h5', 'h6']);
+      expect(rules?.filter(rule => rule.priority !== undefined).map(rule => [rule.tag, rule.priority]))
+        .toEqual([['h3', 0.89], ['h4', 0.88], ['h5', 0.87], ['h6', 0.86]]);
+    });
+
+    it('declines a tag the configured levels lack only where a heading cannot stand', () => {
+      const rules = Heading.config.parseHTML?.call(Heading) ?? [];
+      const host = document.createElement('div');
+      host.innerHTML = '<ul><li><h5 id="first">a</h5></li><li><p>x</p><h5 id="later">b</h5></li></ul>';
+      const find = (selector: string): HTMLElement => {
+        const found = host.querySelector<HTMLElement>(selector);
+        if (!found) throw new Error(`No ${selector}`);
+        return found;
+      };
+      const five = rules.find(rule => rule.tag === 'h5');
+      expect(five?.getAttrs?.(find('#first'))).toBeNull();
+      expect(five?.getAttrs?.(find('#later'))).toEqual({});
+      expect(rules.find(rule => rule.tag === 'h1')?.getAttrs).toBeUndefined();
     });
   });
 

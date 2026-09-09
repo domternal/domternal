@@ -23,9 +23,10 @@ interface ProbeWindow {
 }
 type Transport = 'event' | 'pasteHTML' | 'drop';
 
-async function open(page: Page, framework: string, options: { cleanup: boolean; levels?: 'narrow' }): Promise<void> {
+async function open(page: Page, framework: string, options: { cleanup: boolean; levels?: 'narrow'; details?: boolean }): Promise<void> {
   const query = new URLSearchParams({
     framework, ...(options.cleanup ? {} : { 'paste-cleanup': 'off' }), ...(options.levels === 'narrow' ? { schema: 'heading-levels' } : {}),
+    ...(options.details === true ? { details: '1' } : {}),
   });
   await page.goto(`${BASE_URL}/?${query.toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
@@ -98,6 +99,56 @@ for (const cleanup of [false, true]) {
       expect((await transfer(page, '<h5>Five</h5>', 'event')).levels).toEqual([4]);
     });
   }
+}
+
+// Where a heading cannot stand, a tag the levels lack keeps the paragraph 1.2 parsed, so the list and summary stay whole.
+const CONFINED = '<ul><li><h5>First</h5></li><li><h6>Second</h6><ul><li><h5>Nested</h5></li></ul></li></ul>'
+  + '<details open><summary><h5>Summary</h5></summary><div data-details-content><p>Body</p></div></details>';
+
+for (const framework of FRAMEWORKS) {
+  test(`${framework} without PasteCleanup: an h5 or h6 that starts a list item or sits in a summary keeps its text in place`, async ({ page }) => {
+    await open(page, framework, { cleanup: false, details: true });
+    const outcomes = await page.evaluate(async html => {
+      const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+      const editor = probe.editor;
+      const shape = (): unknown => {
+        const doc = editor.getJSON();
+        const names: string[] = [];
+        editor.state.doc.descendants(node => { if (!node.isText) names.push(node.type.name); });
+        return { top: doc.content?.map(node => node.type), headings: names.filter(name => name === 'heading').length,
+          items: names.filter(name => name === 'listItem').length, text: editor.state.doc.textContent };
+      };
+      const results: unknown[] = [];
+      if (!editor.setContent(html, false)) throw new Error('Could not set the content');
+      results.push(shape());
+      for (const transport of ['event', 'drop'] as const) {
+        if (!editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
+        editor.commands.focus('start');
+        const data = new DataTransfer();
+        data.setData('text/html', html);
+        data.setData('text/plain', 'First Second Nested Summary Body');
+        if (transport === 'event') {
+          const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+          if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+          editor.view.dom.dispatchEvent(event);
+        } else {
+          const block = editor.view.dom.firstElementChild;
+          if (!block) throw new Error('No block to drop on');
+          const rect = block.getBoundingClientRect();
+          const event = new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true, clientX: rect.left + 2, clientY: rect.top + rect.height / 2 });
+          if (event.dataTransfer !== data) Object.defineProperty(event, 'dataTransfer', { value: data });
+          editor.view.dom.dispatchEvent(event);
+        }
+        await new Promise(resolve => setTimeout(resolve, 0));
+        results.push(shape());
+      }
+      return results;
+    }, CONFINED);
+    for (const outcome of outcomes) {
+      expect(outcome).toMatchObject({ headings: 0, items: 3, text: 'FirstSecondNestedSummaryBody' });
+    }
+    expect(outcomes[0]).toMatchObject({ top: ['bulletList', 'details'] });
+  });
 }
 
 /** Pastes Markdown as plain text, which the Markdown extension converts. */
