@@ -22,6 +22,9 @@ pnpm add @domternal/extension-block-controls
 `@domternal/core` and `@domternal/pm` are peer dependencies and are pulled in by any
 Domternal editor setup.
 
+Version 1.1 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+
 ## Usage
 
 Add the extensions you want to your editor's extension list. Most apps use the full set

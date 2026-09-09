@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.0 (2026-09-09)
+
+### Features
+
+- `Editor.adoptDom(element)` moves an existing editor view to a new mount element without recreating its document, selection, history, or plugin state. The new `adopt` event, `AdoptEventProps` type, and `createAdoptablePluginView` helper let DOM-dependent plugin views rebind to the new host. The existing `mount` and `create` events keep their creation-time behavior. (#181)
+- `SlashCommand.configure({ icons })` accepts trusted SVG overrides for the default slash popup. Missing keys retain the built-in icons, and `createSlashSuggestionRenderer(icons)` accepts the same optional map. Custom render factories continue to own their icon rendering. (#181)
+- `TableOfContents` accepts `activeScrollParent`, `activeRootMargin`, `activeOffset`, and `clickOverrideMs` options for shared heading activity and navigation. Explicit observer options take precedence; omitted options retain the legacy floating-outline configuration. `ActiveStateSnapshot` is exported for custom tracking consumers. (#181)
+
+### Fixes
+
+- React and Vue attach existing editors through DOM adoption, keeping editor state intact while bubble menus, floating menus, block handles, context menus, and table-of-contents UI rebind to the mounted host. (#181)
+- Table-of-contents heading entries keep their DOM references and active/scrolled-over state current without requiring a floating outline. Inline contents, floating navigation, and `scrollToHeading` share the same tracker and scroll root, including after DOM adoption. The saved `tableOfContents` node and `UniqueID` defaults remain unchanged. (#181)
+- React `useEditorState` caches snapshots per selector, so selectors remain independent and stable across subscriptions and selector changes. (#181)
+- Autolinking keeps typed delimiters outside URL links while preserving named links and unrelated marks. (#181)
+- Clearing a blurred select-all decoration uses a valid text cursor and preserves formatting for subsequent typing, with a safe fallback for documents containing only atom nodes. (#181)
+- Slash-menu `hideWhenInside` filtering respects non-list ancestors while preserving the nearest-list and child-paragraph rules. Floating menu descriptions render in Angular, React, Vue, and Vanilla, with matching theme styles; toolbar dropdown tooltips include their keyboard shortcuts. (#181)
+
+### Docs
+
+- Package READMEs document DOM adoption, shared TOC activity options, custom slash icons, floating menu description styling, and the coordinated upgrade. All 17 packages ship as 1.1.0; internal Domternal dependency and peer ranges use `>=1.1.0 <2.0.0` so new wrappers and extensions cannot resolve against a core missing the APIs they use.
+
+### Internal
+
+- Unit and browser regressions cover editor lifecycle, selection, menus, clipboard behavior, and table-of-contents contracts across the framework wrappers. (#181)
+
 ## 1.0.3 (2026-09-06)
 
 ### Fixes

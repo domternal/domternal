@@ -93,6 +93,13 @@ inherited from an ancestor, so target those elements rather than a wrapper alone
 }
 ```
 
+## Floating menu descriptions
+
+The 1.1 stylesheet supports the optional `FloatingMenuItem.description` rendered
+by all four framework wrappers. Descriptions appear below the label, wrap long
+text, and use `--dm-muted` for their colour. Upgrade the theme with the wrapper
+so the menu markup and styles stay aligned.
+
 ## The hidden attribute
 
 `hidden` works on every element this theme styles, and on anything inside one:

@@ -29,6 +29,9 @@ the DOM, so it runs anywhere without it.
 pnpm add linkedom
 ```
 
+The 1.1 release installs `@domternal/pm` in the range `>=1.1.0 <2.0.0`.
+Use matching 1.1 versions of the framework wrappers and extensions when upgrading.
+
 ### One copy of the core, and of ProseMirror
 
 ProseMirror compares classes by identity, and so does this package. Two copies of
@@ -96,6 +99,25 @@ const editor = new Editor({
   extensions: [Document, Paragraph, Text, Bold, History],
 });
 ```
+
+## Moving an existing editor
+
+Use `editor.adoptDom(element)` to move the existing editor view into a new mount
+element while preserving its document, selection, undo history, and plugin state:
+
+```ts
+editor.adoptDom(document.getElementById('next-editor-mount')!);
+```
+
+The `adopt` event reports a changed DOM context and lets host-dependent UI rebind.
+The original `mount` and `create` events remain creation-time events; they are not
+repeated by adoption. Calling `adoptDom` with an unchanged DOM context is a no-op.
+React and Vue wrappers use this path when attaching an existing editor.
+
+Custom plugin views can use `createAdoptablePluginView(editor, view, createView)`
+to recreate their DOM bindings after adoption while retaining plugin state. The
+factory must return a ProseMirror plugin view and clean up its own DOM resources
+in `destroy`. The event payload type is exported as `AdoptEventProps`.
 
 ## Presets
 

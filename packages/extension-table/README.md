@@ -26,6 +26,9 @@ pnpm add @domternal/extension-table
 `@domternal/core` and `@domternal/pm` are peer dependencies and are already
 present in any Domternal editor setup.
 
+Version 1.1 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+
 ## Usage
 
 Add the `Table` extension to your editor. It pulls in `TableRow`, `TableCell`,
