@@ -56,11 +56,13 @@ export const SelectionDecoration = Extension.create<SelectionDecorationOptions>(
                   }
                 }
 
-                const { from, to } = view.state.selection;
+                const { from, to, $from } = view.state.selection;
                 if (from !== to) {
+                  // All and node selections can start outside a textblock.
+                  // Prefer a text cursor, with a valid fallback when none exists.
                   view.dispatch(
                     view.state.tr.setSelection(
-                      TextSelection.create(view.state.doc, from)
+                      TextSelection.between($from, $from, 1)
                     )
                   );
                 }
