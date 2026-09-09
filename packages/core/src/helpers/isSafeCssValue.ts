@@ -38,6 +38,11 @@ const MAX_LENGTH = 256;
  * says nothing about whether the value is valid for a given property; the
  * browser ignores an invalid one.
  *
+ * Like the URL policy, the rule can change in any release: a value accepted
+ * before can be refused once a new way to add a declaration or load a
+ * resource is known. Check a stored value where you write it instead of
+ * keeping an earlier answer.
+ *
  * @example
  * ```ts
  * isSafeCssValue('#ff0000');                    // true

@@ -310,6 +310,10 @@ The options are `protocols` (default `['http:', 'https:']`, compared in lower ca
 without the colon; `'any'` allows every scheme except `file:`), `allowRelative` (`/path`,
 `./page`, `../page`, `page.html`, `?query`, `#fragment`; a colon in the first segment is refused),
 `allowNetworkPath` and `allowDataImages`, the last two meant for image sources.
+
+The policy guards against script and deception, so any release can change it: an address allowed
+before can be refused once a new way to hide a scheme or a host is known. Check a stored address
+where you use it instead of keeping an earlier answer.
 `isValidUrl(value, options)` answers the same question with a boolean. Use `checkUrl` in a custom
 link or image UI before opening an address yourself, and open it with `noopener`.
 
@@ -388,7 +392,8 @@ isSafeCssValue('url(https://example.com/x)'); // false
   value are dropped first, so `"Times New Roman", serif` renders as `'Times New Roman', serif`.
 - `LineHeight` renders only its configured `lineHeights`; with an empty list, any safe value.
 - Use `isSafeCssValue` before writing a stored style value into markup yourself, such as in an
-  exporter.
+  exporter. Like the URL policy, the rule can change in any release: a value accepted before can
+  be refused once a new way to add a declaration or load a resource is known.
 
 ## Content normalization
 
@@ -428,7 +433,9 @@ link, `nodeType` is the node that carried it, such as `text` or an inline `image
 names the mark, such as `link`. The editor
 reports through the `onContentDiagnostic` option and the `contentDiagnostic` event, with the
 `source` that loaded the content, the first 100 diagnostics, and the `total`. `createDocument`
-and the SSR helpers take an `onDiagnostic` callback instead.
+and the SSR helpers take an `onDiagnostic` callback instead. The `code` and `source` lists are
+open: a minor release can add a value when the editor learns to normalize another attribute or
+gains another entry point, so keep a default branch when you switch on them.
 
 ```ts
 const editor = new Editor({

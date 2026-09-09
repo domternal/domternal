@@ -54,7 +54,11 @@ export interface ContentErrorProps {
  */
 export interface ContentDiagnosticProps {
   editor: EditorInstance;
-  /** Where the content came from; in a command chain, the first command that reported. */
+  /**
+   * Where the content came from; in a command chain, the first command that
+   * reported. The list is open: a minor release can add an entry point, so
+   * keep a default branch when you switch on it.
+   */
   source: 'content' | 'setContent' | 'insertContent' | 'normalizeContentAttributes';
   /** The first 100 diagnostics. */
   diagnostics: readonly ContentDiagnostic[];

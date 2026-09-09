@@ -227,6 +227,11 @@ function isImageData(url: string): boolean {
  * Decides whether an address may be stored, rendered and opened, and returns
  * the cleaned spelling to use when it may.
  *
+ * The policy guards against script and deception, so any release can change
+ * it: an address allowed before can be refused once a new way to hide a
+ * scheme or a host is known. Check a stored address where you use it instead
+ * of keeping an earlier answer.
+ *
  * @example
  * ```ts
  * checkUrl(' https://example.com/');                   // { status: 'allowed', url: 'https://example.com/' }

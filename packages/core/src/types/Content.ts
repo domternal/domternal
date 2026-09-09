@@ -66,6 +66,10 @@ export interface Range {
  *   allow was removed, and its text kept: a scheme outside `protocols`, a
  *   relative reference the Link does not allow, a network path, a backslash,
  *   an address the URL parser rejects, or an empty or missing href.
+ *
+ * The list of codes is open: a minor release can add one when the editor
+ * learns to normalize another attribute, so keep a default branch when you
+ * switch on `code`.
  */
 export interface ContentDiagnostic {
   readonly code: 'unknown-list-marker' | 'unsupported-heading-level' | 'unsafe-url' | 'unsupported-url';

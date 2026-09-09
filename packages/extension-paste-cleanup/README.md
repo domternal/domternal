@@ -162,7 +162,8 @@ The result contains:
 - `status`: `cleaned` or `rejected`. Rejection always returns empty HTML.
 - `html`: normalized editor input, still subject to the destination schema.
 - `source`: an advisory signature, never proof of origin or trust.
-- `diagnostics`: stable codes, severity, and an optional UTF-16 source offset.
+- `diagnostics`: stable codes, severity, and an optional UTF-16 source offset. The code list
+  is open: a minor release can add a code, so keep a default branch when you switch on it.
 - `diagnosticsTruncated`: at least one finding was dropped because the
   `maxDiagnostics` allowance was full; the HTML itself is never truncated.
   When the allowance is full, a new finding replaces the least severe retained

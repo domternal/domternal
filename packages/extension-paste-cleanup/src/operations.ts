@@ -38,6 +38,7 @@ export interface PasteOperationResult {
   readonly references: PasteAffectedReferences;
 }
 
+/** Why a paste was rejected before insertion. The list is open: a minor release can add a reason. */
 export type PasteOperationRejectionReason =
   | 'cancelled' | 'superseded' | 'target-changed' | 'unsupported-destination'
   | 'unsupported-content'

@@ -1,7 +1,11 @@
 export type PasteSource = 'word' | 'google-docs' | 'libreoffice' | 'html';
 export type PasteFormatting = 'preserve' | 'adapt';
 
-/** Stable codes for host-owned localized feedback. Source content is never included. */
+/**
+ * Stable codes for host-owned localized feedback. Source content is never included.
+ * The list is open: a minor release can add a code, so keep a default branch when
+ * you switch on it.
+ */
 export type PasteDiagnosticCode =
   | 'input-limit' | 'structure-limit' | 'parse-failed'
   | 'unsafe-content-removed' | 'unsupported-formatting'
