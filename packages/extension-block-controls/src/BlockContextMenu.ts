@@ -6,7 +6,10 @@
  * payload `{ blockPos, anchorElement }`. Mirrors FloatingMenu / SlashCommand
  * styling: `role="menu"`, `role="menuitem"`, `data-show`, positionFloatingOnce.
  */
-import { Extension, defaultIcons, liftCurrentListItem, positionFloatingOnce, stripInlineColorConflicts, writeToClipboard, createAdoptablePluginView } from '@domternal/core';
+import {
+  Extension, defaultIcons, liftCurrentListItem, positionFloatingOnce, stripInlineColorConflicts, writeToClipboard, createAdoptablePluginView,
+  isSupportedAttributeValue, resolveAttributeValue,
+} from '@domternal/core';
 import { blockControlsMessages } from './messages.js';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey, TextSelection, EditorState } from '@domternal/pm/state';
@@ -132,7 +135,11 @@ export interface TurnIntoTarget {
   icon: string;
   /** Schema node name, e.g. "heading", "paragraph", "blockquote". */
   nodeType: string;
-  /** Optional node attributes (e.g. `{ level: 1 }` for Heading 1). */
+  /**
+   * Optional node attributes (e.g. `{ level: 1 }` for Heading 1). A block type
+   * target is offered only when the editor supports every value it sets, so a
+   * heading level the Heading configuration lacks hides the target.
+   */
   attrs?: Attrs;
   /**
    * Command for wrapper (non-textblock) targets like lists and blockquote.
@@ -672,17 +679,22 @@ export function createBlockContextMenuPlugin(
         // blockquote wrapper source can't be, so it's excluded.
         if (!sourceIsTextblock && !sourceIsListItem) return false;
         if (!type.isTextblock) return false;
+        // Offer only values this configuration supports, so the default
+        // Heading 1 to 3 become the configured levels among them, as in the
+        // slash menu, and a custom target with a level the editor lacks or
+        // validation rejects is hidden.
+        const { schema } = editor.view.state;
+        const targetAttrs = Object.entries(target.attrs ?? {});
+        if (!targetAttrs.every(([key, value]) => isSupportedAttributeValue(schema, type.name, key, value))) return false;
         // Skip targets identical to the current block (same type AND attrs,
         // e.g. hide "Heading 1" when already on H1). A wrapper source's type
         // (listItem) never equals a textblock target, so all are offered.
         if (type.name !== node.type.name) return true;
-        const targetAttrs = target.attrs;
-        if (!targetAttrs) return false;
-        const nodeAttrs = node.attrs as Record<string, unknown>;
-        for (const k of Object.keys(targetAttrs)) {
-          if (nodeAttrs[k] !== (targetAttrs as Record<string, unknown>)[k]) return true;
-        }
-        return false;
+        if (!target.attrs) return false;
+        // Compare the value the block renders at, so a stored level the
+        // configuration lacks hides the target of the level it renders as.
+        return targetAttrs.some(([key, value]) =>
+          resolveAttributeValue(schema, node.type.name, key, node.attrs[key]) !== value);
       });
 
       if (eligible.length > 0) {

@@ -1,7 +1,8 @@
 /**
  * A heading level the configuration lacks, stored by a collaborator configured with more levels,
- * reads in every wrapper's toolbar, bubble menu and outline as the level it renders at. The demos
- * offer levels 1 to 4, so a stored 5 renders as h4, marks Heading 4 active, and Heading 4 toggles it off.
+ * reads in every wrapper's toolbar, bubble menu, outline and Turn into menu as the level it renders
+ * at. The demos offer levels 1 to 4, so a stored 5 renders as h4, marks Heading 4 active, and
+ * Heading 4 toggles it off.
  */
 import { expect, type Page } from '@playwright/test';
 import { test } from './fixtures.js';
@@ -106,6 +107,24 @@ for (const target of demoTargets) {
       await expect.poll(() => ticks.evaluateAll(elements => elements.map(element => [element.getAttribute('data-level'), element.getAttribute('aria-label')])))
         .toEqual([['1', 'One (heading 1)'], ['3', 'Two (heading 3)'], ['2', 'Three (heading 2)']]);
       await expect(page.locator('.dm-toc-outline-row')).toHaveText(['One', 'Two', 'Three']);
+    });
+
+    test('Turn into hides the heading target a block renders as', async ({ page }) => {
+      await goNotion(page, target);
+      await setContent(page, '<h1>Two</h1><p>After</p>');
+      // A decimal string "2" renders as h2, so Heading 2 is the block's own type.
+      await storeLevel(page, 'Two', '2');
+      const heading = page.locator(`${target.editorSelector} h2`);
+      await expect(heading).toHaveText('Two');
+      await heading.hover();
+      await page.locator('.dm-block-handle-drag').click();
+      const turnInto = page.locator('.dm-block-context-menu [role="group"][aria-label="Turn into"]');
+      await expect(turnInto).toBeVisible();
+      const labels = await turnInto.locator('.dm-block-context-menu-item').evaluateAll(items => items.map(item => item.getAttribute('aria-label')));
+      expect(labels.filter(label => label?.startsWith('Heading'))).toEqual(['Heading 1', 'Heading 3']);
+      await turnInto.getByRole('menuitem', { name: 'Heading 3', exact: true }).click();
+      await expect(page.locator(`${target.editorSelector} h3`)).toHaveText('Two');
+      expect(await firstBlock(page)).toMatchObject({ type: 'heading', level: 3 });
     });
   });
 }
