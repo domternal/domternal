@@ -44,12 +44,12 @@ describe('TOC documentation examples', () => {
 
     const expectConfiguredIDs = (): void => {
       expect(storageOf(editor).content.map((entry) => entry.id)).toEqual(ids);
-      const paragraphs = [...editor.view.dom.querySelectorAll('p')];
+      const paragraphs = Array.from(editor.view.dom.querySelectorAll('p'));
       expect(paragraphs).toHaveLength(2);
       for (const paragraph of paragraphs) {
         expect(paragraph.hasAttribute('id')).toBe(!headingOnly);
       }
-      expect([...editor.view.dom.querySelectorAll('h2')].map((heading) => heading.id)).toEqual(ids);
+      expect(Array.from(editor.view.dom.querySelectorAll('h2'), (heading) => heading.id)).toEqual(ids);
     };
     expectConfiguredIDs();
     editor.setContent(editor.getHTML());
@@ -101,7 +101,7 @@ describe('TOC documentation examples', () => {
     editor.setContent(json);
     await flush();
     expect(editor.view.dom.querySelectorAll('.dm-toc-block')).toHaveLength(1);
-    expect([...editor.view.dom.querySelectorAll('.dm-toc-block-link')]
+    expect(Array.from(editor.view.dom.querySelectorAll('.dm-toc-block-link'))
       .map((link) => link.getAttribute('data-toc-anchor'))).toEqual(ids);
   });
 });
