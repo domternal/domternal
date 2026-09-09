@@ -241,6 +241,27 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   registration made directly. When the latest policy reader throws or returns `undefined`, the
   view has no destination; an earlier registration is not a fallback.
 
+## Pasted clipboard context
+
+HTML copied from a ProseMirror editor carries its structural context in a `data-pm-slice`
+attribute on its first element: the open depths and the wrapper nodes, such as lists, list items,
+blockquotes and table parts, that the copied content sat in. Any page can write that attribute,
+and ProseMirror rebuilds the wrappers around the pasted content without checking that they can hold
+it. Core treats the context as structure, never as trust, for every paste and drop, with or without
+PasteCleanup:
+
+- A context ProseMirror's copy never writes is ignored. After every `transformPastedHTML` has run,
+  a context that names a paragraph, heading or other textblock, an inline or leaf node, text or the
+  document, or one that is not a JSON array, is emptied, so the HTML pastes as it would without a
+  context. The open depths and a table wrapper count stay.
+- A wrapper that cannot hold its content is removed from the pasted or dropped slice, so the
+  slice fits the schema instead of throwing inside ProseMirror's replace.
+- Once ProseMirror starts parsing a paste or drop, core prevents the browser's default action. A
+  paste handler that throws later, whether core's, an extension's or the application's, then
+  inserts nothing and the error surfaces, instead of the browser inserting the raw clipboard HTML
+  and requesting its remote images. Composition input, read-only editors, pastes without clipboard
+  data and events a handler already claimed are left as before.
+
 ## URL policy
 
 `checkUrl(value, options)` decides whether an address may be stored, rendered and opened, and
