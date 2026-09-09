@@ -516,13 +516,15 @@ Rendering, clicks and the LinkPopover apply the Link's `protocols` and `allowRel
 and the LinkPopover refuses a script address for any link mark.
 
 `Heading.configure({ levels })` takes a non-empty list of whole numbers from 1 to 6, in any order.
-The first one is the default level for content and commands without a level. Other values fail
-`new Editor(...)` and the SSR helpers with an `ExtensionConfigurationError`. `updateAttributes`,
-`setBlockType`, and `toggleBlockType` refuse a level that is not a whole number from 1 to 6, and
-`setHeading` and `toggleHeading` accept only configured levels. HTML content is parsed through the
-configured heading tags, so an unconfigured tag still becomes a paragraph; with
+A repeated level counts once, at its first position, so each toolbar item, menu item, shortcut and
+parse rule appears once, and the option array itself is left as given. The first level is the
+default level for content and commands without a level. Other values fail `new Editor(...)` and
+the SSR helpers with an `ExtensionConfigurationError`. `updateAttributes`, `setBlockType`, and
+`toggleBlockType` refuse a level that is not a whole number from 1 to 6, and `setHeading` and
+`toggleHeading` accept only configured levels. HTML content parses every heading tag at the
+nearest configured level, as [Content normalization](#content-normalization) describes; with
 [`@domternal/extension-paste-cleanup`](https://www.npmjs.com/package/@domternal/extension-paste-cleanup),
-a pasted heading moves to the nearest supported level instead.
+a pasted heading moves to the nearest supported level before parsing and is reported.
 
 ## SSR
 
