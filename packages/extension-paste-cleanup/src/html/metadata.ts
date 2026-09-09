@@ -6,7 +6,8 @@ const identifier = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
 /**
  * The wrapper nodes ProseMirror's copy records as context for Domternal's
  * nodes. It records a node only while its single child is itself open, so a
- * textblock such as a paragraph, heading or details summary never appears.
+ * textblock such as a paragraph, heading or details summary appears only
+ * around an inline node with content, which no Domternal node is.
  */
 const nodeNames = new Set(['blockquote', 'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem', 'details', 'detailsContent', 'table', 'tableRow', 'tableCell', 'tableHeader', 'columns', 'column']);
 /** Wrappers that hold blocks, and the block wrappers they can hold. */

@@ -278,9 +278,10 @@ one element, so ProseMirror's descent drops nothing. Its context must also be
 one ProseMirror's copy could have written: wrappers such as lists, list and task
 items, blockquotes, table parts, details and columns, each able to hold the
 next, with the innermost able to hold the first pasted element. A context that
-names a paragraph, heading or details summary, which ProseMirror never records,
-or a wrapper that cannot hold what follows it, is removed as a whole without a
-diagnostic, and the fragment pastes as external HTML. Under `adapt` the kept
+names a paragraph, heading or details summary, which ProseMirror records only
+for content copied from inside an inline node with content and so never for
+Domternal's nodes, or a wrapper that cannot hold what follows it, is removed as
+a whole without a diagnostic, and the fragment pastes as external HTML. Under `adapt` the kept
 context loses text alignment (unless `preserveTextAlignment` is set) and cell
 backgrounds, and keeps structure such as list markers, starts, spans, widths
 and task state. Every other marker, including nested and duplicate ones, is

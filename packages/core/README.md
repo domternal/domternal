@@ -250,10 +250,14 @@ and ProseMirror rebuilds the wrappers around the pasted content without checking
 it. Core treats the context as structure, never as trust, for every paste and drop, with or without
 PasteCleanup:
 
-- A context ProseMirror's copy never writes is ignored. After every `transformPastedHTML` has run,
-  a context that names a paragraph, heading or other textblock, an inline or leaf node, text or the
-  document, or one that is not a JSON array, is emptied, so the HTML pastes as it would without a
-  context. The open depths and a table wrapper count stay.
+- A context ProseMirror's copy does not write for Domternal's nodes is ignored. After every
+  `transformPastedHTML` has run, a context that names a paragraph, heading or other textblock, an
+  inline or leaf node, text or the document, one of more than 512 wrappers, or one that is not a
+  JSON array, is emptied, so the HTML pastes as it would without a context. Only the marker's value
+  is rewritten: the open depths and a table wrapper count stay, and the rest of the HTML is kept as
+  written. ProseMirror records a textblock or an inline node only for content copied from inside
+  an inline node with content, which no Domternal node has; such content pastes as it would without
+  the context.
 - A wrapper that cannot hold its content is removed from the pasted or dropped slice, so the
   slice fits the schema instead of throwing inside ProseMirror's replace.
 - Once ProseMirror starts parsing a paste or drop, core prevents the browser's default action. A
@@ -423,9 +427,13 @@ or remove the link that carries it, instead of failing the whole document, and r
 HTML follows the same placement without a report, since HTML is converted rather than loaded:
 initial and set HTML content, `insertContent`, `createDocument`, `generateJSON`, and a paste or
 drop without PasteCleanup parse every `h1` to `h6` tag as a heading at the nearest configured
-level, so with levels 1 to 4 an `h5` becomes a level 4 heading instead of a paragraph. A tag the
-levels lack ranks below other parse rules, so an application node that parses such a tag keeps
-it.
+level, so with levels 1 to 4 an `h5` becomes a level 4 heading instead of a paragraph. Where a
+heading cannot stand, such a tag still parses as the paragraph it was before: at the start of a
+list or task item, whose first block is a paragraph, and inside a details summary or a
+preformatted block, so the list or summary stays whole. A tag the levels lack ranks below every
+parse rule at priority 1 or above, so an application node that parses such a tag keeps it, and
+among nodes built from Heading, such as a title node with level 1 next to a heading node with
+levels 2 to 4, the one whose levels hold the nearest level takes it.
 
 Each diagnostic names the `code`, `nodeType`, `attribute`, and `path` of the replaced value, and
 the `value` itself when it is a finite number or a string of at most 64 characters. For a removed
@@ -460,15 +468,17 @@ document's `getJSON()` for JSON an editor wrote.
 
 A document can still hold such a value: a collaborative document binds without validation, a
 collaborator configured with more heading levels or wider link `protocols` writes them, and undo
-can restore a removed node. A pasted slice keeps a valid level the configuration lacks, so moving content in a shared
-document never rewrites another client's heading, and only an invalid level is replaced.
+can restore a removed node. Dragging content within the editor moves its nodes with the levels
+they store, and only an invalid level is replaced. Copy and paste carry HTML, which holds the
+rendered level, so a heading cut and pasted, even within the same editor, stores the level it
+rendered at.
 Rendering shows the replacement in the view, `getHTML()`, and the SSR helpers without changing
 the document, and a refused link renders as its text and never opens. `getJSON()` and
 `node.attrs` keep the stored value. The readers that drive editing UI read a node attribute as it
 renders: `isActive` and `getAttributes` report a heading level the `levels` lack as the level it
 renders at, such as `4` for a stored `5` with levels 1 to 4, and an unknown list marker as
 `null`, and `toggleHeading` and `toggleBlockType` toggle off a block that renders at the
-requested level. So the toolbar marks the level a reader sees, and nothing is rewritten until an
+requested level, an empty one included. So the toolbar marks the level a reader sees, and nothing is rewritten until an
 explicit write such as `setHeading` stores a new value. Mark attributes read as stored, so a link
 editor can still fix or remove a refused href.
 
