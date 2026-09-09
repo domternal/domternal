@@ -12,6 +12,8 @@ import { test as base } from '@playwright/test';
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.addInitScript(() => {
+      // Init scripts can run before WebKit creates document.documentElement.
+      // Document already exists and includes the root and all later descendants.
       new MutationObserver((mutations) => {
         for (const m of mutations) {
           for (const node of m.addedNodes) {
@@ -20,7 +22,7 @@ export const test = base.extend({
             }
           }
         }
-      }).observe(document.documentElement, { childList: true, subtree: true });
+      }).observe(document, { childList: true, subtree: true });
     });
     await use(page);
   },
