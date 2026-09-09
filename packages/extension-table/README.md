@@ -94,6 +94,13 @@ Cells carry `colspan`, `rowspan`, `colwidth`, `background`, `textAlign`, and
 `setCellAttribute('background', '#ffe0e0')` or `setCellAttribute('textAlign', 'center')`
 sets them from code.
 
+Parsing HTML reads `colspan` and `rowspan` as a browser does, as a whole number
+that may be followed by other text, and a missing, invalid or zero span as 1.
+A span above 1,000 reads as 1,000: prosemirror-tables builds its table map one
+entry per spanned cell, so a span such as `colspan="100000000"` in pasted or
+loaded HTML would otherwise exhaust memory. Paste Cleanup refuses a pasted span
+above the same bound.
+
 A cell background is written into the cell's `style` only when it is a safe CSS value
 (`isSafeCssValue` from `@domternal/core`): a value that could add a declaration, such as
 `red;position:fixed`, or load a resource through `url()` is left out of the editor DOM,

@@ -23,14 +23,27 @@ function safeAlignment(value: unknown): string | null {
 /** Cell attributes written into a declaration, which setCellAttribute accepts only as safe CSS values. */
 export const CSS_CELL_ATTRIBUTES: ReadonlySet<string> = new Set(['background', 'textAlign', 'verticalAlign']);
 
+// The widest span a parsed cell keeps: a browser draws no wider column span,
+// and prosemirror-tables builds its table map cell by cell for every spanned
+// row and column, so an unbounded span could exhaust memory. PasteCleanup
+// refuses a pasted span above the same bound.
+const MAX_SPAN = 1000;
+// HTML's rules for a non-negative integer: leading white space, an optional
+// plus sign, then digits up to the first other character.
+const SPAN = /^[\t\n\f\r ]*\+?(\d+)/;
+
+/** A colspan or rowspan attribute read as a browser reads it: 1 when missing, invalid or 0, at most 1,000. */
+function parseSpan(written: string | null): number {
+  const digits = written === null ? undefined : SPAN.exec(written)?.[1];
+  const span = digits === undefined ? 0 : Number(digits);
+  return span < 1 ? 1 : Math.min(span, MAX_SPAN);
+}
+
 export function cellAttributes(): AttributeSpecs {
   return {
     colspan: {
       default: 1,
-      parseHTML: (element: HTMLElement) => {
-        const colspan = element.getAttribute('colspan');
-        return colspan ? Number(colspan) : 1;
-      },
+      parseHTML: (element: HTMLElement) => parseSpan(element.getAttribute('colspan')),
       renderHTML: (attrs: Record<string, unknown>) => {
         const colspan = attrs['colspan'] as number;
         if (colspan === 1) return null;
@@ -39,10 +52,7 @@ export function cellAttributes(): AttributeSpecs {
     },
     rowspan: {
       default: 1,
-      parseHTML: (element: HTMLElement) => {
-        const rowspan = element.getAttribute('rowspan');
-        return rowspan ? Number(rowspan) : 1;
-      },
+      parseHTML: (element: HTMLElement) => parseSpan(element.getAttribute('rowspan')),
       renderHTML: (attrs: Record<string, unknown>) => {
         const rowspan = attrs['rowspan'] as number;
         if (rowspan === 1) return null;
