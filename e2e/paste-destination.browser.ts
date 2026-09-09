@@ -350,6 +350,7 @@ const NOTICE_SEEDS: readonly (readonly [name: string, html: string])[] = [
   ['an empty list item label', '<ul><li><p>|</p></li></ul>'],
   ['the start of a list item label', '<ul><li><p>|Hello world</p></li></ul>'],
   ['the middle of a list item label', '<ul><li><p>Hello |world</p></li></ul>'],
+  ['the middle of a heading at the adapted level in a list item', '<ul><li><p>Label</p><hL>Hello |world</hL></li></ul>'],
   ['the middle of a quoted paragraph', '<blockquote><p>Hello |world</p></blockquote>'],
   ['the middle of a table cell', '<table><tr><td><p>Hello |world</p></td></tr></table>'],
   ['a range across two paragraphs', '<p>Hel[lo world</p><p>Second] line</p>'],

@@ -24,6 +24,7 @@
 import { Extension } from '@domternal/core';
 import { getClipboardPasteBehavior } from '@domternal/core/clipboard';
 import { Plugin, TextSelection, Selection } from '@domternal/pm/state';
+import { canSplit } from '@domternal/pm/transform';
 import { Fragment } from '@domternal/pm/model';
 import type { Slice, Node as PMNode, ResolvedPos, NodeType } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
@@ -150,7 +151,10 @@ function handleSmartPaste(view: EditorView, event: ClipboardEvent, slice: Slice)
     // Caret in the middle: split the textblock, insert at the boundary between
     // the two halves. After split the cursor's pos sits at the END of the first
     // half (before its close marker); the boundary is one past that, cursorPos+1.
+    // A block its parent cannot hold twice, such as a details summary, is left
+    // to ProseMirror's paste.
     const cursorPos = $pos.pos;
+    if (!canSplit(tr.doc, cursorPos)) return false;
     tr.split(cursorPos);
     const insertAt = cursorPos + 1;
     tr.insert(insertAt, slice.content);
@@ -249,6 +253,15 @@ function tryPasteListSliceIntoList(view: EditorView, event: ClipboardEvent, slic
   const liEnd = $pos.after(listItemDepth);
   const itemHasOnlyOneChild = $pos.node(listItemDepth).childCount === 1;
 
+  // Caret in the middle: the item splits around the pasted list only when the
+  // caret's textblock is a child of the item and its tail can start an item.
+  // A heading or code block cannot, and a block nested deeper, such as a
+  // blockquote, keeps its own content: the list then lands at the caret.
+  const typesAfter = typesAfterUncheckedTail($pos, listItemDepth);
+  if (offset > 0 && offset < parentSize && ($pos.depth !== listItemDepth + 1 || !canSplit(tr.doc, $pos.pos, 2, typesAfter))) {
+    return false;
+  }
+
   if (sameWrapper && !preserveOrderedStart) {
     // Matching wrapper kind and marker: insert the items as siblings without
     // changing their list marker policy.
@@ -282,7 +295,7 @@ function tryPasteListSliceIntoList(view: EditorView, event: ClipboardEvent, slic
       // A checked to-do split mid-label spawns an UNCHECKED tail (Notion; matches
       // the Enter handler), so a split half is never silently pre-checked.
       const cursorPos = $pos.pos;
-      tr.split(cursorPos, 2, typesAfterUncheckedTail($pos, listItemDepth));
+      tr.split(cursorPos, 2, typesAfter);
       insertAt = cursorPos + 2;
       tr.insert(insertAt, adapted);
     }
@@ -320,7 +333,7 @@ function tryPasteListSliceIntoList(view: EditorView, event: ClipboardEvent, slic
     insertedAt = insertBlockSplittingList(tr, tr.doc.resolve(liEnd), content);
   } else {
     const cursorPos = $pos.pos;
-    tr.split(cursorPos, 2, typesAfterUncheckedTail($pos, listItemDepth));
+    tr.split(cursorPos, 2, typesAfter);
     insertedAt = insertBlockSplittingList(tr, tr.doc.resolve(cursorPos + 2), content);
   }
 

@@ -95,6 +95,10 @@ values must be trusted application constants, never user-supplied content.
 - **`SlashCommand`** - typing `/` opens a filtered, ranked popup of insertable blocks;
   selecting one replaces the `/query` range and runs the item's command.
 - **`SmartPaste`** - keeps block-level formatting intact when pasting at an inline cursor.
+  It splits the caret's block, or its list item, only where both halves stay valid: a list
+  pasted into the middle of a heading or code block inside a list item lands at the caret
+  inside the item, and a block pasted into a details summary goes through ProseMirror's own
+  paste, which keeps the summary whole.
 - **`KeyboardReorder`** - `Mod-Shift-ArrowUp` / `Mod-Shift-ArrowDown` move the current
   top-level block.
 - **`FloatingMenu`** - the empty-line insert menu; `requireExplicitTrigger` gates it
