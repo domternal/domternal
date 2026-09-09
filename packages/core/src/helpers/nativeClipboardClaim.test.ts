@@ -142,6 +142,23 @@ describe('claiming a native paste once ProseMirror parses it', () => {
     expect(calls).toBe(2);
   });
 
+  it('leaves a drop an outer listener already prevented, which ProseMirror skips with or without a drop handler', () => {
+    // prosemirror-view ignores a bubbling event that is already prevented before it looks for handlers,
+    // so Core's drop record changes nothing for an editor without any other drop handler.
+    const editor = mount();
+    editor.view.posAtCoords = () => ({ pos: 1, inside: -1 });
+    const outer = (event: Event): void => { event.preventDefault(); };
+    document.body.addEventListener('drop', outer, { capture: true });
+    const event = clipboard('drop', HTML);
+    editor.view.dom.dispatchEvent(event);
+    document.body.removeEventListener('drop', outer, { capture: true });
+    expect(reported).toEqual([]);
+    expect(editor.getHTML()).toBe('<p>Keep</p>');
+    const unprevented = clipboard('drop', HTML);
+    editor.view.dom.dispatchEvent(unprevented);
+    expect(editor.state.doc.textContent).toContain('Pasted bold');
+  });
+
   it('leaves an event an outer listener already prevented, which ProseMirror treats as handled', () => {
     const editor = mount({ transformPastedHTML: fail });
     const outer = (event: Event): void => { event.preventDefault(); };
