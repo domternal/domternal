@@ -132,20 +132,21 @@ export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: st
       return false;
     }
 
-    // Collect non-empty textblocks in the selection. Empty textblocks
-    // (e.g., trailing node from TrailingNode extension) are excluded so they
-    // don't affect toggle direction. This handles AllSelection correctly.
+    // The textblocks with content in the selection decide the toggle direction.
+    // Empty textblocks (e.g., trailing node from TrailingNode extension) are
+    // left out while any block has content, which handles AllSelection. A
+    // selection of empty blocks only, such as an empty heading, decides by them.
     const { from, to } = tr.selection;
-    const contentBlocks: { node: PMNode }[] = [];
+    const textblocks: PMNode[] = [];
     tr.doc.nodesBetween(from, to, (node) => {
-      if (node.isTextblock && node.content.size > 0) {
-        contentBlocks.push({ node });
-      }
+      if (node.isTextblock) textblocks.push(node);
     });
+    const withContent = textblocks.filter((node) => node.content.size > 0);
+    const contentBlocks = withContent.length > 0 ? withContent : textblocks;
 
     // A block matches as it renders: a heading level the configuration lacks
     // counts as the level it renders at, as isActive reads it for the toolbar.
-    const allMatch = contentBlocks.length > 0 && contentBlocks.every(({ node }) => {
+    const allMatch = contentBlocks.length > 0 && contentBlocks.every((node) => {
       const typeMatches = node.type === nodeType;
       const attrsMatch = !attributes || Object.keys(attributes).every(
         (key) => resolveAttributeValue(state.schema, nodeName, key, node.attrs[key]) === attributes[key]

@@ -376,6 +376,39 @@ describe('nodeCommands', () => {
       setSelection(editor, 2);
       expect(editor.commands.toggleBlockType('fake', 'paragraph')).toBe(false);
     });
+
+    it('toggles an empty heading back to a paragraph, as the active toolbar item promises', () => {
+      editor = new Editor({ extensions, content: '<h2></h2><p>After</p>' });
+      setSelection(editor, 1);
+      expect(editor.isActive('heading', { level: 2 })).toBe(true);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 2 })).toBe(true);
+      expect(editor.getHTML()).toBe('<p></p><p>After</p>');
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 2 })).toBe(true);
+      expect(editor.getHTML()).toBe('<h2></h2><p>After</p>');
+    });
+
+    it('turns an empty heading of another level into the requested level', () => {
+      editor = new Editor({ extensions, content: '<h2></h2>' });
+      setSelection(editor, 1);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 3 })).toBe(true);
+      expect(editor.getHTML()).toBe('<h3></h3>');
+    });
+
+    it('decides by the blocks with content, so an empty block in the selection does not flip the toggle', () => {
+      editor = new Editor({ extensions, content: '<h1>Title</h1><p></p>' });
+      setSelection(editor, 2, editor.state.doc.content.size - 1);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 1 })).toBe(true);
+      expect(editor.getHTML()).toBe('<p>Title</p><p></p>');
+
+      editor.destroy();
+      editor = new Editor({ extensions, content: '<h1></h1><p></p>' });
+      setSelection(editor, 1, editor.state.doc.content.size - 1);
+      // Only empty blocks: they decide, and one is not a heading, so the toggle turns both on.
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 1 })).toBe(true);
+      expect(editor.getHTML()).toBe('<h1></h1><h1></h1>');
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 1 })).toBe(true);
+      expect(editor.getHTML()).toBe('<p></p><p></p>');
+    });
   });
 
   describe('wrapIn', () => {

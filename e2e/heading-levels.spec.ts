@@ -77,6 +77,21 @@ for (const target of demoTargets) {
       await expect.poll(() => firstBlock(page)).toMatchObject({ type: 'paragraph', html: '<p>Five</p><p>After</p>' });
     });
 
+    test('the toolbar toggles an empty heading off, whatever level it stores', async ({ page }) => {
+      await openDemo(page, target);
+      for (const stored of [5, 4]) {
+        await setContent(page, '<h4></h4><p>After</p>');
+        if (stored === 5) await storeLevelFive(page);
+        await page.locator(`${EDITOR} h4`).click();
+        await page.locator('.dm-toolbar').getByRole('button', { name: 'Heading', exact: true }).click();
+        const panel = page.locator('.dm-toolbar-dropdown-panel');
+        await expect(panel.locator('button[aria-label="Heading 4"]')).toHaveClass(/dm-toolbar-dropdown-item--active/);
+        expect(await firstBlock(page)).toMatchObject({ type: 'heading', level: stored });
+        await panel.locator('button[aria-label="Heading 4"]').click();
+        await expect.poll(() => firstBlock(page)).toMatchObject({ type: 'paragraph', html: '<p></p><p>After</p>' });
+      }
+    });
+
     test('the bubble menu marks the level the heading renders at', async ({ page }) => {
       await goNotion(page, target);
       await setContent(page, '<h1>Five heading</h1>');

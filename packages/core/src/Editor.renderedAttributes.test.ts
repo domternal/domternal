@@ -64,6 +64,47 @@ describe('a stored heading level the configuration lacks', () => {
     expect(editor.getHTML()).toBe('<p>Five</p>');
   });
 
+  it('toggles an empty heading off at the level it renders at, as a heading with text', () => {
+    const stored5 = mount('<h1></h1><p>x</p>');
+    store(stored5, 0, 'level', 5);
+    caret(stored5, 1);
+    expect(stored5.isActive('heading', { level: 4 })).toBe(true);
+    expect(stored5.commands.toggleHeading({ level: 4 })).toBe(true);
+    expect(stored5.getHTML()).toBe('<p></p><p>x</p>');
+
+    const stored4 = mount('<h4></h4><p>x</p>');
+    caret(stored4, 1);
+    expect(stored4.commands.toggleHeading({ level: 4 })).toBe(true);
+    expect(stored4.getHTML()).toBe('<p></p><p>x</p>');
+
+    const shortcut = mount('<h1></h1><p>x</p>');
+    store(shortcut, 0, 'level', 5);
+    caret(shortcut, 1);
+    shortcut.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: '4', code: 'Digit4', altKey: true, ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(shortcut.getHTML()).toBe('<p></p><p>x</p>');
+  });
+
+  it('keeps the stored level when dragged within the editor, and stores the rendered level when cut and pasted', () => {
+    const cut = mount('<h1>Five</h1><p>x</p>');
+    store(cut, 0, 'level', 5);
+    caret(cut, 0, 6);
+    const html = cut.view.serializeForClipboard(cut.state.selection.content()).dom.innerHTML;
+    expect(html).toBe('<h4 data-pm-slice="0 0 []">Five</h4>');
+    cut.view.dispatch(cut.state.tr.deleteSelection());
+    expect(cut.view.pasteHTML(html, new Event('paste', { cancelable: true }) as ClipboardEvent)).toBe(true);
+    expect(levels(cut)).toEqual([4, 'paragraph']);
+
+    const dragged = mount('<p>x</p><h1>Five</h1>');
+    store(dragged, 3, 'level', 5);
+    dragged.view.dispatch(dragged.state.tr.setSelection(NodeSelection.create(dragged.state.doc, 3)));
+    dragged.view.dragging = { slice: dragged.state.selection.content(), move: true };
+    dragged.view.posAtCoords = () => ({ pos: 0, inside: -1 });
+    const drop = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, 'dataTransfer', { value: { getData: () => '', types: [] } });
+    dragged.view.dom.dispatchEvent(drop);
+    expect(levels(dragged)).toEqual([5, 'paragraph']);
+  });
+
   it('toggles off through the Mod-Alt shortcut the toolbar shows', () => {
     const editor = mount('<h1>Five</h1>');
     store(editor, 0, 'level', 5);
