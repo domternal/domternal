@@ -158,6 +158,29 @@ describe('pasting a data-pm-slice context ProseMirror never writes or cannot fil
     }
   });
 
+  it.each([
+    ['a preformatted block', '<pre>\n\nPre</pre>'],
+    ['a text area', '<p>Area<textarea>\n\nx</textarea></p>'],
+    ['a listing', '<listing>\n\nPre</listing>'],
+  ])('empties a text or null context after %s that starts with a blank line, which does not serialize as written', (_name, before) => {
+    for (const seedName of Object.keys(SEEDS)) {
+      for (const context of ['["text",null]', 'null']) {
+        const { text } = pasteOutcome(seedName, `${before}${sliceHTML('1 1', context, 'one')}`);
+        expect(text).toContain('Pasted');
+      }
+    }
+  });
+
+  it.each([
+    ['lists', ['bulletList', null, 'listItem', null]],
+    ['blockquotes', ['blockquote', null]],
+  ])('ignores a context of thousands of nested %s, which overflowed the stack while pasting', (_name, entries) => {
+    const context = JSON.stringify(Array.from({ length: 5000 }, () => entries).flat());
+    for (const seedName of ['the middle of a paragraph', 'an empty paragraph', 'a list item']) {
+      expect(pasteOutcome(seedName, sliceHTML('1 1', context, 'one'))).toEqual(pasteOutcome(seedName, sliceHTML('1 1', '[]', 'one')));
+    }
+  });
+
   it('keeps the table wrapper count while emptying the context', () => {
     // A copied table part descends through its wrappers before reading the context.
     const editor = seed('an empty paragraph');

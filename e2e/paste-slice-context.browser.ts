@@ -28,6 +28,13 @@ const WRITTEN = [
   '["blockquote",null]', '["table",null]', '["tableRow",null]', '["tableCell",null]', '["tableCell",null,"tableCell",null]',
   '["detailsContent",null]', '["bulletList",null,"listItem",null]',
 ];
+// HTML the parser reads back differently from its own serialization: Core rewrites the marker where it is written.
+const UNSERIALIZABLE = ['<pre>\n\nPre</pre>', '<listing>\n\nPre</listing>', '<p>Area<textarea>\n\nx</textarea></p>'];
+// Contexts nesting deeper than any document, which overflowed the stack while pasting in every engine.
+const DEEP = [
+  JSON.stringify(Array.from({ length: 6000 }, () => ['bulletList', null, 'listItem', null]).flat()),
+  JSON.stringify(Array.from({ length: 20000 }, () => ['blockquote', null]).flat()),
+];
 const SEEDS = {
   empty: ['<p></p>', 'end'], middle: ['<p>Hello world</p>', 7], end: ['<p>Hello</p>', 'end'],
   start: ['<p>Hello</p>', 'start'], heading: ['<h2>Title</h2>', 4], emptyHeading: ['<h2></h2>', 'end'],
@@ -51,7 +58,7 @@ interface ProbeWindow {
   __sliceErrors: string[];
 }
 
-interface Row { context: string; open: string; fragment: 'one' | 'two'; seed: SeedName; transport: Transport }
+interface Row { context: string; open: string; fragment: 'one' | 'two'; seed: SeedName; transport: Transport; before?: string }
 interface Outcome {
   row: Row;
   thrown: string | null;
@@ -89,7 +96,7 @@ function run(page: Page, rows: Row[], cleanup: boolean): Promise<Outcome[]> {
     const quote = (value: string): string => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     const html = (row: Row): string => {
       const marker = `data-pm-slice="${row.open} ${quote(row.context)}"`;
-      return row.fragment === 'one' ? `<p ${marker}>Pasted</p>` : `<p ${marker}>Alpha</p><p>Beta</p>`;
+      return (row.before ?? '') + (row.fragment === 'one' ? `<p ${marker}>Pasted</p>` : `<p ${marker}>Alpha</p><p>Beta</p>`);
     };
     const outcomes: Outcome[] = [];
     for (const row of rows) {
@@ -143,12 +150,12 @@ function run(page: Page, rows: Row[], cleanup: boolean): Promise<Outcome[]> {
   }, { rows, seeds: SEEDS, cleanup });
 }
 
-function rows(contexts: string[], transport: Transport, seeds: SeedName[] = Object.keys(SEEDS) as SeedName[]): Row[] {
+function rows(contexts: string[], transport: Transport, seeds: SeedName[] = Object.keys(SEEDS) as SeedName[], before?: string): Row[] {
   const output: Row[] = [];
   for (const context of contexts) {
     for (const open of ['0 0', '1 1']) {
       for (const fragment of ['one', 'two'] as const) {
-        for (const seed of seeds) output.push({ context, open, fragment, seed, transport });
+        for (const seed of seeds) output.push({ context, open, fragment, seed, transport, ...(before === undefined ? {} : { before }) });
       }
     }
   }
@@ -190,6 +197,27 @@ for (const cleanup of [false, true]) {
         const empty = await run(page, crafted.map(({ row }) => ({ ...row, context: '[]' })), cleanup);
         expect(crafted.map(outcome => ({ row: outcome.row, doc: outcome.doc })))
           .toEqual(empty.map((outcome, index) => ({ row: crafted[index]?.row, doc: outcome.doc })));
+      });
+    }
+
+    for (const transport of ['event', 'pasteHTML', 'drop'] as const) {
+      const seeds: SeedName[] = transport === 'drop' ? ['empty', 'middle', 'end', 'document'] : Object.keys(SEEDS) as SeedName[];
+      test(`${transport}: a text or null context after HTML that does not serialize as written pastes its content`, async ({ page }) => {
+        await open(page, 'vanilla', cleanup);
+        const crafted = UNSERIALIZABLE.flatMap(before => rows(['["text",null]', 'null'], transport, seeds, before));
+        expectPasted(await run(page, crafted, cleanup), cleanup);
+      });
+
+      test(`${transport}: a context nesting thousands of wrappers pastes as an empty context`, async ({ page }) => {
+        await open(page, 'vanilla', cleanup);
+        const deep = DEEP.flatMap(context => ['empty', 'middle', 'listItem', 'document'].map(seed => ({
+          context, open: '1 1', fragment: 'one' as const, seed: seed as SeedName, transport,
+        })));
+        const crafted = await run(page, deep, cleanup);
+        expectPasted(crafted, cleanup);
+        if (cleanup) return;
+        const empty = await run(page, deep.map(row => ({ ...row, context: '[]' })), cleanup);
+        expect(crafted.map(outcome => outcome.doc)).toEqual(empty.map(outcome => outcome.doc));
       });
     }
 

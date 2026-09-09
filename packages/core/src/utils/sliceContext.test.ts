@@ -46,6 +46,14 @@ describe('isUnwritableSliceContext', () => {
     expect(isUnwritableSliceContext(context, schema)).toBe(true);
   });
 
+  it('refuses a context of more wrappers than any document nests, which could overflow the stack while pasting', () => {
+    const wrappers = (count: number): string => JSON.stringify(Array.from({ length: count }, () => ['blockquote', null]).flat());
+    expect(isUnwritableSliceContext(wrappers(512), schema)).toBe(false);
+    expect(isUnwritableSliceContext(wrappers(513), schema)).toBe(true);
+    expect(isUnwritableSliceContext(`${wrappers(512).slice(0, -1)},"blockquote"]`, schema)).toBe(false);
+    expect(isUnwritableSliceContext(JSON.stringify(Array.from({ length: 5000 }, () => ['unknown', null]).flat()), schema)).toBe(true);
+  });
+
   it.each(['', '[', '["heading"', 'undefined', "['heading']"])('leaves %s, which ProseMirror cannot parse and ignores', context => {
     expect(isUnwritableSliceContext(context, schema)).toBe(false);
   });
@@ -111,7 +119,7 @@ describe('guardSliceContextHTML', () => {
     expect(guardSliceContextHTML(marked('["heading",null]', '0 0 -0'), schema)).toBe('<p data-pm-slice="0 0 -0 []">Pasted</p>');
   });
 
-  it('reads a leading table part inside the wrappers ProseMirror adds, and serializes only what it parses', () => {
+  it('reads a leading table part inside the wrappers ProseMirror adds', () => {
     const html = `${marked('["heading",null]', '1 1', 'td')}<td>Next</td>`;
     expect(guardSliceContextHTML(html, schema)).toBe('<td data-pm-slice="1 1 []">Pasted</td><td>Next</td>');
     const row = `<tr>${marked('["text",null]', '1 1', 'td')}</tr>`;
@@ -120,7 +128,10 @@ describe('guardSliceContextHTML', () => {
 
   it('strips leading meta tags as ProseMirror does before looking for the first tag', () => {
     const html = `<meta charset="utf-8"> <meta name="x" content="y">${marked('["heading",null]', '1 1', 'td')}`;
-    expect(guardSliceContextHTML(html, schema)).toBe('<td data-pm-slice="1 1 []">Pasted</td>');
+    expect(guardSliceContextHTML(html, schema)).toBe('<meta charset="utf-8"> <meta name="x" content="y"><td data-pm-slice="1 1 []">Pasted</td>');
+    // A marker on a leading meta tag is stripped with it, so the next one is the marker ProseMirror reads.
+    const meta = `<meta data-pm-slice="0 0 []">${marked('["heading",null]', '1 1')}`;
+    expect(guardSliceContextHTML(meta, schema)).toBe('<meta data-pm-slice="0 0 []"><p data-pm-slice="1 1 []">Pasted</p>');
   });
 
   it('never resolves a wrapper through the object prototype', () => {
@@ -140,10 +151,56 @@ describe('guardSliceContextHTML', () => {
     expect(guardSliceContextHTML(html, schema)).toBe('<p data-pm-slice="0 0 []">Pasted</p>');
   });
 
-  it('returns the HTML as given when the rewritten HTML would read back differently', () => {
-    // The parser nests these forms, which serializing then writes as HTML that reads back to another tree.
-    const html = `<form><div></form><form>${marked('["heading",null]')}`;
-    expect(guardSliceContextHTML(html, schema)).toBe(html);
+  it.each([
+    ['a pre', '<pre>\n\nx</pre>'],
+    ['a textarea', '<textarea>\n\nx</textarea>'],
+    ['a listing', '<listing>\n\nx</listing>'],
+    // The parser nests these forms, which serializing would write as HTML that reads back to another tree.
+    ['nested forms', '<form><div></form><form>'],
+  ])('rewrites only the marker in HTML whose serialization would read back differently, such as %s', (_name, before) => {
+    for (const context of ['["text",null]', 'null', '["heading",null]']) {
+      const html = `${before}${marked(context, '1 1')}`;
+      expect(guardSliceContextHTML(html, schema)).toBe(`${before}<p data-pm-slice="1 1 []">Pasted</p>`);
+    }
+  });
+
+  it('rewrites a marker whose element holds a > in an earlier attribute value', () => {
+    expect(guardSliceContextHTML('<pre>\n\nx</pre><a title="a>b" data-pm-slice="0 0 null">Pasted</a>', schema))
+      .toBe('<pre>\n\nx</pre><a title="a>b" data-pm-slice="0 0 []">Pasted</a>');
+  });
+
+  it('rewrites the marker as written, whatever quotes or spacing it uses', () => {
+    const context = '["text",null]'.replace(/"/g, '&quot;');
+    expect(guardSliceContextHTML(`<pre>\n\nx</pre><p data-pm-slice = '0 0 ${context}' class=a>Pasted</p>`, schema))
+      .toBe('<pre>\n\nx</pre><p data-pm-slice="0 0 []" class=a>Pasted</p>');
+    expect(guardSliceContextHTML('<pre>\n\nx</pre><p class="a"data-pm-slice=0>Pasted</p>'.replace('=0', '="0 0 null"'), schema))
+      .toBe('<pre>\n\nx</pre><p class="a"data-pm-slice="0 0 []">Pasted</p>');
+    expect(guardSliceContextHTML('<p data-pm-slice=5>x</p>'.replace('=5', '="0 0 5"'), schema)).toBe('<p data-pm-slice="0 0 []">x</p>');
+  });
+
+  it('skips a mention of the marker in text or a comment and rewrites the attribute itself', () => {
+    const context = '["text",null]'.replace(/"/g, '&quot;');
+    const html = `<pre>\n\ndata-pm-slice="0 0 []"</pre><!-- <p data-pm-slice="0 0 []"> --><p data-pm-slice="1 1 ${context}">Pasted</p>`;
+    expect(guardSliceContextHTML(html, schema))
+      .toBe('<pre>\n\ndata-pm-slice="0 0 []"</pre><!-- <p data-pm-slice="0 0 []"> --><p data-pm-slice="1 1 []">Pasted</p>');
+  });
+
+  it('rewrites a marker the parser copies onto a reopened formatting element', () => {
+    // The adoption agency reopens the <b> inside the <p>, with the same attributes.
+    const html = `<b data-pm-slice="0 0 null">One<p>Two</b>Three</p>`;
+    expect(guardSliceContextHTML(html, schema)).toBe('<b data-pm-slice="0 0 []">One<p>Two</b>Three</p>');
+  });
+
+  it('rewrites the first of repeated marker attributes, the one the parser keeps', () => {
+    const html = '<pre>\n\nx</pre><p data-pm-slice="0 0 null" data-pm-slice="0 0 []">Pasted</p>';
+    expect(guardSliceContextHTML(html, schema)).toBe('<pre>\n\nx</pre><p data-pm-slice="0 0 []" data-pm-slice="0 0 []">Pasted</p>');
+  });
+
+  it('returns the HTML as given when more mentions precede the marker than the guard reads', () => {
+    const crowded = `${'<!-- <p data-pm-slice="0 0 []"> -->'.repeat(4)}${'<pre>data-pm-slice=x</pre>'.repeat(4)}<p data-pm-slice="0 0 null">Pasted</p>`;
+    expect(guardSliceContextHTML(crowded, schema)).toBe(crowded);
+    const within = `${'<!-- <p data-pm-slice="0 0 []"> -->'.repeat(4)}${'<pre>data-pm-slice=x</pre>'.repeat(3)}<p data-pm-slice="0 0 null">Pasted</p>`;
+    expect(guardSliceContextHTML(within, schema)).toBe(within.replace('"0 0 null"', '"0 0 []"'));
   });
 
   it('returns the HTML as given when it cannot be read, as under a Trusted Types policy', () => {
