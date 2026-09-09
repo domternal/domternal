@@ -300,6 +300,19 @@ describe('the heading notice in the cases ProseMirror merges', () => {
     expect(result.diagnostics).toEqual(normalized);
   });
 
+  it('follows the inserted headings for a programmatic pasteHTML as for a paste event', async () => {
+    for (const [seedHTML, kept] of [['<p>Hello |world</p>', false], ['<p>|</p>', true]] as const) {
+      const fixture = mount();
+      seed(fixture, seedHTML, 4);
+      const event = new Event('paste', { cancelable: true }) as ClipboardEvent;
+      expect(fixture.editor.view.pasteHTML('<h5>Five</h5>', event)).toBe(true);
+      const { result, normalized } = await outcome(fixture);
+      expect(result.status).toBe('applied');
+      expect(normalized.map(item => item.code)).toEqual([ADAPTED]);
+      expect(result.diagnostics.map(item => item.code)).toEqual(kept ? [ADAPTED] : []);
+    }
+  });
+
   it('keeps every warning when the parsed slice holds other headings than the cleaned HTML', async () => {
     // A plugin that adds a heading to the parsed slice leaves the pasted headings unknown.
     const Extra = Extension.create({ name: 'extraHeading', addProseMirrorPlugins() {
