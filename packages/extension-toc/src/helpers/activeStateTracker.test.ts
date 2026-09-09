@@ -231,6 +231,27 @@ describe('activeStateTracker', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('does not publish updates when onChange destroys the tracker', () => {
+    const onUpdate = vi.fn();
+    const onChange = vi.fn(() => {
+      tracker.destroy();
+    });
+    const tracker = createActiveStateTracker({ onChange, onUpdate });
+    const heading = mountHeading('heading', 50);
+    const observer = MockIntersectionObserver.instances[0];
+
+    tracker.observe([heading]);
+
+    expect(onChange).toHaveBeenCalledExactlyOnceWith('heading');
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(observer?.observed.size).toBe(0);
+
+    observer?.fire([{ target: heading, isIntersecting: true }]);
+    tracker.observe([heading]);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
   it('returns a no-op tracker when IntersectionObserver is unavailable', () => {
     // Strip the mock entirely - simulates SSR / very old runtime.
     const restore = (window as unknown as { IntersectionObserver?: unknown }).IntersectionObserver;

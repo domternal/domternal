@@ -89,6 +89,9 @@ export function createActiveStateTracker(
   let destroyed = false;
   let scheduledFrame: number | null = null;
 
+  const notifyUpdate = (snapshot: ActiveStateSnapshot): void => {
+    if (!destroyed) onUpdate?.(snapshot);
+  };
   const recompute = (): void => {
     if (destroyed) return;
     const rootTop = rootElement
@@ -99,7 +102,8 @@ export function createActiveStateTracker(
       lastReportedId = snapshot.activeId;
       onChange(snapshot.activeId);
     }
-    if (!destroyed) onUpdate?.(snapshot);
+    // onChange may synchronously destroy the tracker.
+    notifyUpdate(snapshot);
   };
   const scheduleMeasurement = (): void => {
     if (destroyed || scheduledFrame !== null) return;
