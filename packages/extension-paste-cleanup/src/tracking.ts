@@ -49,11 +49,13 @@ const HEADING_ADAPTED: PasteDiagnostic['code'] = 'destination-heading-level-adap
  * The diagnostics of an applied paste without the heading adaptations of pasted headings that
  * never became headings. ProseMirror inserts every pasted heading as a heading node, except an
  * open first heading that joins the textblock where the change starts: its text merges into that
- * block, and it reaches the document as a heading only when it filled an existing heading of its
- * own markup, which ProseMirror keeps instead of replacing. With no heading created, every
- * adaptation goes but such a filling first heading's; with one fewer created than pasted and a
- * merged first heading, only the first heading's goes. Any other count, a slice whose headings
- * differ from the cleaned HTML, a truncated list or an unmeasured insertion keeps every finding.
+ * block. It still reached the document as a heading when the replace covered that block whole,
+ * since a heading of another markup would have replaced it there: the block is a heading of the
+ * pasted heading's own markup, which ProseMirror keeps instead of replacing. With no heading
+ * created, every adaptation goes but such a first heading's; with one fewer created than pasted
+ * and a merged first heading, only the first heading's goes. Any other count, a slice whose
+ * headings differ from the cleaned HTML, a heading finding lost to truncation, a joined block that
+ * contradicts the replace, or an unmeasured insertion keeps every finding.
  */
 export function reconcileHeadingDiagnostics(
   diagnostics: readonly PasteDiagnostic[],
@@ -67,12 +69,14 @@ export function reconcileHeadingDiagnostics(
   const { openFirst } = slice;
   const block = insertion.joined;
   const joined = openFirst !== undefined && block !== undefined;
-  const filled = joined && insertion.joinedFilled && block.sameMarkup(openFirst);
+  // A covered block of another markup would have been replaced: this joined state is unexplained.
+  if (joined && insertion.joinedCovered && !block.sameMarkup(openFirst)) return diagnostics;
+  const kept = joined && insertion.joinedCovered;
   // The finding of the first pasted heading, when that heading was adapted.
   const first = outline[0] === true ? findings[0] : undefined;
   let removed: readonly number[];
-  if (insertion.createdHeadings === 0) removed = findings.filter(index => !filled || index !== first);
-  else if (insertion.createdHeadings === outline.length - 1 && joined && !filled && first !== undefined) removed = [first];
+  if (insertion.createdHeadings === 0) removed = findings.filter(index => !kept || index !== first);
+  else if (insertion.createdHeadings === outline.length - 1 && joined && !kept && first !== undefined) removed = [first];
   else return diagnostics;
   if (removed.length === 0) return diagnostics;
   return Object.freeze(diagnostics.filter((_, index) => !removed.includes(index)));

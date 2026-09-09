@@ -223,8 +223,8 @@ describe('heading adaptations reconciled with the inserted headings', () => {
   const five = adapted(0);
   const six = adapted(13);
   const openHeading: SliceHeadings = { count: 2, openFirst: h4('Five') };
-  const created = (count: number, joined?: PMNode, joinedFilled = false): PasteInsertion =>
-    joined === undefined ? { createdHeadings: count, joinedFilled } : { createdHeadings: count, joined, joinedFilled };
+  const created = (count: number, joined?: PMNode, joinedCovered = false): PasteInsertion =>
+    joined === undefined ? { createdHeadings: count, joinedCovered } : { createdHeadings: count, joined, joinedCovered };
 
   it('keeps the list as it is without every piece of evidence', () => {
     const diagnostics = [five, link, six];
@@ -251,17 +251,25 @@ describe('heading adaptations reconciled with the inserted headings', () => {
     expect(reconcileHeadingDiagnostics([five], [true], { count: 1 }, created(0))).toEqual([]);
   });
 
-  it('keeps the first finding when the first heading filled an existing heading of its own markup', () => {
+  it('keeps the first finding when the first heading joined a covered heading of its own markup', () => {
     const diagnostics = [five, link, six];
     expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, created(0, h4(''), true))).toEqual([five, link]);
     expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, created(1, h4('Old'), true))).toBe(diagnostics);
     const single = [five];
     expect(reconcileHeadingDiagnostics(single, [true], { count: 1, openFirst: h4('Five') }, created(0, h4(''), true))).toBe(single);
-    // A filled heading of another markup keeps its own level: the pasted heading merged.
-    expect(reconcileHeadingDiagnostics(single, [true], { count: 1, openFirst: h4('Five') }, created(0, h2(''), true))).toEqual([]);
-    expect(reconcileHeadingDiagnostics(single, [true], { count: 1, openFirst: h4('Five') }, created(0, paragraph('x'), true))).toEqual([]);
-    // Without a joined first heading, nothing was filled.
+    // An uncovered heading of its own markup keeps its other text: the pasted heading merged.
+    expect(reconcileHeadingDiagnostics(single, [true], { count: 1, openFirst: h4('Five') }, created(0, h4('Hello')))).toEqual([]);
+    // Without a joined first heading, nothing reached the document as a heading.
     expect(reconcileHeadingDiagnostics(single, [true], { count: 1 }, created(0, h4(''), true))).toEqual([]);
+  });
+
+  it('keeps the list when a covered joined block has another markup, which the replace would have replaced', () => {
+    const single = [five];
+    const slice: SliceHeadings = { count: 1, openFirst: h4('Five') };
+    expect(reconcileHeadingDiagnostics(single, [true], slice, created(0, h2(''), true))).toBe(single);
+    expect(reconcileHeadingDiagnostics(single, [true], slice, created(0, paragraph('x'), true))).toBe(single);
+    const diagnostics = [five, six];
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, created(1, h2('Old'), true))).toBe(diagnostics);
   });
 
   it('keeps every finding when every pasted heading became a heading, or more headings appeared', () => {

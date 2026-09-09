@@ -1,5 +1,5 @@
 import { PluginKey } from '@domternal/pm/state';
-import type { Node as PMNode } from '@domternal/pm/model';
+import type { Node as PMNode, ResolvedPos } from '@domternal/pm/model';
 import type { StateField, Transaction } from '@domternal/pm/state';
 import { AddMarkStep, RemoveMarkStep } from '@domternal/pm/transform';
 import type { EditorView } from '@domternal/pm/view';
@@ -60,8 +60,12 @@ export interface PasteInsertion {
    * open first slice textblock joins it instead of creating a node, and it keeps its markup.
    */
   readonly joined?: PMNode;
-  /** Whether that first step replaced the whole content of the joined textblock: it was empty or wholly selected. */
-  readonly joinedFilled: boolean;
+  /**
+   * Whether ProseMirror's replace covers the joined textblock whole, at a depth whose parent
+   * takes a heading. There a pasted heading of another markup would have replaced the block, so
+   * a heading that joined it instead shared its markup and reached the document as that block.
+   */
+  readonly joinedCovered: boolean;
 }
 
 interface Receipt {
@@ -175,10 +179,31 @@ function measureInsertion(transaction: Transaction, ranges: readonly PasteAffect
   let first: PasteAffectedRange | undefined;
   transaction.mapping.maps[0]?.forEach((from, to) => { first ??= { from, to }; });
   const before = transaction.docs[0];
-  if (first === undefined || before === undefined) return Object.freeze({ createdHeadings, joinedFilled: false });
-  const $start = before.resolve(first.from);
-  if ($start.depth === 0 || !$start.parent.isTextblock) return Object.freeze({ createdHeadings, joinedFilled: false });
-  return Object.freeze({ createdHeadings, joined: $start.parent, joinedFilled: $start.parentOffset === 0 && first.to >= $start.end() });
+  if (first === undefined || before === undefined) return Object.freeze({ createdHeadings, joinedCovered: false });
+  const $from = before.resolve(first.from);
+  if ($from.depth === 0 || !$from.parent.isTextblock) return Object.freeze({ createdHeadings, joinedCovered: false });
+  const heading = before.type.schema.nodes['heading'];
+  const $to = before.resolve(first.to);
+  // The depths prosemirror-transform's replaceRange may replace whole, never the document itself.
+  const joinedCovered = heading !== undefined && coveredDepths($from, $to).some(depth => depth > 0 &&
+    $from.node(depth - 1).canReplaceWith($from.index(depth - 1), $from.index(depth - 1), heading));
+  return Object.freeze({ createdHeadings, joined: $from.parent, joinedCovered });
+}
+
+/**
+ * The depths at which a replacement from `$from` to `$to` covers a whole node, as
+ * prosemirror-transform's replaceRange computes them before it places a slice.
+ */
+export function coveredDepths($from: ResolvedPos, $to: ResolvedPos): number[] {
+  const result: number[] = [];
+  for (let depth = Math.min($from.depth, $to.depth); depth >= 0; depth--) {
+    const start = $from.start(depth);
+    if (start < $from.pos - ($from.depth - depth) || $to.end(depth) > $to.pos + ($to.depth - depth) ||
+      $from.node(depth).type.spec.isolating === true || $to.node(depth).type.spec.isolating === true) break;
+    if (start === $to.start(depth) || (depth === $from.depth && depth === $to.depth && $from.parent.inlineContent &&
+      $to.parent.inlineContent && depth > 0 && $to.start(depth - 1) === start - 1)) result.push(depth);
+  }
+  return result;
 }
 
 export const receiptStateField: StateField<ReceiptState> = {

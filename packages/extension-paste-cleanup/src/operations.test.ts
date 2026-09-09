@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Bold, Document, Editor, Extension, Heading, History, Paragraph, Text } from '@domternal/core';
+import { Bold, BulletList, Document, Editor, Extension, Heading, History, ListItem, Paragraph, Text } from '@domternal/core';
 import { Fragment, Slice } from '@domternal/pm/model';
-import type { EditorOptions } from '@domternal/core';
+import { Table, TableCell, TableHeader, TableRow } from '../../extension-table/dist/index.js';
+import type { AnyExtension, EditorOptions } from '@domternal/core';
 import { Plugin, TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
 import {
+  coveredDepths,
   getPasteAffectedReferences,
   pasteCleanupKey,
   pasteDocumentRevision,
@@ -75,7 +77,7 @@ describe('installed paste receipts', () => {
         ranges: [{ from: 8, to: 11 }], expired: false,
       },
       // The replacement created no heading and joined the paragraph it started in.
-      insertion: { createdHeadings: 0, joined: before, joinedFilled: false },
+      insertion: { createdHeadings: 0, joined: before, joinedCovered: false },
     });
   });
 
@@ -442,7 +444,7 @@ describe('what an accepted paste inserted', () => {
     const instance = mountHeadings('<h2>Kept</h2><p>Hello world</p><h3>After</h3>');
     instance.view.dispatch(tag(instance.state.tr.replaceWith(6, 19, [heading(instance, 'A'), heading(instance, 'B')])));
     expect(instance.getHTML()).toBe('<h2>Kept</h2><h4>A</h4><h4>B</h4><h3>After</h3>');
-    expect(insertion(instance)).toEqual({ createdHeadings: 2, joinedFilled: false });
+    expect(insertion(instance)).toEqual({ createdHeadings: 2, joinedCovered: false });
   });
 
   it('names the textblock a merge joined, even a heading, and creates no heading', () => {
@@ -453,7 +455,7 @@ describe('what an accepted paste inserted', () => {
       instance.view.dispatch(tag(instance.state.tr.replaceSelection(openHeading(instance, 'Five'))));
       expect(instance.state.doc.childCount).toBe(1);
       expect(instance.state.doc.firstChild?.textContent).toBe('Hello Fiveworld');
-      expect(insertion(instance)).toEqual({ createdHeadings: 0, joined, joinedFilled: false });
+      expect(insertion(instance)).toEqual({ createdHeadings: 0, joined, joinedCovered: false });
     }
   });
 
@@ -481,22 +483,40 @@ describe('what an accepted paste inserted', () => {
     at(instance, 1);
     instance.view.dispatch(tag(instance.state.tr.replaceSelection(openHeading(instance, 'Five'))));
     expect(instance.getHTML()).toBe('<h4>FiveHello world</h4>');
-    expect(insertion(instance)).toEqual({ createdHeadings: 1, joinedFilled: false });
+    expect(insertion(instance)).toEqual({ createdHeadings: 1, joinedCovered: false });
   });
 
-  it('knows when the paste filled the whole content of the textblock it joined', () => {
+  it('knows when the replace covered the whole textblock it joined, as prosemirror-transform decides it', () => {
     const cases = [
-      ['<h4></h4>', 1, 1, true], ['<h4>Hello world</h4>', 1, 12, true], ['<h4>Hello world</h4>', 1, 4, false],
-      ['<h4>Hello world</h4>', 4, 12, false], ['<h4>Hello world</h4>', 1, 1, false],
+      // The whole content of the heading: empty, wholly selected, or with a sibling it ends in.
+      ['<h4></h4>', 1, 1, 0, true], ['<h4>Hello world</h4>', 1, 12, 0, true], ['<h4>Hello</h4><p>World</p>', 1, 13, 0, true],
+      // Other text of the heading stays, or the range ends inside the next block.
+      ['<h4>Hello world</h4>', 1, 4, 0, false], ['<h4>Hello world</h4>', 4, 12, 0, false], ['<h4>Hello world</h4>', 1, 1, 0, false],
+      ['<h4>Hello</h4><p>World</p>', 1, 10, 0, false],
+      // ProseMirror counts a sibling only for the first child of its parent.
+      ['<p>Intro</p><h4>Hello</h4><p>World</p>', 8, 20, 1, false],
     ] as const;
-    for (const [content, from, to, filled] of cases) {
+    for (const [content, from, to, child, covered] of cases) {
       const instance = mountHeadings(content);
-      const joined = instance.state.doc.firstChild;
+      const joined = instance.state.doc.child(child);
       at(instance, from, to);
       instance.view.dispatch(tag(instance.state.tr.replaceSelection(openHeading(instance, 'Five'))));
-      expect(insertion(instance)).toEqual({ createdHeadings: 0, joined, joinedFilled: filled });
-      expect(instance.state.doc.firstChild?.type.name).toBe('heading');
+      expect({ content, from, to, insertion: insertion(instance) }).toEqual({ content, from, to, insertion: { createdHeadings: 0, joined, joinedCovered: covered } });
+      expect(instance.state.doc.child(child).type.name).toBe('heading');
     }
+  });
+
+  it('counts a covered block only where its parent takes a heading', () => {
+    // The paragraph and its item are covered, but neither the item nor the list takes a heading
+    // there, so the pasted heading can only merge; a whole list would be replaced instead.
+    const Items = Extension.create({ name: 'itemHost', addProseMirrorPlugins: () => [new Plugin({ key: pasteCleanupKey, state: receiptStateField })] });
+    const editor = new Editor({ extensions: [Document, Paragraph, Text, Heading, BulletList, ListItem, Items], content: '<ul><li><p>Hello</p></li><li><p>Two</p></li></ul>' });
+    editors.push(editor);
+    const joined = editor.state.doc.firstChild?.firstChild?.firstChild;
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3, 8)));
+    editor.view.dispatch(tag(editor.state.tr.replaceSelection(new Slice(Fragment.from(editor.schema.node('heading', { level: 4 }, editor.schema.text('Five'))), 1, 1))));
+    expect(editor.getHTML()).toBe('<ul><li><p>Five</p></li><li><p>Two</p></li></ul>');
+    expect(readPasteReceipt(editor.view, 'operation')?.insertion).toEqual({ createdHeadings: 0, joined, joinedCovered: false });
   });
 
   it('measures the joined textblock in the document before the paste, where a tail it lost still counts', () => {
@@ -507,7 +527,7 @@ describe('what an accepted paste inserted', () => {
     const slice = new Slice(Fragment.from([heading(instance, 'Five'), heading(instance, 'Six', 3)]), 1, 1);
     instance.view.dispatch(tag(instance.state.tr.replaceSelection(slice)));
     expect(instance.getHTML()).toBe('<h4>Five</h4><h3>SixHello world</h3>');
-    expect(insertion(instance)).toEqual({ createdHeadings: 1, joined, joinedFilled: false });
+    expect(insertion(instance)).toEqual({ createdHeadings: 1, joined, joinedCovered: false });
   });
 
   it('keeps the root measure through an appended transaction that adds a heading', () => {
@@ -544,6 +564,39 @@ describe('what an accepted paste inserted', () => {
     const instance = mountHeadings('<p>A</p><p>B</p>');
     instance.view.dispatch(tag(instance.state.tr.insert(3, heading(instance, 'Between'))));
     expect(instance.getHTML()).toBe('<p>A</p><h4>Between</h4><p>B</p>');
-    expect(insertion(instance)).toEqual({ createdHeadings: 1, joinedFilled: false });
+    expect(insertion(instance)).toEqual({ createdHeadings: 1, joinedCovered: false });
+  });
+});
+
+describe('the depths a replacement covers whole', () => {
+  function depths(content: string, from: number, to: number, extensions: AnyExtension[] = []): number[] {
+    const editor = new Editor({ extensions: [Document, Paragraph, Text, Heading, BulletList, ListItem, ...extensions], content });
+    editors.push(editor);
+    return coveredDepths(editor.state.doc.resolve(from), editor.state.doc.resolve(to));
+  }
+
+  it('covers a textblock whose whole content is replaced, and each ancestor it fills', () => {
+    expect(depths('<p></p>', 1, 1)).toEqual([1, 0]);
+    expect(depths('<p>Hello</p>', 1, 6)).toEqual([1, 0]);
+    expect(depths('<p>Hello</p><p>Two</p>', 1, 6)).toEqual([1]);
+    expect(depths('<ul><li><p>Hello</p></li><li><p>Two</p></li></ul>', 3, 8)).toEqual([3, 2]);
+    expect(depths('<ul><li><p>Hello</p></li></ul>', 3, 8)).toEqual([3, 2, 1, 0]);
+  });
+
+  it('covers nothing when text of the block stays on either side', () => {
+    expect(depths('<p>Hello</p>', 2, 6)).toEqual([]);
+    expect(depths('<p>Hello</p>', 1, 5)).toEqual([]);
+    expect(depths('<p>Hello</p>', 3, 3)).toEqual([]);
+  });
+
+  it('covers a first textblock through a whole sibling at the same depth, as ProseMirror does', () => {
+    expect(depths('<h4>Hello</h4><p>World</p>', 1, 13)).toEqual([1, 0]);
+    expect(depths('<h4>Hello</h4><p>World</p>', 1, 10)).toEqual([]);
+    expect(depths('<p>Intro</p><h4>Hello</h4><p>World</p>', 8, 20)).toEqual([]);
+  });
+
+  it('stops at an isolating node', () => {
+    // The cell is isolating: a replacement of its whole text never covers the cell or the table.
+    expect(depths('<table><tr><td><p>Hello</p></td></tr></table>', 4, 9, [Table, TableRow, TableCell, TableHeader])).toEqual([4]);
   });
 });

@@ -83,6 +83,10 @@ const SEEDS: Readonly<Record<string, string>> = {
   'the middle of a table cell': '<table><tr><td><p>Hello |world</p></td></tr></table>',
   'a range across two paragraphs': '<p>Hel[lo world</p><p>Second] line</p>',
   'a range from a heading at the adapted level into a paragraph': '<hL>Hel[lo world</hL><p>Second] line</p>',
+  'a range from the start of a heading at the adapted level into a paragraph': '<hL>[Hello world</hL><p>Second] line</p>',
+  'a range over a heading at the adapted level and a whole paragraph': '<hL>[Hello world</hL><p>Second line]</p>',
+  'a range over a later heading at the adapted level and a whole paragraph': '<p>Intro</p><hL>[Hello world</hL><p>Second line]</p>',
+  'a range over a quoted heading at the adapted level and a whole quoted paragraph': '<blockquote><hL>[Hello world</hL><p>Second line]</p></blockquote>',
   'a whole document selection': '<p>Hello world</p>',
 };
 
