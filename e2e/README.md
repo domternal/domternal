@@ -16,6 +16,12 @@ Use `--project=firefox` or `--project=webkit` for the other engines. Keep raw E2
 output in a log and monitor progress as described in the repository instructions.
 Fixture source must stay unchanged while a run is active, since Vite reloads it.
 
+Tests that access the native clipboard import `test` from `native-clipboard.ts`.
+Its automatic fixture locks the clipboard across workers, files and repetitions
+using the shared project output directory. Mixed files use that fixture only for
+their native clipboard group. Keep browser projects on a shared output directory,
+or run separate invocations sequentially when their output directories differ.
+
 The original finding numbers below are stable references, independent of the
 internal planning documents. Tests exercise the compatible behavior chosen for
 each finding; they do not implement the deferred major-version proposals.
