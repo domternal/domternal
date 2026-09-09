@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Bold, Document, Editor, Extension, History, Paragraph, Text } from '@domternal/core';
+import { Bold, Document, Editor, Extension, Heading, History, Paragraph, Text } from '@domternal/core';
+import { Fragment, Slice } from '@domternal/pm/model';
 import type { EditorOptions } from '@domternal/core';
 import { Plugin, TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -10,7 +11,7 @@ import {
   readPasteReceipt,
   receiptStateField,
 } from './operations.js';
-import type { PasteAffectedReferences } from './operations.js';
+import type { PasteAffectedReferences, PasteInsertion } from './operations.js';
 
 const editors: Editor[] = [];
 
@@ -59,6 +60,7 @@ function references(instance: Editor, id = 'operation'): PasteAffectedReferences
 describe('installed paste receipts', () => {
   it('records replacement geometry only after the transaction is installed', () => {
     const instance = mount();
+    const before = instance.state.doc.firstChild;
     const transaction = tag(instance.state.tr.insertText('New', 8, 11));
 
     expect(getPasteAffectedReferences(instance.view, 'operation')).toBeUndefined();
@@ -72,6 +74,8 @@ describe('installed paste receipts', () => {
         referenceId: 'operation', precision: 'operation', documentRevision: 1,
         ranges: [{ from: 8, to: 11 }], expired: false,
       },
+      // The replacement created no heading and joined the paragraph it started in.
+      insertion: { createdHeadings: 0, joined: before, joinedFilled: false },
     });
   });
 
@@ -413,5 +417,133 @@ describe('short-lived paste references', () => {
 
     expect(instance.state.doc.textContent).toBe('!x'.repeat(32) + 'x?xxxxxxx');
     expect(references(instance)).toMatchObject({ documentRevision: 2, ranges: [], expired: true });
+  });
+});
+
+describe('what an accepted paste inserted', () => {
+  function mountHeadings(content: string, plugins: Plugin[] = []): Editor {
+    const Receipts = Extension.create({
+      name: 'receiptInsertionHost',
+      addProseMirrorPlugins: () => [new Plugin({ key: pasteCleanupKey, state: receiptStateField }), ...plugins],
+    });
+    const editor = new Editor({ extensions: [Document, Paragraph, Text, Heading, Receipts], content });
+    editors.push(editor);
+    return editor;
+  }
+  const insertion = (instance: Editor, id = 'operation'): PasteInsertion | undefined => readPasteReceipt(instance.view, id)?.insertion;
+  const heading = (instance: Editor, text: string, level = 4): ReturnType<Editor['schema']['node']> =>
+    instance.schema.node('heading', { level }, instance.schema.text(text));
+  const openHeading = (instance: Editor, text: string): Slice => new Slice(Fragment.from(heading(instance, text)), 1, 1);
+  function at(instance: Editor, from: number, to = from): void {
+    instance.view.dispatch(instance.state.tr.setSelection(TextSelection.create(instance.state.doc, from, to)));
+  }
+
+  it('counts the headings that start inside the root change, and no heading around or after it', () => {
+    const instance = mountHeadings('<h2>Kept</h2><p>Hello world</p><h3>After</h3>');
+    instance.view.dispatch(tag(instance.state.tr.replaceWith(6, 19, [heading(instance, 'A'), heading(instance, 'B')])));
+    expect(instance.getHTML()).toBe('<h2>Kept</h2><h4>A</h4><h4>B</h4><h3>After</h3>');
+    expect(insertion(instance)).toEqual({ createdHeadings: 2, joinedFilled: false });
+  });
+
+  it('names the textblock a merge joined, even a heading, and creates no heading', () => {
+    for (const content of ['<p>Hello world</p>', '<h2>Hello world</h2>']) {
+      const instance = mountHeadings(content);
+      const joined = instance.state.doc.firstChild;
+      at(instance, 7);
+      instance.view.dispatch(tag(instance.state.tr.replaceSelection(openHeading(instance, 'Five'))));
+      expect(instance.state.doc.childCount).toBe(1);
+      expect(instance.state.doc.firstChild?.textContent).toBe('Hello Fiveworld');
+      expect(insertion(instance)).toEqual({ createdHeadings: 0, joined, joinedFilled: false });
+    }
+  });
+
+  it('counts a heading that starts where the change ends as outside it', () => {
+    const instance = mountHeadings('<p>ab</p><h2>X</h2>');
+    instance.view.dispatch(tag(instance.state.tr.insertText('Z', 3)));
+    expect(instance.getHTML()).toBe('<p>abZ</p><h2>X</h2>');
+    expect(insertion(instance)?.createdHeadings).toBe(0);
+  });
+
+  it('counts a heading inserted between split halves, and a split heading tail, as created', () => {
+    const paragraph = mountHeadings('<p>Hello world</p>');
+    const tr = paragraph.state.tr.split(7);
+    paragraph.view.dispatch(tag(tr.insert(8, heading(paragraph, 'Five'))));
+    expect(paragraph.getHTML()).toBe('<p>Hello </p><h4>Five</h4><p>world</p>');
+    expect(insertion(paragraph)?.createdHeadings).toBe(1);
+    const split = mountHeadings('<h2>Hello world</h2>');
+    split.view.dispatch(tag(split.state.tr.split(7)));
+    expect(split.getHTML()).toBe('<h2>Hello </h2><h2>world</h2>');
+    expect(insertion(split)?.createdHeadings).toBe(1);
+  });
+
+  it('knows a heading replaced at a block boundary joined nothing', () => {
+    const instance = mountHeadings('<p>Hello world</p>');
+    at(instance, 1);
+    instance.view.dispatch(tag(instance.state.tr.replaceSelection(openHeading(instance, 'Five'))));
+    expect(instance.getHTML()).toBe('<h4>FiveHello world</h4>');
+    expect(insertion(instance)).toEqual({ createdHeadings: 1, joinedFilled: false });
+  });
+
+  it('knows when the paste filled the whole content of the textblock it joined', () => {
+    const cases = [
+      ['<h4></h4>', 1, 1, true], ['<h4>Hello world</h4>', 1, 12, true], ['<h4>Hello world</h4>', 1, 4, false],
+      ['<h4>Hello world</h4>', 4, 12, false], ['<h4>Hello world</h4>', 1, 1, false],
+    ] as const;
+    for (const [content, from, to, filled] of cases) {
+      const instance = mountHeadings(content);
+      const joined = instance.state.doc.firstChild;
+      at(instance, from, to);
+      instance.view.dispatch(tag(instance.state.tr.replaceSelection(openHeading(instance, 'Five'))));
+      expect(insertion(instance)).toEqual({ createdHeadings: 0, joined, joinedFilled: filled });
+      expect(instance.state.doc.firstChild?.type.name).toBe('heading');
+    }
+  });
+
+  it('measures the joined textblock in the document before the paste, where a tail it lost still counts', () => {
+    // The first heading merges into the level 4 heading, and its old text moves to the pasted tail.
+    const instance = mountHeadings('<h4>Hello world</h4>');
+    const joined = instance.state.doc.firstChild;
+    at(instance, 1);
+    const slice = new Slice(Fragment.from([heading(instance, 'Five'), heading(instance, 'Six', 3)]), 1, 1);
+    instance.view.dispatch(tag(instance.state.tr.replaceSelection(slice)));
+    expect(instance.getHTML()).toBe('<h4>Five</h4><h3>SixHello world</h3>');
+    expect(insertion(instance)).toEqual({ createdHeadings: 1, joined, joinedFilled: false });
+  });
+
+  it('keeps the root measure through an appended transaction that adds a heading', () => {
+    const instance = mountHeadings('<p>Hello</p>', [new Plugin({ appendTransaction(transactions, _oldState, state) {
+      if (!transactions.some(transaction => transaction.getMeta(pasteCleanupKey) !== undefined)) return null;
+      const type = state.schema.nodes['heading'];
+      if (type === undefined) throw new Error('Heading is required');
+      return state.tr.insert(state.doc.content.size, type.create({ level: 2 }, state.schema.text('Appended')));
+    } })]);
+    instance.view.dispatch(tag(instance.state.tr.insertText('!', 6)));
+    expect(instance.getHTML()).toBe('<p>Hello!</p><h2>Appended</h2>');
+    expect(insertion(instance)?.createdHeadings).toBe(0);
+    expect(readPasteReceipt(instance.view, 'operation')?.changed).toBe(true);
+  });
+
+  it('knows nothing when the root change expired, a second root reused the id, or no receipt exists', () => {
+    const instance = mountHeadings(`<p>${'x'.repeat(40)}</p>`);
+    const transaction = instance.state.tr;
+    for (let index = 0; index < 33; index++) transaction.insertText('!', 1 + index * 2);
+    instance.view.dispatch(tag(transaction));
+    expect(readPasteReceipt(instance.view, 'operation')?.references.expired).toBe(true);
+    expect(insertion(instance)).toBeUndefined();
+    const repeated = mountHeadings('<p>Hello</p>');
+    repeated.view.dispatch(tag(repeated.state.tr.insertText('A', 1)));
+    expect(insertion(repeated)?.createdHeadings).toBe(0);
+    repeated.view.dispatch(tag(repeated.state.tr.insert(0, heading(repeated, 'Again'))));
+    expect(readPasteReceipt(repeated.view, 'operation')?.changed).toBe(true);
+    expect(insertion(repeated)).toBeUndefined();
+    instance.view.dispatch(instance.state.tr.insert(0, heading(instance, 'Untagged')));
+    expect(readPasteReceipt(instance.view, 'untagged')).toBeUndefined();
+  });
+
+  it('knows no joined textblock for a change that starts between blocks', () => {
+    const instance = mountHeadings('<p>A</p><p>B</p>');
+    instance.view.dispatch(tag(instance.state.tr.insert(3, heading(instance, 'Between'))));
+    expect(instance.getHTML()).toBe('<p>A</p><h4>Between</h4><p>B</p>');
+    expect(insertion(instance)).toEqual({ createdHeadings: 1, joinedFilled: false });
   });
 });

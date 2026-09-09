@@ -22,6 +22,9 @@
   ],
   "references": [
     {
+      "path": "../extension-block-controls"
+    },
+    {
       "path": "../extension-table"
     },
     {

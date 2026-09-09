@@ -13,6 +13,9 @@ const PNG_BYTES = Buffer.from(PNG, 'base64').length;
 const PNG_SHA256 = createHash('sha256').update(Buffer.from(PNG, 'base64')).digest('hex');
 const HTML = '<p class="MsoNormal"><strong>New</strong></p><img src="cid:private-chart" alt="Chart"><p>End</p>';
 const INLINE_HTML = HTML.replace('cid:private-chart', PNG_DATA);
+// A level the default Heading levels lack, before a resolved image.
+const HEADING_HTML = '<h5>Report</h5><img src="cid:private-chart" alt="Chart"><p>End</p>';
+const HEADING_NOTICE = 'Some headings were changed to a heading level this editor supports.';
 
 // A valid ancillary chunk gives the second one-pixel PNG different bytes.
 function distinctPNG(): string {
@@ -620,5 +623,27 @@ for (const framework of FRAMEWORKS) {
       expect(await history(page)).toEqual({ undo: 0, redo: 0 });
       await privateMetadataStaysOffUI(page);
     });
+
+    for (const smartPaste of [true, false]) {
+      test(`reports a resolved paste's adapted heading only when it lands as a heading, ${smartPaste ? 'with' : 'without'} SmartPaste`, async ({ page }) => {
+        // "old" is selected: ProseMirror merges the open first heading into that paragraph,
+        // while SmartPaste inserts the pasted blocks between its halves.
+        await open(page, framework, smartPaste ? {} : { 'smart-paste': 'off' });
+        await paste(page, { html: HEADING_HTML });
+        const result = await terminal(page);
+        expect(result.status).toBe('applied');
+        await recovery(page, 'accepted');
+        await expect(page.locator('.ProseMirror img')).toHaveAttribute('src', `${ORIGIN}/__resolver-images__/1.png`);
+        await expect(page.locator('.ProseMirror h4')).toHaveCount(smartPaste ? 1 : 0);
+        const observed = await observations(page);
+        const codes = (diagnostics: readonly { code: string }[]): string[] => diagnostics.map(diagnostic => diagnostic.code);
+        expect(codes(observed.results[0]?.diagnostics ?? [])).toEqual(['destination-heading-level-adapted']);
+        expect(codes(result.diagnostics)).toEqual(smartPaste ? ['destination-heading-level-adapted'] : []);
+        const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+        if (smartPaste) await expect(notice.locator('li')).toHaveText([HEADING_NOTICE]);
+        else await expect(notice).toBeHidden();
+        await privateMetadataStaysOffUI(page);
+      });
+    }
   });
 }

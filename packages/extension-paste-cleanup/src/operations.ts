@@ -1,4 +1,5 @@
 import { PluginKey } from '@domternal/pm/state';
+import type { Node as PMNode } from '@domternal/pm/model';
 import type { StateField, Transaction } from '@domternal/pm/state';
 import { AddMarkStep, RemoveMarkStep } from '@domternal/pm/transform';
 import type { EditorView } from '@domternal/pm/view';
@@ -27,6 +28,11 @@ export interface PasteOperationResult {
   readonly status: 'applied' | 'rejected' | 'untracked' | 'noop';
   /** A known pre-application rejection. Accepted or uncertain outcomes never carry this reason. */
   readonly reason?: PasteOperationRejectionReason;
+  /**
+   * The cleanup findings. An applied paste reports a `destination-heading-level-adapted` warning
+   * only for a heading that reached the document as a heading, not for one ProseMirror merged
+   * into the block at the caret.
+   */
   readonly diagnostics: readonly PasteDiagnostic[];
   readonly diagnosticsTruncated: boolean;
   readonly references: PasteAffectedReferences;
@@ -42,11 +48,27 @@ export interface PasteNormalizationContext {
   readonly formatting: PasteFormatting;
 }
 
+/**
+ * What the accepted root paste transaction inserted, measured when its whole change is known.
+ */
+export interface PasteInsertion {
+  /** The heading nodes that start inside the change in the transaction document: the headings the paste created. */
+  readonly createdHeadings: number;
+  /**
+   * The textblock the first step starts replacing inside, in the document before the paste. An
+   * open first slice textblock joins it instead of creating a node, and it keeps its markup.
+   */
+  readonly joined?: PMNode;
+  /** Whether that first step replaced the whole content of the joined textblock: it was empty or wholly selected. */
+  readonly joinedFilled: boolean;
+}
+
 interface Receipt {
   readonly operationId: string;
   readonly changed: boolean;
   readonly ranges: readonly PasteAffectedRange[];
   readonly expired: boolean;
+  readonly insertion?: PasteInsertion;
 }
 
 interface ReceiptState {
@@ -140,6 +162,24 @@ function affectedRanges(transaction: Transaction): { ranges: readonly PasteAffec
   return { ranges: compactRanges(ranges), expired };
 }
 
+/** Measures the insertion of a transaction from its sorted, merged change ranges in its document. */
+function measureInsertion(transaction: Transaction, ranges: readonly PasteAffectedRange[]): PasteInsertion {
+  let createdHeadings = 0;
+  for (const { from, to } of ranges) {
+    // A heading that starts before the change surrounds it; the paste did not create it.
+    transaction.doc.nodesBetween(from, to, (node, pos) => {
+      if (node.type.name === 'heading' && pos >= from) createdHeadings++;
+    });
+  }
+  let first: PasteAffectedRange | undefined;
+  transaction.mapping.maps[0]?.forEach((from, to) => { first ??= { from, to }; });
+  const before = transaction.docs[0];
+  if (first === undefined || before === undefined) return Object.freeze({ createdHeadings, joinedFilled: false });
+  const $start = before.resolve(first.from);
+  if ($start.depth === 0 || !$start.parent.isTextblock) return Object.freeze({ createdHeadings, joinedFilled: false });
+  return Object.freeze({ createdHeadings, joined: $start.parent, joinedFilled: $start.parentOffset === 0 && first.to >= $start.end() });
+}
+
 export const receiptStateField: StateField<ReceiptState> = {
   init: () => ({ revision: 0, receipts: Object.freeze([]) }),
   apply(transaction, previous) {
@@ -160,10 +200,14 @@ export const receiptStateField: StateField<ReceiptState> = {
       if (ownId !== undefined || earlier !== undefined) {
         const changed = affectedRanges(transaction);
         const ranges = compactRanges([...(earlier?.ranges ?? []), ...changed.ranges]);
+        // Only the root transaction inserts the pasted slice; appended normalizers keep its measure.
+        const insertion = ownId === undefined ? earlier?.insertion
+          : earlier === undefined && !changed.expired ? measureInsertion(transaction, changed.ranges) : undefined;
         const receipt: Receipt = Object.freeze({
           operationId: currentId, changed: transaction.docChanged || earlier?.changed === true,
           ranges: ranges.length > MAX_RANGES ? Object.freeze([]) : ranges,
           expired: changed.expired || earlier?.expired === true || ranges.length > MAX_RANGES,
+          ...(insertion === undefined ? {} : { insertion }),
         });
         if (index < 0) receipts.push(receipt); else receipts[index] = receipt;
       }
@@ -181,7 +225,9 @@ export function getPasteAffectedReferences(view: EditorView, id: string): PasteA
   return Object.freeze({ referenceId: id, precision: 'operation', documentRevision: state.revision, ranges: freezeRanges(receipt.ranges), expired: receipt.expired });
 }
 
-export function readPasteReceipt(view: EditorView, id: string): { changed: boolean; references: PasteAffectedReferences } | undefined {
+export function readPasteReceipt(view: EditorView, id: string): {
+  changed: boolean; references: PasteAffectedReferences; insertion?: PasteInsertion;
+} | undefined {
   const state = pasteCleanupKey.getState(view.state);
   const receipt = state?.receipts.find(entry => entry.operationId === id);
   if (receipt === undefined || state === undefined) return undefined;
@@ -191,7 +237,7 @@ export function readPasteReceipt(view: EditorView, id: string): { changed: boole
     referenceId: id, precision: 'operation' as const, documentRevision: state.revision,
     ranges: Object.freeze([]), expired: true,
   });
-  return { changed: receipt.changed, references };
+  return { changed: receipt.changed, references, ...(receipt.insertion === undefined ? {} : { insertion: receipt.insertion }) };
 }
 
 export function pasteDocumentRevision(view: EditorView): number {

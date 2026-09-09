@@ -3,6 +3,7 @@ import { toHtml } from 'hast-util-to-html';
 import { normalizeClipboardHTML, DEFAULT_PASTE_HTML_LIMITS, retainDiagnostic } from '../html/normalize.js';
 import type { ClipboardDestinationCheck, ClipboardOwnCopyCheck } from '../html/normalize.js';
 import { safeImage } from '../html/urls.js';
+import { copyHeadingOutline } from '../html/headingLevels.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic } from '../html/types.js';
 import type { OfficeListReconstructionOptions } from '../html/officeLists.js';
 import type { ClipboardImageReference } from './references.js';
@@ -51,7 +52,9 @@ export interface ClipboardInlineHTMLPreparation {
 export function readPreparedClipboardHTMLNormalization(handle: PreparedClipboardHTML): NormalizePasteHTMLResult | undefined {
   const state = states.get(handle);
   if (state === undefined) return undefined;
-  return { ...state.result, html: '', diagnostics: state.result.diagnostics.map(diagnostic => ({ ...diagnostic })) };
+  const normalization = { ...state.result, html: '', diagnostics: state.result.diagnostics.map(diagnostic => ({ ...diagnostic })) };
+  copyHeadingOutline(state.result, normalization);
+  return normalization;
 }
 
 export type ClipboardHTMLPreparationResult =
@@ -330,7 +333,9 @@ function materializeImages(
       const removed: PasteDiagnostic = { code: 'image-removed', severity: 'warning', ...(placement.sourceOffset === undefined ? {} : { offset: placement.sourceOffset }) };
       if (retainDiagnostic(diagnostics, removed, state.maxDiagnostics)) diagnosticsTruncated = true;
     }
-    return Object.freeze({ status: 'materialized', normalization: { ...state.result, html, diagnostics, diagnosticsTruncated } });
+    const normalization = { ...state.result, html, diagnostics, diagnosticsTruncated };
+    copyHeadingOutline(state.result, normalization);
+    return Object.freeze({ status: 'materialized', normalization });
   } catch (error) {
     return Object.freeze({ status: 'rejected', reason: error instanceof PreparedOutputLimit ? 'output-limit' : 'invalid-resolution' });
   }

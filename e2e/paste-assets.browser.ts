@@ -8,6 +8,9 @@ const FRAMEWORKS = ['vanilla', 'react', 'vue', 'angular'] as const;
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
 const PNG_URL = `data:image/png;base64,${PNG}`;
 const MIXED_HTML = '<p class="MsoNormal"><strong>New</strong></p><img src="cid:private-chart" alt="Chart"><p>End</p>';
+// A level the default Heading levels lack, before a prepared image.
+const HEADING_HTML = '<h5>Report</h5><img src="cid:private-chart" alt="Chart"><p>End</p>';
+const HEADING_NOTICE = 'Some headings were changed to a heading level this editor supports.';
 
 interface Snapshot { doc: unknown; selection: unknown }
 interface Observations {
@@ -253,6 +256,27 @@ for (const framework of FRAMEWORKS) {
       expect((await observations(page)).assetHookCalls).toEqual({ html: 1, slice: 1, handle: 1 });
       await expect(page.locator('.ProseMirror img')).toHaveCount(1);
     });
+
+    for (const smartPaste of [true, false]) {
+      test(`reports a prepared paste's adapted heading only when it lands as a heading, ${smartPaste ? 'with' : 'without'} SmartPaste`, async ({ page }) => {
+        // "old" is selected: ProseMirror merges the open first heading into that paragraph,
+        // while SmartPaste inserts the pasted blocks between its halves.
+        await open(page, framework, smartPaste ? {} : { 'smart-paste': 'off' });
+        await paste(page, { html: HEADING_HTML });
+        const result = await terminal(page);
+        expect(result.status).toBe('applied');
+        await expect(page.locator('.ProseMirror img')).toHaveCount(1);
+        await expect(page.locator('.ProseMirror h4')).toHaveCount(smartPaste ? 1 : 0);
+        const observed = await observations(page);
+        const codes = (diagnostics: readonly { code: string }[]): string[] => diagnostics.map(diagnostic => diagnostic.code);
+        expect(codes(observed.results[0]?.diagnostics ?? [])).toEqual(['destination-heading-level-adapted']);
+        expect(codes(result.diagnostics)).toEqual(smartPaste ? ['destination-heading-level-adapted'] : []);
+        const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+        if (smartPaste) await expect(notice.locator('li')).toHaveText([HEADING_NOTICE]);
+        else await expect(notice).toBeHidden();
+        expect(observed.assetReads).toBe(1);
+      });
+    }
   });
 }
 

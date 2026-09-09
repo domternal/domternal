@@ -222,7 +222,10 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
             setClipboardPasteBehavior(view, event, { assetsAlreadyHandled: true,
               preserveOrderedListStart: !owned.blocked && owned.preserveOrderedListStart });
             if (owned.blocked) event.preventDefault();
-            else disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: owned.operation.operationId });
+            else {
+              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: owned.operation.operationId });
+              tracking.recordSlice(owned.operation, slice);
+            }
             return owned.blocked;
           }
           if (!pending.rejected && coordinator?.handleImageOnly(event, slice) === true) {
@@ -242,7 +245,11 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           if (operation !== undefined) {
             // A transform-skipping empty attempt can carry an older pending operation.
             if (empty && !rejected && slice !== Slice.empty) tracking.skip(operation);
-            if (!block) disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: operation.operationId });
+            if (!block) {
+              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: operation.operationId });
+              // A heading finding follows the slice's headings into the document.
+              tracking.recordSlice(operation, slice);
+            }
           }
           if (block) event.preventDefault();
           return block;

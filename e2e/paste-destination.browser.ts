@@ -37,13 +37,17 @@ type Transport = 'synthetic-event' | 'programmatic';
 
 async function open(page: Page, framework: string, options: {
   schema?: 'capability-minimal' | 'capability-full' | 'heading-levels'; formatting?: 'preserve' | 'adapt'; diagnostics?: 'one';
-  'link-protocols'?: 'https';
+  'link-protocols'?: 'https'; 'smart-paste'?: 'off'; 'unique-id'?: 'off';
 } = {}): Promise<void> {
   const query = new URLSearchParams({ framework, ...options });
   await page.goto(`${BASE_URL}/?${query.toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
   await expect(page.locator('.ProseMirror')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.framework)).toBe(framework);
+  expect(await page.evaluate(() => {
+    const names = (window as unknown as ProbeWindow).__pasteCleanup.editor.extensionManager.extensions.map(extension => extension.name);
+    return { smartPaste: names.includes('smartPaste'), uniqueID: names.includes('uniqueID') };
+  })).toEqual({ smartPaste: options['smart-paste'] !== 'off', uniqueID: options['unique-id'] !== 'off' });
   if (options.schema === 'capability-minimal') {
     expect(await page.evaluate(() => {
       const schema = (window as unknown as ProbeWindow).__pasteCleanup.editor.state.schema;
@@ -323,5 +327,214 @@ for (const framework of FRAMEWORKS) {
       const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
       await expect(notice).toContainText('Not all paste details are shown.');
     });
+  });
+}
+
+/**
+ * Caret seeds of the heading notice matrix. `|` marks the caret and `[` `]` a selected range, and
+ * both are removed before the paste; a seed without a mark selects the whole document. `hL` is the
+ * level pasted headings adapt to, so a seed heading at that level can share their markup.
+ */
+const NOTICE_SEEDS: readonly (readonly [name: string, html: string])[] = [
+  ['an empty paragraph', '<p>|</p>'],
+  ['the start of a paragraph', '<p>|Hello world</p>'],
+  ['the middle of a paragraph', '<p>Hello |world</p>'],
+  ['the end of a paragraph', '<p>Hello world|</p>'],
+  ['the start of a level 2 heading', '<h2>|Hello world</h2>'],
+  ['the middle of a level 2 heading', '<h2>Hello |world</h2>'],
+  ['an empty level 2 heading', '<h2>|</h2>'],
+  ['an empty heading at the adapted level', '<hL>|</hL>'],
+  ['a wholly selected heading at the adapted level', '<hL>[Hello world]</hL>'],
+  ['the start of a heading at the adapted level', '<hL>|Hello world</hL>'],
+  ['the middle of a heading at the adapted level', '<hL>Hello |world</hL>'],
+  ['an empty list item label', '<ul><li><p>|</p></li></ul>'],
+  ['the start of a list item label', '<ul><li><p>|Hello world</p></li></ul>'],
+  ['the middle of a list item label', '<ul><li><p>Hello |world</p></li></ul>'],
+  ['the middle of a quoted paragraph', '<blockquote><p>Hello |world</p></blockquote>'],
+  ['the middle of a table cell', '<table><tr><td><p>Hello |world</p></td></tr></table>'],
+  ['a range across two paragraphs', '<p>Hel[lo world</p><p>Second] line</p>'],
+  ['a whole document selection', '<p>Hello world</p>'],
+];
+/** Each pasted heading has its own word, so a document shows where it went. */
+const NOTICE_CLIPBOARDS = [
+  '<h5>Five</h5>', '<h6>Six</h6>', '<h5>Five</h5><h6>Six</h6>', '<p>Lead</p><h5>Five</h5>', '<h5>Five</h5><p>Tail</p>',
+  '<h2>Two</h2><h5>Five</h5>', '<h5>Alpha</h5><h2>Beta</h2>', '<h5>Alpha</h5><p>Mid</p><h6>Omega</h6>',
+  '<blockquote><h5>Quoted</h5></blockquote>', '<ul><li><p>Item</p><h5>Nested</h5></li></ul>',
+  '<h5>Linked <a href="javascript:alert(1)">here</a></h5>',
+] as const;
+/** Levels 2 and 3 adapt a level 1 heading up and levels 4 to 6 down. */
+const NARROW_NOTICE_CLIPBOARDS = [
+  '<h1>One</h1>', '<h5>Five</h5>', '<h1>One</h1><h5>Five</h5>', '<h4>Four</h4><p>Tail</p>', '<p>Lead</p><h6>Six</h6>',
+  '<h2>Two</h2><h1>One</h1>', '<h5>Five</h5><h1>One</h1>',
+] as const;
+
+interface NoticeOutcome {
+  seed: string;
+  html: string;
+  status: string;
+  /** Every textblock in document order: its type, or `h` and its level, then its text. */
+  blocks: string[];
+  normalized: { code: string; offset?: number }[];
+  reported: { code: string; offset?: number }[];
+  /** The rows the notice lists, or null while it is hidden. */
+  notice: string[] | null;
+}
+
+/** Pastes every clipboard at every seed through a synthetic paste event and records each outcome. */
+function pasteNoticeMatrix(page: Page, clipboards: readonly string[], adaptedLevel: number): Promise<NoticeOutcome[]> {
+  return page.evaluate(async ({ seeds, clipboards, adaptedLevel }) => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    const editor = probe.editor;
+    const outcomes: NoticeOutcome[] = [];
+    for (const [seedName, seedHTML] of seeds) {
+      for (const html of clipboards) {
+        if (!editor.setContent(seedHTML.replaceAll('hL>', `h${String(adaptedLevel)}>`), false)) throw new Error('Could not seed the editor');
+        const marks: { char: string; pos: number }[] = [];
+        editor.state.doc.descendants((node, pos) => {
+          const text = node.text ?? '';
+          for (let index = 0; index < text.length; index++) if ('|[]'.includes(text.charAt(index))) marks.push({ char: text.charAt(index), pos: pos + index });
+        });
+        const transaction = editor.state.tr;
+        for (const mark of [...marks].reverse()) transaction.delete(mark.pos, mark.pos + 1);
+        editor.view.dispatch(transaction);
+        // A mark's position after the marks before it are gone.
+        const at = (char: string): number | undefined => {
+          const index = marks.findIndex(mark => mark.char === char);
+          return index < 0 ? undefined : (marks[index]?.pos ?? 0) - index;
+        };
+        const caret = at('|');
+        const from = at('[');
+        const to = at(']');
+        if (caret !== undefined) probe.select(caret);
+        else if (from !== undefined && to !== undefined) probe.select(from, to);
+        else editor.commands.selectAll();
+        probe.clearObservations();
+        const data = new DataTransfer();
+        data.setData('text/html', html);
+        data.setData('text/plain', 'Synthetic clipboard content');
+        const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+        if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+        editor.view.dom.dispatchEvent(event);
+        for (let attempt = 0; attempt < 50 && probe.operations.length === 0; attempt++) await new Promise(resolve => setTimeout(resolve, 0));
+        const operation = probe.operations[0];
+        const result = probe.results[0];
+        if (operation === undefined || result === undefined || probe.operations.length !== 1) throw new Error(`No single paste result for ${html} at ${seedName}`);
+        const blocks: string[] = [];
+        editor.state.doc.descendants(node => {
+          if (node.isTextblock) blocks.push(`${node.type.name === 'heading' ? `h${String(node.attrs['level'])}` : node.type.name}:${node.textContent}`);
+        });
+        const region = document.querySelector('[role="region"][aria-label="Paste notice"]');
+        outcomes.push({
+          seed: seedName, html, status: operation.status, blocks,
+          normalized: result.diagnostics.map(({ code, offset }) => offset === undefined ? { code } : { code, offset }),
+          reported: operation.diagnostics.map(({ code, offset }) => offset === undefined ? { code } : { code, offset }),
+          notice: region instanceof HTMLElement && !region.hidden ? Array.from(region.querySelectorAll('li'), row => row.textContent) : null,
+        });
+      }
+    }
+    return outcomes;
+  }, { seeds: NOTICE_SEEDS, clipboards, adaptedLevel });
+}
+
+const ADAPTED_CODE = 'destination-heading-level-adapted';
+/** The pasted heading a source offset points at, as its tag level and the text before its first element. */
+function pastedHeadingAt(html: string, offset: number | undefined): string {
+  const match = offset === undefined ? null : /^<h([1-6])>([^<]*)/.exec(html.slice(offset));
+  return match === null ? '?' : `h${match[1] ?? ''}:${match[2] ?? ''}`;
+}
+function headingLabels(outcome: NoticeOutcome, diagnostics: NoticeOutcome['reported']): string[] {
+  return diagnostics.filter(item => item.code === ADAPTED_CODE).map(item => pastedHeadingAt(outcome.html, item.offset));
+}
+function nearestLevel(level: number, levels: readonly number[]): number {
+  return levels.filter(candidate => candidate >= level).sort((a, b) => a - b)[0] ?? Math.max(...levels);
+}
+
+/**
+ * Checks each outcome against the same paste in an editor with all six levels, where no heading
+ * adapts: a pasted heading the notice reports must be one that editor keeps as a heading at its
+ * own level, so its adaptation changed the document, and every other must merge there too.
+ */
+function expectNoticesFollowFullLevels(adapted: NoticeOutcome[], full: NoticeOutcome[], levels: readonly number[]): { removed: number; kept: number } {
+  expect(adapted.map(({ seed, html }) => `${html} at ${seed}`)).toEqual(full.map(({ seed, html }) => `${html} at ${seed}`));
+  let removed = 0;
+  let kept = 0;
+  adapted.forEach((outcome, index) => {
+    const counterpart = full[index];
+    if (counterpart === undefined) throw new Error('Missing full-level outcome');
+    const name = `${outcome.html} at ${outcome.seed}`;
+    const pasted = [...outcome.html.matchAll(/<h([1-6])>([^<]*)/g)]
+      .filter(match => !levels.includes(Number(match[1]))).map(match => `h${match[1] ?? ''}:${match[2] ?? ''}`);
+    const landed = pasted.filter(label => counterpart.blocks.some(block => block.startsWith(label)));
+    expect({ name, status: outcome.status, full: counterpart.status }).toEqual({ name, status: 'applied', full: 'applied' });
+    expect({ name, normalized: headingLabels(outcome, outcome.normalized) }).toEqual({ name, normalized: pasted });
+    expect({ name, reported: headingLabels(outcome, outcome.reported) }).toEqual({ name, reported: landed });
+    const others = (diagnostics: NoticeOutcome['reported']): NoticeOutcome['reported'] => diagnostics.filter(item => item.code !== ADAPTED_CODE);
+    expect({ name, others: others(outcome.reported) }).toEqual({ name, others: others(outcome.normalized) });
+    expect({ name, notice: outcome.notice === null ? null : outcome.notice.includes(HEADING_NOTICE) })
+      .toEqual({ name, notice: outcome.reported.length === 0 ? null : landed.length > 0 });
+    // Adapting a heading changes its level and nothing else in the document.
+    const mapped = counterpart.blocks.map(block => block.replace(/^h([1-6]):/, (_, level: string) => `h${String(nearestLevel(Number(level), levels))}:`));
+    expect({ name, blocks: outcome.blocks }).toEqual({ name, blocks: mapped });
+    removed += pasted.length - landed.length;
+    kept += landed.length;
+  });
+  return { removed, kept };
+}
+
+function noticeOutcome(outcomes: NoticeOutcome[], html: string, seed: string): NoticeOutcome {
+  const found = outcomes.find(outcome => outcome.html === html && outcome.seed === seed);
+  if (found === undefined) throw new Error(`No outcome for ${html} at ${seed}`);
+  return found;
+}
+
+for (const framework of FRAMEWORKS) {
+  for (const smartPaste of [true, false]) {
+    for (const uniqueID of [true, false]) {
+      const setup = `${smartPaste ? 'with' : 'without'} SmartPaste, ${uniqueID ? 'with' : 'without'} block ids`;
+      const options = { ...(smartPaste ? {} : { 'smart-paste': 'off' as const }), ...(uniqueID ? {} : { 'unique-id': 'off' as const }) };
+      test(`${framework}: the heading notice reports exactly the adapted headings that reach the document as headings, ${setup}`, async ({ page }) => {
+        await open(page, framework, { ...options, schema: 'capability-full' });
+        const full = await pasteNoticeMatrix(page, NOTICE_CLIPBOARDS, 4);
+        await open(page, framework, options);
+        const adapted = await pasteNoticeMatrix(page, NOTICE_CLIPBOARDS, 4);
+        expect(adapted).toHaveLength(NOTICE_SEEDS.length * NOTICE_CLIPBOARDS.length);
+        const { removed, kept } = expectNoticesFollowFullLevels(adapted, full, [1, 2, 3, 4]);
+        // SmartPaste inserts most pasted headings as blocks, so fewer merge.
+        expect(removed).toBeGreaterThan(smartPaste ? 10 : 20);
+        expect(kept).toBeGreaterThan(20);
+        const middle = noticeOutcome(adapted, '<h5>Five</h5>', 'the middle of a paragraph');
+        const second = noticeOutcome(adapted, '<h5>Five</h5><h6>Six</h6>', 'the middle of a paragraph');
+        if (smartPaste) {
+          expect(middle).toMatchObject({ blocks: ['paragraph:Hello ', 'h4:Five', 'paragraph:world'], notice: [HEADING_NOTICE] });
+          expect(second.blocks).toEqual(['paragraph:Hello ', 'h4:Five', 'h4:Six', 'paragraph:world']);
+        } else {
+          expect(middle).toMatchObject({ blocks: ['paragraph:Hello Fiveworld'], reported: [], notice: null });
+          expect(second).toMatchObject({ blocks: ['paragraph:Hello Five', 'h4:Sixworld'], notice: [HEADING_NOTICE] });
+          expect(headingLabels(second, second.reported)).toEqual(['h6:Six']);
+        }
+        expect(noticeOutcome(adapted, '<h5>Five</h5>', 'the middle of a heading at the adapted level'))
+          .toMatchObject({ blocks: ['h4:Hello Fiveworld'], reported: [], notice: null });
+        // An empty heading at level 4 takes the pasted heading: kept as the same node without ids, replaced with them.
+        expect(noticeOutcome(adapted, '<h5>Five</h5>', 'an empty heading at the adapted level'))
+          .toMatchObject({ blocks: ['h4:Five'], notice: [HEADING_NOTICE] });
+        const linked = noticeOutcome(adapted, '<h5>Linked <a href="javascript:alert(1)">here</a></h5>', 'the middle of a paragraph');
+        expect(linked.reported.map(item => item.code)).toEqual(smartPaste ? ['link-removed', ADAPTED_CODE] : ['link-removed']);
+      });
+    }
+  }
+
+  test(`${framework}: with levels 2 and 3 the heading notice follows the same rule for headings adapted up and down`, async ({ page }) => {
+    for (const smartPaste of [true, false]) {
+      const options = { 'unique-id': 'off' as const, ...(smartPaste ? {} : { 'smart-paste': 'off' as const }) };
+      await open(page, framework, { ...options, schema: 'capability-full' });
+      const full = await pasteNoticeMatrix(page, NARROW_NOTICE_CLIPBOARDS, 3);
+      await open(page, framework, { ...options, schema: 'heading-levels' });
+      const adapted = await pasteNoticeMatrix(page, NARROW_NOTICE_CLIPBOARDS, 3);
+      const { removed, kept } = expectNoticesFollowFullLevels(adapted, full, [2, 3]);
+      expect(removed).toBeGreaterThan(5);
+      expect(kept).toBeGreaterThan(5);
+      // A level 1 heading pasted into an empty level 2 heading fills it.
+      expect(noticeOutcome(adapted, '<h1>One</h1>', 'an empty level 2 heading')).toMatchObject({ blocks: ['h2:One'], notice: [HEADING_NOTICE] });
+    }
   });
 }

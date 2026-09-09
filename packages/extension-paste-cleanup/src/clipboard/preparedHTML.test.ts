@@ -7,6 +7,8 @@ import { normalizePasteHTML } from '../html/index.js';
 import { DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
 import { parseBoundedHTML } from '../html/parse.js';
 import type { NormalizePasteHTMLResult } from '../html/types.js';
+import { headingOutline } from '../html/headingLevels.js';
+import type { PasteDestinationFeature } from '../html/destinationDemand.js';
 import {
   discardPreparedClipboardHTML,
   materializeClipboardHTML,
@@ -733,5 +735,41 @@ describe('prepared HTML resolution lifecycle', () => {
     Object.defineProperty(hostile, 'size', { get() { throw new Error('Caller map failed'); } });
     expect(materializeClipboardHTML(result.handle, hostile)).toEqual({ status: 'rejected', reason: 'invalid-resolution' });
     expect(materializeClipboardHTML(result.handle, new Map([['image:1', DATA]]))).toEqual({ status: 'rejected', reason: 'expired-preparation' });
+  });
+});
+
+describe('the heading outline of a prepared paste', () => {
+  const lacksFive = (features: readonly PasteDestinationFeature[]): readonly PasteDestinationFeature[] =>
+    features.filter(feature => feature === 'heading-5' || feature === 'heading-6');
+
+  it('travels with the provisional and the final normalization', () => {
+    const html = '<h2>Two</h2><h5>Five</h5><p><img src="cid:chart" alt="Chart"></p>';
+    const result = prepared(prepareClipboardHTML(html, LIMITS, {}, undefined, undefined, lacksFive));
+    const provisional = readPreparedClipboardHTMLNormalization(result.handle);
+    expect(provisional?.diagnostics.map(item => item.code)).toEqual(['destination-heading-level-adapted']);
+    expect(headingOutline(provisional)).toEqual([false, true]);
+    const final = materialized(result.handle, new Map([['image:1', DATA]]));
+    expect(final.html).toContain('<h4>Five</h4>');
+    expect(headingOutline(final)).toEqual([false, true]);
+    const omitted = prepared(prepareClipboardHTML(html, LIMITS, {}, undefined, undefined, lacksFive));
+    const output = materializeClipboardHTML(omitted.handle, new Map(), { omitUnresolved: true });
+    if (output.status !== 'materialized') throw new Error('Expected a materialized paste');
+    expect(output.normalization.diagnostics.map(item => item.code)).toEqual(['destination-heading-level-adapted', 'image-removed']);
+    expect(headingOutline(output.normalization)).toEqual([false, true]);
+  });
+
+  it('travels with a normalization whose images a resolver placed', () => {
+    const policy = createClipboardResolvedSourcePolicy(['https://cdn.example']);
+    const result = prepared(prepareClipboardHTML('<h5>Five</h5><p><img src="cid:chart" alt="Chart"></p>', LIMITS, {}, undefined, undefined, lacksFive));
+    const output = materializeResolvedClipboardHTML(result.handle, new Map([['image:1', { src: 'https://cdn.example/chart.png', pixels: 1 }]]), policy);
+    if (output.status !== 'materialized') throw new Error('Expected a materialized paste');
+    expect(output.normalization.html).toContain('src="https://cdn.example/chart.png"');
+    expect(headingOutline(output.normalization)).toEqual([true]);
+  });
+
+  it('has no outline when no heading was renamed', () => {
+    const result = prepared(prepareClipboardHTML('<h2>Two</h2><p><img src="cid:chart" alt="Chart"></p>', LIMITS, {}, undefined, undefined, lacksFive));
+    expect(headingOutline(readPreparedClipboardHTMLNormalization(result.handle))).toBeUndefined();
+    expect(headingOutline(materialized(result.handle, new Map([['image:1', DATA]])))).toBeUndefined();
   });
 });

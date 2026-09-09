@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Document, Editor, Extension, Paragraph, Text } from '@domternal/core';
-import { Plugin } from '@domternal/pm/state';
-import { createPasteTracking } from './tracking.js';
+import { Blockquote, Document, Editor, Extension, Heading, Paragraph, Text } from '@domternal/core';
+import { Fragment, Slice } from '@domternal/pm/model';
+import type { Node as PMNode } from '@domternal/pm/model';
+import { Plugin, TextSelection } from '@domternal/pm/state';
+import { createPasteTracking, reconcileHeadingDiagnostics, sliceHeadings } from './tracking.js';
+import type { SliceHeadings } from './tracking.js';
+import { normalizeClipboardHTML } from './html/normalize.js';
+import type { PasteDestinationFeature } from './html/destinationDemand.js';
 import { pasteCleanupKey, receiptStateField } from './operations.js';
-import type { NormalizePasteHTMLResult } from './html/types.js';
-import type { PasteOperationResult } from './operations.js';
+import type { NormalizePasteHTMLResult, PasteDiagnostic } from './html/types.js';
+import type { PasteInsertion, PasteOperationResult } from './operations.js';
 
 type Tracking = ReturnType<typeof createPasteTracking>;
 const editors: Editor[] = [];
@@ -201,5 +206,192 @@ describe('asynchronous paste completion tracking', () => {
     await Promise.resolve();
     expect(results.map(result => result.reason)).toEqual(['cancelled', 'target-changed']);
     expect(new Set(results.map(result => result.operationId)).size).toBe(2);
+  });
+});
+
+describe('heading adaptations reconciled with the inserted headings', () => {
+  const schema = ((): Editor['schema'] => {
+    const editor = new Editor({ extensions: [Document, Paragraph, Text, Heading] });
+    editor.destroy();
+    return editor.schema;
+  })();
+  const h4 = (text: string): PMNode => schema.node('heading', { level: 4 }, text === '' ? undefined : schema.text(text));
+  const h2 = (text: string): PMNode => schema.node('heading', { level: 2 }, text === '' ? undefined : schema.text(text));
+  const paragraph = (text: string): PMNode => schema.node('paragraph', null, schema.text(text));
+  const adapted = (offset: number): PasteDiagnostic => ({ code: 'destination-heading-level-adapted', severity: 'warning', offset });
+  const link: PasteDiagnostic = { code: 'link-removed', severity: 'warning', offset: 40 };
+  const five = adapted(0);
+  const six = adapted(13);
+  const openHeading: SliceHeadings = { count: 2, openFirst: h4('Five') };
+  const created = (count: number, joined?: PMNode, joinedFilled = false): PasteInsertion =>
+    joined === undefined ? { createdHeadings: count, joinedFilled } : { createdHeadings: count, joined, joinedFilled };
+
+  it('keeps the list as it is without every piece of evidence', () => {
+    const diagnostics = [five, link, six];
+    expect(reconcileHeadingDiagnostics(diagnostics, undefined, openHeading, created(0))).toBe(diagnostics);
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], undefined, created(0))).toBe(diagnostics);
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, undefined)).toBe(diagnostics);
+  });
+
+  it('keeps the list when the parsed slice lost or gained a heading', () => {
+    const diagnostics = [five, six];
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], { ...openHeading, count: 1 }, created(0))).toBe(diagnostics);
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], { ...openHeading, count: 3 }, created(0))).toBe(diagnostics);
+  });
+
+  it('keeps the list when truncation left fewer heading findings than adapted headings', () => {
+    const diagnostics = [five];
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, created(0))).toBe(diagnostics);
+  });
+
+  it('removes every heading finding, and only those, when no pasted heading became a heading', () => {
+    const result = reconcileHeadingDiagnostics([five, link, six], [true, true], openHeading, created(0, paragraph('Hello')));
+    expect(result).toEqual([link]);
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(reconcileHeadingDiagnostics([five], [true], { count: 1 }, created(0))).toEqual([]);
+  });
+
+  it('keeps the first finding when the first heading filled an existing heading of its own markup', () => {
+    const diagnostics = [five, link, six];
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, created(0, h4(''), true))).toEqual([five, link]);
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, created(1, h4('Old'), true))).toBe(diagnostics);
+    const single = [five];
+    expect(reconcileHeadingDiagnostics(single, [true], { count: 1, openFirst: h4('Five') }, created(0, h4(''), true))).toBe(single);
+    // A filled heading of another markup keeps its own level: the pasted heading merged.
+    expect(reconcileHeadingDiagnostics(single, [true], { count: 1, openFirst: h4('Five') }, created(0, h2(''), true))).toEqual([]);
+    expect(reconcileHeadingDiagnostics(single, [true], { count: 1, openFirst: h4('Five') }, created(0, paragraph('x'), true))).toEqual([]);
+    // Without a joined first heading, nothing was filled.
+    expect(reconcileHeadingDiagnostics(single, [true], { count: 1 }, created(0, h4(''), true))).toEqual([]);
+  });
+
+  it('keeps every finding when every pasted heading became a heading, or more headings appeared', () => {
+    const diagnostics = [five, link, six];
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, created(2, paragraph('Hello')))).toBe(diagnostics);
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, created(3, paragraph('Hello')))).toBe(diagnostics);
+  });
+
+  it('removes the first heading finding when only the open first heading merged into the textblock it joined', () => {
+    const result = reconcileHeadingDiagnostics([five, link, six], [true, true], openHeading, created(1, paragraph('Hello')));
+    expect(result).toEqual([link, six]);
+    expect(Object.isFrozen(result)).toBe(true);
+    // A first heading that needed no adaptation merged: every adapted one landed.
+    const landed = [link, six];
+    expect(reconcileHeadingDiagnostics(landed, [false, true], openHeading, created(1, paragraph('Hello')))).toBe(landed);
+  });
+
+  it('keeps the list when one heading is missing but the first heading did not join a textblock', () => {
+    const diagnostics = [five, six];
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], { count: 2 }, created(1, paragraph('Hello')))).toBe(diagnostics);
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true], openHeading, created(1))).toBe(diagnostics);
+  });
+
+  it('keeps the list when the created count fits neither a merge nor a landing', () => {
+    const diagnostics = [five, six, adapted(26)];
+    expect(reconcileHeadingDiagnostics(diagnostics, [true, true, true], { count: 3, openFirst: h4('Five') }, created(1, paragraph('Hello')))).toBe(diagnostics);
+  });
+});
+
+describe('the headings of a parsed slice', () => {
+  function schema(): Editor['schema'] {
+    const editor = new Editor({ extensions: [Document, Paragraph, Text, Heading, Blockquote] });
+    editors.push(editor);
+    return editor.schema;
+  }
+
+  it('counts every heading at any depth and names the first textblock only when it is a heading open at the start', () => {
+    const s = schema();
+    const heading = (text: string): PMNode => s.node('heading', { level: 4 }, s.text(text));
+    const paragraph = (text: string): PMNode => s.node('paragraph', null, s.text(text));
+    const first = heading('A');
+    expect(sliceHeadings(new Slice(Fragment.from(first), 1, 1))).toEqual({ count: 1, openFirst: first });
+    expect(sliceHeadings(new Slice(Fragment.from(first), 0, 1))).toEqual({ count: 1 });
+    expect(sliceHeadings(new Slice(Fragment.from([paragraph('x'), heading('A')]), 1, 1))).toEqual({ count: 1 });
+    const quoted = heading('A');
+    const fragment = Fragment.from([s.node('blockquote', null, [quoted, heading('B')]), heading('C')]);
+    expect(sliceHeadings(new Slice(fragment, 2, 1))).toEqual({ count: 3, openFirst: quoted });
+    expect(sliceHeadings(new Slice(fragment, 1, 1))).toEqual({ count: 3 });
+    expect(sliceHeadings(new Slice(Fragment.from(s.text('inline')), 0, 0))).toEqual({ count: 0 });
+    expect(sliceHeadings(Slice.empty)).toEqual({ count: 0 });
+  });
+});
+
+describe('a finished paste reports the headings it inserted', () => {
+  function mountHeadings(tracking: Tracking, content: string): Editor {
+    const receipts = Extension.create({
+      name: 'receiptHeadingFixture',
+      addProseMirrorPlugins: () => [new Plugin({ key: pasteCleanupKey, state: receiptStateField,
+        view: () => ({ update: view => { tracking.observe(view); } }) })],
+    });
+    const editor = new Editor({ extensions: [Document, Paragraph, Text, Heading, receipts], content });
+    editors.push(editor);
+    return editor;
+  }
+  const lacksFiveAndSix = (features: readonly PasteDestinationFeature[]): readonly PasteDestinationFeature[] =>
+    features.filter(feature => feature === 'heading-5' || feature === 'heading-6');
+  const normalized = (html: string): NormalizePasteHTMLResult => normalizeClipboardHTML(html, {}, undefined, undefined, lacksFiveAndSix).result;
+  const openSlice = (editor: Editor, text: string): Slice =>
+    new Slice(Fragment.from(editor.schema.node('heading', { level: 4 }, editor.schema.text(text))), 1, 1);
+  const codes = (result: PasteOperationResult): string[] => result.diagnostics.map(item => item.code);
+
+  it('drops the finding of a heading merged into the caret paragraph and keeps one that landed', async () => {
+    const tracking = createPasteTracking('preserve', undefined);
+    const merged = mountHeadings(tracking, '<p>Hello world</p>');
+    const result = normalized('<h5>Five</h5>');
+    const operation = tracking.create(result);
+    tracking.recordSlice(operation, openSlice(merged, 'Five'));
+    const completion = tracking.finish(merged.view, operation, false);
+    merged.view.dispatch(merged.state.tr.setSelection(TextSelection.create(merged.state.doc, 7)));
+    merged.view.dispatch(merged.state.tr.replaceSelection(openSlice(merged, 'Five')).setMeta(pasteCleanupKey, { operationId: operation.operationId }));
+    expect(merged.getHTML()).toBe('<p>Hello Fiveworld</p>');
+    expect(codes(await completion)).toEqual([]);
+    // The normalization itself still reports the adapted heading.
+    expect(result.diagnostics.map(item => item.code)).toEqual(['destination-heading-level-adapted']);
+
+    const landed = mountHeadings(tracking, '<p></p>');
+    const second = tracking.create(normalized('<h5>Five</h5>'));
+    tracking.recordSlice(second, openSlice(landed, 'Five'));
+    const secondCompletion = tracking.finish(landed.view, second, false);
+    landed.view.dispatch(landed.state.tr.replaceWith(0, 2, openSlice(landed, 'Five').content).setMeta(pasteCleanupKey, { operationId: second.operationId }));
+    expect(landed.getHTML()).toBe('<h4>Five</h4>');
+    expect(codes(await secondCompletion)).toEqual(['destination-heading-level-adapted']);
+  });
+
+  it('reconciles a prepared operation with the outline of its final normalization', async () => {
+    const tracking = createPasteTracking('preserve', undefined);
+    const editor = mountHeadings(tracking, '<p>Hello world</p>');
+    const operation = tracking.create();
+    tracking.recordSlice(operation, openSlice(editor, 'Five'));
+    const completion = tracking.finish(editor.view, operation, false, { normalization: normalized('<h5>Five</h5>') });
+    editor.view.dispatch(editor.state.tr.insertText('Five', 7).setMeta(pasteCleanupKey, { operationId: operation.operationId }));
+    expect(codes(await completion)).toEqual([]);
+  });
+
+  it('leaves a rejected, noop or untracked paste and one without a recorded slice as normalized', async () => {
+    const tracking = createPasteTracking('preserve', undefined);
+    const editor = mountHeadings(tracking, '<p>Hello world</p>');
+    const finish = async (operation: ReturnType<Tracking['create']>, run: () => void, rejected = false): Promise<string[]> => {
+      const completion = tracking.finish(editor.view, operation, rejected);
+      run();
+      return codes(await completion);
+    };
+    const rejected = tracking.create(normalized('<h5>Five</h5>'));
+    tracking.recordSlice(rejected, openSlice(editor, 'Five'));
+    expect(await finish(rejected, () => undefined, true)).toEqual(['destination-heading-level-adapted']);
+    const noop = tracking.create(normalized('<h5>Five</h5>'));
+    tracking.recordSlice(noop, openSlice(editor, 'Five'));
+    expect(await finish(noop, () => { editor.view.dispatch(editor.state.tr.setMeta(pasteCleanupKey, { operationId: noop.operationId })); }))
+      .toEqual(['destination-heading-level-adapted']);
+    const untracked = tracking.create(normalized('<h5>Five</h5>'));
+    tracking.recordSlice(untracked, openSlice(editor, 'Five'));
+    expect(await finish(untracked, () => { editor.view.dispatch(editor.state.tr.insertText('Five', 7)); })).toEqual(['destination-heading-level-adapted']);
+    const unrecorded = tracking.create(normalized('<h5>Five</h5>'));
+    expect(await finish(unrecorded, () => {
+      editor.view.dispatch(editor.state.tr.insertText('Five', 7).setMeta(pasteCleanupKey, { operationId: unrecorded.operationId }));
+    })).toEqual(['destination-heading-level-adapted']);
+    const plain = tracking.create();
+    tracking.recordSlice(plain, openSlice(editor, 'Five'));
+    expect(await finish(plain, () => {
+      editor.view.dispatch(editor.state.tr.insertText('Five', 7).setMeta(pasteCleanupKey, { operationId: plain.operationId }));
+    })).toEqual([]);
   });
 });

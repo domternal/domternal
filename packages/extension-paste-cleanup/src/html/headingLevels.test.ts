@@ -6,7 +6,7 @@ import { normalizePasteHTML } from './index.js';
 import { normalizeClipboardHTML } from './normalize.js';
 import type { ClipboardDestinationCheck } from './normalize.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
-import { adaptHeadingLevels, nearestHeadingLevel } from './headingLevels.js';
+import { adaptHeadingLevels, copyHeadingOutline, headingOutline, nearestHeadingLevel, recordHeadingOutline } from './headingLevels.js';
 
 /**
  * Every non-empty set of supported levels, as a bit mask where bit `level - 1` marks a supported
@@ -241,5 +241,54 @@ describe('heading levels in clipboard normalization with a destination', () => {
     expect(normalizePasteHTML('<h5>Five</h5><h6>Six</h6>')).toEqual({
       status: 'cleaned', html: '<h5>Five</h5><h6>Six</h6>', source: 'html', diagnostics: [], diagnosticsTruncated: false,
     });
+  });
+});
+
+describe('the heading outline of a cleaned fragment', () => {
+  it('marks each heading element, in document order at any depth, as renamed or kept', () => {
+    const tree: Root = { type: 'root', children: [
+      element('h2'), element('div', [element('h5'), element('blockquote', [element('h1'), element('h6')])]), element('p'), element('h4'),
+    ] };
+    expect(adaptHeadingLevels(tree, [1, 2, 3, 4], () => undefined)).toEqual([false, true, false, true, false]);
+  });
+
+  it('is empty without a heading or without a supported level', () => {
+    expect(adaptHeadingLevels({ type: 'root', children: [element('p'), element('h7')] }, [1], () => undefined)).toEqual([]);
+    expect(adaptHeadingLevels({ type: 'root', children: [element('h5')] }, [], () => undefined)).toEqual([]);
+  });
+
+  it('travels with a normalization result that renamed a heading, and only then', () => {
+    const html = '<h2>Two</h2><ul><li><h6>Six</h6></li></ul><h5>Five</h5>';
+    const { result } = normalizeClipboardHTML(html, {}, undefined, undefined, stub(levelsFrom(5)));
+    expect(headingOutline(result)).toEqual([false, true, true]);
+    expect(Object.isFrozen(headingOutline(result))).toBe(true);
+    // The outline is not a property of the public result.
+    expect(Object.keys(result)).toEqual(['status', 'html', 'source', 'diagnostics', 'diagnosticsTruncated']);
+    expect(headingOutline(normalizeClipboardHTML('<h2>Two</h2>', {}, undefined, undefined, stub(levelsFrom(5))).result)).toBeUndefined();
+    expect(headingOutline(normalizeClipboardHTML('<h5>Five</h5>', {}, undefined, undefined, stub(levelsFrom(1))).result)).toBeUndefined();
+    expect(headingOutline(normalizePasteHTML(html))).toBeUndefined();
+    expect(headingOutline(undefined)).toBeUndefined();
+  });
+
+  it('records a copy of an outline only when it renamed a heading', () => {
+    const target = {};
+    const outline = [false, true];
+    recordHeadingOutline(target, outline);
+    outline.push(true);
+    expect(headingOutline(target)).toEqual([false, true]);
+    const untouched = {};
+    recordHeadingOutline(untouched, [false, false]);
+    expect(headingOutline(untouched)).toBeUndefined();
+  });
+
+  it('copies to a result derived from the normalization, and never from one without an outline', () => {
+    const { result } = normalizeClipboardHTML('<h5>Five</h5>', {}, undefined, undefined, stub(levelsFrom(5)));
+    const derived = { ...result, html: '<h4>Five</h4>' };
+    expect(headingOutline(derived)).toBeUndefined();
+    copyHeadingOutline(result, derived);
+    expect(headingOutline(derived)).toEqual([true]);
+    const plain = { ...derived };
+    copyHeadingOutline({}, plain);
+    expect(headingOutline(plain)).toBeUndefined();
   });
 });

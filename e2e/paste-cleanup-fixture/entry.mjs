@@ -32,6 +32,10 @@ const httpsLinks = query.get('link-protocols') === 'https';
 const listMarkers = query.get('list-markers') === '1';
 // Core paste without PasteCleanup, for behavior applications see without the extension.
 const withoutPasteCleanup = query.get('paste-cleanup') === 'off';
+// ProseMirror's own paste placement, without SmartPaste's block routing.
+const withoutSmartPaste = query.get('smart-paste') === 'off';
+// Blocks without ids, so a pasted heading can share the markup of the heading it lands in.
+const withoutUniqueID = query.get('unique-id') === 'off';
 const details = query.get('details') === '1';
 if (listMarkers) await import('@domternal/theme/css');
 // Test-only older/custom schema control: keep list structure but omit the marker attribute.
@@ -42,11 +46,14 @@ const markerLists = query.get('list-marker-policy') === 'legacy'
   ? [withoutMarker(BulletList), withoutMarker(OrderedList)] : [BulletList, OrderedList];
 // All wrappers add only Document, Paragraph, Text, BaseKeymap and History.
 // This opt-in filter removes every optional formatting node and mark from the fixture.
-const disabledExtensions = capabilityMinimal ? new Set([
-  'bold', 'italic', 'underline', 'strike', 'link', 'textStyle', 'textColor', 'highlight',
-  'fontFamily', 'fontSize', 'textAlign', 'heading', 'bulletList', 'orderedList', 'listItem',
-  'blockquote', 'codeBlock', 'hardBreak', 'image', 'table', 'tableRow', 'tableCell', 'tableHeader',
-]) : new Set(withoutPasteCleanup ? ['pasteCleanup'] : []);
+const disabledExtensions = new Set([
+  ...(capabilityMinimal ? [
+    'bold', 'italic', 'underline', 'strike', 'link', 'textStyle', 'textColor', 'highlight',
+    'fontFamily', 'fontSize', 'textAlign', 'heading', 'bulletList', 'orderedList', 'listItem',
+    'blockquote', 'codeBlock', 'hardBreak', 'image', 'table', 'tableRow', 'tableCell', 'tableHeader',
+  ] : withoutPasteCleanup ? ['pasteCleanup'] : []),
+  ...(withoutSmartPaste ? ['smartPaste'] : []), ...(withoutUniqueID ? ['uniqueID'] : []),
+]);
 const limits = query.get('limits') === 'small'
   ? { maxInputLength: 1024, maxNodes: 80, maxDepth: 8, maxTableCells: 16 }
   : undefined;

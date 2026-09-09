@@ -13,7 +13,7 @@ import { assertTagWork, TagWorkLimitError } from './tagWork.js';
 import { assertOutputTreeBounds } from './treeBounds.js';
 import { collectDestinationDemand } from './destinationDemand.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
-import { adaptHeadingLevels, HEADING_LEVEL_FEATURES } from './headingLevels.js';
+import { adaptHeadingLevels, HEADING_LEVEL_FEATURES, recordHeadingOutline } from './headingLevels.js';
 import { LINK_FEATURES, unwrapLinks } from './links.js';
 import { reconstructOfficeLists } from './officeLists.js';
 import type { OfficeListReconstructionOptions } from './officeLists.js';
@@ -316,7 +316,8 @@ export function normalizeClipboardHTML(
         const supported = HEADING_LEVEL_FEATURES.flatMap((feature, index) =>
           missing.includes(feature) || unconfirmed.includes(feature) ? [] : [index + 1]);
         if (supported.length > 0) {
-          adaptHeadingLevels(sanitized, supported, node => { report('destination-heading-level-adapted', node); });
+          // The outline lets the editor report only the renamed headings that land as headings.
+          recordHeadingOutline(result, adaptHeadingLevels(sanitized, supported, node => { report('destination-heading-level-adapted', node); }));
           remaining = remaining.filter(feature => !HEADING_LEVEL_FEATURES.includes(feature));
         }
       }

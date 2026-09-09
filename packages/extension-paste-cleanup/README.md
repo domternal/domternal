@@ -110,8 +110,10 @@ i18n messages. Visible notices update when the locale changes.
 including plain-text transforms. Its frozen result contains `operationId`,
 `source`, `formatting`, `status`, bounded `diagnostics`, `diagnosticsTruncated` and
 `references`, without source HTML. `onResult` includes the same operation ID and
-formatting policy synchronously. Callback exceptions cannot revoke an accepted
-paste or disable cleanup.
+formatting policy synchronously. Both list the same diagnostics, except that an
+applied paste's result leaves out the heading warning of a pasted heading that
+merged into the block at the caret, as Formatting and assets describes.
+Callback exceptions cannot revoke an accepted paste or disable cleanup.
 
 | Status | Meaning |
 | --- | --- |
@@ -228,6 +230,19 @@ support that cannot be confirmed blocks the paste with
 preserving the selection instead of flattening cells into ambiguous text. This
 block remains effective when diagnostic details are full and runs before
 coordinated image reads or resolver callbacks.
+
+The operation result and the notice keep a heading's warning only when that
+heading reaches the document as a heading. ProseMirror merges the text of an open
+first heading into the block at the caret: `<h5>Five</h5>` pasted in the middle
+of a paragraph adds the word to that paragraph, so no heading changed, and
+`onPasteResult` and the notice leave its warning out. A heading that lands, for
+example in an empty paragraph, at the start of a paragraph, as a later block of
+the paste or as a block that SmartPaste inserts, keeps its warning, and so does
+one that fills an empty or wholly selected heading of its new level, which
+ProseMirror keeps as the same node. When the outcome is ambiguous, such as a
+truncated diagnostic list or a parsed paste whose headings differ from the
+cleaned HTML, every warning stays. `onResult` describes the cleanup, so it still
+lists every moved heading.
 
 These are built-in reference capability checks, not a comparison of each source
 word or style with the final editor document. Custom renamed nodes, custom clipboard
