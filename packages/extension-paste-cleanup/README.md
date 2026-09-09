@@ -235,15 +235,16 @@ coordinated image reads or resolver callbacks.
 The operation result and the notice keep a heading's warning only when that
 heading reaches the document as a heading. ProseMirror merges the text of an open
 first heading into the block at the caret: `<h5>Five</h5>` pasted in the middle
-of a paragraph adds the word to that paragraph, so no heading changed, and
-`onPasteResult` and the notice leave its warning out. A heading that lands, for
-example in an empty paragraph, at the start of a paragraph, as a later block of
-the paste or as a block that SmartPaste inserts, keeps its warning, and so does
-one that fills an empty or wholly selected heading of its new level, which
-ProseMirror keeps as the same node. When the outcome is ambiguous, such as a
-truncated diagnostic list or a parsed paste whose headings differ from the
-cleaned HTML, every warning stays. `onResult` describes the cleanup, so it still
-lists every moved heading.
+of a paragraph or of a heading adds the word to that block, so no heading
+changed, and `onPasteResult` and the notice leave its warning out. A heading that
+lands, for example in an empty paragraph, at the start of a paragraph, as a later
+block of the paste or as a block that SmartPaste inserts, keeps its warning, and
+so does one that fills an empty or wholly selected heading of its new level,
+which ProseMirror keeps as the same node. When the outcome is ambiguous, such as
+a heading warning that a full diagnostic allowance dropped or a parsed paste
+whose headings differ from the cleaned HTML, every warning stays. `onResult`
+describes the cleanup, so it still lists every moved heading. A drop has no paste
+receipt, so its result stays `untracked` with every warning.
 
 These are built-in reference capability checks, not a comparison of each source
 word or style with the final editor document. Custom renamed nodes, custom clipboard
