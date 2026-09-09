@@ -90,6 +90,16 @@ async function selectCells(page: Page): Promise<void> {
   await expect(page.getByTestId('merge')).toBeEnabled();
 }
 
+async function expectMerged(page: Page): Promise<void> {
+  const firstRow = page.locator('.ProseMirror tbody tr').first();
+  await expect(firstRow.locator('td')).toHaveCount(1);
+  await expect(firstRow.locator('td')).toHaveAttribute('colspan', '2');
+  await expect(firstRow).toContainText('A1');
+  await expect(firstRow).toContainText('A2');
+  await expect(page.locator('.ProseMirror tbody tr').nth(1).locator('td')).toHaveCount(2);
+  expect(await page.evaluate(() => window.__tutorialLifecycle.stats().submits)).toBe(0);
+}
+
 test.afterEach(({ page }) => {
   expect(errors.get(page) ?? []).toEqual([]);
 });
@@ -144,6 +154,84 @@ for (const framework of ['react', 'vue']) {
       });
     }
   }
+
+  test(`${framework}: custom pointer buttons preserve text, caret and CellSelection inside a form`, async ({ page }) => {
+    await open(page, framework, 'toolbar');
+    await selectText(page);
+    await page.getByTestId('bold').click();
+    await expect(page.locator('.ProseMirror > p').first().locator('strong')).toHaveText('Alpha');
+    await page.evaluate(() => { window.__tutorialLifecycle.selectText(12, 12); });
+    await page.getByTestId('bold').click();
+    await page.keyboard.type('X');
+    await expect(page.locator('.ProseMirror > p').first().locator('strong').last()).toHaveText('X');
+
+    await selectCells(page);
+    await page.getByTestId('merge').hover();
+    await page.mouse.down();
+    expect(await page.evaluate(() => window.__tutorialLifecycle.selection().cell)).toBe(true);
+    expect(await page.evaluate(() => window.__tutorialLifecycle.selection().canMerge)).toBe(true);
+    await page.mouse.up();
+    await expectMerged(page);
+  });
+
+  for (const key of ['Enter', 'Space']) {
+    test(`${framework}: custom toolbar Tab and ${key} preserve table and text selections`, async ({ page, browserName }) => {
+      await open(page, framework, 'toolbar');
+      // Safari on macOS uses Option+Tab to include buttons in keyboard navigation.
+      const tabKey = browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab';
+      await selectCells(page);
+      await page.getByTestId('toolbar-start').focus();
+      await page.keyboard.press(tabKey);
+      await expect(page.getByTestId('bold')).toBeFocused();
+      await page.keyboard.press(tabKey);
+      await expect(page.getByTestId('merge')).toBeFocused();
+      expect(await page.evaluate(() => window.__tutorialLifecycle.selection().cell)).toBe(true);
+      await page.keyboard.press(key);
+      await expectMerged(page);
+
+      await selectText(page);
+      await page.getByTestId('toolbar-start').focus();
+      await page.keyboard.press(tabKey);
+      await expect(page.getByTestId('bold')).toBeFocused();
+      await page.keyboard.press(key);
+      await expect(page.locator('.ProseMirror > p').first().locator('strong')).toHaveText('Alpha');
+      expect(await page.evaluate(() => window.__tutorialLifecycle.stats().submits)).toBe(0);
+    });
+  }
+
+  test(`${framework}: mixed custom controls accept focus and disabled actions cannot modify content`, async ({ page }) => {
+    await open(page, framework, 'toolbar');
+    await selectText(page);
+    await page.getByRole('textbox', { name: 'Toolbar note' }).fill('Keep normal input behavior');
+    await expect(page.getByRole('textbox', { name: 'Toolbar note' })).toBeFocused();
+    await page.getByRole('combobox', { name: 'Toolbar option' }).selectOption('two');
+    await expect(page.getByRole('combobox', { name: 'Toolbar option' })).toHaveValue('two');
+    expect(await page.evaluate(() => window.__tutorialLifecycle.selection().to - window.__tutorialLifecycle.selection().from)).toBe(5);
+    await page.getByTestId('bold').click();
+    await expect(page.locator('.ProseMirror > p').first().locator('strong')).toHaveText('Alpha');
+    const before = await page.evaluate(() => window.__tutorialLifecycle.html());
+    await page.evaluate(() => { window.__tutorialLifecycle.setEditable(false); });
+    await expect(page.getByTestId('bold')).toBeDisabled();
+    await expect(page.getByTestId('merge')).toBeDisabled();
+    await page.getByTestId('bold').click({ force: true });
+    expect(await page.evaluate(() => window.__tutorialLifecycle.html())).toBe(before);
+    expect(await page.evaluate(() => window.__tutorialLifecycle.stats().submits)).toBe(0);
+  });
+
+  test(`${framework}: a custom toolbar tap preserves the selected substring`, async ({ browser }) => {
+    const context = await browser.newContext({ hasTouch: true });
+    const page = await context.newPage();
+    try {
+      await open(page, framework, 'toolbar');
+      await selectText(page);
+      await page.getByTestId('bold').tap();
+      await expect(page.locator('.ProseMirror > p').first().locator('strong')).toHaveText('Alpha');
+      expect(await page.evaluate(() => window.__tutorialLifecycle.stats().submits)).toBe(0);
+      expect(errors.get(page)).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
 }
 
 test('React allocating selectors render command availability and selection-only updates without a loop', async ({ page }) => {
