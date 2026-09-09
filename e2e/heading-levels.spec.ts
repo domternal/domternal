@@ -1,7 +1,7 @@
 /**
  * A heading level the configuration lacks, stored by a collaborator configured with more levels,
- * reads in every wrapper's toolbar and bubble menu as the level it renders at. The demos offer
- * levels 1 to 4, so a stored 5 renders as h4, marks Heading 4 active, and Heading 4 toggles it off.
+ * reads in every wrapper's toolbar, bubble menu and outline as the level it renders at. The demos
+ * offer levels 1 to 4, so a stored 5 renders as h4, marks Heading 4 active, and Heading 4 toggles it off.
  */
 import { expect, type Page } from '@playwright/test';
 import { test } from './fixtures.js';
@@ -11,8 +11,12 @@ import { selectTextPrefix } from './menu-selection.js';
 
 const EDITOR = '.dm-editor .ProseMirror';
 
+interface DemoNode { attrs: Record<string, unknown>; type: { name: string }; textContent: string }
 interface DemoEditor {
-  state: { doc: { firstChild: { attrs: Record<string, unknown>; type: { name: string } } | null }; tr: StoreTransaction };
+  state: {
+    doc: { firstChild: DemoNode | null; descendants: (visit: (node: DemoNode, pos: number) => void) => void };
+    tr: StoreTransaction;
+  };
   view: { dispatch: (transaction: unknown) => void };
   commands: { setTextSelection: (position: number) => boolean; focus: () => boolean };
   getHTML: () => string;
@@ -33,6 +37,19 @@ function firstBlock(page: Page): Promise<{ type: string | undefined; level: unkn
     const first = editor.state.doc.firstChild;
     return { type: first?.type.name, level: first?.attrs['level'], html: editor.getHTML() };
   });
+}
+
+/** Stores a value on the heading whose text is `text`, without validation, as a collaborator's client writes it. */
+async function storeLevel(page: Page, text: string, level: unknown): Promise<void> {
+  await page.evaluate(({ text, level }) => {
+    const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as DemoEditor;
+    let at = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'heading' && node.textContent === text) at = pos;
+    });
+    if (at < 0) throw new Error(`No heading "${text}"`);
+    editor.view.dispatch(editor.state.tr.setNodeAttribute(at, 'level', level));
+  }, { text, level });
 }
 
 async function goNotion(page: Page, target: DemoTarget): Promise<void> {
@@ -74,6 +91,21 @@ for (const target of demoTargets) {
       expect(offered.filter(item => item.active).map(item => item.label))
         .toEqual(offered.some(item => item.label === 'Heading 4') ? ['Heading 4'] : []);
       expect(offered.find(item => item.label === 'Heading 1')?.active).toBe(false);
+    });
+
+    test('the outline lists each heading at the level it renders at', async ({ page }) => {
+      await goNotion(page, target);
+      await setContent(page, '<h1>One</h1><h1>Two</h1><h2>Three</h2><h3>Four</h3>');
+      // A decimal string renders at the level of its number; a stored 5 renders as h4, which the
+      // outline's default levels 1 to 3 leave out, as they leave out a visible h4.
+      await storeLevel(page, 'Two', '3');
+      await storeLevel(page, 'Four', 5);
+      await expect(page.locator(`${target.editorSelector} h3`)).toHaveText(['Two']);
+      await expect(page.locator(`${target.editorSelector} h4`)).toHaveText(['Four']);
+      const ticks = page.locator('.dm-toc-outline-tick');
+      await expect.poll(() => ticks.evaluateAll(elements => elements.map(element => [element.getAttribute('data-level'), element.getAttribute('aria-label')])))
+        .toEqual([['1', 'One (heading 1)'], ['3', 'Two (heading 3)'], ['2', 'Three (heading 2)']]);
+      await expect(page.locator('.dm-toc-outline-row')).toHaveText(['One', 'Two', 'Three']);
     });
   });
 }

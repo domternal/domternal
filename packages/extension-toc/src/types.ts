@@ -14,7 +14,10 @@ export interface HeadingEntry {
    * its own. The id is a peer-resolved attribute, not owned by TOC.
    */
   id: string;
-  /** Heading level (1-6). */
+  /**
+   * Heading level (1-6) the heading renders at. A stored level the Heading
+   * configuration lacks reads as the nearest configured level.
+   */
   level: number;
   /** Plain text contents of the heading. */
   textContent: string;
@@ -45,7 +48,8 @@ export interface TocStorage {
  */
 export interface TableOfContentsOptions {
   /**
-   * Heading levels to track. Out-of-range levels are ignored by the walk.
+   * Heading levels to track, compared with the level each heading renders
+   * at. Out-of-range levels are ignored by the walk.
    * @default [1, 2, 3]
    */
   levels: number[];

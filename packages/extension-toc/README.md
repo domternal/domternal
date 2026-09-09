@@ -72,7 +72,11 @@ list into the document.
 
 `TableOfContents.configure({ ... })`:
 
-- `levels` (default `[1, 2, 3]`) - heading levels to track
+- `levels` (default `[1, 2, 3]`) - heading levels to track. Each heading counts
+  at the level it renders at: a stored level the `Heading` `levels` lack, such as
+  one written by a collaborator configured with more levels, counts as the
+  nearest configured level, so the entry, its `data-level` and its outline label
+  match the heading the reader sees
 - `anchorTypes` (default `['heading']`) - node names treated as anchors. Every
   type listed here must also be in `UniqueID.options.types`
 - `onUpdate` - called with the storage object whenever the heading list or the

@@ -1,8 +1,8 @@
 /**
  * Heading walk - pure function over a PM document.
  *
- * Returns one entry per heading node whose level matches the configured
- * filter, in document order. Recurses into nested structures (blockquote,
+ * Returns one entry per heading node whose rendered level matches the
+ * configured filter, in document order. Recurses into nested structures (blockquote,
  * list items, details, etc.) so a heading inside a container still
  * surfaces in the outline. The doc walk is O(n) in node count; we leave
  * cheaper-but-incremental tracking to the consumer's transaction guard.
@@ -16,6 +16,7 @@
  * id is missing (UniqueID not loaded, or the node was created without
  * passing through the id-assigning plugin), the entry reports `id: ''`.
  */
+import { resolveAttributeValue } from '@domternal/core';
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { HeadingEntry } from '../types.js';
 
@@ -47,8 +48,11 @@ export function walkHeadings(doc: PMNode, options: HeadingWalkOptions): HeadingW
 
   doc.descendants((node, pos) => {
     if (!anchorTypes.includes(node.type.name)) return;
-    const rawLevel: unknown = node.attrs['level'];
-    const level = typeof rawLevel === 'number' ? rawLevel : 1;
+    // The level the heading renders at: a stored level the Heading
+    // configuration lacks reads as the nearest configured one, as isActive
+    // reads it. A node whose level the editor does not normalize keeps its own.
+    const rendered = resolveAttributeValue(node.type.schema, node.type.name, 'level', node.attrs['level']);
+    const level = typeof rendered === 'number' ? rendered : 1;
     if (!levels.includes(level)) return;
 
     const rawId: unknown = node.attrs[attrName];
