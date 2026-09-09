@@ -33,7 +33,7 @@ async function open(page: Page, framework: string, options: { cleanup: boolean; 
 }
 
 /** Pastes or drops HTML into a fresh document and returns the heading levels and the operation's diagnostics. */
-function transfer(page: Page, html: string, transport: Transport): Promise<{ levels: unknown[]; codes: string[]; prevented: boolean | null }> {
+function transfer(page: Page, html: string, transport: Transport): Promise<{ levels: unknown[]; codes: string[]; statuses: string[]; prevented: boolean | null }> {
   return page.evaluate(async ({ html, transport }) => {
     const probe = (window as unknown as ProbeWindow).__pasteCleanup;
     const editor = probe.editor;
@@ -60,12 +60,17 @@ function transfer(page: Page, html: string, transport: Transport): Promise<{ lev
       editor.view.dom.dispatchEvent(event);
       prevented = event.defaultPrevented;
     }
-    for (let attempt = 0; attempt < 20 && probe.operations.length === 0 && transport !== 'drop'; attempt++) {
+    // Without PasteCleanup no operation is reported; with it, a drop reports one too.
+    const cleanup = editor.extensionManager.extensions.some(extension => extension.name === 'pasteCleanup');
+    for (let attempt = 0; attempt < 20 && probe.operations.length === 0 && cleanup; attempt++) {
       await new Promise(resolve => setTimeout(resolve, 0));
     }
     const levels: unknown[] = [];
     editor.state.doc.descendants(node => { if (node.type.name === 'heading') levels.push(node.attrs['level']); });
-    return { levels, codes: probe.operations.flatMap(operation => operation.diagnostics.map(diagnostic => diagnostic.code)), prevented };
+    return {
+      levels, codes: probe.operations.flatMap(operation => operation.diagnostics.map(diagnostic => diagnostic.code)),
+      statuses: probe.operations.map(operation => operation.status), prevented,
+    };
   }, { html, transport });
 }
 
@@ -79,7 +84,9 @@ for (const cleanup of [false, true]) {
         expect(outcome.levels).toEqual(expected);
         if (transport !== 'pasteHTML') expect(outcome.prevented).toBe(true);
         // PasteCleanup adapts the tags before parsing and reports it; Core maps them silently.
-        if (cleanup && transport !== 'drop') expect(outcome.codes).toContain('destination-heading-level-adapted');
+        // A drop has no paste receipt, so its operation stays untracked with every warning.
+        if (cleanup) expect(outcome.codes).toContain('destination-heading-level-adapted');
+        if (cleanup) expect(outcome.statuses).toEqual([transport === 'drop' ? 'untracked' : 'applied']);
         if (!cleanup) expect(outcome.codes).toEqual([]);
       });
     }
