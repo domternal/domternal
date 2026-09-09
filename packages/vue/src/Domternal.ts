@@ -1,4 +1,4 @@
-import { defineComponent, h, ref, watch, watchEffect } from 'vue';
+import { defineComponent, h, ref, watch } from 'vue';
 import type { Component, PropType } from 'vue';
 import type { AnyExtension, Content, FocusPosition, EditorPreset } from '@domternal/core';
 import { useEditor, type UseEditorOptions } from './useEditor.js';
@@ -100,19 +100,18 @@ const DomternalContent = defineComponent({
     const { editor } = useCurrentEditor();
     const containerRef = ref<HTMLElement>();
 
-    watchEffect(() => {
-      const container = containerRef.value;
-      const ed = editor.value;
+    // Plugin rebinds can notify reactive state consumers synchronously.
+    // Only the editor and mount element should trigger DOM adoption.
+    watch([containerRef, editor], ([container, ed], _previous, onCleanup) => {
       if (!container || !ed || ed.isDestroyed) return;
 
-      const editorDom = ed.view.dom;
-      if (editorDom.parentElement !== container) {
-        container.appendChild(editorDom);
-        // The detached-construction window is over; let a preset: 'notion'
-        // editor paint dm-notion-mode on the host it can now reach.
-        ed.adoptPresetClass();
-      }
-    });
+      ed.adoptDom(container);
+      onCleanup(() => {
+        if (!ed.isDestroyed && ed.view.dom.parentElement === container) {
+          ed.adoptDom(document.createElement('div'));
+        }
+      });
+    }, { immediate: true });
 
     return () => {
       const classes = props.class ? `dm-editor ${props.class}` : 'dm-editor';

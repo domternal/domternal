@@ -16,6 +16,10 @@
     "lib": ["es2022", "dom", "dom.iterable"],
     "module": "esnext",
     "moduleResolution": "bundler",
+    "paths": {
+      "@domternal/pm/*": ["../packages/pm/src/*.d.ts"],
+      "@domternal/*": ["../packages/*/dist/index.d.ts"]
+    },
     "target": "es2022",
     "types": ["node"],
     "noEmit": true,

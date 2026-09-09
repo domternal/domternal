@@ -231,6 +231,27 @@ describe('activeStateTracker', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('does not publish updates when onChange destroys the tracker', () => {
+    const onUpdate = vi.fn();
+    const onChange = vi.fn(() => {
+      tracker.destroy();
+    });
+    const tracker = createActiveStateTracker({ onChange, onUpdate });
+    const heading = mountHeading('heading', 50);
+    const observer = MockIntersectionObserver.instances[0];
+
+    tracker.observe([heading]);
+
+    expect(onChange).toHaveBeenCalledExactlyOnceWith('heading');
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(observer?.observed.size).toBe(0);
+
+    observer?.fire([{ target: heading, isIntersecting: true }]);
+    tracker.observe([heading]);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
   it('returns a no-op tracker when IntersectionObserver is unavailable', () => {
     // Strip the mock entirely - simulates SSR / very old runtime.
     const restore = (window as unknown as { IntersectionObserver?: unknown }).IntersectionObserver;
@@ -246,5 +267,63 @@ describe('activeStateTracker', () => {
     expect(onChange).not.toHaveBeenCalled();
 
     (window as unknown as { IntersectionObserver?: unknown }).IntersectionObserver = restore;
+  });
+
+  it('measures activity relative to the inner top of a custom scroll container', () => {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    root.getBoundingClientRect = () => ({ top: 200 }) as DOMRect;
+    Object.defineProperty(root, 'clientTop', { value: 2 });
+    const onChange = vi.fn();
+    const onUpdate = vi.fn();
+    const tracker = createActiveStateTracker({ scrollParent: root, onChange, onUpdate });
+    const first = mountHeading('first', -100);
+    const current = mountHeading('current', 202);
+    const next = mountHeading('next', 250);
+    root.append(first, current, next);
+
+    tracker.observe([first, current, next]);
+
+    expect(onChange).toHaveBeenLastCalledWith('current');
+    expect(onUpdate).toHaveBeenLastCalledWith({
+      activeId: 'current', scrolledOverIds: ['first', 'current'],
+    });
+    expect(MockIntersectionObserver.instances[0]?.options?.root).toBe(root);
+    tracker.destroy();
+  });
+
+  it('uses an explicit activation offset independently from the observer margin', () => {
+    const onChange = vi.fn();
+    const tracker = createActiveStateTracker({
+      offset: 64, rootMargin: '0px 0px -50% 0px', onChange,
+    });
+    tracker.observe([mountHeading('first', -100), mountHeading('next', 64)]);
+    expect(onChange).toHaveBeenLastCalledWith('next');
+    tracker.destroy();
+  });
+
+  it('reports passed-state changes even while the fallback heading remains active', () => {
+    const onChange = vi.fn();
+    const onUpdate = vi.fn();
+    const tracker = createActiveStateTracker({ onChange, onUpdate });
+    const first = mountHeading('first', 20);
+    tracker.observe([first]);
+    expect(onUpdate).toHaveBeenLastCalledWith({ activeId: 'first', scrolledOverIds: [] });
+    first.getBoundingClientRect = () => ({ top: 0, width: 200, height: 24 }) as DOMRect;
+    MockIntersectionObserver.instances[0]?.fire([]);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenLastCalledWith({ activeId: 'first', scrolledOverIds: ['first'] });
+    tracker.destroy();
+  });
+
+  it('ignores detached or unidentified headings without hiding valid candidates', () => {
+    const onChange = vi.fn();
+    const onUpdate = vi.fn();
+    const tracker = createActiveStateTracker({ onChange, onUpdate });
+    const detached = mountHeading('detached', -1);
+    detached.remove();
+    tracker.observe([detached, mountHeading('', -5), mountHeading('valid', 50)]);
+    expect(onUpdate).toHaveBeenLastCalledWith({ activeId: 'valid', scrolledOverIds: [] });
+    tracker.destroy();
   });
 });

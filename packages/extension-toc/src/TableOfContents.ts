@@ -13,6 +13,8 @@ import { Plugin, PluginKey, type EditorState } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { walkHeadings } from './helpers/headingWalk.js';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
+import { createActiveStateTracker, type ActiveStateSnapshot } from './helpers/activeStateTracker.js';
+import { navigateToc, registerTocNavigation, resolveTocTrackingOptions } from './helpers/tocTracking.js';
 import { isUniqueIDLoaded, resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import type { HeadingEntry, TableOfContentsOptions, TocStorage } from './types.js';
 
@@ -78,7 +80,7 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
           if (!view) return false;
           const ed = editor as unknown as Editor;
           const attrName = resolveUniqueIDAttrName(ed);
-          return scrollToHeading(view, id, { attrName });
+          return navigateToc(view, id, { attrName });
         },
     };
   },
@@ -126,7 +128,13 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
     }
 
     const fanOut = (): void => {
-      options.onUpdate?.(storage);
+      try {
+        options.onUpdate?.(storage);
+      } catch (err) {
+        // Keep UI subscribers usable even when the public callback fails.
+        // eslint-disable-next-line no-console
+        console.error('[extension-toc] onUpdate threw during fan-out:', err);
+      }
       // Copy to an array to make the iteration safe against subscribers
       // unsubscribing themselves during the callback.
       [...storage.subscribers].forEach((fn) => {
@@ -142,56 +150,162 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
       });
     };
 
-    const refreshStorage = (state: EditorState): void => {
-      storage.content = buildContent(state, options, attrName);
-      fanOut();
-    };
-
     return [
       new Plugin({
         key: tocPluginKey,
         view(editorView) {
-          // Defer initial storage population to the next macrotask so we
-          // don't observe state mid-init. UniqueID's own appendTransaction
-          // will have stamped ids by the time this fires; the tick of
-          // setTimeout(0) is enough for the initial dispatch ordering.
+          const trackingOptions = resolveTocTrackingOptions(editor);
+          const scrollParent = trackingOptions.activeScrollParent?.nodeType === 1
+            ? trackingOptions.activeScrollParent as Element
+            : null;
+          let destroyed = false;
+          let refreshing = false;
+          let activityRevision = 0;
+          let manualId: string | null = null;
+          let manualOverrideUntil = 0;
+          let overrideTimer: ReturnType<typeof setTimeout> | null = null;
+          let latestSnapshot: ActiveStateSnapshot = { activeId: null, scrolledOverIds: [] };
+          let headingDoms: HTMLElement[] = [];
           let rafId: number | null = null;
-          const timeoutId = setTimeout(() => {
-            if (editor.isDestroyed) return;
-            refreshStorage(editorView.state);
+          let pendingHash: string | null = null;
 
-            // Initial-load hash navigation. Run AFTER UniqueID has stamped
-            // ids and storage is populated. rAF gives one frame for the
-            // browser to paint the first commit; the call is silent on
-            // missing IDs (no scroll, no hash change), so a stray
-            // `#section` from another part of the host app stays untouched.
-            if (typeof window !== 'undefined' && window.location.hash) {
-              // Decode the percent-encoding scrollToHeading writes back so
-              // a round-trip (write hash -> reload -> read hash) finds the
-              // same heading id it started from.
-              let hash = window.location.hash.slice(1);
-              try {
-                hash = decodeURIComponent(hash);
-              } catch {
-                // Malformed encoding: fall back to the raw fragment.
+          const applyActivity = (): void => {
+            const validIds = new Set(storage.content.filter((entry) => entry.domNode).map((entry) => entry.id));
+            const activeId = manualId && Date.now() < manualOverrideUntil && validIds.has(manualId)
+              ? manualId
+              : latestSnapshot.activeId && validIds.has(latestSnapshot.activeId)
+                ? latestSnapshot.activeId
+                : null;
+            const passed = new Set(latestSnapshot.scrolledOverIds);
+            let changed = storage.activeId !== activeId;
+            storage.activeId = activeId;
+            for (const entry of storage.content) {
+              const isActive = entry.id !== '' && entry.id === activeId;
+              const isScrolledOver = entry.domNode !== null && passed.has(entry.id);
+              changed ||= entry.isActive !== isActive || entry.isScrolledOver !== isScrolledOver;
+              entry.isActive = isActive;
+              entry.isScrolledOver = isScrolledOver;
+            }
+            if (!changed) return;
+            activityRevision += 1;
+            if (!refreshing) fanOut();
+          };
+
+          const tracker = createActiveStateTracker({
+            scrollParent: trackingOptions.activeScrollParent,
+            rootMargin: trackingOptions.activeRootMargin,
+            offset: trackingOptions.activeOffset,
+            attrName,
+            onChange: () => undefined,
+            onUpdate: (snapshot) => {
+              latestSnapshot = snapshot;
+              applyActivity();
+            },
+          });
+
+          const refreshStorage = (rebuild: boolean): void => {
+            if (destroyed || editor.isDestroyed) return;
+            refreshing = true;
+            const previousActivityRevision = activityRevision;
+            if (rebuild) storage.content = buildContent(editorView.state, options, attrName);
+            let domChanged = false;
+            headingDoms = [];
+            for (const entry of storage.content) {
+              let domNode: HTMLElement | null = null;
+              if (editorView.dom.isConnected && entry.id) {
+                const candidate = editorView.nodeDOM(entry.pos);
+                if (candidate?.nodeType === 1 && editorView.dom.contains(candidate)) {
+                  const element = candidate as HTMLElement;
+                  if (element.getAttribute(attrName) === entry.id) domNode = element;
+                  else {
+                    // A custom heading NodeView can wrap the attributed element.
+                    domNode = Array.from(element.querySelectorAll<HTMLElement>('*'))
+                      .find((child) => child.getAttribute(attrName) === entry.id) ?? null;
+                  }
+                }
               }
-              rafId = requestAnimationFrame(() => {
-                rafId = null;
-                if (editor.isDestroyed) return;
-                scrollToHeading(editorView, hash, { attrName });
-              });
+              domChanged ||= entry.domNode !== domNode;
+              entry.domNode = domNode;
+              if (domNode) headingDoms.push(domNode);
+            }
+            tracker.observe(headingDoms);
+            applyActivity();
+            refreshing = false;
+            if (rebuild || domChanged || activityRevision !== previousActivityRevision) fanOut();
+          };
+
+          const navigate = (id: string): boolean => {
+            if (destroyed) return false;
+            const scrolled = scrollToHeading(editorView, id, { attrName, scrollParent });
+            if (!scrolled) return false;
+            manualId = id;
+            manualOverrideUntil = Date.now() + trackingOptions.clickOverrideMs;
+            refreshStorage(false);
+            if (overrideTimer !== null) clearTimeout(overrideTimer);
+            if (trackingOptions.clickOverrideMs > 0) {
+              overrideTimer = setTimeout(() => {
+                overrideTimer = null;
+                manualId = null;
+                refreshStorage(false);
+              }, trackingOptions.clickOverrideMs);
+            }
+            return true;
+          };
+          const unregisterNavigation = registerTocNavigation(editorView, navigate);
+
+          const scheduleInitialHash = (): void => {
+            if (!pendingHash || !editorView.dom.isConnected || rafId !== null) return;
+            const hash = pendingHash;
+            pendingHash = null;
+            rafId = requestAnimationFrame(() => {
+              rafId = null;
+              if (!destroyed && !editor.isDestroyed) navigate(hash);
+            });
+          };
+          const onAdopt = (): void => {
+            refreshStorage(false);
+            scheduleInitialHash();
+          };
+          editor.on('adopt', onAdopt);
+          const onLayoutChange = (): void => { refreshStorage(false); };
+          editorView.dom.addEventListener('load', onLayoutChange, true);
+          editorView.dom.addEventListener('toggle', onLayoutChange, true);
+
+          // Wait for UniqueID's initial transaction before reading heading IDs.
+          const timeoutId = setTimeout(() => {
+            if (destroyed || editor.isDestroyed) return;
+            refreshStorage(true);
+            if (typeof window !== 'undefined' && window.location.hash) {
+              pendingHash = window.location.hash.slice(1);
+              try {
+                pendingHash = decodeURIComponent(pendingHash);
+              } catch {
+                // Preserve malformed fragments as literal IDs.
+              }
+              scheduleInitialHash();
             }
           }, 0);
 
           return {
             update(view, prevState) {
-              if (view.state.doc !== prevState.doc) {
-                refreshStorage(view.state);
-              }
+              refreshStorage(view.state.doc !== prevState.doc);
             },
             destroy() {
+              destroyed = true;
+              editor.off('adopt', onAdopt);
+              editorView.dom.removeEventListener('load', onLayoutChange, true);
+              editorView.dom.removeEventListener('toggle', onLayoutChange, true);
               clearTimeout(timeoutId);
+              if (overrideTimer !== null) clearTimeout(overrideTimer);
               if (rafId !== null) cancelAnimationFrame(rafId);
+              unregisterNavigation();
+              tracker.destroy();
+              storage.activeId = null;
+              for (const entry of storage.content) {
+                entry.domNode = null;
+                entry.isActive = false;
+                entry.isScrolledOver = false;
+              }
               storage.subscribers.clear();
             },
           };

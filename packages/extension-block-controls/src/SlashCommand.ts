@@ -8,11 +8,13 @@
 import {
   Extension,
   FloatingMenuController,
+  createAdoptablePluginView,
 } from '@domternal/core';
 import type {
   Editor,
   FloatingMenuItem,
   FloatingMenuItemsOverride,
+  IconSet,
 } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
@@ -67,6 +69,11 @@ export interface SlashCommandOptions {
    * defaults; a function transforms them.
    */
   items?: FloatingMenuItemsOverride;
+  /**
+   * Trusted SVG overrides for the default popup renderer. Missing keys fall
+   * back to `defaultIcons`. Custom render factories resolve their own icons.
+   */
+  icons?: IconSet;
   /**
    * Factory returning render callbacks for the popup. Default uses
    * `createSlashSuggestionRenderer()`.
@@ -158,10 +165,9 @@ function findSlashQuery(
 }
 
 /**
- * Removes items whose `hideWhenInside` matches the cursor's wrapping list type,
- * but ONLY when the cursor is in the label paragraph (first-child slot) of a
- * list item: picking the same list type there would lift the user out of the
- * list (`liftListItem` semantics), which is surprising.
+ * Removes items whose `hideWhenInside` matches a non-list cursor ancestor.
+ * List containers retain their existing policy: only the nearest wrapping
+ * list hides its item, and only in the list item's first-child label slot.
  *
  * In the children zone (non-first paragraph) it's kept on purpose: picking the
  * same list type creates a nested sublist, which is useful and Notion-like.
@@ -171,6 +177,18 @@ export function filterByCursorAncestors(
   editor: Editor,
 ): FloatingMenuItem[] {
   const { $from } = editor.view.state.selection;
+
+  const nonListAncestors = new Set<string>();
+  for (let d = $from.depth; d >= 0; d--) {
+    const node = $from.node(d);
+    const child = d < $from.depth ? $from.node(d + 1) : null;
+    // Recognize custom list wrappers around the supported item nodes even
+    // when their schema does not declare the standard `list` group.
+    const wrapsListItem = child?.type.name === 'listItem' || child?.type.name === 'taskItem';
+    if (!node.type.isInGroup('list') && !wrapsListItem) {
+      nonListAncestors.add(node.type.name);
+    }
+  }
 
   // Find the nearest list-item ancestor; if the cursor is in its label slot,
   // record the wrapping list's type name.
@@ -187,8 +205,9 @@ export function filterByCursorAncestors(
 
   return items.filter((item) => {
     if (!item.hideWhenInside || item.hideWhenInside.length === 0) return true;
-    if (!wrappingListType) return true;
-    return !item.hideWhenInside.includes(wrappingListType);
+    return !item.hideWhenInside.some(
+      (name) => nonListAncestors.has(name) || name === wrappingListType,
+    );
   });
 }
 
@@ -316,7 +335,7 @@ export function createSlashCommandPlugin(
       },
     },
 
-    view(editorView) {
+    view: (view) => createAdoptablePluginView(editor, view, (editorView) => {
       // Cooperative dismissal: overlays broadcast `dm:dismiss-overlays` when
       // they open, so two floating menus never coexist. Suppress the handler
       // while WE dispatch, else the synchronous event would self-dismiss the
@@ -430,7 +449,7 @@ export function createSlashCommandPlugin(
           }
         },
       };
-    },
+    }),
 
     props: {
       // handleDOMEvents.keydown (not handleKeyDown) so we intercept keys before
@@ -490,7 +509,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
         editor,
         char: this.options.char ?? '/',
         ...(this.options.items !== undefined && { items: this.options.items }),
-        render: this.options.render ?? createSlashSuggestionRenderer,
+        render: this.options.render ?? (() => createSlashSuggestionRenderer(this.options.icons)),
         invalidNodes: this.options.invalidNodes ?? ['codeBlock'],
       }),
     ];

@@ -23,6 +23,7 @@
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
+import { selectTextPrefix } from './menu-selection.js';
 
 const EDITOR = '.dm-editor .ProseMirror';
 /** Any toolbar control that opens a panel; alignment exists in every demo. */
@@ -67,20 +68,9 @@ async function installOverlayProbe(page: Page): Promise<void> {
   });
 }
 
-/** ProseMirror only reads a selectionchange while it holds DOM focus. */
+/** Establish the text range before exercising native menu presses. */
 async function selectFirstWords(page: Page): Promise<void> {
-  await page.evaluate((selector) => {
-    const paragraph = document.querySelector(`${selector} p`);
-    if (!paragraph?.firstChild) throw new Error('no paragraph');
-    const range = document.createRange();
-    range.setStart(paragraph.firstChild, 0);
-    range.setEnd(paragraph.firstChild, 12);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    const editorEl = document.querySelector(selector);
-    if (editorEl instanceof HTMLElement) editorEl.focus();
-  }, EDITOR);
+  await selectTextPrefix(page, EDITOR, 12);
 }
 
 /**
@@ -237,35 +227,45 @@ for (const target of demoTargets) {
     await page.waitForSelector(target.editorSelector);
     await page.evaluate(() => {
       const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { setContent: (h: string, emit: boolean) => void }
+        | {
+          setContent: (h: string, emit: boolean) => void;
+          commands: { focus: (position: 'end') => boolean };
+        }
         | undefined;
-      editor?.setContent('<p>The sentence under the pointer.</p>', false);
+      if (!editor) throw new Error('no editor');
+      editor.setContent('<p>The sentence under the pointer.</p>', false);
+      // Native End can keep scrolling the page while the later mouse press is held.
+      editor.commands.focus('end');
     });
     await expect(page.locator(`${target.editorSelector} h1`)).toHaveCount(0);
-
-    await page.click(`${target.editorSelector} > *:first-child`);
-    await page.keyboard.press('End');
+    await expect(page.locator(target.editorSelector)).toBeFocused();
     await page.keyboard.press('Enter');
     await page.keyboard.type('/');
 
     const item = page.locator('.dm-slash-command-item', { hasText: 'Heading 1' }).first();
     await expect(item).toBeVisible();
-    // Raw coordinates do not scroll the way `click()` does.
-    await item.scrollIntoViewIfNeeded();
-    const box = await item.boundingBox();
-    if (!box) throw new Error('no box');
-
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.evaluate(() => {
-      const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { view: { state: { tr: unknown }; dispatch: (tr: unknown) => void } }
-        | undefined;
-      if (!editor) throw new Error('no editor');
-      editor.view.dispatch(editor.view.state.tr);
+    // Keep scrolling and hit testing inside the native click. The page can
+    // still scroll after hover, leaving a separate mouse.down at a stale point.
+    await item.evaluate((button) => {
+      button.addEventListener('mousedown', (event) => {
+        const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+          | { view: { state: { tr: unknown }; dispatch: (tr: unknown) => void } }
+          | undefined;
+        if (!editor) throw new Error('no editor');
+        const pressed = event.target as Node | null;
+        editor.view.dispatch(editor.view.state.tr);
+        // A locator retry must not conceal a button rebuilt by the transaction.
+        (window as unknown as Record<string, unknown>)['__SLASH_PRESS_PROBE__'] = {
+          buttonPreserved: button.isConnected,
+          pressedTargetPreserved: Boolean(pressed?.isConnected && button.contains(pressed)),
+        };
+      }, { once: true });
     });
-    await page.mouse.up();
+    await item.click({ delay: 150 });
 
+    expect(await page.evaluate(
+      () => (window as unknown as Record<string, unknown>)['__SLASH_PRESS_PROBE__'],
+    )).toEqual({ buttonPreserved: true, pressedTargetPreserved: true });
     await expect(page.locator(`${target.editorSelector} h1`)).toHaveCount(1);
     await expect(page.locator(target.editorSelector)).not.toContainText('/');
   });

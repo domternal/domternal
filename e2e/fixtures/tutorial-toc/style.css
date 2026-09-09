@@ -1,0 +1,16 @@
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; }
+main { width: 680px; margin: 32px auto; }
+h1 { font-size: 24px; margin: 0 0 12px; }
+#status { display: block; min-height: 24px; margin-bottom: 44px; }
+#scroller { height: 320px; overflow: auto; border: 7px solid #8793a0; }
+.ProseMirror { position: relative; padding: 24px; outline: none; overflow-anchor: none; }
+.ProseMirror h2 { font-size: 22px; line-height: 30px; margin: 0; }
+.ProseMirror > p { height: 260px; margin: 0; padding: 12px 0; }
+.ProseMirror > p:last-child { height: 480px; }
+.dm-toc-block { padding: 12px; border: 1px solid #8793a0; margin-bottom: 16px; }
+.dm-toc-block-link { display: block; margin: 4px 0; }
+.dm-toc-block-link--active { font-weight: bold; color: #143ead; }
+body[data-mode="picker"] #status { margin-bottom: 12px; }
+body[data-mode="picker"] #scroller { margin-top: 16px; height: 180px; }
+body[data-mode="picker"] .ProseMirror > p { height: auto; }
+.hljs-keyword { color: #6d28d9; }

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   SelectionDecoration,
   selectionDecorationPluginKey,
@@ -6,8 +6,9 @@ import {
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
+import { HorizontalRule } from '../nodes/HorizontalRule.js';
 import { Editor } from '../Editor.js';
-import { TextSelection } from '@domternal/pm/state';
+import { AllSelection, NodeSelection, TextSelection } from '@domternal/pm/state';
 
 const baseExtensions = [Document, Text, Paragraph];
 
@@ -63,6 +64,7 @@ describe('SelectionDecoration', () => {
 
   afterEach(() => {
     if (editor && !editor.isDestroyed) editor.destroy();
+    vi.restoreAllMocks();
   });
 
   describe('configuration', () => {
@@ -140,24 +142,103 @@ describe('SelectionDecoration', () => {
       expect(editor.state.selection.empty).toBe(true);
     });
 
-    it('collapses select-all to cursor at start', () => {
+    it('collapses the public select-all command to a valid cursor at the start', () => {
       editor = new Editor({
         extensions: [...baseExtensions, SelectionDecoration],
         content: '<p>test</p>',
       });
+      const original = editor.state.doc.toJSON();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-      // Select all text (1-5)
-      editor.view.dispatch(
-        editor.state.tr.setSelection(
-          TextSelection.create(editor.state.doc, 1, 5)
-        )
-      );
+      expect(editor.commands.selectAll()).toBe(true);
+      expect(editor.state.selection).toBeInstanceOf(AllSelection);
+      expect(editor.state.selection.from).toBe(0);
 
       simulateBlur(editor);
 
+      expect(editor.state.selection).toBeInstanceOf(TextSelection);
       expect(editor.state.selection.from).toBe(1);
-      expect(editor.state.selection.to).toBe(1);
+      expect(editor.state.selection.empty).toBe(true);
+      expect(editor.state.selection.$from.parent.inlineContent).toBe(true);
+      expect(editor.state.doc.toJSON()).toEqual(original);
+      expect(warn).not.toHaveBeenCalled();
     });
+
+    it('skips a leading block atom when collapsing select-all to a text cursor', () => {
+      editor = new Editor({
+        extensions: [...baseExtensions, HorizontalRule, SelectionDecoration],
+        content: '<hr><p>after</p>',
+      });
+      const original = editor.state.doc.toJSON();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      editor.commands.selectAll();
+      expect(editor.state.selection).toBeInstanceOf(AllSelection);
+      simulateBlur(editor);
+
+      expect(editor.state.selection).toBeInstanceOf(TextSelection);
+      expect(editor.state.selection.from).toBe(2);
+      expect(editor.state.selection.empty).toBe(true);
+      expect(editor.state.selection.$from.parent.inlineContent).toBe(true);
+      expect(editor.state.doc.toJSON()).toEqual(original);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { direction: 'forward', content: '<hr><p>after</p>', nodePosition: 0, cursorPosition: 2 },
+      { direction: 'backward', content: '<p>before</p><hr>', nodePosition: 8, cursorPosition: 7 },
+    ])('finds a text cursor $direction from a selected block atom', ({
+      content, nodePosition, cursorPosition,
+    }) => {
+      editor = new Editor({
+        extensions: [...baseExtensions, HorizontalRule, SelectionDecoration],
+        content,
+      });
+      const original = editor.state.doc.toJSON();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, nodePosition))
+      );
+      expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+
+      simulateBlur(editor);
+
+      expect(editor.state.selection).toBeInstanceOf(TextSelection);
+      expect(editor.state.selection.from).toBe(cursorPosition);
+      expect(editor.state.selection.empty).toBe(true);
+      expect(editor.state.selection.$from.parent.inlineContent).toBe(true);
+      expect(editor.state.doc.toJSON()).toEqual(original);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it.each(['all', 'node'] as const)(
+      'keeps a valid fallback in an atom-only document after %s selection',
+      (selectionType) => {
+        editor = new Editor({
+          extensions: [...baseExtensions, HorizontalRule, SelectionDecoration],
+          content: '<hr>',
+        });
+        const original = editor.state.doc.toJSON();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        if (selectionType === 'all') {
+          editor.commands.selectAll();
+          expect(editor.state.selection).toBeInstanceOf(AllSelection);
+        } else {
+          editor.view.dispatch(
+            editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0))
+          );
+        }
+
+        simulateBlur(editor);
+
+        expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+        expect(editor.state.selection.from).toBe(0);
+        expect(editor.state.selection.to).toBe(1);
+        expect((editor.state.selection as NodeSelection).node.type.name).toBe('horizontalRule');
+        expect(editor.state.doc.toJSON()).toEqual(original);
+        expect(warn).not.toHaveBeenCalled();
+      }
+    );
   });
 
   describe('blur with cursor only', () => {
@@ -240,6 +321,25 @@ describe('SelectionDecoration', () => {
         a.editor.destroy(); a.container.remove();
       }
     });
+  });
+
+  it("preserves public select-all when focus moves to this editor's own UI", () => {
+    const mounted = mountInContainer('<p>hello world</p>');
+    const button = document.createElement('button');
+    button.setAttribute('data-dm-editor-ui', '');
+    mounted.container.appendChild(button);
+    try {
+      mounted.editor.commands.selectAll();
+      const original = mounted.editor.state.selection;
+      expect(original).toBeInstanceOf(AllSelection);
+
+      blurWithRelated(mounted.editor, button);
+
+      expect(mounted.editor.state.selection).toBe(original);
+    } finally {
+      mounted.editor.destroy();
+      mounted.container.remove();
+    }
   });
 
   describe('does not affect focused state', () => {

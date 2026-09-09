@@ -554,7 +554,10 @@ describe('TableOfContents - initial-load hash navigation', () => {
 
   it('scrolls to the heading whose id matches window.location.hash on first paint', async () => {
     history.replaceState(null, '', '#preset-id');
+    const host = document.createElement('div');
+    document.body.appendChild(host);
     editor = new Editor({
+      element: host,
       extensions: baseExtensions,
       // Pre-seed the heading with the id we will navigate to.
       content: '<h1 id="preset-id">Bookmarked</h1><h2>Other</h2>',
@@ -565,7 +568,10 @@ describe('TableOfContents - initial-load hash navigation', () => {
 
   it('does not scroll when the hash does not match any heading', async () => {
     history.replaceState(null, '', '#unknown');
+    const host = document.createElement('div');
+    document.body.appendChild(host);
     editor = new Editor({
+      element: host,
       extensions: baseExtensions,
       content: '<h1>One</h1><h2>Two</h2>',
     });
@@ -574,7 +580,10 @@ describe('TableOfContents - initial-load hash navigation', () => {
   });
 
   it('does not scroll when there is no hash at all', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
     editor = new Editor({
+      element: host,
       extensions: baseExtensions,
       content: '<h1>One</h1>',
     });
@@ -584,7 +593,10 @@ describe('TableOfContents - initial-load hash navigation', () => {
 
   it('cancels the pending hash-scroll rAF when the editor is destroyed before it fires', async () => {
     history.replaceState(null, '', '#preset');
+    const host = document.createElement('div');
+    document.body.appendChild(host);
     editor = new Editor({
+      element: host,
       extensions: baseExtensions,
       content: '<h1 id="preset">Will be torn down</h1>',
     });

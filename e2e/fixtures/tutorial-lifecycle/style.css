@@ -1,0 +1,10 @@
+@import '../../../packages/theme/dist/domternal-theme.css';
+
+body { margin: 32px; font: 16px system-ui, sans-serif; }
+#app { max-width: 760px; margin: auto; }
+.dm-editor { margin: 16px 0; }
+.ProseMirror { min-height: 180px; padding: 24px 48px; }
+.custom-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; }
+.custom-toolbar button, .custom-toolbar input, .custom-toolbar select { padding: 8px; }
+output { display: block; overflow-wrap: anywhere; }
+.child-header, .child-footer { padding: 8px; background: #eef4ff; }

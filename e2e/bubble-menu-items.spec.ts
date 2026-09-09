@@ -17,6 +17,7 @@
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
+import { selectTextPrefix } from './menu-selection.js';
 
 /**
  * The menu as a flat list of tokens, in DOM order:
@@ -54,25 +55,19 @@ async function goNotion(page: Page, target: DemoTarget): Promise<void> {
 /** Replace the document with one paragraph and select part of it. */
 async function selectInParagraph(page: Page, target: DemoTarget, text = 'selection probe'): Promise<void> {
   await page.evaluate(
-    ({ selector, body }) => {
+    (body) => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
         setContent: (h: string, emit: boolean) => void;
       };
       ed.setContent(`<p>${body}</p>`, false);
-      const paragraph = document.querySelector(`${selector} p`);
-      if (!paragraph?.firstChild) throw new Error('no paragraph');
-      const range = document.createRange();
-      range.setStart(paragraph.firstChild, 0);
-      range.setEnd(paragraph.firstChild, 9);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      const editorEl = document.querySelector(selector);
-      if (editorEl instanceof HTMLElement) editorEl.focus();
     },
-    { selector: target.editorSelector, body: text },
+    text,
   );
+  await selectTextPrefix(page, target.editorSelector, 9);
   await expect(page.locator('.dm-bubble-menu')).toHaveAttribute('data-show', '');
+  // Visibility and framework rendering settle separately; Vanilla batches
+  // the selection-aware item structure in requestAnimationFrame.
+  await expect.poll(async () => (await menuTokens(page)).includes('Bold')).toBe(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -89,7 +84,7 @@ for (const target of demoTargets) {
        nothing in a free demo. Their separator collapses, so Turn into leads.
        The alignment dropdown at the end is the demo's own addition on top of
        the default, and the two trailing triggers are the menu's. */
-    expect(await menuTokens(page)).toEqual([
+    await expect.poll(() => menuTokens(page)).toEqual([
       '▾heading',
       '|',
       'Link',
@@ -228,52 +223,43 @@ for (const target of demoTargets) {
       () => Boolean((window as unknown as Record<string, unknown>)['__DEMO_EDITOR__']),
       { timeout: 5000 },
     );
-    await page.evaluate((selector) => {
+    await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
         setContent: (h: string, emit: boolean) => void;
       };
       ed.setContent('<p>separator probe</p>', false);
-      const paragraph = document.querySelector(`${selector} p`);
-      if (!paragraph?.firstChild) throw new Error('no paragraph');
-      const range = document.createRange();
-      range.setStart(paragraph.firstChild, 0);
-      range.setEnd(paragraph.firstChild, 9);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      const editorEl = document.querySelector(selector);
-      if (editorEl instanceof HTMLElement) editorEl.focus();
-    }, classicEditor);
+    });
+    await selectTextPrefix(page, classicEditor, 9);
     await expect(page.locator('.dm-bubble-menu')).toHaveAttribute('data-show', '');
   }
 
   test(`${target.name}: a separator with nothing before it is dropped`, async ({ page }) => {
     await openWithItems(page, '|,bold,italic');
-    expect(await menuTokens(page)).toEqual(['Bold', 'Italic']);
+    await expect.poll(() => menuTokens(page)).toEqual(['Bold', 'Italic']);
   });
 
   test(`${target.name}: a separator with nothing after it is dropped`, async ({ page }) => {
     await openWithItems(page, 'bold,italic,|');
-    expect(await menuTokens(page)).toEqual(['Bold', 'Italic']);
+    await expect.poll(() => menuTokens(page)).toEqual(['Bold', 'Italic']);
   });
 
   test(`${target.name}: a run of separators collapses to one`, async ({ page }) => {
     await openWithItems(page, 'bold,|,|,|,italic');
-    expect(await menuTokens(page)).toEqual(['Bold', '|', 'Italic']);
+    await expect.poll(() => menuTokens(page)).toEqual(['Bold', '|', 'Italic']);
   });
 
   test(`${target.name}: a name the editor does not carry takes its separator with it`, async ({ page }) => {
     await openWithItems(page, 'nosuchitem,|,bold,|,alsomissing,|,italic');
-    expect(await menuTokens(page)).toEqual(['Bold', '|', 'Italic']);
+    await expect.poll(() => menuTokens(page)).toEqual(['Bold', '|', 'Italic']);
   });
 
   test(`${target.name}: a list of nothing but separators renders nothing`, async ({ page }) => {
     await openWithItems(page, '|,|,|');
-    expect(await menuTokens(page)).toEqual([]);
+    await expect.poll(() => menuTokens(page)).toEqual([]);
   });
 
   test(`${target.name}: a separator between two real items survives`, async ({ page }) => {
     await openWithItems(page, 'bold,|,italic');
-    expect(await menuTokens(page)).toEqual(['Bold', '|', 'Italic']);
+    await expect.poll(() => menuTokens(page)).toEqual(['Bold', '|', 'Italic']);
   });
 }

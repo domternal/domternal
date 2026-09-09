@@ -27,6 +27,7 @@ export type {
   CreateEventProps,
   ContentErrorProps,
   MountEventProps,
+  AdoptEventProps,
   ErrorEventProps,
   EditorEvents,
   EditorEventName,

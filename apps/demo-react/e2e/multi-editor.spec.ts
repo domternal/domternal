@@ -660,18 +660,20 @@ test.describe('multi: deep bug-hunting', () => {
     // serialize editor 1's first bullet item to real clipboard HTML (carries data-pm-slice)
     const clip = await page.evaluate(() => {
       const e1 = (window as any).__MULTI_EDITORS__[1];
-      const TS = e1.state.selection.constructor;
       let from = -1, to = -1;
       e1.state.doc.descendants((n: any, p: number) => {
         if (from !== -1) return false;
         if (n.type.name === 'listItem' && n.textContent === 'Bullet one') { from = p + 1; to = p + n.nodeSize - 1; return false; }
         return true;
       });
-      e1.view.dispatch(e1.state.tr.setSelection(TS.create(e1.state.doc, from, to)));
-      const slice = e1.state.selection.content();
+      if (from === -1) throw new Error('Expected the first bullet item in editor 1.');
+      // Preserve the structural clipboard slice without creating an invalid text selection.
+      const slice = e1.state.doc.slice(from, to, true);
       const ser = e1.view.serializeForClipboard(slice);
       return { html: ser.dom.innerHTML, text: ser.text };
     });
+    expect(clip.text).toBe('Bullet one');
+    expect(clip.html).toContain('data-pm-slice');
     await caretAtEndOf(page, 0, 'Bullet two');
     await page.evaluate(({ html, text }) => {
       const e0 = (window as any).__MULTI_EDITORS__[0];

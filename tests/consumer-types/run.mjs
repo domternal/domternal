@@ -105,4 +105,14 @@ if (tscCjs.status !== 0) {
 }
 log('CommonJS pass OK');
 
+log('tutorial storage examples against built dists (ESM and CommonJS)');
+const tutorialStorage = spawnSync(tscBin, ['--noEmit', '--project', 'tsconfig.tutorial-storage.json'], {
+  cwd: here,
+  stdio: 'inherit',
+});
+if (tutorialStorage.status !== 0) {
+  console.error('[consumer-types] FAILED: tutorial storage examples no longer type-check');
+  process.exit(tutorialStorage.status ?? 1);
+}
+
 log('OK');

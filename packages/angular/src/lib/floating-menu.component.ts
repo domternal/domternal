@@ -75,7 +75,14 @@ import type {
               @if (iconHtml(item.icon); as html) {
                 <span class="dm-floating-menu-item-icon" aria-hidden="true" [innerHTML]="html"></span>
               }
-              <span class="dm-floating-menu-item-label">{{ item.label }}</span>
+              @if (item.description) {
+                <span class="dm-floating-menu-item-text">
+                  <span class="dm-floating-menu-item-label">{{ item.label }}</span>
+                  <span class="dm-floating-menu-item-description">{{ item.description }}</span>
+                </span>
+              } @else {
+                <span class="dm-floating-menu-item-label">{{ item.label }}</span>
+              }
               @if (item.shortcut) {
                 <span class="dm-floating-menu-item-shortcut" aria-hidden="true">{{ item.shortcut }}</span>
               }

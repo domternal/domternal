@@ -60,6 +60,13 @@ The `SlashCommand` and `FloatingMenu` popups draw their items from
 `editor.floatingMenuItems` (collected from every extension's `addFloatingMenuItems()`
 hook), so installed extensions register their own insert actions automatically.
 
+For custom slash-menu icons, pass an `IconSet` to `SlashCommand.configure({ icons })`.
+Its keys override `defaultIcons`; omitted keys keep their built-in SVG. Toolbar and
+floating-menu icon props are separate, so pass the same map to each surface that
+needs it. A custom `render` factory owns icon rendering; the exported
+`createSlashSuggestionRenderer(icons)` accepts the same optional map. Icon SVG
+values must be trusted application constants, never user-supplied content.
+
 ## Extensions
 
 - **`BlockHandle`** - hover gutter with a `+` insert button and a drag handle. The `+`

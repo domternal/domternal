@@ -12,7 +12,7 @@ import {
   groupFloatingMenuItems,
   positionFloatingOnce,
 } from '@domternal/core';
-import type { FloatingMenuItem } from '@domternal/core';
+import type { FloatingMenuItem, IconSet } from '@domternal/core';
 import type { SlashCommandProps, SlashCommandRenderer } from './SlashCommand.js';
 
 // Unique id suffixes so `aria-activedescendant` on the menu root can announce
@@ -23,7 +23,7 @@ let idCounter = 0;
 // three two-line rows plus the menu chrome.
 const MIN_MENU_HEIGHT = 160;
 
-export function createSlashSuggestionRenderer(): SlashCommandRenderer {
+export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRenderer {
   let root: HTMLDivElement | null = null;
   let cleanupFloating: (() => void) | null = null;
   // Flat list of rendered menuitem buttons, parallel to filtered item list.
@@ -107,10 +107,10 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
         // Stable per-button id for the root's `aria-activedescendant`.
         btn.id = `${rendererId}-item-${String(flatItems.length)}`;
 
-        // Only the icon SVG (from our trusted phosphor set) is interpolated as
+        // Only the icon SVG (from our trusted set or consumer overrides) is interpolated as
         // HTML. label/description/shortcut use textContent since FloatingMenuItem
         // fields may come from arbitrary extension authors (XSS).
-        const iconHTML = item.icon ? (defaultIcons[item.icon] ?? '') : '';
+        const iconHTML = item.icon ? (icons?.[item.icon] ?? defaultIcons[item.icon] ?? '') : '';
         if (iconHTML) {
           const iconSpan = document.createElement('span');
           iconSpan.className = 'dm-slash-command-item-icon';

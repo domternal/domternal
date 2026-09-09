@@ -1,4 +1,4 @@
-import { defineComponent, h, ref, watchEffect } from 'vue';
+import { defineComponent, h, ref, watch } from 'vue';
 import type { PropType } from 'vue';
 import type { Editor } from '@domternal/core';
 
@@ -34,19 +34,17 @@ export const EditorContent = defineComponent({
   setup(props) {
     const containerRef = ref<HTMLElement>();
 
-    watchEffect(() => {
-      const container = containerRef.value;
-      const editor = props.editor;
+    // Avoid tracking reactive reads performed by plugin event subscribers.
+    watch([containerRef, () => props.editor], ([container, editor], _previous, onCleanup) => {
       if (!container || !editor || editor.isDestroyed) return;
 
-      const editorDom = editor.view.dom;
-      if (editorDom.parentElement !== container) {
-        container.appendChild(editorDom);
-        // The detached-construction window is over; let a preset: 'notion'
-        // editor paint dm-notion-mode on the host it can now reach.
-        editor.adoptPresetClass();
-      }
-    });
+      editor.adoptDom(container);
+      onCleanup(() => {
+        if (!editor.isDestroyed && editor.view.dom.parentElement === container) {
+          editor.adoptDom(document.createElement('div'));
+        }
+      });
+    }, { immediate: true });
 
     return () =>
       h('div', {

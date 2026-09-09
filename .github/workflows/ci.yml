@@ -222,6 +222,8 @@ jobs:
             packages/extension-mention/coverage/lcov.info
             packages/extension-table/coverage/lcov.info
             packages/extension-toc/coverage/lcov.info
+            packages/react/coverage/lcov.info
+            packages/vue/coverage/lcov.info
           if-no-files-found: error
           retention-days: 1
 
@@ -290,7 +292,9 @@ jobs:
             "$GITHUB_WORKSPACE/packages/extension-math/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-mention/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-table/coverage/lcov.info" \
-            "$GITHUB_WORKSPACE/packages/extension-toc/coverage/lcov.info"; do
+            "$GITHUB_WORKSPACE/packages/extension-toc/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/react/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/vue/coverage/lcov.info"; do
             if [ ! -f "$report" ] || [ -L "$report" ] || [ ! -s "$report" ]; then
               echo "Coverage artifact is missing a regular, non-empty report: $report" >&2
               exit 1
@@ -306,4 +310,4 @@ jobs:
           version: v11.3.1
           fail_ci_if_error: true
           disable_search: true
-          files: ${{ github.workspace }}/packages/core/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-controls/coverage/lcov.info,${{ github.workspace }}/packages/extension-code-block-lowlight/coverage/lcov.info,${{ github.workspace }}/packages/extension-details/coverage/lcov.info,${{ github.workspace }}/packages/extension-emoji/coverage/lcov.info,${{ github.workspace }}/packages/extension-image/coverage/lcov.info,${{ github.workspace }}/packages/extension-markdown/coverage/lcov.info,${{ github.workspace }}/packages/extension-math/coverage/lcov.info,${{ github.workspace }}/packages/extension-mention/coverage/lcov.info,${{ github.workspace }}/packages/extension-table/coverage/lcov.info,${{ github.workspace }}/packages/extension-toc/coverage/lcov.info
+          files: ${{ github.workspace }}/packages/core/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-controls/coverage/lcov.info,${{ github.workspace }}/packages/extension-code-block-lowlight/coverage/lcov.info,${{ github.workspace }}/packages/extension-details/coverage/lcov.info,${{ github.workspace }}/packages/extension-emoji/coverage/lcov.info,${{ github.workspace }}/packages/extension-image/coverage/lcov.info,${{ github.workspace }}/packages/extension-markdown/coverage/lcov.info,${{ github.workspace }}/packages/extension-math/coverage/lcov.info,${{ github.workspace }}/packages/extension-mention/coverage/lcov.info,${{ github.workspace }}/packages/extension-table/coverage/lcov.info,${{ github.workspace }}/packages/extension-toc/coverage/lcov.info,${{ github.workspace }}/packages/react/coverage/lcov.info,${{ github.workspace }}/packages/vue/coverage/lcov.info

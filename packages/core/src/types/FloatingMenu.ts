@@ -76,11 +76,12 @@ export interface FloatingMenuItem {
   isDisabled?: (editor: Editor) => boolean;
 
   /**
-   * Node-type names that, when present as ancestors of the cursor, cause
-   * the slash menu to hide this item. Useful for list/task-list entries:
-   * e.g. `['bulletList']` removes "Bulleted list" from the menu while the
-   * cursor is already inside a bullet list, so picking it doesn't lift
-   * the user out of the list unexpectedly.
+   * Node-type names that cause the slash menu to hide this item when they
+   * contain the cursor. Does not affect the separate floating menu.
+   *
+   * Non-list names match any cursor ancestor. List containers only match
+   * the nearest wrapping list while the cursor is in its item's first-child
+   * label slot. Later child paragraphs keep the item available for nesting.
    */
   hideWhenInside?: string[];
 }

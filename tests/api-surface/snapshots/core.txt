@@ -1,3 +1,4 @@
+AdoptEventProps
 announce
 AnyExtension
 AnyExtensionConfig
@@ -65,6 +66,7 @@ Content
 ContentErrorProps
 copyThemeClass
 createAccumulatingDispatch
+createAdoptablePluginView
 createBubbleMenuPlugin
 CreateBubbleMenuPluginOptions
 createBubbleShouldShow

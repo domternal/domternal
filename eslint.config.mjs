@@ -65,6 +65,24 @@ export default defineConfig(
     },
   },
   {
+    files: [
+      'tests/consumer-types/tutorial-storage.ts',
+      'tests/consumer-types/tutorial-storage.cts',
+    ],
+    rules: {
+      // These type fixtures deliberately call unresolved capabilities under
+      // @ts-expect-error. Their strict consumer gate verifies those failures.
+      '@typescript-eslint/no-unsafe-call': 'off',
+    },
+  },
+  {
+    files: ['tests/consumer-types/tutorial-storage.cts'],
+    rules: {
+      // Import-equals selects the CommonJS declaration entry points under test.
+      '@typescript-eslint/no-require-imports': ['error', { allowAsImport: true }],
+    },
+  },
+  {
     // The gate scripts, this config, and the coverage index generator are plain
     // JS with no tsconfig, so they take the non-type-checked ruleset rather than
     // being ignored outright.

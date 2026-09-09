@@ -27,17 +27,12 @@ export function EditorContent({ editor, innerRef, ...htmlProps }: EditorContentP
     const container = containerRef.current;
     if (!container || !editor || editor.isDestroyed) return;
 
-    // If the editor already has a view, move its DOM into this container
-    const editorDom = editor.view.dom;
-    if (editorDom.parentElement !== container) {
-      container.appendChild(editorDom);
-      // The detached-construction window is over; let a preset: 'notion'
-      // editor paint dm-notion-mode on the host it can now reach.
-      editor.adoptPresetClass();
-    }
+    editor.adoptDom(container);
 
     return () => {
-      // Don't remove the DOM on unmount - the editor manages its own DOM lifecycle
+      if (!editor.isDestroyed && editor.view.dom.parentElement === container) {
+        editor.adoptDom(document.createElement('div'));
+      }
     };
   }, [editor]);
 

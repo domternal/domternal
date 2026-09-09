@@ -1,4 +1,5 @@
 import type { Transaction } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 
 /**
  * Editor instance type (forward declaration to avoid circular dependency)
@@ -52,6 +53,16 @@ export interface MountEventProps {
   view: unknown;
 }
 
+/** The editor view has moved to a different DOM mounting context. */
+export interface AdoptEventProps {
+  editor: EditorInstance;
+  view: EditorView;
+  element: HTMLElement;
+  /** The closest editor UI host, if the consumer provides one. */
+  host: HTMLElement | null;
+  previousHost: HTMLElement | null;
+}
+
 /**
  * Props passed to error event handler (2.7: Extension Error Isolation)
  */
@@ -96,6 +107,9 @@ export interface EditorEvents {
 
   /** Fired when editor view is mounted to DOM */
   mount: MountEventProps;
+
+  /** Fired after adopting the existing view into a different DOM context. */
+  adopt: AdoptEventProps;
 
   /** Fired when an extension throws an error (2.7: Extension Error Isolation) */
   error: ErrorEventProps;

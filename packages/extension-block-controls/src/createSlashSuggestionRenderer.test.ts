@@ -167,6 +167,40 @@ describe('createSlashSuggestionRenderer - rendered DOM', () => {
     renderer.onExit();
   });
 
+  it('renders custom icons while retaining defaults for omitted keys', () => {
+    makeEditor();
+    const renderer = createSlashSuggestionRenderer({ callout: '<svg data-custom-icon="callout"></svg>' });
+    renderer.onStart(makeProps([{ ...itemA, name: 'custom', icon: 'callout' }, itemB]));
+
+    expect(host?.querySelector('[data-custom-icon="callout"]')).not.toBeNull();
+    expect(host?.querySelectorAll('.dm-slash-command-item-icon svg')).toHaveLength(2);
+    renderer.onExit();
+  });
+
+  it('overrides default icons without changing other renderer instances', () => {
+    makeEditor();
+    const renderer = createSlashSuggestionRenderer({ textHOne: '<svg data-custom-icon="heading"></svg>' });
+    renderer.onStart(makeProps([itemA]));
+    expect(host?.querySelector('[data-custom-icon="heading"]')).not.toBeNull();
+    renderer.onExit();
+
+    const defaultRenderer = createSlashSuggestionRenderer();
+    defaultRenderer.onStart(makeProps([itemA]));
+    expect(host?.querySelector('[data-custom-icon="heading"]')).toBeNull();
+    expect(host?.querySelector('.dm-slash-command-item-icon svg')).not.toBeNull();
+    defaultRenderer.onExit();
+  });
+
+  it('omits unknown and explicitly empty icons while retaining item labels', () => {
+    makeEditor();
+    const renderer = createSlashSuggestionRenderer({ textHOne: '' });
+    renderer.onStart(makeProps([itemA, { ...itemB, icon: 'unknown-icon' }]));
+
+    expect(host?.querySelector('.dm-slash-command-item-icon')).toBeNull();
+    expect(host?.querySelectorAll('.dm-slash-command-item-label')).toHaveLength(2);
+    renderer.onExit();
+  });
+
   it('renders shortcut chip only when item has shortcut', () => {
     makeEditor();
     const renderer = createSlashSuggestionRenderer();

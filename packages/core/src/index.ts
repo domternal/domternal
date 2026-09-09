@@ -25,6 +25,7 @@ export type {
   CreateEventProps,
   ContentErrorProps,
   MountEventProps,
+  AdoptEventProps,
   EditorEvents,
   EditorEventName,
   // Command types
@@ -120,6 +121,7 @@ export { announce } from './utils/announce.js';
 
 // === Post-command editor refocus (yields to popover inputs) ===
 export { refocusEditorAfterCommand } from './utils/refocusEditorAfterCommand.js';
+export { createAdoptablePluginView } from './utils/createAdoptablePluginView.js';
 
 // === Bubble menu defaults ===
 export { defaultBubbleContexts } from './utils/defaultBubbleContexts.js';

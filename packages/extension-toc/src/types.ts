@@ -4,9 +4,8 @@
 
 /**
  * One entry in `editor.storage.toc.content`. The first 4 fields come
- * from the PM doc walk (`headingWalk`); `domNode` is resolved lazily on
- * scroll/observer passes; `isActive` and `isScrolledOver` are managed
- * by `activeStateTracker`.
+ * from the PM doc walk (`headingWalk`). The observer resolves `domNode`
+ * after the view is connected and maintains the activity flags.
  */
 export interface HeadingEntry {
   /**
@@ -21,11 +20,11 @@ export interface HeadingEntry {
   textContent: string;
   /** ProseMirror document position. */
   pos: number;
-  /** Resolved DOM node, or null before first scroll/observer pass. */
+  /** Resolved DOM node, or null while the editor view is detached. */
   domNode: HTMLElement | null;
   /** True for the heading the user is currently "at" per scroll position. */
   isActive: boolean;
-  /** True for headings that have already scrolled past the top of the viewport. */
+  /** True when the heading top has reached the scroll root's activation line. */
   isScrolledOver: boolean;
 }
 
@@ -62,6 +61,18 @@ export interface TableOfContentsOptions {
    * @default ['heading']
    */
   anchorTypes: string[];
+
+  /** Scroll root. Omitted values inherit FloatingTocOutline's legacy option. */
+  activeScrollParent?: Element | Document | null;
+
+  /** Observer margin. Omitted values inherit the outline option or the default. */
+  activeRootMargin?: string;
+
+  /** Activation line in pixels below the scroll root's inner top. @default 0 */
+  activeOffset?: number;
+
+  /** Navigation override duration; inherits the outline option or 500 ms. */
+  clickOverrideMs?: number;
 
   /**
    * Public consumer callback fired whenever the heading list or active

@@ -78,8 +78,9 @@ export function autolinkPlugin(options: AutolinkPluginOptions): Plugin {
         const $from = state.doc.resolve(from);
 
         // Get text before cursor in current text block
+        const lookbackStart = Math.max(0, $from.parentOffset - 500);
         const textBefore = $from.parent.textBetween(
-          Math.max(0, $from.parentOffset - 500), // Look back max 500 chars
+          lookbackStart,
           $from.parentOffset,
           undefined,
           '\ufffc'
@@ -125,19 +126,44 @@ export function autolinkPlugin(options: AutolinkPluginOptions): Plugin {
 
         // Calculate positions in document
         const blockStart = from - $from.parentOffset;
-        const linkStart = blockStart + lastMatch.start;
-        const linkEnd = blockStart + lastMatch.end;
+        const linkStart = blockStart + lookbackStart + lastMatch.start;
+        const linkEnd = blockStart + lookbackStart + lastMatch.end;
 
-        // Check if already has link mark
+        // Keep existing link attributes and ordinary editing inside a link.
         const $linkStart = state.doc.resolve(linkStart);
-        if ($linkStart.marks().some((m) => m.type === type)) {
+        const existingLink = $linkStart.marks().find((mark) => mark.type === type);
+        if (existingLink && state.doc.resolve(to).nodeAfter?.marks.some(mark => mark.eq(existingLink))) {
           return false;
         }
 
-        // Apply link mark and insert trigger character
+        // End an auto-detected URL before its delimiter, keeping other formatting.
         const tr = state.tr;
-        tr.addMark(linkStart, linkEnd, type.create({ href }));
+        if (!existingLink) {
+          tr.addMark(linkStart, linkEnd, type.create({ href }));
+        } else {
+          // Punctuation can be both a delimiter and part of a URL. A period
+          // may have linked `https://example` before the user finished `.com`.
+          // Extend that matching URL prefix once the complete token is known,
+          // preserving manually assigned destinations that differ from its text.
+          let markedEnd = linkStart;
+          state.doc.nodesBetween(linkStart, linkEnd, (node, pos) => {
+            if (node.isText && pos <= markedEnd && node.marks.some(mark => mark.eq(existingLink))) {
+              markedEnd = Math.min(pos + node.nodeSize, linkEnd);
+            }
+          });
+          if (markedEnd > linkStart && markedEnd < linkEnd) {
+            const prefix = state.doc.textBetween(linkStart, markedEnd);
+            const prefixMatch = find(prefix, { defaultProtocol })[0];
+            if (prefixMatch?.start === 0 && prefixMatch.end === prefix.length
+              && prefixMatch.href === existingLink.attrs['href']) {
+              tr.addMark(linkStart, linkEnd, type.create({ ...existingLink.attrs, href }));
+            }
+          }
+        }
+        const insertionMarks = type.removeFromSet(state.storedMarks ?? $from.marks());
+        tr.setStoredMarks(insertionMarks);
         tr.insertText(text, from, to);
+        tr.setStoredMarks(insertionMarks);
 
         view.dispatch(tr);
         return true;

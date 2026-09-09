@@ -13,6 +13,13 @@ test.describe('SelectionDecoration', () => {
 
   test.describe('selection collapse on blur', () => {
     test('blur collapses selection - typing after refocus appends instead of replacing', async ({ page }) => {
+      const selectionWarnings: string[] = [];
+      page.on('console', (message) => {
+        if (message.type() === 'warning' && message.text().includes('TextSelection endpoint')) {
+          selectionWarnings.push(message.text());
+        }
+      });
+
       const editor = page.locator(editorSelector);
       await editor.click();
 
@@ -23,6 +30,30 @@ test.describe('SelectionDecoration', () => {
 
       // Blur → selection collapses to cursor
       await page.locator('h1').click();
+
+      // A collapsed selection must point into a textblock, including after select-all.
+      const selection = await page.evaluate(() => {
+        const editor = (window as unknown as {
+          __DEMO_EDITOR__: {
+            state: {
+              selection: {
+                from: number;
+                to: number;
+                $from: { parent: { inlineContent: boolean } };
+              };
+              doc: { textContent: string };
+            };
+          };
+        }).__DEMO_EDITOR__;
+        return {
+          from: editor.state.selection.from,
+          to: editor.state.selection.to,
+          inline: editor.state.selection.$from.parent.inlineContent,
+          content: editor.state.doc.textContent,
+        };
+      });
+      expect(selection).toEqual({ from: 1, to: 1, inline: true, content: 'original' });
+      expect(selectionWarnings).toEqual([]);
 
       // Focus again and type - if selection was collapsed, text appends
       await editor.click();
@@ -124,7 +155,7 @@ test.describe('SelectionDecoration', () => {
     });
   });
 
-  test.describe('blur prevents toolbar from formatting', () => {
+  test.describe('blur prevents formatting the previous range', () => {
     test('blur collapses ProseMirror selection to cursor', async ({ page }) => {
       const editor = page.locator(editorSelector);
       await editor.click();
@@ -144,40 +175,34 @@ test.describe('SelectionDecoration', () => {
       expect(isCollapsed).toBe(true);
     });
 
-    test('Bold button becomes disabled after blur with collapsed selection', async ({ page }) => {
-      const editor = page.locator(editorSelector);
-      await editor.click();
+    for (const { label, tag } of [
+      { label: 'Bold', tag: 'strong' },
+      { label: 'Italic', tag: 'em' },
+    ]) {
+      test(`${label} after blur formats new input without changing the previous range`, async ({ page }) => {
+        const editor = page.locator(editorSelector);
+        const button = page.locator(`.dm-toolbar button[aria-label="${label}"]`);
+        await editor.click();
+        await page.keyboard.press(`${modifier}+a`);
+        await page.keyboard.type('some text');
+        await page.keyboard.press(`${modifier}+a`);
+        await expect(button).toBeEnabled();
 
-      await page.keyboard.press(`${modifier}+a`);
-      await page.keyboard.type('some text');
-      await page.keyboard.press(`${modifier}+a`);
+        await page.locator('h1').click();
 
-      // Bold should be enabled while text is selected
-      await expect(page.locator(boldButton)).toBeEnabled();
+        // A valid cursor supports stored marks without formatting the old range.
+        await expect(button).toBeEnabled();
+        await button.click();
+        await expect(editor).toBeFocused();
+        await expect(editor).toHaveText('some text');
+        await expect(editor.locator(tag)).toHaveCount(0);
 
-      // Blur
-      await page.locator('h1').click();
+        await page.keyboard.type('new ');
 
-      // After blur, selection collapses, Bold should be disabled
-      await expect(page.locator(boldButton)).toBeDisabled();
-    });
-
-    test('Italic button becomes disabled after blur with collapsed selection', async ({ page }) => {
-      const editor = page.locator(editorSelector);
-      const italicButton = '.dm-toolbar button[aria-label="Italic"]';
-      await editor.click();
-
-      await page.keyboard.press(`${modifier}+a`);
-      await page.keyboard.type('some text');
-      await page.keyboard.press(`${modifier}+a`);
-
-      await expect(page.locator(italicButton)).toBeEnabled();
-
-      // Blur
-      await page.locator('h1').click();
-
-      await expect(page.locator(italicButton)).toBeDisabled();
-    });
+        await expect(editor).toHaveText('new some text');
+        await expect(editor.locator(tag)).toHaveText('new ');
+      });
+    }
 
     test('direct toolbar click (no blur) still bolds text', async ({ page }) => {
       const editor = page.locator(editorSelector);

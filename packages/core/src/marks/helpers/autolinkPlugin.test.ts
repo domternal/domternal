@@ -67,6 +67,24 @@ describe('autolinkPlugin', () => {
   });
 
   describe('handleTextInput', () => {
+    it('marks the actual URL after a paragraph exceeds the lookback window', () => {
+      const prefix = 'Plain text '.repeat(60);
+      const url = 'https://example.com';
+      view = createView(prefix + url);
+      const endPos = prefix.length + url.length + 1;
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, endPos)));
+      const plugin = view.state.plugins.find(p => p.spec.key === autolinkPluginKey)!;
+      const handled = plugin.props.handleTextInput?.call(
+        plugin, view, endPos, endPos, ' ', () => view!.state.tr,
+      );
+      expect(handled).toBe(true);
+      expect(view.state.doc.rangeHasMark(1, prefix.length + 1, schema.marks.link)).toBe(false);
+      const linked = view.state.doc.nodeAt(prefix.length + 1);
+      expect(linked?.marks.find(mark => mark.type === schema.marks.link)?.attrs['href'])
+        .toBe(url);
+      expect(view.state.doc.textContent).toBe(prefix + url + ' ');
+    });
+
     it('auto-links URL followed by space', () => {
       view = createView('https://example.com');
 
@@ -245,7 +263,7 @@ describe('autolinkPlugin', () => {
       expect(result).toBe(false);
     });
 
-    it('does not re-link already linked text', () => {
+    it('preserves an existing URL link while inserting its delimiter outside', () => {
       // Create view with already-linked text
       const plugin = autolinkPlugin({ type: schema.marks.link });
       const linkMark = schema.marks.link.create({
@@ -275,7 +293,10 @@ describe('autolinkPlugin', () => {
       const handler = foundPlugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 
-      expect(result).toBe(false);
+      expect(result).toBe(true);
+      expect(view.state.doc.firstChild?.firstChild?.marks).toEqual([linkMark]);
+      expect(view.state.doc.firstChild?.lastChild?.text).toBe(' ');
+      expect(view.state.doc.firstChild?.lastChild?.marks).toEqual([]);
     });
 
     it('triggers on punctuation characters', () => {

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ToolbarButton, ToolbarDropdown } from '@domternal/core';
 import { useInnerHtml } from '../useInnerHtml.js';
+import { useTooltip } from './useTooltip.js';
 
 export interface ToolbarDropdownPanelProps {
   dropdown: ToolbarDropdown;
@@ -17,6 +18,7 @@ export function ToolbarDropdownPanel({
 }: ToolbarDropdownPanelProps): ReactNode {
   // Before the grid early return: hooks cannot sit behind a branch.
   const innerHtml = useInnerHtml();
+  const { getTooltip } = useTooltip();
   if (dropdown.layout === 'grid') {
     return (
       <div
@@ -33,7 +35,7 @@ export function ToolbarDropdownPanel({
               role="menuitem"
               tabIndex={-1}
               aria-label={sub.label}
-              title={sub.label}
+              title={getTooltip(sub)}
               style={{ backgroundColor: sub.color }}
               onMouseDown={(e) => { e.preventDefault(); }}
               onClick={(e) => { onItemClick(sub, e); }}
@@ -46,6 +48,7 @@ export function ToolbarDropdownPanel({
               role="menuitem"
               tabIndex={-1}
               aria-label={sub.label}
+              title={getTooltip(sub)}
               dangerouslySetInnerHTML={innerHtml(getCachedItemContent(sub.icon, sub.label))}
               onMouseDown={(e) => { e.preventDefault(); }}
               onClick={(e) => { onItemClick(sub, e); }}
@@ -70,6 +73,7 @@ export function ToolbarDropdownPanel({
           role="menuitem"
           tabIndex={-1}
           aria-label={sub.label}
+          title={getTooltip(sub)}
           ref={(el: HTMLButtonElement | null) => { if (el && sub.style) el.setAttribute('style', sub.style); }}
           dangerouslySetInnerHTML={innerHtml(getCachedItemContent(sub.icon, sub.label, dropdown.displayMode))}
           onMouseDown={(e) => { e.preventDefault(); }}

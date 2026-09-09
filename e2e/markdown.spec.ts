@@ -4,6 +4,7 @@
  * insertMarkdown / setMarkdownContent commands build rich structures.
  */
 import { test } from './fixtures.js';
+import { test as clipboardTest } from './native-clipboard.js';
 import { expect, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
 
@@ -331,20 +332,18 @@ for (const target of demoTargets) {
   });
 }
 
-test.describe('native Markdown clipboard', () => {
-  // Browser clipboard contents are shared, so native copy/paste tests run serially.
-  test.describe.configure({ mode: 'default' });
+clipboardTest.describe('native Markdown clipboard', () => {
 
   for (const target of demoTargets) {
-    test.describe(`${target.name} - markdown clipboard`, () => {
-      test.beforeEach(async ({ page, context, browserName }) => {
-        test.skip(browserName !== 'chromium', 'Native ClipboardItem permissions are Chromium-only.');
+    clipboardTest.describe(`${target.name} - markdown clipboard`, () => {
+      clipboardTest.beforeEach(async ({ page, context, browserName }) => {
+        clipboardTest.skip(browserName !== 'chromium', 'Native ClipboardItem permissions are Chromium-only.');
         await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: target.baseURL });
         await goNotion(page, target);
         await setContent(page, '<p></p>');
       });
 
-      test('pasting a source-editor README through the browser clipboard converts and undoes in one step', async ({ page }) => {
+      clipboardTest('pasting a source-editor README through the browser clipboard converts and undoes in one step', async ({ page }) => {
         await writeClipboard(page, { text: README_MARKDOWN, html: sourceHTML(README_MARKDOWN, 'divs') });
         await focusEditor(page);
         await page.keyboard.press('ControlOrMeta+v');
@@ -356,7 +355,7 @@ test.describe('native Markdown clipboard', () => {
         await expect(editor).toHaveText('');
       });
 
-      test('a code block copied from the editor is not reparsed as Markdown', async ({ page }) => {
+      clipboardTest('a code block copied from the editor is not reparsed as Markdown', async ({ page }) => {
         const code = '# Keep as code\n\n- literal list';
         await setContent(page, `<pre><code class="language-markdown">${escapeHTML(code)}</code></pre>`);
         await focusEditor(page, 'all');

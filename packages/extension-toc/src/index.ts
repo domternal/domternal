@@ -13,6 +13,7 @@ export { createActiveStateTracker } from './helpers/activeStateTracker.js';
 export type {
   ActiveStateTracker,
   ActiveStateTrackerOptions,
+  ActiveStateSnapshot,
 } from './helpers/activeStateTracker.js';
 
 export {

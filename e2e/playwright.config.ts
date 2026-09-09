@@ -9,6 +9,7 @@
  * serves stale dependencies.
  */
 import { defineConfig } from '@playwright/test';
+import { tutorialFixtureServer } from './tutorial-fixture-server.js';
 
 export default defineConfig({
   testDir: '.',
@@ -20,6 +21,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: [
+    tutorialFixtureServer,
     {
       command: 'pnpm --filter demo-vanilla start --port 5199 --strictPort',
       url: 'http://localhost:5199',

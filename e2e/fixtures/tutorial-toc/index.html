@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TOC and language picker regression fixture</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>TOC and language picker</h1>
+      <output id="status" aria-live="polite"></output>
+      <label id="language-label" hidden>Code language <select id="language"></select></label>
+      <div id="scroller"><div id="editor" class="dm-editor"></div></div>
+    </main>
+    <script type="module" src="./entry.mjs"></script>
+  </body>
+</html>

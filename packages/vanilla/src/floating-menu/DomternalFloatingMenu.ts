@@ -263,7 +263,18 @@ export class DomternalFloatingMenu extends EventTarget {
     const labelSpan = document.createElement('span');
     labelSpan.className = 'dm-floating-menu-item-label';
     labelSpan.textContent = item.label;
-    btn.appendChild(labelSpan);
+    if (item.description) {
+      const textSpan = document.createElement('span');
+      textSpan.className = 'dm-floating-menu-item-text';
+      textSpan.appendChild(labelSpan);
+      const descriptionSpan = document.createElement('span');
+      descriptionSpan.className = 'dm-floating-menu-item-description';
+      descriptionSpan.textContent = item.description;
+      textSpan.appendChild(descriptionSpan);
+      btn.appendChild(textSpan);
+    } else {
+      btn.appendChild(labelSpan);
+    }
 
     if (item.shortcut) {
       const shortcutSpan = document.createElement('span');

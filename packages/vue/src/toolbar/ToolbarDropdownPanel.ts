@@ -1,6 +1,7 @@
 import { defineComponent, h } from 'vue';
 import type { PropType, VNode } from 'vue';
 import type { ToolbarButton, ToolbarDropdown } from '@domternal/core';
+import { useTooltip } from './useTooltip.js';
 
 export const ToolbarDropdownPanel = defineComponent({
   name: 'ToolbarDropdownPanel',
@@ -14,6 +15,7 @@ export const ToolbarDropdownPanel = defineComponent({
   },
   emits: ['itemClick'],
   setup(props, { emit }) {
+    const { getTooltip } = useTooltip();
     return () => {
       const { dropdown, isActive, getCachedItemContent } = props;
 
@@ -34,7 +36,7 @@ export const ToolbarDropdownPanel = defineComponent({
                   role: 'menuitem',
                   tabindex: -1,
                   'aria-label': sub.label,
-                  title: sub.label,
+                  title: getTooltip(sub),
                   style: { backgroundColor: sub.color },
                   onMousedown: (e: MouseEvent) => { e.preventDefault(); },
                   onClick: (e: MouseEvent) => { emit('itemClick', sub, e); },
@@ -46,6 +48,7 @@ export const ToolbarDropdownPanel = defineComponent({
                   role: 'menuitem',
                   tabindex: -1,
                   'aria-label': sub.label,
+                  title: getTooltip(sub),
                   innerHTML: getCachedItemContent(sub.icon, sub.label),
                   onMousedown: (e: MouseEvent) => { e.preventDefault(); },
                   onClick: (e: MouseEvent) => { emit('itemClick', sub, e); },
@@ -69,7 +72,7 @@ export const ToolbarDropdownPanel = defineComponent({
             role: 'menuitem',
             tabindex: -1,
             'aria-label': sub.label,
-            title: sub.label,
+            title: getTooltip(sub),
             innerHTML: getCachedItemContent(sub.icon, sub.label, dropdown.displayMode),
             onVnodeMounted: (vnode: VNode) => {
               if (sub.style && vnode.el) (vnode.el as HTMLElement).setAttribute('style', sub.style);

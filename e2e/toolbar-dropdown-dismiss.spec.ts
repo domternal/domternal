@@ -15,6 +15,7 @@
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
+import { selectTextPrefix } from './menu-selection.js';
 
 const EDITOR = '.dm-editor .ProseMirror';
 /** Any toolbar control that opens a panel; alignment exists in every demo. */
@@ -36,20 +37,9 @@ async function openDemo(page: Page, target: DemoTarget): Promise<void> {
   });
 }
 
-/** A real DOM selection, which is what raises the bubble menu. */
+/** Establish the text selection that raises the bubble menu. */
 async function selectFirstWords(page: Page): Promise<void> {
-  await page.evaluate((selector) => {
-    const paragraph = document.querySelector(`${selector} p`);
-    if (!paragraph?.firstChild) throw new Error('no paragraph');
-    const range = document.createRange();
-    range.setStart(paragraph.firstChild, 0);
-    range.setEnd(paragraph.firstChild, 12);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    const editorEl = document.querySelector(selector);
-    if (editorEl instanceof HTMLElement) editorEl.focus();
-  }, EDITOR);
+  await selectTextPrefix(page, EDITOR, 12);
 }
 
 for (const target of demoTargets) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Editor, JSONContent } from '@domternal/core';
 
 /**
@@ -118,30 +118,83 @@ function getFullState(editor: Editor | null): EditorState {
 // --- Selector mode (useSyncExternalStore) ---
 
 function useEditorStateSelector<T>(editor: Editor | null, selector: (editor: Editor) => T): T | undefined {
-  const selectorRef = useRef(selector);
-  selectorRef.current = selector;
+  const store = useMemo(() => createEditorStore(editor), [editor]);
+  const getSnapshot = useMemo(() => {
+    let previous: EditorSnapshot | null | undefined;
+    let selected: T | undefined;
+    return (): T | undefined => {
+      const snapshot = store.getSnapshot();
+      if (snapshot !== previous) {
+        previous = snapshot;
+        selected = snapshot ? selector(snapshot.editor) : undefined;
+      }
+      return selected;
+    };
+  }, [store, selector]);
 
-  const subscribe = useCallback(
-    (callback: () => void): (() => void) => {
-      if (!editor || editor.isDestroyed) return () => { /* noop */ };
+  return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
+}
 
-      editor.on('transaction', callback);
-      editor.on('focus', callback);
-      editor.on('blur', callback);
+interface EditorSnapshot {
+  editor: Editor;
+  state: Editor['state'];
+  focused: boolean;
+  editable: boolean;
+}
 
-      return (): void => {
-        editor.off('transaction', callback);
-        editor.off('focus', callback);
-        editor.off('blur', callback);
+/** Cache the source separately from each selector, including allocating selectors. */
+function createEditorStore(editor: Editor | null): {
+  getSnapshot: () => EditorSnapshot | null;
+  subscribe: (callback: () => void) => () => void;
+} {
+  let snapshot: EditorSnapshot | null | undefined;
+  let destroyed = false;
+  const listeners = new Set<() => void>();
+
+  const getSnapshot = (): EditorSnapshot | null => {
+    if (!editor || destroyed || editor.isDestroyed) return null;
+    const state = editor.state;
+    const focused = editor.isFocused;
+    const editable = editor.isEditable;
+    // Read live values as well as events to cover changes before subscription.
+    if (snapshot?.state !== state
+      || snapshot.focused !== focused || snapshot.editable !== editable) {
+      snapshot = { editor, state, focused, editable };
+    }
+    return snapshot;
+  };
+
+  const notify = (): void => {
+    // An event may change mutable extension storage without replacing state.
+    snapshot = undefined;
+    listeners.forEach(listener => { listener(); });
+  };
+  const onDestroy = (): void => {
+    // The destroy event runs before Editor.isDestroyed changes.
+    destroyed = true;
+    notify();
+  };
+
+  return {
+    getSnapshot,
+    subscribe(callback) {
+      if (!editor || destroyed || editor.isDestroyed) return () => { /* noop */ };
+      listeners.add(callback);
+      if (listeners.size === 1) {
+        editor.on('transaction', notify);
+        editor.on('focus', notify);
+        editor.on('blur', notify);
+        editor.on('destroy', onDestroy);
+      }
+      return () => {
+        listeners.delete(callback);
+        if (listeners.size === 0) {
+          editor.off('transaction', notify);
+          editor.off('focus', notify);
+          editor.off('blur', notify);
+          editor.off('destroy', onDestroy);
+        }
       };
     },
-    [editor],
-  );
-
-  const getSnapshot = useCallback((): T | undefined => {
-    if (!editor || editor.isDestroyed) return undefined;
-    return selectorRef.current(editor);
-  }, [editor]);
-
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  };
 }

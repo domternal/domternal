@@ -107,14 +107,17 @@ async function menuBox(page: Page, menuSelector: string): Promise<MenuBox | null
   return page.evaluate((sel) => {
     const menu = document.querySelector(sel);
     if (!menu) return null;
-    const s = window.getSelection();
-    let cr: DOMRect | undefined = s?.rangeCount ? s.getRangeAt(0).getClientRects()[0] : undefined;
-    if (!cr) {
-      const n = s?.focusNode;
-      const el = n instanceof Element ? n : n?.parentElement;
-      if (el) cr = el.getBoundingClientRect();
-    }
-    if (!cr) return null;
+    const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+      | {
+        state: { selection: { from: number } };
+        view: { coordsAtPos: (pos: number) => { top: number; bottom: number } };
+      }
+      | undefined;
+    if (!editor) return null;
+    // WebKit can return no rectangles for a collapsed native range. Its
+    // paragraph fallback includes leading below the text and is not a caret
+    // rectangle. Match the text geometry used by the suggestion anchors.
+    const cr = editor.view.coordsAtPos(editor.state.selection.from);
     const r = menu.getBoundingClientRect();
     return {
       top: Math.round(r.top),

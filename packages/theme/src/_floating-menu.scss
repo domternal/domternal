@@ -91,7 +91,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Menu item button (single-line: icon + label + optional shortcut chip)
+  // Menu item button with optional description and shortcut chip
   // ---------------------------------------------------------------------------
   &-item {
     display: flex;
@@ -149,6 +149,21 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  &-item-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  &-item-description {
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: var(--dm-muted, #6b7280);
+    overflow-wrap: anywhere;
   }
 
   // Shortcut hint chip (e.g. `# `, `> `, `[ ] `)

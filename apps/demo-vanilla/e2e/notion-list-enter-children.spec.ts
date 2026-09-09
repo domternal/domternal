@@ -1494,8 +1494,8 @@ test.describe('Selection / context edge cases', () => {
       });
       if (titlePos === -1) return;
       const TS = ed.state.selection.constructor;
-      // Range from inside "Title" to past it (covers empty-p).
-      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc as unknown, titlePos + 1, titlePos + titleSize + 2));
+      // End inside the following empty paragraph, keeping both text endpoints valid.
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc as unknown, titlePos + 1, titlePos + titleSize + 1));
       ed.view.dispatch(tr);
       ed.view.dom.focus();
     });
@@ -1504,6 +1504,7 @@ test.describe('Selection / context edge cases', () => {
 
     // Range deleted, no exit-as-paragraph appears.
     expect(await hasTopLevelEmptyParagraph(page)).toBe(false);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'Label' }]);
   });
 
   test('J3 cursor in blockquote-inner paragraph in children-zone + Enter does NOT trigger accumulate (delegates to default Blockquote behaviour)', async ({ page }) => {

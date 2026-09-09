@@ -6,7 +6,7 @@
  * payload `{ blockPos, anchorElement }`. Mirrors FloatingMenu / SlashCommand
  * styling: `role="menu"`, `role="menuitem"`, `data-show`, positionFloatingOnce.
  */
-import { Extension, defaultIcons, liftCurrentListItem, positionFloatingOnce, stripInlineColorConflicts, writeToClipboard } from '@domternal/core';
+import { Extension, defaultIcons, liftCurrentListItem, positionFloatingOnce, stripInlineColorConflicts, writeToClipboard, createAdoptablePluginView } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey, TextSelection, EditorState } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -972,7 +972,7 @@ export function createBlockContextMenuPlugin(
       },
     },
 
-    view: (editorView) => {
+    view: (view) => createAdoptablePluginView(editor, view, (editorView) => {
       editorEl = editorView.dom.closest('.dm-editor');
       if (!editorEl) return { destroy: () => { /* noop */ } };
 
@@ -995,7 +995,7 @@ export function createBlockContextMenuPlugin(
           editorEl = null;
         },
       };
-    },
+    }),
   });
 }
 

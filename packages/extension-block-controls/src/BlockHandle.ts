@@ -16,7 +16,7 @@
  * a `dm-editor--has-block-handle` class so the theme can widen `.ProseMirror`
  * padding-left for gutter space inside the `overflow:hidden` wrapper.
  */
-import { Extension, defaultIcons } from '@domternal/core';
+import { Extension, defaultIcons, createAdoptablePluginView } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -1796,7 +1796,7 @@ export function createBlockHandlePlugin(
       },
     },
 
-    view: (editorView) => {
+    view: (view) => createAdoptablePluginView(editor, view, (editorView) => {
       editorEl = editorView.dom.closest('.dm-editor');
       if (!editorEl) {
         // No `.dm-editor` container → plugin inert.
@@ -1888,7 +1888,7 @@ export function createBlockHandlePlugin(
           hoverEl = null;
         },
       };
-    },
+    }),
   });
 }
 

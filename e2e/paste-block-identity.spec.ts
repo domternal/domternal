@@ -12,7 +12,7 @@
  *
  * Driven through the real clipboard, since that is the mechanism under test.
  */
-import { test } from './fixtures.js';
+import { test } from './native-clipboard.js';
 import { expect, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
 

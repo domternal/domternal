@@ -3,12 +3,11 @@
  * fire only on heading-affecting changes. State machine: hidden / collapsed
  * (ticks only) / expanded (hover or focus-within reveals the full card).
  */
-import { Extension } from '@domternal/core';
+import { Extension, createAdoptablePluginView } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import type { EditorView } from '@domternal/pm/view';
 import { Plugin, PluginKey } from '@domternal/pm/state';
-import { scrollToHeading } from './helpers/scrollToHeading.js';
-import { createActiveStateTracker } from './helpers/activeStateTracker.js';
+import { navigateToc, resolveTocTrackingOptions } from './helpers/tocTracking.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import { getHeadingLabel, setActiveMarker } from './helpers/outlineDom.js';
 import type { TocStorage, HeadingEntry } from './types.js';
@@ -55,10 +54,9 @@ export interface FloatingTocOutlineOptions {
    */
   outlineHost?: (view: EditorView) => HTMLElement;
   /**
-   * `IntersectionObserver` rootMargin used by the active-state
-   * tracker. The default constrains the active zone to the upper 15%
-   * of the scroll area (`'0px 0px -85% 0px'`). Override only if a
-   * sticky toolbar (or similar) shifts the visual top.
+   * Legacy observer margin, inherited when TableOfContents omits
+   * activeRootMargin. This schedules measurements; configure the
+   * observer's activeOffset to move the activation line.
    */
   activeRootMargin: string;
   /**
@@ -199,32 +197,6 @@ function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
   setActiveMarker(items, activeId, ACTIVE_CLASS);
 }
 
-/**
- * Resolve the DOM node for each entry in `storage.content`. Looking up
- * by entry id (instead of a bare `[id]` selector) restricts the
- * tracker to actual heading elements - UniqueID assigns ids to many
- * other node types (paragraphs, list items, etc.) and a bare query
- * would feed the IntersectionObserver paragraph ids that never match
- * any tick, leaving `storage.activeId` pointing at non-headings.
- */
-function collectHeadingDoms(
-  view: EditorView,
-  attrName: string,
-  content: readonly { id: string }[],
-): HTMLElement[] {
-  const root = view.dom;
-  const out: HTMLElement[] = [];
-  const escape = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
-    ? CSS.escape
-    : (s: string): string => s;
-  for (const entry of content) {
-    if (!entry.id) continue;
-    const el = root.querySelector<HTMLElement>(`[${attrName}="${escape(entry.id)}"]`);
-    if (el) out.push(el);
-  }
-  return out;
-}
-
 export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
   name: 'floatingTocOutline',
 
@@ -243,12 +215,12 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
 
   addProseMirrorPlugins() {
     const editor = this.editor as Editor | null;
-    const options = this.options;
+    const options = { ...this.options, ...resolveTocTrackingOptions(editor) };
 
     return [
       new Plugin({
         key: floatingTocOutlinePluginKey,
-        view(editorView) {
+        view: (view) => createAdoptablePluginView(editor, view, (editorView) => {
           if (typeof window === 'undefined') {
             return { destroy(): void { /* no-op */ } };
           }
@@ -554,37 +526,6 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             : window;
           scrollCloseTarget.addEventListener('scroll', onWindowScroll, { passive: true });
 
-          // ── Active-state tracker ─────────────────────────────────
-          let manualOverrideUntil = 0;
-          const writeActive = (id: string | null): void => {
-            applyActiveMarker(nav, id);
-            if (storage && storage.activeId !== id) {
-              storage.activeId = id;
-              // Fan out to other subscribers, skipping our own to avoid
-              // a redundant re-render of the outline DOM.
-              [...storage.subscribers].forEach((fn) => {
-                if (fn === onStorageUpdate) return;
-                try {
-                  fn();
-                } catch (err) {
-                  // A misbehaving subscriber must not break the others. We log
-                  // and continue so app authors see the failure during development.
-                  // eslint-disable-next-line no-console
-                  console.error('[extension-toc] subscriber threw during active fan-out:', err);
-                }
-              });
-            }
-          };
-          const tracker = createActiveStateTracker({
-            scrollParent: options.activeScrollParent,
-            rootMargin: options.activeRootMargin,
-            attrName,
-            onChange: (id) => {
-              if (Date.now() < manualOverrideUntil) return;
-              writeActive(id);
-            },
-          });
-
           // ── Click delegation ─────────────────────────────────────
           const onClick = (event: MouseEvent): void => {
             const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
@@ -592,9 +533,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             );
             const id = target?.dataset[ANCHOR_DATASET_KEY];
             if (!id) return;
-            manualOverrideUntil = Date.now() + options.clickOverrideMs;
-            writeActive(id);
-            scrollToHeading(editorView, id, {
+            navigateToc(editorView, id, {
               attrName,
               scrollParent: options.activeScrollParent instanceof Element
                 ? options.activeScrollParent
@@ -653,14 +592,16 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
 
           // ── Storage subscription ─────────────────────────────────
           let unsubscribe: (() => void) | null = null;
+          let renderedContent: HeadingEntry[] | null = null;
           const onStorageUpdate = (): void => {
             if (!storage) return;
-            renderOutlineContent(nav, storage.content);
-            applyState();
-            tracker.observe(collectHeadingDoms(editorView, attrName, storage.content));
+            if (renderedContent !== storage.content) {
+              renderedContent = storage.content;
+              renderOutlineContent(nav, storage.content);
+              applyState();
+              recomputeMidTop();
+            }
             applyActiveMarker(nav, storage.activeId);
-            // Headings changed - nav height changed - re-center.
-            recomputeMidTop();
           };
 
           if (storage) {
@@ -692,7 +633,6 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               window.removeEventListener('resize', onResize);
               scrollCloseTarget.removeEventListener('scroll', onWindowScroll);
               containerResizeObserver?.disconnect();
-              tracker.destroy();
               unsubscribe?.();
               bottomObserver?.disconnect();
               bottomSentinel?.remove();
@@ -700,7 +640,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               hostPositionRestore?.();
             },
           };
-        },
+        }),
       }),
     ];
   },

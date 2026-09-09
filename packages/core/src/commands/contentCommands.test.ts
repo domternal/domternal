@@ -59,6 +59,31 @@ describe('contentCommands', () => {
   });
 
   describe('insertText', () => {
+    it('keeps literal snippet characters inline and inherits the selected formatting', () => {
+      editor = new Editor({ extensions, content: '<p><strong>before replace after</strong></p>' });
+      document.body.appendChild(editor.view.dom);
+      setSelection(editor, 8, 15);
+      expect(editor.chain().focus().insertText('<b>&amp;\nnext</b>').run()).toBe(true);
+      expect(editor.getJSON()).toEqual({ type: 'doc', content: [{ type: 'paragraph', content: [{
+        type: 'text', text: 'before <b>&amp;\nnext</b> after', marks: [{ type: 'bold' }],
+      }] }] });
+      const html = document.createElement('div');
+      html.innerHTML = editor.getHTML();
+      expect(html.querySelectorAll('p')).toHaveLength(1);
+      expect(html.querySelector('b')).toBeNull();
+      expect(html.querySelector('strong')?.textContent).toBe('before <b>&amp;\nnext</b> after');
+    });
+
+    it('treats an empty snippet at a cursor as a no-op and deletes a selected range', () => {
+      editor = new Editor({ extensions, content: '<p>abc</p>' });
+      setSelection(editor, 2);
+      editor.commands.insertText('');
+      expect(editor.getHTML()).toBe('<p>abc</p>');
+      setSelection(editor, 2, 3);
+      editor.commands.insertText('');
+      expect(editor.getHTML()).toBe('<p>ac</p>');
+    });
+
     it('inserts text at cursor', () => {
       editor = new Editor({ extensions, content: '<p>Hello</p>' });
       setSelection(editor, 6); // after "Hello"
@@ -82,6 +107,17 @@ describe('contentCommands', () => {
   });
 
   describe('insertContent', () => {
+    it.each([
+      ['X', '<p>a</p><p>X</p><p>b</p>'],
+      ['<strong>X &amp; Y</strong>', '<p>a</p><p><strong>X &amp; Y</strong></p><p>b</p>'],
+      ['<h2>Heading</h2><p>Body</p>', '<p>a</p><h2>Heading</h2><p>Body</p><p>b</p>'],
+    ])('retains document parsing for %s between text characters', (content, html) => {
+      editor = new Editor({ extensions, content: '<p>ab</p>' });
+      setSelection(editor, 2);
+      editor.commands.insertContent(content);
+      expect(editor.getHTML()).toBe(html);
+    });
+
     it('inserts HTML content', () => {
       editor = new Editor({ extensions, content: '<p>Before</p>' });
       setSelection(editor, 7); // after "Before"
