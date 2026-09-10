@@ -8,6 +8,7 @@
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { MarkType } from '@domternal/pm/model';
 import { checkUrl } from '../../helpers/checkUrl.js';
+import { pasteClipboardImageFiles } from '../../helpers/clipboardImageFiles.js';
 
 /**
  * Options for the link paste plugin
@@ -54,7 +55,7 @@ export function linkPastePlugin(options: LinkPastePluginOptions): Plugin {
     key: linkPastePluginKey,
 
     props: {
-      handlePaste(view, event) {
+      handlePaste(view, event, slice) {
         // Get pasted text: one line only, since a browser would remove the
         // line breaks inside an address and link something else than it shows.
         const pasted = event.clipboardData?.getData('text/plain').trim();
@@ -67,6 +68,10 @@ export function linkPastePlugin(options: LinkPastePluginOptions): Plugin {
           return false;
         }
         const text = check.url;
+
+        // An image-only paste whose text is the image's address, as a browser's
+        // Copy image writes it, inserts the image file instead of a link.
+        if (pasteClipboardImageFiles(view, event, slice)) return true;
 
         // Custom validation
         if (validate && !validate(text)) {

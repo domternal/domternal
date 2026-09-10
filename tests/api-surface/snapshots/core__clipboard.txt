@@ -3,10 +3,15 @@ ClipboardHTMLDeferral @experimental
 ClipboardHTMLPreparationContext @experimental
 ClipboardHTMLReplay @experimental
 ClipboardImageDestinationPolicy @experimental
+ClipboardImageFileInserter @experimental
+ClipboardImageFileInsertion @experimental
 ClipboardPasteBehavior @experimental
+ClipboardPasteTextOptions @experimental
 getClipboardImageDestination @experimental
 getClipboardPasteAttemptEvent @experimental
 getClipboardPasteBehavior @experimental
+pasteClipboardImageFiles @experimental
+pasteHasOwnText @experimental
 registerClipboardCopyAnnotation @experimental
 registerClipboardHTMLPreparation @experimental
 registerClipboardImageDestination @experimental

@@ -7,12 +7,15 @@ import { armClipboardPasteTransaction } from './helpers/clipboardPasteTransactio
 import { getClipboardImageDestination, registerClipboardImageDestination } from './helpers/clipboardImageDestination.js';
 import { registerClipboardCopyAnnotation } from './helpers/clipboardCopyAnnotation.js';
 import { getClipboardPasteAttemptEvent, registerClipboardHTMLPreparation } from './helpers/clipboardHTMLPreparation.js';
+import { pasteClipboardImageFiles, pasteHasOwnText } from './helpers/clipboardImageFiles.js';
 
 const functions = {
   armClipboardPasteTransaction,
   getClipboardImageDestination,
   getClipboardPasteAttemptEvent,
   getClipboardPasteBehavior,
+  pasteClipboardImageFiles,
+  pasteHasOwnText,
   registerClipboardCopyAnnotation,
   registerClipboardHTMLPreparation,
   registerClipboardImageDestination,

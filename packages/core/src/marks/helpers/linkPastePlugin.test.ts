@@ -1,6 +1,7 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { linkPastePlugin, linkPastePluginKey } from './linkPastePlugin.js';
-import { Schema } from '@domternal/pm/model';
+import { DOMParser, Schema } from '@domternal/pm/model';
+import { registerClipboardImageDestination } from '../../clipboard.js';
 import { EditorState, TextSelection } from '@domternal/pm/state';
 import { EditorView } from '@domternal/pm/view';
 
@@ -251,5 +252,68 @@ describe('linkPastePlugin', () => {
       const result = handler(view, event);
       expect(result).toBe(false);
     });
+  });
+});
+
+describe('linkPastePlugin with clipboard image files', () => {
+  let view: EditorView | undefined;
+  afterEach(() => { view?.destroy(); view = undefined; });
+
+  const imageSchema = new Schema({
+    nodes: {
+      doc: { content: 'block+' },
+      paragraph: { group: 'block', content: 'inline*', toDOM: () => ['p', 0], parseDOM: [{ tag: 'p' }] },
+      photo: { group: 'block', atom: true, attrs: { src: { default: null }, alt: { default: null } }, toDOM: () => ['img'], parseDOM: [{ tag: 'img' }] },
+      text: { group: 'inline' },
+    },
+    marks: { link: { attrs: { href: { default: null } }, toDOM: mark => ['a', { href: mark.attrs['href'] as string }, 0], parseDOM: [{ tag: 'a[href]' }] } },
+  });
+  const URL_TEXT = 'https://example.com/picture.png';
+  const file = new File(['bytes'], 'picture.png', { type: 'image/png' });
+
+  function mount(insertFiles?: () => boolean): { view: EditorView; dispose: () => void } {
+    const plugin = linkPastePlugin({ type: imageSchema.marks.link });
+    const doc = imageSchema.node('doc', null, [imageSchema.node('paragraph')]);
+    const created = new EditorView(document.createElement('div'), { state: EditorState.create({ schema: imageSchema, doc, plugins: [plugin] }) });
+    view = created;
+    const dispose = registerClipboardImageDestination(created, () => ({
+      nodeTypeName: 'photo', sourceAttribute: 'src', inline: false, allowEmbedded: true,
+      allowedMimeTypes: ['image/png'], maxFileBytes: 1024, policyVersion: 'test:1',
+    }), insertFiles);
+    return { view: created, dispose };
+  }
+
+  function paste(target: EditorView, html: string): boolean {
+    const event = new Event('paste', { cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(event, 'clipboardData', { value: {
+      types: html === '' ? ['text/plain', 'Files'] : ['text/html', 'text/plain', 'Files'], files: [file],
+      items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
+      getData: (type: string) => (type === 'text/plain' ? URL_TEXT : type === 'text/html' ? html : ''),
+    } });
+    const holder = document.createElement('div');
+    holder.innerHTML = html;
+    const slice = html === '' ? DOMParser.fromSchema(imageSchema).parseSlice(Object.assign(document.createElement('div'), { textContent: URL_TEXT }))
+      : DOMParser.fromSchema(imageSchema).parseSlice(holder);
+    return target.someProp('handlePaste', f => f(target, event, slice)) === true;
+  }
+
+  it('gives way to the image file when the HTML holds only the image the URL addresses', () => {
+    const insert = vi.fn(() => true);
+    const { view: target } = mount(insert);
+
+    expect(paste(target, `<meta charset="utf-8"><img src="${URL_TEXT}">`)).toBe(true);
+
+    expect(insert).toHaveBeenCalledExactlyOnceWith({ files: [file] });
+    expect(target.state.doc.textContent).toBe('');
+  });
+
+  it('links the URL when the HTML has text of its own, when there is no HTML, or when no destination takes the file', () => {
+    for (const [html, insertFiles] of [[`<p>See ${URL_TEXT}</p>`, () => true], ['', () => true], [`<img src="${URL_TEXT}">`, () => false]] as const) {
+      const { view: target, dispose } = mount(insertFiles);
+      expect(paste(target, html)).toBe(true);
+      expect(target.state.doc.textContent).toBe(URL_TEXT);
+      dispose();
+      target.destroy();
+    }
   });
 });

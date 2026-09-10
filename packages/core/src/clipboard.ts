@@ -20,7 +20,14 @@ export {
   registerClipboardImageDestination,
   getClipboardImageDestination,
   type ClipboardImageDestinationPolicy,
+  type ClipboardImageFileInserter,
 } from './helpers/clipboardImageDestination.js';
+export {
+  pasteHasOwnText,
+  pasteClipboardImageFiles,
+  type ClipboardImageFileInsertion,
+  type ClipboardPasteTextOptions,
+} from './helpers/clipboardImageFiles.js';
 export { registerClipboardCopyAnnotation } from './helpers/clipboardCopyAnnotation.js';
 export {
   registerClipboardHTMLPreparation,

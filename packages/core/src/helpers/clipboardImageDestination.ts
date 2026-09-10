@@ -1,4 +1,5 @@
 import type { EditorView } from '@domternal/pm/view';
+import type { ClipboardImageFileInsertion } from './clipboardImageFiles.js';
 
 /** @experimental Explicit destination policy. Consumers must validate and bound their own material snapshot. */
 export interface ClipboardImageDestinationPolicy {
@@ -11,9 +12,17 @@ export interface ClipboardImageDestinationPolicy {
   readonly policyVersion: string;
 }
 
+/**
+ * @experimental Inserts image files a paste hands over, as the destination's own file insertion
+ * does, and returns whether it took them. It returns false, and the paste goes on, when it stores
+ * no files or accepts none of them.
+ */
+export type ClipboardImageFileInserter = (insertion: ClipboardImageFileInsertion) => boolean;
+
 interface Registration {
   readonly token: object;
   readonly readPolicy: () => ClipboardImageDestinationPolicy | undefined;
+  readonly insertFiles: ClipboardImageFileInserter | undefined;
 }
 
 const destinations = new WeakMap<EditorView, Registration[]>();
@@ -28,11 +37,13 @@ function isDestroyed(view: EditorView): boolean { return view.isDestroyed; }
  * destination. Disposing it restores the registration made before it, and disposing an earlier
  * one leaves the latest in place. The returned function removes only this registration, may be
  * called more than once, and belongs in the registering plugin view's destroy. A destroyed view
- * ignores the registration.
+ * ignores the registration. `insertFiles` lets `pasteClipboardImageFiles` hand the destination a
+ * paste's image files; a destination without it keeps them for its own paste handling.
  */
 export function registerClipboardImageDestination(
   view: EditorView,
   readPolicy: () => ClipboardImageDestinationPolicy | undefined,
+  insertFiles?: ClipboardImageFileInserter,
 ): () => void {
   try { if (view.isDestroyed) return () => undefined; }
   catch { return () => undefined; }
@@ -42,7 +53,7 @@ export function registerClipboardImageDestination(
     registrations = [];
     destinations.set(view, registrations);
   }
-  registrations.push({ token, readPolicy });
+  registrations.push({ token, readPolicy, insertFiles });
   let disposed = false;
   return () => {
     if (disposed) return;
@@ -70,5 +81,20 @@ export function getClipboardImageDestination(view: EditorView): ClipboardImageDe
     const current = destinations.get(view);
     if (isDestroyed(view) || current?.[current.length - 1] !== latest) return undefined;
     return policy;
+  } catch { return undefined; }
+}
+
+/**
+ * The file insertion of the view's latest active destination, with its node type, when that
+ * destination inserts files and its policy reads. An earlier registration is not a fallback.
+ */
+export function clipboardImageFileDestination(view: EditorView): { nodeTypeName: string; insertFiles: ClipboardImageFileInserter } | undefined {
+  try {
+    if (view.isDestroyed) return undefined;
+    const registrations = destinations.get(view);
+    const insertFiles = registrations?.[registrations.length - 1]?.insertFiles;
+    if (insertFiles === undefined) return undefined;
+    const policy = getClipboardImageDestination(view);
+    return policy === undefined ? undefined : { nodeTypeName: policy.nodeTypeName, insertFiles };
   } catch { return undefined; }
 }
