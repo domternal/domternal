@@ -54,7 +54,10 @@ async function seed(page: Page, html: string, caret: 'end' | number): Promise<vo
 }
 
 function observe(page: Page): Promise<Observed> {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
+    // Angular renders the htmlContent output on its next change detection, scheduled for the next
+    // frame; reading it before then sees the previous value.
+    await new Promise<void>(resolve => { requestAnimationFrame(() => { setTimeout(resolve, 0); }); });
     const probe = (window as unknown as ProbeWindow).__pasteCleanup;
     const clean = (html: string): string => html.replace(/ class="[^"]*"/g, '').replace(/<br[^>]*>/g, '');
     return {
