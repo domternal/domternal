@@ -14,10 +14,22 @@
  * example on one writer client after the first sync. Run it only when every
  * client shares this version and this heading configuration: a client with
  * an older marker vocabulary or fewer heading levels would replace values
- * that another client supports.
+ * that another client supports. Replacements that are the same for every
+ * version and configuration, `unsafe-url` and `unsupported-table-span`, can
+ * run earlier on their own through the `codes` option.
  */
 import type { EditorView } from '@domternal/pm/view';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ContentDiagnostic } from '../types/Content.js';
+
+/** Options of the normalizeContentAttributes command. */
+export interface NormalizeContentAttributesOptions {
+  /**
+   * Replace only the values whose diagnostic has one of these codes; all of
+   * them when omitted. An empty list replaces nothing.
+   */
+  codes?: readonly ContentDiagnostic['code'][];
+}
 import { diagnosticCode, forEachNormalizedAttribute } from '../utils/normalizedAttributes.js';
 import { contentReport, recordContentDiagnostics, reportReplacedValue } from '../helpers/normalizeContent.js';
 
@@ -28,11 +40,14 @@ import { contentReport, recordContentDiagnostics, reportReplacedValue } from '..
  * Returns false in a read-only editor or when nothing needs replacing, so
  * `can().normalizeContentAttributes()` detects a document that needs it.
  * Running it again is a no-op. Run it on its own: in a chain, the whole
- * transaction stays out of the history.
+ * transaction stays out of the history. With `codes`, only values reported
+ * with one of those codes are replaced, and the result says whether any is.
  */
-export const normalizeContentAttributes: CommandSpec = () => ({ editor, tr, dispatch }) => {
+export const normalizeContentAttributes: CommandSpec<[options?: NormalizeContentAttributesOptions]> = (options = {}) => ({ editor, tr, dispatch }) => {
   // A read-only editor still accepts a direct dispatch, so the command checks itself.
   if ((editor.view as EditorView | undefined)?.editable === false) return false;
+  const { codes } = options;
+  const chosen = (code: ContentDiagnostic['code']): boolean => codes === undefined || codes.includes(code);
   const report = contentReport();
   const { doc } = tr;
   doc.descendants((node, pos) => {
@@ -41,7 +56,9 @@ export const normalizeContentAttributes: CommandSpec = () => ({ editor, tr, disp
       return Array.from({ length: $pos.depth + 1 }, (_, depth) => $pos.index(depth));
     };
     forEachNormalizedAttribute(doc.type.schema, node.type.name, node.attrs, 'unsupported', (attribute, value, normalizer) => {
-      reportReplacedValue(report, diagnosticCode(normalizer, value), node.type.name, attribute, pathTo(), value);
+      const code = diagnosticCode(normalizer, value);
+      if (!chosen(code)) return;
+      reportReplacedValue(report, code, node.type.name, attribute, pathTo(), value);
       // A dry run must leave the transaction alone: in a chain it is the one run() dispatches.
       if (dispatch) tr.setNodeAttribute(pos, attribute, normalizer.replacement(value));
     });
@@ -50,7 +67,9 @@ export const normalizeContentAttributes: CommandSpec = () => ({ editor, tr, disp
       let removed = false;
       forEachNormalizedAttribute(doc.type.schema, mark.type.name, mark.attrs, 'unsupported', (attribute, value, normalizer) => {
         if (removed) return;
-        reportReplacedValue(report, diagnosticCode(normalizer, value), node.type.name, attribute, pathTo(), value, mark.type.name);
+        const code = diagnosticCode(normalizer, value);
+        if (!chosen(code)) return;
+        reportReplacedValue(report, code, node.type.name, attribute, pathTo(), value, mark.type.name);
         removed = normalizer.removesMark === true;
         if (!dispatch) return;
         tr.removeMark(pos, pos + node.nodeSize, current);

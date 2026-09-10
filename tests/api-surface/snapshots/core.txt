@@ -4,6 +4,7 @@ AnyExtension
 AnyExtensionConfig
 applyInlineStyles
 assertSingleProseMirrorCopy
+AttributeNormalizer @experimental
 AttributeSpec
 AttributeSpecs
 autolinkPlugin
@@ -253,6 +254,7 @@ NodeRenderHTMLProps
 NodeViewContext
 normalizeContent
 normalizeContentAttributes
+NormalizeContentAttributesOptions
 NormalizeContentOptions
 NotionColorPicker
 NotionColorPickerOptions
@@ -263,6 +265,7 @@ OrderedListOptions
 outdentBlockFromListItem
 Paragraph
 ParagraphOptions
+pastedAttributesPlugin @experimental
 PickerLabel
 Placeholder
 PlaceholderOptions
@@ -278,6 +281,7 @@ ProseMirrorCopyConflict
 Range
 RawCommands
 refocusEditorAfterCommand
+registerAttributeNormalizer @experimental
 registerProseMirrorCopy
 resetAttributes
 resolveAttributeValue @experimental

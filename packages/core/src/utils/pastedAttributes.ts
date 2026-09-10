@@ -19,7 +19,7 @@ function replaceInvalidValues(fragment: Fragment, code: ContentDiagnostic['code'
 }
 
 /**
- * Clipboard HTML from a ProseMirror editor carries its wrapper nodes as
+ * @experimental Clipboard HTML from a ProseMirror editor carries its wrapper nodes as
  * data-pm-slice context, which prosemirror-view rebuilds without attribute
  * validation. An invalid value there would reach the document and then its
  * saved JSON, so a pasted or dropped slice gets the replacement instead. Only

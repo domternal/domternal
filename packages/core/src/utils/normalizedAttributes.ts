@@ -11,6 +11,10 @@
 import type { Schema } from '@domternal/pm/model';
 import type { ContentDiagnostic } from '../types/Content.js';
 
+/**
+ * @experimental How the editor normalizes the values of one attribute. Its
+ * shape may still change in a minor release.
+ */
 export interface AttributeNormalizer {
   /** The diagnostic code that reports a replaced value. */
   readonly code: ContentDiagnostic['code'];
@@ -49,7 +53,19 @@ export interface NormalizedAttribute {
 const normalizers = new WeakMap<object, AttributeNormalizer>();
 const schemaAttributes = new WeakMap<Schema, Map<string, NormalizedAttribute[]>>();
 
-/** Registers how values of the attribute with this validator are normalized. */
+/**
+ * @experimental Registers how the editor normalizes an attribute. `validate`
+ * is the very function the attribute spec uses as its `validate`, so every
+ * node or mark type whose spec keeps that function is found, under any name.
+ * Loading JSON content (the initial content, `setContent`, `insertContent`,
+ * `createDocument`, `generateHTML`, `generateText` and `normalizeContent`)
+ * then replaces an unsupported value and reports `normalizer.code`,
+ * `isSupportedAttributeValue` and `resolveAttributeValue` follow it, and
+ * `normalizeContentAttributes` migrates it. A schema reads the registry once,
+ * the first time it is normalized, so register at module level, before an
+ * editor is built. Add `pastedAttributesPlugin(code)` to the extension's
+ * plugins so pasted slices get the replacement too.
+ */
 export function registerAttributeNormalizer(validate: (value: unknown) => void, normalizer: AttributeNormalizer): void {
   normalizers.set(validate, normalizer);
 }

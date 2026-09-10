@@ -503,7 +503,15 @@ nothing needs replacing, so `editor.can().normalizeContentAttributes()` detects 
 needs it. Run it only when every client shares this version and this heading and link
 configuration: a client with an older marker vocabulary, fewer heading levels or narrower
 `protocols` would replace values, or remove links, that another client supports. An `unsafe-url`
-removal is the same under every configuration.
+removal is the same under every configuration, and so is an `unsupported-table-span` repair from
+`@domternal/extension-table`: `normalizeContentAttributes({ codes: ['unsafe-url',
+'unsupported-table-span'] })` replaces only values reported with those codes, so it can run while
+older clients still share the document.
+
+Extensions register how loading normalizes their own attributes with the experimental
+`registerAttributeNormalizer(validate, normalizer)`, keyed by the function the attribute spec uses
+as `validate`, and add `pastedAttributesPlugin(code)` so pasted slices get the replacement too;
+every entry point above then follows the attribute.
 
 `Link.configure({ protocols })` takes schemes such as `'https:'`, in any case and with or without
 the colon or slashes, so `['HTTPS']` and `['https://']` mean `https:`, and Tiptap's

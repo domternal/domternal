@@ -450,10 +450,32 @@ const describeDiagnostic = (diagnostic: ContentDiagnostic): string => {
       return `${diagnostic.markType ?? diagnostic.nodeType} ${diagnostic.attribute}`;
     case 'unknown-list-marker':
     case 'unsupported-heading-level':
+    case 'unsupported-table-span':
       return diagnostic.nodeType;
+    default:
+      // The list of codes is open: a minor release can add one.
+      return 'replaced value';
   }
 };
 void describeDiagnostic;
+
+// Version-independent repairs run on their own while older clients still share the document.
+import type { NormalizeContentAttributesOptions } from '@domternal/core';
+const safeRepairs: NormalizeContentAttributesOptions = { codes: ['unsupported-table-span', 'unsafe-url'] };
+const repaired: boolean = editor.commands.normalizeContentAttributes(safeRepairs);
+void repaired;
+
+// An extension registers how loading normalizes its own attribute (experimental).
+import { pastedAttributesPlugin, registerAttributeNormalizer } from '@domternal/core';
+import type { AttributeNormalizer } from '@domternal/core';
+const validateSize = (value: unknown): void => { if (typeof value !== 'number') throw new RangeError('Invalid size'); };
+const sizeNormalizer: AttributeNormalizer = {
+  code: 'unsupported-table-span',
+  invalid: value => typeof value !== 'number',
+  replacement: () => 1,
+};
+registerAttributeNormalizer(validateSize, sizeNormalizer);
+void pastedAttributesPlugin('unsupported-table-span');
 
 // Relative links follow the Link option; the popover's scheme list only narrows the Link's policy.
 import { Link, LinkPopover } from '@domternal/core';

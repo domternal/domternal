@@ -594,7 +594,10 @@ test('the rendered snapshot marks tagged names and keeps the name order', () => 
 test('the committed Core snapshot marks the attribute registry helpers experimental', () => {
   const core = readFileSync(join(here, 'snapshots/core.txt'), 'utf8').trimEnd().split('\n');
   assert.deepEqual(core.filter((line) => line.endsWith(' @experimental')), [
+    'AttributeNormalizer @experimental',
     'isSupportedAttributeValue @experimental',
+    'pastedAttributesPlugin @experimental',
+    'registerAttributeNormalizer @experimental',
     'resolveAttributeValue @experimental',
   ]);
 });

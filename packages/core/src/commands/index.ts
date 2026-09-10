@@ -44,7 +44,7 @@ export {
 
 // List commands
 export { toggleList } from './listCommands.js';
-export { normalizeContentAttributes } from './normalizeContentAttributes.js';
+export { normalizeContentAttributes, type NormalizeContentAttributesOptions } from './normalizeContentAttributes.js';
 
 // Attribute commands
 export {
@@ -91,6 +91,7 @@ import type { Attrs } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import type { SetContentOptions, ClearContentOptions } from './contentCommands.js';
+import type { NormalizeContentAttributesOptions } from './normalizeContentAttributes.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -113,7 +114,7 @@ declare module '@domternal/core' {
     toggleList: CommandSpec<
       [listNodeName: string, listItemNodeName: string, attributes?: Attrs, options?: { perItem?: boolean }]
     >;
-    normalizeContentAttributes: CommandSpec;
+    normalizeContentAttributes: CommandSpec<[options?: NormalizeContentAttributesOptions]>;
     insertContent: CommandSpec<[content: Content]>;
     selectNodeBackward: CommandSpec;
     updateAttributes: CommandSpec<[typeOrName: string, attributes: Record<string, unknown>]>;

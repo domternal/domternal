@@ -126,7 +126,13 @@ export {
 export { writeToClipboard } from './utils/clipboard.js';
 
 // === Content normalization: whether loading JSON content keeps a value ===
-export { isSupportedAttributeValue, resolveAttributeValue } from './utils/normalizedAttributes.js';
+export {
+  isSupportedAttributeValue,
+  resolveAttributeValue,
+  registerAttributeNormalizer,
+  type AttributeNormalizer,
+} from './utils/normalizedAttributes.js';
+export { pastedAttributesPlugin } from './utils/pastedAttributes.js';
 
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';
@@ -327,6 +333,7 @@ export {
   // List commands
   toggleList,
   normalizeContentAttributes,
+  type NormalizeContentAttributesOptions,
   // Insert commands
   insertContent,
   // Selection commands
