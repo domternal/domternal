@@ -205,6 +205,56 @@ describe('PasteCleanup and dropped image files', () => {
     expect(images(fixture.editor)).toEqual([{ src: 'https://cdn.example/1.png', alt: null }, { src: 'https://cdn.example/2.png', alt: null }]);
     expect(text(fixture.editor)).toBe('');
   });
+
+  /** Drops files only, as an operating system's file drag carries them: no HTML reaches cleanup. */
+  function dropFiles(editor: Editor, files: File[]): DragEvent {
+    vi.spyOn(editor.view, 'posAtCoords').mockReturnValue({ pos: 1, inside: -1 });
+    const event = new Event('drop', { bubbles: true, cancelable: true }) as DragEvent;
+    Object.defineProperty(event, 'dataTransfer', { value: {
+      types: ['Files'], files, items: files.map(file => ({ kind: 'file', type: file.type, getAsFile: () => file })),
+      getData: () => '', dropEffect: 'none',
+    } });
+    Object.defineProperty(event, 'clientX', { value: 1 });
+    Object.defineProperty(event, 'clientY', { value: 1 });
+    editor.view.dom.dispatchEvent(event);
+    return event;
+  }
+
+  it('gives a later drop of files alone none of the alt text an earlier drop left in place of an image', async () => {
+    const fixture = mount();
+    drop(fixture.editor, `<p>See <img src="${REMOTE}" alt="Private caption from the first drop"></p>`, []);
+    await settled(fixture);
+    expect(text(fixture.editor)).toContain('Private caption from the first drop');
+    const first = fixture.completed.mock.calls.length;
+
+    dropFiles(fixture.editor, [png('later.png')]);
+    await settled(fixture);
+
+    expect(images(fixture.editor)).toEqual([{ src: 'https://cdn.example/later.png', alt: null }]);
+    // The earlier drop's operation is not reported again as replaced by these files.
+    expect(fixture.completed.mock.calls.length).toBe(first);
+  });
+
+  it('reports a drop whose files replaced HTML that cleanup rejected as untracked, with no blocked notice', async () => {
+    const fixture = mount({ limits: { maxInputLength: 64 } });
+    drop(fixture.editor, `<p>${'word '.repeat(40)}</p>`, [png()]);
+    const result = await settled(fixture);
+
+    expect(images(fixture.editor)).toEqual([{ src: 'https://cdn.example/shot.png', alt: null }]);
+    expect(text(fixture.editor)).toBe('');
+    expect(result).toMatchObject({ status: 'untracked', diagnostics: [] });
+    expect(result).not.toHaveProperty('reason');
+    expect(fixture.normalized.mock.calls.at(-1)?.[0]).toMatchObject({ status: 'rejected' });
+    expect(document.querySelector('.dm-paste-feedback')?.textContent ?? '').not.toContain('blocked');
+  });
+
+  it('still blocks a drop without files whose HTML cleanup rejects', async () => {
+    const fixture = mount({ limits: { maxInputLength: 64 } });
+    drop(fixture.editor, `<p>${'word '.repeat(40)}</p>`, []);
+    const result = await settled(fixture);
+    expect(text(fixture.editor)).toBe('');
+    expect(result).toMatchObject({ status: 'rejected' });
+  });
 });
 
 describe('PasteCleanup with image assets', () => {

@@ -184,6 +184,13 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
             }
             return false;
           },
+          drop() {
+            // A drop starts a new attempt, as a paste does: files dropped without HTML reach no
+            // transform, and must not inherit an earlier drop's operation or image stand-ins.
+            startAttempt();
+            pending = { rejected: false, preserveOrderedListStart: false };
+            return false;
+          },
         },
         transformPastedText(text, _plain, view) {
           startAttempt();
@@ -218,8 +225,9 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           return cleaned;
         },
         handleDrop(view, event, slice, moved) {
-          // A drop's image files win over its cleaned content. Without image assets they go to the
-          // image node here, so the one file keeps the alt text cleanup left in place of the image.
+          // A drop's image files win over its cleaned content, even content cleanup rejected, as its
+          // HTML is not inserted. Without image assets they go to the image node here, so the one
+          // file keeps the alt text cleanup left in place of the image.
           if (moved || coordinator !== undefined) return false;
           if (!dropClipboardImageFiles(view, event, slice, { imageStandIns: pending.standIns ?? [] })) return false;
           if (pending.operation !== undefined) tracking.replacedByFiles(pending.operation);

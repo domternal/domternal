@@ -217,6 +217,47 @@ test.describe('image files on drop', () => {
     });
   }
 
+  test('a later drop of files alone keeps none of the alt text an earlier drop left in place of an image', async ({ page }) => {
+    await open(page, 'vanilla', 'cleanup');
+    const outcome = await page.evaluate(async png => {
+      const { editor } = (window as unknown as ProbeWindow).__pasteCleanup;
+      editor.setContent('<p></p>', false);
+      const drop = (data: DataTransfer): void => {
+        const block = editor.view.dom.firstElementChild;
+        if (!block) throw new Error('No block to drop on');
+        const rect = block.getBoundingClientRect();
+        const event = new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true, clientX: rect.left + 2, clientY: rect.top + rect.height / 2 });
+        if (event.dataTransfer !== data) Object.defineProperty(event, 'dataTransfer', { value: data });
+        editor.view.dom.dispatchEvent(event);
+      };
+      const html = new DataTransfer();
+      html.setData('text/html', '<p>See <img src="https://example.com/secret.png" alt="Private caption from the first drop"></p>');
+      drop(html);
+      const files = new DataTransfer();
+      files.items.add(new File([Uint8Array.from(atob(png), value => value.charCodeAt(0))], 'later.png', { type: 'image/png' }));
+      drop(files);
+      for (let attempt = 0; attempt < 100 && editor.view.dom.querySelector('.domternal-image-uploading') !== null; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      const alts: unknown[] = [];
+      editor.state.doc.descendants(node => { if (node.type.name === 'image') alts.push(node.attrs['alt']); });
+      return { alts, text: editor.state.doc.textContent };
+    }, PNG);
+    expect(outcome.alts).toEqual([null]);
+    expect(outcome.text).toContain('Private caption from the first drop');
+  });
+
+  test('a drop whose HTML cleanup rejects still inserts its file, and shows no blocked notice', async ({ page }) => {
+    const params = new URLSearchParams({ framework: 'vanilla', 'unique-id': 'off', limits: 'small' });
+    await page.goto(`${BASE_URL}/?${params.toString()}`);
+    await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
+    const outcome = await transfer(page, { html: `<p>${'word '.repeat(400)}</p>`, files: 1 }, 'drop');
+    expect(outcome.files).toHaveLength(1);
+    expect(outcome.text).toBe('');
+    expect(outcome.statuses).toEqual(['untracked']);
+    await expect(page.locator('[role="region"][aria-label="Paste notice"]')).not.toContainText('blocked');
+  });
+
   test('a dropped file with allowBase64 false and no uploadHandler inserts nothing, and the browser does not open it', async ({ page }) => {
     await open(page, 'vanilla', 'no-base64');
     const outcome = await transfer(page, { files: 1 }, 'drop');

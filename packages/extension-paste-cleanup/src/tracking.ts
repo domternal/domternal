@@ -188,16 +188,20 @@ export function createPasteTracking(
           documentRevision: currentRevision, ranges: Object.freeze([]), expired: true,
         });
         // The notice and onPasteResult follow what an applied paste inserted; onResult keeps the cleanup's view.
-        const diagnostics = entry.replacedByFiles === true && receipt === undefined ? Object.freeze([])
+        // Files that replaced the cleaned content, as a drop's files replace even rejected HTML,
+        // arrive through the image node: nothing of the cleanup reached the document or was blocked.
+        const replaced = entry.replacedByFiles === true && receipt === undefined;
+        const diagnostics = replaced ? Object.freeze([])
           : receipt?.changed === true
             ? reconcileHeadingDiagnostics(normalized.diagnostics, outline, slices.get(operation), receipt.insertion)
             : normalized.diagnostics;
+        const rejected = entry.rejected && !replaced;
         const result: PasteOperationResult = Object.freeze({
           ...normalized,
           diagnostics,
           status: receipt !== undefined ? receipt.changed ? 'applied' : 'noop'
-            : entry.rejected ? 'rejected' : entry.skipped === true ? 'noop' : 'untracked',
-          ...(receipt === undefined && entry.rejected && entry.reason !== undefined ? { reason: entry.reason } : {}),
+            : rejected ? 'rejected' : entry.skipped === true ? 'noop' : 'untracked',
+          ...(receipt === undefined && rejected && entry.reason !== undefined ? { reason: entry.reason } : {}),
           references,
         });
         resolve(result);

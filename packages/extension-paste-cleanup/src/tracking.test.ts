@@ -53,6 +53,13 @@ describe('asynchronous paste completion tracking', () => {
     await expect(acceptedCompletion).resolves.toMatchObject({ status: 'applied' });
     expect((await acceptedCompletion).diagnostics.map(diagnostic => diagnostic.code)).toContain('image-removed');
 
+    // A drop's files replace even content cleanup rejected: nothing was blocked, and no reason is given.
+    const rejected = tracking.create({ ...result, status: 'rejected' });
+    const rejectedCompletion = tracking.finish(editor.view, rejected, true, { reason: 'unsupported-content' });
+    tracking.replacedByFiles(rejected);
+    await expect(rejectedCompletion).resolves.toMatchObject({ status: 'untracked', diagnostics: [] });
+    expect(await rejectedCompletion).not.toHaveProperty('reason');
+
     // A replacement learned after completion changes nothing.
     const late = tracking.create(result);
     const lateCompletion = tracking.finish(editor.view, late, false);

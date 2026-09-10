@@ -133,10 +133,13 @@ does for the Image extension and the Link paste. Without `imageAssets`, the Imag
 inserts the files; one file keeps the alt text of the one image the content held. Such an
 operation reports `untracked` without findings in `onPasteResult` and the notice, since nothing
 of the cleaned content reached the document, while `onResult` still reports the cleanup as it
-ran. A drop's image files win over its content, and one dropped file keeps the alt text cleanup
-left in place of the one image it removed. Content with text of its own keeps the paste, since
-Word, Excel and Google Docs put a picture of the copied selection next to it. A rejected paste
-never reaches the files. With `allowBase64: false` and no `uploadHandler`, the Image cannot store
+ran. A drop's image files win over its content, even content cleanup rejected, such as HTML over
+the input limit, since that content is not inserted: the drop reports `untracked` without
+findings and no blocked notice. One dropped file keeps the alt text cleanup left in place of the
+one image that drop's content held; a later drop of files alone, as an operating system's file
+drag carries them, keeps none. Content with text of its own keeps the paste, since Word, Excel
+and Google Docs put a picture of the copied selection next to it. A rejected paste never reaches
+the files. With `allowBase64: false` and no `uploadHandler`, the Image cannot store
 files and the cleaned content pastes as it would without them.
 
 `untracked` does not prove that nothing was inserted. Custom asynchronous handlers
