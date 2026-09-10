@@ -18,7 +18,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from 'react';
-import type { Editor, TransactionEventProps } from '@domternal/core';
+import type { Editor } from '@domternal/core';
 import { resolveColorName } from '@domternal/core';
 
 interface NotionColorPickerStorage {
@@ -201,19 +201,12 @@ export function useNotionColorPicker(
     };
 
     // Editor event API is not AbortSignal-aware; explicit off in cleanup.
-    // A selection move that a plugin answers with a document change arrives as update.
-    const onSelectionMoveWithChange = ({ transaction }: TransactionEventProps): void => {
-      if (!transaction.docChanged && transaction.selectionSet) onSelectionUpdate();
-    };
-
     editor.on('notionColorOpen', onOpen);
     editor.on('selectionUpdate', onSelectionUpdate);
-    editor.on('update', onSelectionMoveWithChange);
 
     return () => {
       editor.off('notionColorOpen', onOpen);
       editor.off('selectionUpdate', onSelectionUpdate);
-      editor.off('update', onSelectionMoveWithChange);
       // Only flip storage when the picker was actually open. Unconditional
       // reset would race a StrictMode double-mount: the first mount's
       // cleanup would clobber an `isOpen=true` set by the second mount's

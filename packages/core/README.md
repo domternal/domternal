@@ -74,7 +74,9 @@ editor.destroy();
 
 `onUpdate` and the `update` event run after every accepted change to the document, including
 a change a plugin appended to a selection move (its payload lists those as
-`appendedTransactions`); `onSelectionUpdate` runs when only the selection moved. A transaction
+`appendedTransactions`); `onSelectionUpdate` runs when the selection moved without the move itself
+changing the document, before `onUpdate` when a plugin answered the move with a change, such as a
+click that TrailingNode answers with a paragraph after a final heading. A transaction
 that a plugin vetoes changes nothing and runs no callback, while the command that dispatched it
 still returns `true`. The full callback contract:
 https://domternal.dev/v1/guides/editor-api/#transaction-flow

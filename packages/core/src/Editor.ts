@@ -1084,7 +1084,7 @@ export class Editor extends EventEmitter<EditorEvents> {
   /**
    * Handles ProseMirror transactions. The callback contract is described on
    * `EditorEvents`: nothing runs for a vetoed root; an accepted root runs one
-   * sequence (transaction, contentDiagnostic, selectionUpdate or update) that
+   * sequence (transaction, contentDiagnostic, selectionUpdate, update) that
    * reflects every accepted transaction, and a listener that destroys the
    * editor ends it.
    */
@@ -1107,7 +1107,10 @@ export class Editor extends EventEmitter<EditorEvents> {
     const appendedTransactions: readonly Transaction[] = Object.freeze(transactions.slice(1));
     const props = (): TransactionEventProps => ({ editor: this, transaction, appendedTransactions });
     const docChanged = transactions.some(accepted => accepted.docChanged);
-    const selectionSet = !docChanged && transactions.some(accepted => accepted.selectionSet);
+    // A root that only moved the selection stays a selection move when a plugin answers it
+    // with a document change, such as TrailingNode adding a paragraph on a click.
+    const selectionSet = (transaction.selectionSet && !transaction.docChanged)
+      || (!docChanged && transactions.some(accepted => accepted.selectionSet));
     const skipUpdate = Boolean(transaction.getMeta('skipUpdate'));
     const steps: (() => void)[] = [
       () => this.emit('transaction', props()),

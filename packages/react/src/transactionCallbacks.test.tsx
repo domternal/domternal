@@ -55,7 +55,7 @@ afterEach(async () => {
 });
 
 describe('React transaction callbacks', () => {
-  it('reports a document change that only an appended transaction made to onUpdate, not onSelectionChange', async () => {
+  it('reports a selection move that a plugin answers with a change to onSelectionChange, then onUpdate', async () => {
     const calls: string[] = [];
     await update(() => {
       root.render(<DomternalEditor extensions={extensions} content="<p>Hello</p>" onCreate={onCreate}
@@ -64,13 +64,13 @@ describe('React transaction callbacks', () => {
     });
 
     await update(() => { moveSelection(liveEditor(), { appendDoc: true }); });
-    expect(calls).toEqual(['update:Hello!']);
+    expect(calls).toEqual(['selection', 'update:Hello!']);
 
     await update(() => { moveSelection(liveEditor()); });
-    expect(calls).toEqual(['update:Hello!', 'selection']);
+    expect(calls).toEqual(['selection', 'update:Hello!', 'selection']);
   });
 
-  it('reports nothing for a vetoed transaction and no update for a skipUpdate root with an appended change', async () => {
+  it('reports nothing for a vetoed transaction and only the selection move of a skipUpdate root with an appended change', async () => {
     const calls: string[] = [];
     await update(() => {
       root.render(<DomternalEditor extensions={extensions} content="<p>Hello</p>" onCreate={onCreate}
@@ -80,10 +80,11 @@ describe('React transaction callbacks', () => {
 
     await update(() => { editor.view.dispatch(editor.state.tr.insertText('X', 1).setMeta('veto', true)); });
     await update(() => { moveSelection(editor, { veto: true }); });
-    await update(() => { moveSelection(editor, { appendDoc: true, skipUpdate: true }); });
-
-    expect(editor.getText()).toBe('Hello!');
     expect(calls).toEqual([]);
+
+    await update(() => { moveSelection(editor, { appendDoc: true, skipUpdate: true }); });
+    expect(editor.getText()).toBe('Hello!');
+    expect(calls).toEqual(['selection']);
   });
 
   it('refreshes useEditorState when only an appended transaction changed the document', async () => {

@@ -12,7 +12,7 @@
  */
 import { ref, shallowRef, watch } from 'vue';
 import type { Ref, ShallowRef } from 'vue';
-import type { Editor, TransactionEventProps } from '@domternal/core';
+import type { Editor } from '@domternal/core';
 import { resolveColorName } from '@domternal/core';
 
 interface NotionColorPickerStorage {
@@ -176,19 +176,12 @@ export function useNotionColorPicker(
         }
       };
 
-      // A selection move that a plugin answers with a document change arrives as update.
-      const onSelectionMoveWithChange = ({ transaction }: TransactionEventProps): void => {
-        if (!transaction.docChanged && transaction.selectionSet) onSelectionUpdate();
-      };
-
       (ed.on as (e: string, h: (...args: unknown[]) => void) => void)('notionColorOpen', onOpen);
       (ed.on as (e: string, h: () => void) => void)('selectionUpdate', onSelectionUpdate);
-      ed.on('update', onSelectionMoveWithChange);
 
       onCleanup(() => {
         (ed.off as (e: string, h: (...args: unknown[]) => void) => void)('notionColorOpen', onOpen);
         (ed.off as (e: string, h: () => void) => void)('selectionUpdate', onSelectionUpdate);
-        ed.off('update', onSelectionMoveWithChange);
         // Only flip storage when the picker was actually open. Unconditional
         // reset would race a dev-mode double-mount: the first mount's
         // cleanup would clobber an `isOpen=true` set by the second mount's

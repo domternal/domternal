@@ -1,5 +1,5 @@
 import { coreMessages, resolveColorName, resolveColorSwatch, positionFloating } from '@domternal/core';
-import type { Editor, TransactionEventProps } from '@domternal/core';
+import type { Editor } from '@domternal/core';
 import { assertBrowser } from '../shared/isBrowser.js';
 
 interface NotionColorPickerStorage {
@@ -118,7 +118,6 @@ export class DomternalNotionColorPicker extends EventTarget {
 
   #onOpen: ((...args: unknown[]) => void) | null = null;
   #onSelectionUpdate: (() => void) | null = null;
-  #onSelectionMoveWithChange: ((props: TransactionEventProps) => void) | null = null;
   /** Global listeners (mousedown + keydown + selectionUpdate) bound while open. */
   #openAbortCtl: AbortController | null = null;
   #cleanupFloating: (() => void) | null = null;
@@ -170,11 +169,6 @@ export class DomternalNotionColorPicker extends EventTarget {
     };
     this.#editor.on('notionColorOpen', this.#onOpen);
     this.#editor.on('selectionUpdate', this.#onSelectionUpdate);
-    // A selection move that a plugin answers with a document change arrives as update.
-    this.#onSelectionMoveWithChange = ({ transaction }: TransactionEventProps): void => {
-      if (!transaction.docChanged && transaction.selectionSet) this.#onSelectionUpdate?.();
-    };
-    this.#editor.on('update', this.#onSelectionMoveWithChange);
   }
 
   // === Public API ===
@@ -290,10 +284,6 @@ export class DomternalNotionColorPicker extends EventTarget {
     if (this.#onSelectionUpdate) {
       this.#editor.off('selectionUpdate', this.#onSelectionUpdate);
       this.#onSelectionUpdate = null;
-    }
-    if (this.#onSelectionMoveWithChange) {
-      this.#editor.off('update', this.#onSelectionMoveWithChange);
-      this.#onSelectionMoveWithChange = null;
     }
     if (this.#isOpen) this.#setStorageOpen(false);
     this.#panel?.remove();

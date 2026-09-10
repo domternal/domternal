@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe('DomternalEditor transaction callbacks', () => {
-  it('reports a document change that only an appended transaction made as update, to the callback and the event', () => {
+  it('reports a selection move that a plugin answers with a change as selectionchange, then update, to the callback and the event', () => {
     const calls: string[] = [];
     wrapper = new DomternalEditor(host, {
       extensions: [AppendProbe],
@@ -47,14 +47,16 @@ describe('DomternalEditor transaction callbacks', () => {
     wrapper.addEventListener('update', () => { calls.push('event:update'); });
     wrapper.addEventListener('selectionchange', () => { calls.push('event:selection'); });
 
+    // The root moved the selection and a plugin answered with a change: the move, then the change.
     moveSelection(wrapper.editor, { appendDoc: true });
-    expect(calls).toEqual(['callback:update:Hello!', 'event:update']);
+    expect(calls).toEqual(['callback:selection', 'event:selection', 'callback:update:Hello!', 'event:update']);
 
+    calls.length = 0;
     moveSelection(wrapper.editor);
-    expect(calls).toEqual(['callback:update:Hello!', 'event:update', 'callback:selection', 'event:selection']);
+    expect(calls).toEqual(['callback:selection', 'event:selection']);
   });
 
-  it('reports nothing for a vetoed transaction and no update for a skipUpdate root with an appended change', () => {
+  it('reports nothing for a vetoed transaction and only the selection move of a skipUpdate root with an appended change', () => {
     const calls: string[] = [];
     wrapper = new DomternalEditor(host, {
       extensions: [AppendProbe],
@@ -67,9 +69,10 @@ describe('DomternalEditor transaction callbacks', () => {
 
     editor.view.dispatch(editor.state.tr.insertText('X', 1).setMeta('veto', true));
     moveSelection(editor, { veto: true });
-    moveSelection(editor, { appendDoc: true, skipUpdate: true });
-
-    expect(editor.getText()).toBe('Hello!');
     expect(calls).toEqual([]);
+
+    moveSelection(editor, { appendDoc: true, skipUpdate: true });
+    expect(editor.getText()).toBe('Hello!');
+    expect(calls).toEqual(['selection']);
   });
 });

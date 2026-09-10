@@ -123,11 +123,14 @@ export interface ErrorEventProps {
  *   state; `transaction` (event, then the `onTransaction` option, then
  *   extension `onTransaction` hooks) once per root, never per appended
  *   transaction; `contentDiagnostic` when the root reported replaced values;
- *   then either `selectionUpdate` or `update`, each as event, option and
- *   extension hook.
+ *   then `selectionUpdate`, then `update`, each as event, option and
+ *   extension hook, when it applies.
  * - `update` runs when any accepted transaction, root or appended, changed the
  *   document, unless the root carries the `skipUpdate` meta. `selectionUpdate`
- *   runs when none changed the document and at least one set the selection.
+ *   runs when the root set the selection without changing the document, or
+ *   when no accepted transaction changed the document and one set the
+ *   selection. A selection move that a plugin answers with a document change,
+ *   such as a click TrailingNode answers with a paragraph, runs both.
  * - A listener that dispatches runs the nested transaction's whole sequence
  *   before the outer one continues, so later listeners can see a newer
  *   `editor.state` than their payload: read `editor.state`, not
@@ -159,8 +162,10 @@ export interface EditorEvents {
   update: TransactionEventProps;
 
   /**
-   * Fired after an accepted dispatch that set the selection without any
-   * accepted transaction changing the document.
+   * Fired after an accepted dispatch whose root set the selection without
+   * changing the document, before any `update` for a change an appended
+   * transaction made; or whose appended transactions set the selection when
+   * no accepted transaction changed the document.
    */
   selectionUpdate: TransactionEventProps;
 

@@ -300,7 +300,8 @@ export interface ExtensionConfigBase<Options = unknown, Storage = unknown> {
 
   /**
    * Called after the editor's `selectionUpdate` event and option: an accepted
-   * dispatch that set the selection without changing the document.
+   * dispatch whose root set the selection without changing the document, or
+   * whose appended transactions set it when none changed the document.
    */
   onSelectionUpdate?: () => void;
 

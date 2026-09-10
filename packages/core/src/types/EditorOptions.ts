@@ -158,8 +158,9 @@ export interface EditorOptions {
   onUpdate?: (props: TransactionEventProps) => void;
 
   /**
-   * Called after the `selectionUpdate` event: an accepted dispatch that set
-   * the selection without any accepted transaction changing the document.
+   * Called after the `selectionUpdate` event: an accepted dispatch whose root
+   * set the selection without changing the document, or whose appended
+   * transactions set it when none changed the document. See `EditorEvents`.
    */
   onSelectionUpdate?: (props: TransactionEventProps) => void;
 

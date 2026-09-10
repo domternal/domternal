@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 describe('DomternalEditorComponent transaction callbacks', () => {
-  it('reports a document change that only an appended transaction made to contentUpdated, the form and the signals', async () => {
+  it('reports a selection move that a plugin answers with a change to selectionChanged, then contentUpdated, the form and the signals', async () => {
     const fixture = TestBed.createComponent(TransactionHost);
     await fixture.whenStable();
     const host = fixture.componentInstance;
@@ -66,14 +66,15 @@ describe('DomternalEditorComponent transaction callbacks', () => {
     moveSelection(host.editor, { appendDoc: true });
     await fixture.whenStable();
 
-    expect(host.calls).toEqual(['update:Hello!']);
+    // The root moved the selection and a plugin answered with a change: the move, then the change.
+    expect(host.calls).toEqual(['selection', 'update:Hello!']);
     expect(host.control.value).toBe('<p>Hello!</p>');
     expect(host.control.dirty).toBe(true);
     expect(component.htmlContent()).toBe('<p>Hello!</p>');
     expect(component.jsonContent()?.content?.[0]?.content?.[0]?.text).toBe('Hello!');
 
     moveSelection(host.editor);
-    expect(host.calls).toEqual(['update:Hello!', 'selection']);
+    expect(host.calls).toEqual(['selection', 'update:Hello!', 'selection']);
   });
 
   it('reports nothing for a vetoed transaction and keeps the form pristine', async () => {
@@ -91,7 +92,7 @@ describe('DomternalEditorComponent transaction callbacks', () => {
     expect(host.control.dirty).toBe(false);
   });
 
-  it('refreshes the signals without emitting for a skipUpdate root with an appended change', async () => {
+  it('refreshes the signals and emits only the selection move for a skipUpdate root with an appended change', async () => {
     const fixture = TestBed.createComponent(TransactionHost);
     await fixture.whenStable();
     const host = fixture.componentInstance;
@@ -102,7 +103,7 @@ describe('DomternalEditorComponent transaction callbacks', () => {
 
     expect(component.htmlContent()).toBe('<p>Hello!</p>');
     expect(component.isEmpty()).toBe(false);
-    expect(host.calls).toEqual([]);
+    expect(host.calls).toEqual(['selection']);
     expect(host.control.value).toBe('<p>Hello</p>');
     expect(host.control.dirty).toBe(false);
   });

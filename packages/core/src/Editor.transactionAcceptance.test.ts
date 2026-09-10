@@ -8,6 +8,8 @@ import { Paragraph } from './nodes/Paragraph.js';
 import { Text } from './nodes/Text.js';
 import { BulletList } from './nodes/BulletList.js';
 import { ListItem } from './nodes/ListItem.js';
+import { Heading } from './nodes/Heading.js';
+import { TrailingNode } from './extensions/TrailingNode.js';
 
 let editor: Editor | undefined;
 afterEach(() => { editor?.destroy(); editor = undefined; });
@@ -215,7 +217,7 @@ describe('Editor callback contract for appended transactions', () => {
     return { editor: instance, order, payloads, hookProps };
   }
 
-  it('fires update, not selectionUpdate, when only an appended transaction changed the document', () => {
+  it('fires selectionUpdate for the root selection move, then update, when only an appended transaction changed the document', () => {
     const { editor: instance, order, payloads } = mountAppending();
     const root = instance.state.tr.setSelection(TextSelection.create(instance.state.doc, 4)).setMeta('appendDocProbe', true);
 
@@ -224,6 +226,7 @@ describe('Editor callback contract for appended transactions', () => {
     expect(instance.state.doc.textContent).toBe('Original!');
     expect(order).toEqual([
       'event:transaction', 'option:transaction', 'extension:transaction',
+      'event:selection', 'option:selection', 'extension:selection',
       'event:update', 'option:update', 'extension:update',
     ]);
     const update = payloads.find(entry => entry.name === 'event:update');
@@ -248,6 +251,59 @@ describe('Editor callback contract for appended transactions', () => {
     const selection = payloads.find(entry => entry.name === 'event:selection');
     expect(selection?.props.transaction).toBe(root);
     expect(selection?.props.appendedTransactions).toHaveLength(1);
+  });
+
+  it('fires only update when the root changed the document, whatever an appended transaction did', () => {
+    const { editor: instance, order } = mountAppending();
+
+    instance.view.dispatch(instance.state.tr.insertText('X', 1).setMeta('appendSelectionProbe', true));
+
+    expect(instance.state.selection.from).toBe(3);
+    expect(order).toEqual([
+      'event:transaction', 'option:transaction', 'extension:transaction',
+      'event:update', 'option:update', 'extension:update',
+    ]);
+  });
+
+  it('fires only update when a root that set no selection gets an appended document change', () => {
+    const { editor: instance, order } = mountAppending();
+
+    instance.view.dispatch(instance.state.tr.setMeta('appendDocProbe', true));
+
+    expect(instance.state.doc.textContent).toBe('Original!');
+    expect(order).toEqual([
+      'event:transaction', 'option:transaction', 'extension:transaction',
+      'event:update', 'option:update', 'extension:update',
+    ]);
+  });
+
+  it('keeps selectionUpdate for the root selection move when skipUpdate holds back the appended change', () => {
+    const { editor: instance, order } = mountAppending();
+
+    instance.view.dispatch(instance.state.tr.setSelection(TextSelection.create(instance.state.doc, 4))
+      .setMeta('appendDocProbe', true).setMeta('skipUpdate', true));
+
+    expect(instance.state.doc.textContent).toBe('Original!');
+    expect(order).toEqual([
+      'event:transaction', 'option:transaction', 'extension:transaction',
+      'event:selection', 'option:selection', 'extension:selection',
+    ]);
+  });
+
+  it('reports a click that TrailingNode answers with a paragraph as a selection move and a document change', () => {
+    const calls: string[] = [];
+    const instance = new Editor({
+      extensions: [Document, Paragraph, Text, Heading, TrailingNode],
+      content: '<p>intro text</p><h2>Last</h2>',
+      onSelectionUpdate: () => { calls.push('selection'); },
+      onUpdate: () => { calls.push('update'); },
+    });
+    editor = instance;
+
+    instance.view.dispatch(instance.state.tr.setSelection(TextSelection.create(instance.state.doc, 3)));
+
+    expect(calls).toEqual(['selection', 'update']);
+    expect(instance.getHTML()).toBe('<p>intro text</p><h2>Last</h2><p></p>');
   });
 
   it('fires neither update nor selectionUpdate for an accepted meta-only transaction', () => {

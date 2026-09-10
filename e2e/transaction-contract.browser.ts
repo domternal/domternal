@@ -114,9 +114,10 @@ for (const framework of FRAMEWORKS) {
         editor.view.dispatch(tr);
       });
 
-      // The root only moved the selection, so it is not a document-changing transaction itself.
+      // The root only moved the selection, so it is not a document-changing transaction itself:
+      // the wrapper reports the move, then the change the plugin appended.
       const observed = await observe(page);
-      expect(observed).toMatchObject({ state: 'Hello!', dom: 'Hello!', transactions: 0, updates: 1, calls: ['update'] });
+      expect(observed).toMatchObject({ state: 'Hello!', dom: 'Hello!', transactions: 0, updates: 1, calls: ['selection', 'update'] });
       if (framework === 'angular') expect(observed.form).toEqual({ dirty: true, value: '<p>Hello!</p>', signal: '<p>Hello!</p>' });
     });
 

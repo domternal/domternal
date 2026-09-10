@@ -158,7 +158,9 @@ All components are standalone (no NgModule). Import them directly from
   `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals. `contentUpdated` and the form
   value follow the core `update` event, including a change a plugin appended to a selection
   move, and never a vetoed transaction; the content signals also follow programmatic writes
-  (`writeValue`, `[content]`), which emit nothing and leave the form pristine.
+  (`writeValue`, `[content]`), which emit nothing and leave the form pristine. `selectionChanged`
+  follows the core `selectionUpdate` event, before `contentUpdated` when a plugin answered a
+  selection move with a change, such as a click that TrailingNode answers with a paragraph.
 - `DomternalToolbarComponent` (`<domternal-toolbar>`): auto-rendered formatting
   toolbar with keyboard navigation, custom `icons`, and `layout` overrides.
 - `DomternalBubbleMenuComponent` (`<domternal-bubble-menu>`): inline selection menu

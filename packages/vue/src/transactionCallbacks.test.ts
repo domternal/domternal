@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 describe('Vue transaction callbacks', () => {
-  it('reports a document change that only an appended transaction made to onUpdate and v-model, not onSelectionChange', async () => {
+  it('reports a selection move that a plugin answers with a change to onSelectionChange, then onUpdate and v-model', async () => {
     const calls: string[] = [];
     const models: unknown[] = [];
     mount(() => h(DomternalEditor, {
@@ -64,14 +64,14 @@ describe('Vue transaction callbacks', () => {
     await nextTick();
 
     moveSelection(liveEditor(), { appendDoc: true });
-    expect(calls).toEqual(['update:Hello!']);
+    expect(calls).toEqual(['selection', 'update:Hello!']);
     expect(models).toEqual(['<p>Hello!</p>']);
 
     moveSelection(liveEditor());
-    expect(calls).toEqual(['update:Hello!', 'selection']);
+    expect(calls).toEqual(['selection', 'update:Hello!', 'selection']);
   });
 
-  it('reports nothing for a vetoed transaction and no update for a skipUpdate root with an appended change', async () => {
+  it('reports nothing for a vetoed transaction and only the selection move of a skipUpdate root with an appended change', async () => {
     const calls: string[] = [];
     mount(() => h(DomternalEditor, {
       extensions, content: '<p>Hello</p>', onCreate,
@@ -83,9 +83,10 @@ describe('Vue transaction callbacks', () => {
 
     editor.view.dispatch(editor.state.tr.insertText('X', 1).setMeta('veto', true));
     moveSelection(editor, { veto: true });
-    moveSelection(editor, { appendDoc: true, skipUpdate: true });
-
-    expect(editor.getText()).toBe('Hello!');
     expect(calls).toEqual([]);
+
+    moveSelection(editor, { appendDoc: true, skipUpdate: true });
+    expect(editor.getText()).toBe('Hello!');
+    expect(calls).toEqual(['selection']);
   });
 });
