@@ -198,6 +198,42 @@ describe('image files: order and uploads', () => {
     await expect(flush()).resolves.toBeUndefined();
   });
 
+  it('makes an image that lands more than half a second after the paste its own undo step, as the history groups by time', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const upload = uploads();
+      const ed = mount({ uploadHandler: upload.handler }, '<p>Hello</p>');
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, 1, 6)));
+      pasteFiles(ed, [png('a.png'), png('b.png')]);
+      upload.resolve('a.png');
+      await flush();
+      vi.setSystemTime(Date.now() + 600);
+      upload.resolve('b.png');
+      await flush();
+      expect(html(ed)).toBe('<img src="https://cdn.example/a.png"><img src="https://cdn.example/b.png">');
+
+      // The later image is one step; the replaced text and the first image are the next.
+      expect(ed.commands.undo()).toBe(true);
+      expect(html(ed)).toBe('<img src="https://cdn.example/a.png">');
+      expect(ed.commands.undo()).toBe(true);
+      expect(html(ed)).toBe('<p>Hello</p>');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaves the text a paste replaced deleted until undone when every upload fails', async () => {
+    const upload = uploads();
+    const ed = mount({ uploadHandler: upload.handler }, '<p>Hello</p>');
+    ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, 1, 6)));
+    pasteFiles(ed, [png('a.png')]);
+    upload.reject('a.png', new Error('network'));
+    await flush();
+    expect(html(ed)).toBe('<p></p>');
+    expect(ed.commands.undo()).toBe(true);
+    expect(html(ed)).toBe('<p>Hello</p>');
+  });
+
   it('undoes the images of one paste together, back to the text before it', async () => {
     const ed = mount();
     caret(ed, 6);
