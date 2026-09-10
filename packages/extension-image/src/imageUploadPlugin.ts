@@ -16,7 +16,7 @@
  * its place through it, so another client typing while a file is read or
  * uploaded does not lose the image.
  */
-import { Plugin, PluginKey } from '@domternal/pm/state';
+import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
@@ -24,8 +24,11 @@ import type { Node as PMNode, NodeType } from '@domternal/pm/model';
 
 export const imageUploadPluginKey = new PluginKey<DecorationSet>('imageUpload');
 
-/** How the images of a batch are placed: over the selection, or at a drop position. */
-export type ImageFilePlacement = { readonly at: 'selection' } | { readonly at: 'position'; readonly pos: number };
+/**
+ * How the images of a batch are placed: over the selection, as a paste does; at a drop
+ * position; or at the selection where setImage places an image, as a chosen file is.
+ */
+export type ImageFilePlacement = { readonly at: 'selection' } | { readonly at: 'position'; readonly pos: number } | { readonly at: 'command' };
 
 export interface ImageFileInsertionOptions {
   /** The image node type from the schema. */
@@ -42,6 +45,11 @@ export interface ImageFileInsertionOptions {
   onUploadError: () => ((error: Error, file: File) => void) | null;
   /** Reports an error a host callback threw, which never stops or holds back an insertion. */
   reportError: (error: Error, context: string) => void;
+  /**
+   * Places an image at the selection of `tr`, a transaction of `state` without steps, where
+   * setImage places one; false when setImage would place none there.
+   */
+  placeAsCommand: (state: EditorState, tr: Transaction, node: PMNode) => boolean;
 }
 
 interface Entry {
@@ -56,6 +64,8 @@ interface Batch {
   readonly entries: Entry[];
   /** The index of the first entry not placed yet. */
   next: number;
+  /** Whether the images go where setImage places one, as a chosen file does. */
+  readonly asCommand: boolean;
 }
 
 type Action =
@@ -146,6 +156,12 @@ function mapPlaceholders(tr: Transaction, decorations: DecorationSet): Decoratio
   return DecorationSet.create(tr.doc, widgets);
 }
 
+/** Deletes the selection a paste replaces and returns where its images go. */
+function replaceSelection(tr: Transaction): number {
+  tr.deleteSelection();
+  return tr.selection.from;
+}
+
 /** The position of a placeholder, or undefined once it is gone. */
 function placeholderPos(state: EditorState, id: string): number | undefined {
   return imageUploadPluginKey.getState(state)?.find(undefined, undefined, byId(id))[0]?.from;
@@ -164,6 +180,38 @@ export interface ImageFileInsertion {
 
 export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFileInsertion {
   const { nodeType } = options;
+
+  /**
+   * Places a block image at a position like replaceRangeWith: it moves out of a textblock's start
+   * or end instead of splitting it. In a code block it goes after the block, whose code it must not split.
+   */
+  function place(tr: Transaction, pos: number, node: PMNode): void {
+    const $pos = tr.doc.resolve(pos);
+    if ($pos.parent.type.spec.code === true && $pos.depth > 0) tr.replaceRangeWith($pos.after(), $pos.after(), node);
+    else if (nodeType.isInline) tr.insert(pos, node);
+    else tr.replaceRangeWith(pos, pos, node);
+  }
+
+  /**
+   * Places a chosen file's image where setImage places one, at its placeholder. The caret stays
+   * where the user moved it while the file was stored; left at the placeholder, it goes where
+   * setImage leaves it.
+   */
+  function placeAsCommand(state: EditorState, tr: Transaction, pos: number, node: PMNode): void {
+    const { selection } = state;
+    const $pos = tr.doc.resolve(pos);
+    if (!$pos.parent.inlineContent) {
+      place(tr, pos, node);
+      return;
+    }
+    tr.setSelection(TextSelection.create(tr.doc, pos));
+    if (!options.placeAsCommand(state, tr, node)) {
+      tr.setSelection(selection);
+      place(tr, pos, node);
+      return;
+    }
+    if (!(selection.empty && selection.from === pos)) tr.setSelection(selection.map(tr.doc, tr.mapping));
+  }
 
   /** Places the settled images at the front of the batch, in order, in one transaction. */
   function flush(view: EditorView, batch: Batch): void {
@@ -188,9 +236,9 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
       if (pos === undefined || entry.status === 'failed' || entry.src === undefined) continue;
       const node = nodeType.create({ src: entry.src, ...(entry.alt === undefined ? {} : { alt: entry.alt }) });
       const before = tr.steps.length;
-      // A block image moves out of a textblock's start or end instead of splitting it.
-      if (nodeType.isInline) tr.insert(pos, node);
-      else tr.replaceRangeWith(pos, pos, node);
+      // A chosen file is its batch's one entry, so its transaction has no steps yet.
+      if (batch.asCommand && before === 0) placeAsCommand(state, tr, pos, node);
+      else place(tr, pos, node);
       if (tr.steps.length === before) continue;
       inserted = true;
       let end = pos;
@@ -200,8 +248,8 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
       for (const [id, at] of positions) positions.set(id, at === pos ? end : steps.map(at));
     }
     if (removed.length === 0) return;
-    const place = [...positions].map(([id, pos]) => ({ id, pos }));
-    tr.setMeta(imageUploadPluginKey, { type: 'settle', remove: removed, place } satisfies Action);
+    const remaining = [...positions].map(([id, pos]) => ({ id, pos }));
+    tr.setMeta(imageUploadPluginKey, { type: 'settle', remove: removed, place: remaining } satisfies Action);
     if (!inserted) tr.setMeta('addToHistory', false);
     view.dispatch(tr);
   }
@@ -258,11 +306,12 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
     if (store === null || accepted.length === 0 || view.isDestroyed) return false;
     const tr = view.state.tr;
     let pos: number;
-    if (placement.at === 'selection') {
-      if (!tr.selection.empty) tr.deleteSelection();
-      pos = tr.selection.from;
-    } else {
+    if (placement.at === 'position') {
       pos = placement.pos;
+    } else if (placement.at === 'selection' && !tr.selection.empty) {
+      pos = replaceSelection(tr);
+    } else {
+      pos = tr.selection.from;
     }
     const entries: Entry[] = accepted.map(file => ({
       id: createPlaceholderId(), file, status: 'pending',
@@ -272,7 +321,7 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
     // Placeholders alone are not an edit to undo; a replaced selection is.
     if (!tr.docChanged) tr.setMeta('addToHistory', false);
     view.dispatch(tr);
-    const batch: Batch = { entries, next: 0 };
+    const batch: Batch = { entries, next: 0, asCommand: placement.at === 'command' };
     const start = options.onUploadStart();
     for (const entry of entries) {
       callHost(start, 'Image.onUploadStart', entry.file);

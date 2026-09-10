@@ -5,7 +5,7 @@
  * a data URL when allowBase64 is false and there is no uploadHandler.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Blockquote, BulletList, Document, Editor, History, ListItem, Paragraph, Text } from '@domternal/core';
+import { Blockquote, BulletList, CodeBlock, Document, Editor, History, ListItem, Paragraph, Text } from '@domternal/core';
 import { NodeSelection, TextSelection } from '@domternal/pm/state';
 import { Image } from './Image.js';
 import type { ImageOptions } from './Image.js';
@@ -22,7 +22,7 @@ afterEach(() => {
 function mount(options: Partial<ImageOptions> = {}, content = '<p>Hello</p>'): Editor {
   editor = new Editor({
     element: document.body.appendChild(document.createElement('div')),
-    extensions: [Document, Paragraph, Text, History, BulletList, ListItem, Blockquote, Image.configure(options)],
+    extensions: [Document, Paragraph, Text, History, BulletList, ListItem, Blockquote, CodeBlock, Image.configure(options)],
     content,
   });
   return editor;
@@ -478,5 +478,104 @@ describe('image files: host callbacks that fail', () => {
     expect(onUploadError).toHaveBeenCalledWith(expect.any(RangeError), files[0]);
     expect(onUploadError).toHaveBeenCalledWith(thrown, files[1]);
     expect(placeholders(ed)).toBe(0);
+  });
+});
+
+describe('image files: a chosen file goes where setImage puts an image', () => {
+  function popover(target: Editor): void {
+    vi.spyOn(target.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+    (target as unknown as { emit: (event: string, data: object) => void }).emit('insertImage', {});
+  }
+
+  /** Chooses a file through the popover's browse button; returns the file inputs it opened. */
+  function choose(target: Editor, file: File): HTMLInputElement[] {
+    const inputs: HTMLInputElement[] = [];
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) { inputs.push(this); });
+    popover(target);
+    document.querySelector<HTMLButtonElement>('.dm-image-popover-browse')?.click();
+    for (const input of inputs) {
+      Object.defineProperty(input, 'files', { value: [file] });
+      input.dispatchEvent(new Event('change'));
+    }
+    click.mockRestore();
+    return inputs;
+  }
+
+  /** Inserts an address through the popover's URL field, which runs setImage. */
+  function applyUrl(target: Editor, src: string): void {
+    popover(target);
+    const input = document.querySelector<HTMLInputElement>('.dm-image-popover-input');
+    if (!input) throw new Error('No URL field');
+    input.value = src;
+    document.querySelector<HTMLButtonElement>('.dm-image-popover-apply')?.click();
+  }
+
+  const src = 'https://cdn.example/chosen.png';
+
+  it.each([
+    ['at the end of a list item\'s label', '<ul><li><p>item</p></li><li><p>two</p></li></ul>', 7,
+      '<ul><li><p>item</p></li></ul><img src="https://cdn.example/chosen.png"><p></p><ul><li><p>two</p></li></ul>'],
+    ['in an empty list item', '<ul><li><p>item</p></li><li><p></p></li></ul>', 11,
+      '<ul><li><p>item</p></li></ul><img src="https://cdn.example/chosen.png"><p></p>'],
+    ['in the middle of a paragraph', '<p>Hello</p>', 3, '<p>He</p><img src="https://cdn.example/chosen.png"><p>llo</p>'],
+  ])('places an uploaded chosen file %s as the URL field does', async (_name, content, pos, expected) => {
+    const upload = uploads();
+    const ed = mount({ uploadHandler: upload.handler }, content);
+    caret(ed, pos);
+    expect(choose(ed, png('chosen.png'))).toHaveLength(1);
+    upload.resolve('chosen.png', src);
+    await flush();
+    expect(html(ed)).toBe(expected);
+    ed.destroy();
+
+    const byUrl = mount({}, content);
+    caret(byUrl, pos);
+    applyUrl(byUrl, src);
+    expect(html(byUrl)).toBe(expected);
+  });
+
+  it('places a chosen file read as a data URL after a list item\'s label at the top level', async () => {
+    const ed = mount({}, '<ul><li><p>item</p></li><li><p>two</p></li></ul>');
+    caret(ed, 7);
+    choose(ed, png('chosen.png'));
+    // A widget at a textblock's end brings ProseMirror's separator image, so wait for the document's.
+    await vi.waitFor(() => { expect(html(ed)).toContain('<img'); });
+    expect(html(ed).replace(/base64,[^"]*/, 'base64,...')).toBe('<ul><li><p>item</p></li></ul><img src="data:image/png;base64,..."><p></p><ul><li><p>two</p></li></ul>');
+  });
+
+  it('keeps the caret the user moved while the chosen file was stored', async () => {
+    const upload = uploads();
+    const ed = mount({ uploadHandler: upload.handler }, '<ul><li><p>item</p></li></ul><p>other</p>');
+    caret(ed, 7);
+    choose(ed, png('chosen.png'));
+    caret(ed, 12);
+    upload.resolve('chosen.png', src);
+    await flush();
+    expect(html(ed)).toBe('<ul><li><p>item</p></li></ul><img src="https://cdn.example/chosen.png"><p></p><p>other</p>');
+    expect(ed.state.selection.$from.parent.textContent).toBe('other');
+  });
+
+  it('opens no file dialog in a code block, where the URL field inserts nothing either', () => {
+    const ed = mount({ uploadHandler: () => Promise.resolve(src) }, '<pre><code>let a = 1;</code></pre>');
+    caret(ed, 5);
+    const before = html(ed);
+    expect(choose(ed, png('chosen.png'))).toHaveLength(0);
+    applyUrl(ed, src);
+    expect(html(ed)).toBe(before);
+    expect(placeholders(ed)).toBe(0);
+  });
+});
+
+describe('image files: next to a code block', () => {
+  it('places a file pasted or dropped inside a code block after the block instead of splitting the code', async () => {
+    const ed = mount({ uploadHandler: file => Promise.resolve(`https://cdn.example/${file.name}`) }, '<pre><code>let a = 1;</code></pre><p>after</p>');
+    caret(ed, 5);
+    pasteFiles(ed, [png('a.png'), png('b.png')]);
+    await flush();
+    expect(html(ed)).toBe('<pre><code>let a = 1;</code></pre><img src="https://cdn.example/a.png"><img src="https://cdn.example/b.png"><p>after</p>');
+
+    dropFiles(ed, [png('c.png')], 3);
+    await flush();
+    expect(html(ed)).toBe('<pre><code>let a = 1;</code></pre><img src="https://cdn.example/c.png"><img src="https://cdn.example/a.png"><img src="https://cdn.example/b.png"><p>after</p>');
   });
 });

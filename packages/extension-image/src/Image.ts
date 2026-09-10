@@ -12,6 +12,7 @@ import { Node, PluginKey, checkUrl, positionFloating, defaultIcons, splitListFor
 import { dropClipboardImageFiles, getClipboardPasteBehavior, pasteClipboardImageFiles, registerClipboardImageDestination } from '@domternal/core/clipboard';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
+import type { EditorState, Transaction } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
 import type { Node as PmNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
@@ -154,6 +155,31 @@ function clipboardImageFiles(data: DataTransfer | null): File[] {
 /** Whether a clipboard or drop carries files and no text of either kind. */
 function holdsOnlyFiles(data: DataTransfer | null): boolean {
   return data !== null && data.getData('text/html') === '' && data.getData('text/plain') === '';
+}
+
+/**
+ * Places an image node at the selection of `tr`, as setImage does: not inside a code block, and a
+ * block image in the label of a list or task item at the top level after the item, with an empty
+ * paragraph after it, splitting the list around the item. Returns false when it places nothing,
+ * 'list' when it placed the image after a list item, and true otherwise.
+ */
+function placeImage(state: EditorState, tr: Transaction, node: PmNode, inline: boolean): boolean | 'list' {
+  if (tr.selection.$from.parent.type.spec.code) return false;
+  // Block-level images belong at the top level, not nested inside the list item. The util splits
+  // the parent list around the current item (an empty label is consumed). Inline images keep the
+  // insert-at-cursor behavior.
+  if (!inline) {
+    const paragraphType = state.schema.nodes['paragraph'];
+    const trailingParagraph = paragraphType?.create();
+    const nodes = trailingParagraph ? [node, trailingParagraph] : [node];
+    const listRange = splitListForInsert(state, tr);
+    if (listRange) {
+      tr.replaceWith(listRange.from, listRange.to, nodes);
+      return 'list';
+    }
+  }
+  tr.replaceSelectionWith(node);
+  return true;
 }
 
 /** Reads a File as a base64 data URL. */
@@ -644,31 +670,10 @@ export const Image = Node.create<ImageOptions>({
           if (tr.selection.$from.parent.type.spec.code) return false;
 
           const node = this.nodeType.create({ ...attributes, src: src ?? attributes.src });
-
-          // List-item-aware path: cursor in the LABEL paragraph of a
-          // list/task item. Block-level images belong at TOP LEVEL,
-          // not nested inside the list item. The util splits the
-          // parent list around the current item (empty label consumed).
-          // Only applies when image is block-level (default); inline
-          // images keep the original insert-at-cursor behavior.
-          if (!this.options.inline) {
-            const paragraphType = state.schema.nodes['paragraph'];
-            const trailingParagraph = paragraphType?.create();
-            const nodes = trailingParagraph ? [node, trailingParagraph] : [node];
-            const listRange = splitListForInsert(state, tr);
-            if (listRange) {
-              if (!dispatch) return true;
-              tr.replaceWith(listRange.from, listRange.to, nodes);
-              dispatch(tr.scrollIntoView());
-              return true;
-            }
-          }
-
-          if (dispatch) {
-            tr.replaceSelectionWith(node);
-            dispatch(tr);
-          }
-
+          if (!dispatch) return true;
+          // A chosen file's image goes through the same placement, see placeImage.
+          if (placeImage(state, tr, node, this.options.inline) === 'list') tr.scrollIntoView();
+          dispatch(tr);
           return true;
         },
 
@@ -752,6 +757,8 @@ export const Image = Node.create<ImageOptions>({
       onUploadError: () => live().onUploadError,
       // An application callback that throws is reported like an extension hook, through the editor's error event.
       reportError: (error, context) => { editor.emit('error', { editor, error, context }); },
+      // A chosen file's image goes where setImage places the image of an address.
+      placeAsCommand: (state, tr, node) => placeImage(state, tr, node, live().inline) !== false,
     }) : undefined;
 
     // Image popover + drag overlay + paste/drop plugin
@@ -906,8 +913,10 @@ export const Image = Node.create<ImageOptions>({
         editor.view.focus();
       };
 
+      // A chosen file goes where the URL field's setImage puts an image, and not into a code block.
+      const canInsertAtSelection = (): boolean => editor.view.state.selection.$from.parent.type.spec.code !== true;
       const insertFromFile = (file: File): void => {
-        files.insert(editor.view, [file], { at: 'selection' });
+        if (canInsertAtSelection()) files.insert(editor.view, [file], { at: 'command' });
       };
 
       const applyUrl = (): void => {
@@ -931,6 +940,7 @@ export const Image = Node.create<ImageOptions>({
 
       const openFileBrowser = (): void => {
         hidePopover();
+        if (!canInsertAtSelection()) return;
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = options.allowedMimeTypes.join(',');
