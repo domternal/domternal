@@ -21,7 +21,6 @@ import type { Transaction } from '@domternal/pm/state';
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { EditorView, NodeView, NodeViewConstructor } from '@domternal/pm/view';
 import {
-  tableEditing,
   columnResizing,
   deleteColumn,
   addRowBefore,
@@ -50,6 +49,7 @@ import { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCel
 import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 import { createResizeSuppressionPlugin } from './plugins/resizeSuppressionPlugin.js';
 import { createCellSelectionPlugin } from './plugins/cellSelectionPlugin.js';
+import { guardedTableEditing } from './helpers/guardedTableEditing.js';
 import { TableRow } from './TableRow.js';
 import { TableCell } from './TableCell.js';
 import { TableHeader } from './TableHeader.js';
@@ -508,7 +508,8 @@ export const Table = Node.create<TableOptions>({
         defaultCellMinWidth: this.options.defaultCellMinWidth,
       }),
 
-      tableEditing({
+      // fixTables leaves a table that holds an unsupported span to normalizeContentAttributes.
+      guardedTableEditing({
         allowTableNodeSelection: this.options.allowTableNodeSelection,
       }),
 

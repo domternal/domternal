@@ -96,6 +96,12 @@ export const REQUIRED = [
     reason: 'src/icons.ts inlines Phosphor and Phosphor-derived glyphs',
   },
   {
+    package: 'packages/extension-table',
+    source: 'src/helpers/guardedTableEditing.ts',
+    markers: ['prosemirror-tables', 'Marijn Haverbeke'],
+    reason: 'src/helpers/guardedTableEditing.ts walks changed nodes after prosemirror-tables',
+  },
+  {
     package: 'packages/theme',
     source: 'src/_prosemirror.scss',
     markers: ['prosemirror-view', 'prosemirror-gapcursor', 'prosemirror-tables', 'Marijn Haverbeke'],
