@@ -35,6 +35,7 @@ import { tableMessages } from './messages.js';
 
 import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 import { resolveSpan } from './helpers/cellAttributes.js';
+import { tableHoldsUnsupportedSpan } from './helpers/guardedTableEditing.js';
 
 import {
   DOTS_H, DOTS_V, CHEVRON_DOWN,
@@ -202,6 +203,11 @@ export class TableView implements NodeView {
     if (this.cellHandleCell && !this.table.contains(this.cellHandleCell)) {
       this.hideCellHandle();
     }
+    // A table that comes to hold an unsupported span, such as from a collaborator, loses its handles.
+    if (this.holdsUnsupportedSpan) {
+      this.hideCellHandle();
+      if (!this.dropdown) this.hideHandles();
+    }
 
     return true;
   }
@@ -359,8 +365,9 @@ export class TableView implements NodeView {
 
   private onMouseMove(e: MouseEvent): void {
     if (this._resizeDragging) return;
-    // Read-only shows no table chrome: every handle action edits the table.
-    if (!this.view.editable) {
+    // Read-only shows no table chrome: every handle action edits the table, and neither does a
+    // table that holds an unsupported span.
+    if (!this.view.editable || this.holdsUnsupportedSpan) {
       this.hideHandles();
       this.hoveredCell = null;
       return;
@@ -544,9 +551,18 @@ export class TableView implements NodeView {
     this._resizeDragging = false;
   }
 
+  /**
+   * Whether this table holds a span loading would replace. Its row, column and cell handles, which
+   * select cells and run table commands through its table map, stay hidden until
+   * normalizeContentAttributes replaces the span.
+   */
+  private get holdsUnsupportedSpan(): boolean {
+    return tableHoldsUnsupportedSpan(this.node);
+  }
+
   /** Show cell handle at the top-center of the given cell. Always repositions (no early return). */
   showCellHandle(cell: HTMLTableCellElement): void {
-    if (this._resizeDragging) return;
+    if (this._resizeDragging || this.holdsUnsupportedSpan) return;
     this.cellHandleCell = cell;
     const containerRect = this.dom.getBoundingClientRect();
     const cellRect = cell.getBoundingClientRect();
@@ -564,7 +580,7 @@ export class TableView implements NodeView {
   /** Click on cell handle → create CellSelection for that cell. */
   private onCellHandleClick(): void {
     // Read-only: cell selection chrome only leads to editing actions.
-    if (!this.view.editable) return;
+    if (!this.view.editable || this.holdsUnsupportedSpan) return;
     if (!this.cellHandleCell) return;
     this.dismissOverlays();
     const pos = this.view.posAtDOM(this.cellHandleCell, 0);
@@ -590,7 +606,7 @@ export class TableView implements NodeView {
   }
 
   private onColClick(): void {
-    if (!this.view.editable) return;
+    if (!this.view.editable || this.holdsUnsupportedSpan) return;
     this.suppressCellToolbar = true;
     this.hideCellToolbar();
     this.dismissOverlays();
@@ -599,7 +615,7 @@ export class TableView implements NodeView {
   }
 
   private onRowClick(): void {
-    if (!this.view.editable) return;
+    if (!this.view.editable || this.holdsUnsupportedSpan) return;
     this.suppressCellToolbar = true;
     this.hideCellToolbar();
     this.dismissOverlays();
@@ -920,7 +936,7 @@ export class TableView implements NodeView {
   private execRowCmd(cmd: PMCommand): void {
     // A dropdown left open across a switch to read-only must not still mutate
     // (onRowClick already blocks opening a fresh one).
-    if (!this.view.editable) return;
+    if (!this.view.editable || this.holdsUnsupportedSpan) return;
     this.setCursorInCell(this.hoveredRow, 0);
     const state = this.view.state;
     if (cmd === deleteRow && isInTable(state)) {
@@ -934,7 +950,7 @@ export class TableView implements NodeView {
   }
 
   private execColCmd(cmd: PMCommand): void {
-    if (!this.view.editable) return;
+    if (!this.view.editable || this.holdsUnsupportedSpan) return;
     this.setCursorInCell(0, this.hoveredCol);
     if (cmd === addColumnBefore || cmd === addColumnAfter) {
       addColumnWithWidths(

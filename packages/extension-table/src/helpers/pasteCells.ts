@@ -10,8 +10,12 @@
  * longer throws "No cell with offset" (the original looks for a cell that
  * starts in the last pasted row, where a spanning cell leaves none) and the
  * selection covers exactly the pasted cells; a cell clipped at the bottom of a
- * selection keeps the rows it still covers. The helpers use only the public
- * exports of prosemirror-tables, which Domternal accepts from version 1.7.0.
+ * selection keeps the rows it still covers. A table that holds a span loading
+ * would replace gets the pasted cells' content at the selection, since its
+ * table map would be wrong or huge, and a paste that fails anyway reports its
+ * error and pastes that content too, instead of throwing out of the paste
+ * handler. The helpers use only the public exports of prosemirror-tables,
+ * which Domternal accepts from version 1.7.0.
  */
 import { Fragment, Slice } from '@domternal/pm/model';
 import type { Attrs, Node as PMNode, NodeType, Schema } from '@domternal/pm/model';
@@ -27,6 +31,7 @@ import {
   tableNodeTypes,
 } from '@domternal/pm/tables';
 import type { Rect } from '@domternal/pm/tables';
+import { selectionInUnsupportedTable } from './guardedTableEditing.js';
 
 /** A rectangular area of cells: one fragment of cells per row. */
 export interface PastedCells {
@@ -283,13 +288,19 @@ export function insertCells(
   dispatch(tr);
 }
 
-/**
- * The paste handler: cells pasted into a table, or any content pasted into a
- * cell selection, replace cells. Returns false when the paste is not for a table.
- */
-export function handleTablePaste(view: EditorView, slice: Slice): boolean {
-  if (!isInTable(view.state)) return false;
-  let cells = pastedCells(slice);
+/** The content of pasted cells, their blocks in reading order. */
+function cellContent(cells: PastedCells): Fragment {
+  const blocks: PMNode[] = [];
+  for (const row of cells.rows) row.forEach(cell => { cell.content.forEach(block => { blocks.push(block); }); });
+  return Fragment.from(blocks);
+}
+
+/** Pastes content at the selection as the editor pastes text, which needs no table map. */
+function pasteAtSelection(view: EditorView, slice: Slice): void {
+  view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
+}
+
+function pasteCells(view: EditorView, slice: Slice, cells: PastedCells | null): boolean {
   const selection = view.state.selection;
   if (selection instanceof CellSelection) {
     cells ??= { width: 1, height: 1, rows: [Fragment.from(fitSlice(tableNodeTypes(view.state.schema).cell, slice))] };
@@ -307,4 +318,35 @@ export function handleTablePaste(view: EditorView, slice: Slice): boolean {
     return true;
   }
   return false;
+}
+
+/**
+ * The paste handler: cells pasted into a table, or any content pasted into a
+ * cell selection, replace cells. Returns false when the paste is not for a
+ * table. In a table that holds a span loading would replace, pasted cells
+ * give their content at the selection and other content is left to the
+ * editor, since that table's map would be wrong or huge. A paste that fails
+ * reports its error through `reportError` and pastes its content at the
+ * selection, so no error escapes to the page.
+ */
+export function handleTablePaste(view: EditorView, slice: Slice, reportError?: (error: Error) => void): boolean {
+  if (!isInTable(view.state)) return false;
+  let cells: PastedCells | null = null;
+  try {
+    cells = pastedCells(slice);
+    if (selectionInUnsupportedTable(view.state)) {
+      if (!cells) return false;
+      pasteAtSelection(view, Slice.maxOpen(cellContent(cells)));
+      return true;
+    }
+    return pasteCells(view, slice, cells);
+  } catch (error) {
+    reportError?.(error instanceof Error ? error : new Error(String(error)));
+    try {
+      pasteAtSelection(view, cells ? Slice.maxOpen(cellContent(cells)) : slice);
+    } catch {
+      // The document stays as it was; the error is reported.
+    }
+    return true;
+  }
 }

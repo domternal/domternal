@@ -14,11 +14,12 @@ import { handleTablePaste } from '../helpers/pasteCells.js';
 
 export const tableCellPastePluginKey = new PluginKey('tableCellPaste');
 
-export function createTableCellPastePlugin(): Plugin {
+/** `reportError` receives an error a paste met, whose content is then pasted at the selection. */
+export function createTableCellPastePlugin(reportError?: (error: Error) => void): Plugin {
   return new Plugin({
     key: tableCellPastePluginKey,
     props: {
-      handlePaste: (view, event, slice) => pasteClipboardImageFiles(view, event, slice) || handleTablePaste(view, slice),
+      handlePaste: (view, event, slice) => pasteClipboardImageFiles(view, event, slice) || handleTablePaste(view, slice, reportError),
     },
   });
 }

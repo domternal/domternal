@@ -19,6 +19,7 @@ import type { Transaction } from '@domternal/pm/state';
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { columnResizingPluginKey, TableMap } from '@domternal/pm/tables';
+import { resizeHandleInUnsupportedTable } from '../helpers/guardedTableEditing.js';
 import { findTableDom, getContainerWidth } from '../helpers/constrainedColumn.js';
 import { resolveSpan } from '../helpers/cellAttributes.js';
 
@@ -40,6 +41,8 @@ export function createResizeSuppressionPlugin(options: ResizeSuppressionOptions)
           const resizeState = columnResizingPluginKey.getState(view.state) as
             | { activeHandle: number; dragging: unknown } | undefined;
 
+          // A table that holds an unsupported span is not resized: its table map would be wrong or huge.
+          if (resizeHandleInUnsupportedTable(view.state)) return false;
           if (!resizeState || resizeState.activeHandle === -1) {
             // Non-resize drag - suppress columnResizing border detection
             view.dom.classList.add('dm-mouse-drag');

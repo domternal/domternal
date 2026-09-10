@@ -117,9 +117,17 @@ loading would replace, and a pasted slice gets the replacement of a span validat
 After every change, prosemirror-tables' `fixTables` repairs the structure of the tables that
 changed. It reads spans as stored, so on such a span it would delete cells (`-1`), multiply
 columns (`"2"`), let collaborating clients disagree (`1.5`) or build a table map of millions of
-entries (`1e6`). A table that holds such a span is therefore left alone until
-`normalizeContentAttributes` replaces the span; the next change then repairs it as usual. Table
-commands inside such a table still follow the stored spans.
+entries (`1e6`). A table that holds such a span is therefore left to text editing until
+`normalizeContentAttributes` replaces the span; the next change then repairs it as usual. No
+table map is built for it: the table commands that need one (adding, deleting and merging rows,
+columns and cells, header toggles, `setCellSelection`) return `false` there, a mouse drag, a
+triple click, `Shift` with an arrow key and the row, column and cell handles make no cell
+selection in it, a text selection dragged across its cells stays within one cell, so typing or
+pasting over it deletes no cell, its columns show no resize handle, and cells pasted into it
+arrive as their content at the caret instead of replacing cells. Typing, moving to the next cell with `Tab` and
+`deleteTable` keep working. A cell paste that fails anyway reports its error through the editor's
+`error` event (`onError`, context `Table.paste`) and pastes the cells' content at the selection
+instead of throwing to the page.
 
 Pasting cells into a table places them at the caret or over a cell selection, grows the table
 where they reach past its edges and selects exactly the pasted cells, as prosemirror-tables does.

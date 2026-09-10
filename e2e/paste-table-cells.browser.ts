@@ -4,7 +4,7 @@
  * throw prosemirror-tables' "No cell with offset" and paste nothing. Synthetic paste events,
  * and a trusted keyboard paste of HTML a page's copy handler wrote.
  */
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import type { Editor } from '@domternal/core';
 import { test } from './native-clipboard.js';
 
@@ -180,4 +180,69 @@ test('a trusted keyboard paste of a 2x2 cell into a 2x2 table pastes it without 
   expect(observed.valid).toBe(true);
   expect(observed.domMatches).toBe(true);
   expect(observed.text).toBe('aXc');
+});
+
+/**
+ * A table holding a span loading would replace, as a 1.2.0 client or a crafted update can write
+ * into a shared document, stays text-editable until normalizeContentAttributes: a cell paste puts
+ * the cells' content at the caret, and mouse selection, handles and column resizing leave it alone.
+ */
+test.describe('a table that holds an unsupported span', () => {
+  for (const [name, colspan] of [['0', 0], ['-1', -1], ['a million', 1_000_000]] as const) {
+    test(`pastes, selects and resizes nothing through its table map, with a colspan of ${name}`, async ({ page }) => {
+      await open(page, 'vanilla');
+      await page.evaluate(colspan => {
+        const target = window as unknown as ProbeWindow;
+        const { editor } = target.__pasteCleanup;
+        const { schema } = editor;
+        const node = (name: string): NonNullable<(typeof schema.nodes)[string]> => {
+          const type = schema.nodes[name];
+          if (!type) throw new Error(`No ${name} node`);
+          return type;
+        };
+        const cell = (text: string, attrs: Record<string, unknown> | null = null): ReturnType<ReturnType<typeof node>['create']> =>
+          node('tableCell').create(attrs, node('paragraph').create(null, schema.text(text)));
+        const table = node('table').create(null, [
+          node('tableRow').create(null, [cell('a'), cell('b', { colspan }), cell('c')]),
+          node('tableRow').create(null, [cell('d'), cell('e'), cell('f')]),
+        ]);
+        editor.view.dispatch(editor.state.tr.replaceWith(0, editor.state.doc.content.size, [table, node('paragraph').create(null, schema.text('after'))]));
+        target.__tableErrors.length = 0;
+      }, colspan);
+      const cellOf = (text: string): Locator => page.locator('.ProseMirror td', { hasText: new RegExp(`^${text}$`) });
+
+      // A mouse drag from one cell to another makes no cell selection.
+      const from = await cellOf('a').boundingBox();
+      const to = await cellOf('e').boundingBox();
+      if (!from || !to) throw new Error('No cell boxes');
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 });
+      await page.mouse.up();
+      // Hovering a cell border offers no resize handle, and hovering a cell shows no row or column handle.
+      await page.mouse.move(to.x + to.width - 1, to.y + to.height / 2, { steps: 3 });
+      const state = await page.evaluate(() => {
+        const { editor } = (window as unknown as ProbeWindow).__pasteCleanup;
+        return {
+          selection: (editor.state.selection.toJSON() as { type: string }).type,
+          resizeHandles: editor.view.dom.querySelectorAll('.column-resize-handle').length,
+          handles: [...document.querySelectorAll<HTMLElement>('.dm-table-col-handle, .dm-table-row-handle')].filter(handle => handle.style.display === 'flex').length,
+        };
+      });
+      expect(state).toEqual({ selection: 'text', resizeHandles: 0, handles: 0 });
+
+      // Pasted cells arrive as their content at the caret, deleting no cell.
+      await cellOf('d').click();
+      expect(await pasteEvent(page, '<table><tbody><tr><td><p>S</p></td><td><p>T</p></td></tr></tbody></table>')).toBe(true);
+      const after = await page.evaluate(() => {
+        const target = window as unknown as ProbeWindow;
+        const texts: string[] = [];
+        target.__pasteCleanup.editor.state.doc.descendants(node => { if (node.isTextblock) texts.push(node.textContent); });
+        return { texts, errors: target.__tableErrors };
+      });
+      expect(after.errors).toEqual([]);
+      expect(after.texts.filter(text => ['a', 'b', 'c', 'e', 'f', 'after'].includes(text))).toEqual(['a', 'b', 'c', 'e', 'f', 'after']);
+      expect(after.texts.join('|')).toMatch(/S\|T/);
+    });
+  }
 });
