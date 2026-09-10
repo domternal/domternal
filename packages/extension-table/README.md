@@ -101,6 +101,19 @@ entry per spanned cell, so a span such as `colspan="100000000"` in pasted or
 loaded HTML would otherwise exhaust memory. Paste Cleanup refuses a pasted span
 above the same bound.
 
+Stored spans follow the same rule. Validation accepts any whole number from 1, so
+`schema.nodeFromJSON`, `Node.check` and `Step.fromJSON` reject `0`, `-1`, `1.5`, `"2"` or `null`
+and accept `5000`. The JSON entry points of `@domternal/core` (initial content, `setContent`,
+`insertContent`, `createDocument`, the SSR helpers and `normalizeContent`) load an invalid span or
+one above 1,000 as the span a browser draws for it and report an `unsupported-table-span`
+diagnostic: a number is rounded down into 1 to 1,000, a string is read as an HTML span attribute
+(`"2"` is 2, `"abc"` is 1), and anything else is 1. A document that still holds such a span, such
+as a collaborative document an older client wrote, renders the replacement, draws at most 1,000
+columns and keeps the stored value until `normalizeContentAttributes()` replaces it;
+`normalizeContentAttributes({ codes: ['unsupported-table-span'] })` does only that, the same way
+on every version. `setCellAttribute('colspan' | 'rowspan', value)` returns `false` for a span
+loading would replace, and a pasted slice gets the replacement of a span validation rejects.
+
 A cell background is written into the cell's `style` only when it is a safe CSS value
 (`isSafeCssValue` from `@domternal/core`): a value that could add a declaration, such as
 `red;position:fixed`, or load a resource through `url()` is left out of the editor DOM,

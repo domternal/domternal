@@ -7,6 +7,7 @@ import { EditorState } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { addColumnBefore, addColumnAfter, selectedRect, TableMap } from '@domternal/pm/tables';
+import { resolveSpan } from './cellAttributes.js';
 
 export interface TableInfo {
   tableStart: number;
@@ -196,7 +197,7 @@ function applyColumnWidths(tr: Transaction, tableStart: number, widths: number[]
     const cell = table.nodeAt(offset);
     if (!cell) continue;
     const start = index % map.width;
-    const colspan = cell.attrs['colspan'] as number;
+    const colspan = resolveSpan(cell.attrs['colspan']);
     const colwidth = widths.slice(start, start + colspan);
     const previous = cell.attrs['colwidth'] as number[] | null;
     if (previous?.length === colwidth.length && previous.every((width, col) => width === colwidth[col])) continue;

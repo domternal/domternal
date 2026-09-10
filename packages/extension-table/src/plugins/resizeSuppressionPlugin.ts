@@ -20,6 +20,7 @@ import type { Node as PMNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { columnResizingPluginKey, TableMap } from '@domternal/pm/tables';
 import { findTableDom, getContainerWidth } from '../helpers/constrainedColumn.js';
+import { resolveSpan } from '../helpers/cellAttributes.js';
 
 export interface ResizeSuppressionOptions {
   resizeBehavior: 'neighbor' | 'independent' | 'redistribute';
@@ -114,7 +115,7 @@ function handleNeighborResize(
   const tableStart = $cell.start(-1);
   const nodeAfter = $cell.nodeAfter;
   if (!nodeAfter) return false;
-  const draggedCol = map.colCount($cell.pos - tableStart) + ((nodeAfter.attrs['colspan'] as number) || 1) - 1;
+  const draggedCol = map.colCount($cell.pos - tableStart) + resolveSpan(nodeAfter.attrs['colspan']) - 1;
   const neighborCol = draggedCol + 1;
 
   // Step 3 - last column: no neighbor
@@ -321,7 +322,7 @@ function storeColWidth(
     if (!cellNode) continue;
 
     const attrs = cellNode.attrs;
-    const colspan = (attrs['colspan'] as number) || 1;
+    const colspan = resolveSpan(attrs['colspan']);
     const index = colspan === 1 ? 0 : col - map.colCount(pos);
     const colwidth = attrs['colwidth'] as number[] | null;
 
@@ -394,7 +395,7 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
       measuredWidths[col] = defaultCellMinWidth;
       continue;
     }
-    const colspan = (cellNode.attrs['colspan'] as number) || 1;
+    const colspan = resolveSpan(cellNode.attrs['colspan']);
     const colwidth = cellNode.attrs['colwidth'] as number[] | null;
     const colWithinCell = col - map.colCount(cellOffset);
 
@@ -472,7 +473,7 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
       if (!cellNode) continue;
 
       const attrs = cellNode.attrs;
-      const colspan = (attrs['colspan'] as number) || 1;
+      const colspan = resolveSpan(attrs['colspan']);
       const index = colspan === 1 ? 0 : col - map.colCount(pos);
 
       if (!cellColwidths.has(pos)) {

@@ -34,6 +34,7 @@ import type { I18nService, ResolvedMessage } from '@domternal/core';
 import { tableMessages } from './messages.js';
 
 import { addColumnWithWidths } from './helpers/constrainedColumn.js';
+import { resolveSpan } from './helpers/cellAttributes.js';
 
 import {
   DOTS_H, DOTS_V, CHEVRON_DOWN,
@@ -980,7 +981,8 @@ export class TableView implements NodeView {
 
     for (let i = 0; i < firstRow.childCount; i++) {
       const cell = firstRow.child(i);
-      const colspan = (cell.attrs['colspan'] as number) || 1;
+      // A stored span loading would replace draws as its replacement, at most 1,000 columns.
+      const colspan = resolveSpan(cell.attrs['colspan']);
       const colwidth = cell.attrs['colwidth'] as number[] | null;
 
       for (let j = 0; j < colspan; j++) {

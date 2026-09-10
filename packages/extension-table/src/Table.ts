@@ -12,6 +12,8 @@ import {
   Gapcursor,
   warnOnDuplicateProseMirrorCopy,
   isSafeCssValue,
+  isSupportedAttributeValue,
+  pastedAttributesPlugin,
 } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
@@ -37,6 +39,7 @@ import {
   selectedRect,
   TableMap,
   isInTable,
+  tableNodeTypes,
 } from '@domternal/pm/tables';
 
 import { tableMessages } from './messages.js';
@@ -349,6 +352,10 @@ export const Table = Node.create<TableOptions>({
             if (typeof value === 'string' && value.trim() === '') return setCellAttr(name, null)(state, dispatch);
             if (!isSafeCssValue(value)) return false;
           }
+          // A span is stored only when loading would keep it: a whole number from 1 to 1,000.
+          if ((name === 'colspan' || name === 'rowspan') && !isSupportedAttributeValue(state.schema, tableNodeTypes(state.schema).cell.name, name, value)) {
+            return false;
+          }
           return setCellAttr(name, value)(state, dispatch);
         },
 
@@ -506,6 +513,9 @@ export const Table = Node.create<TableOptions>({
       }),
 
       createCellSelectionPlugin(),
+
+      // A span that data-pm-slice context carries is rebuilt without validation.
+      pastedAttributesPlugin('unsupported-table-span'),
     ];
   },
 });
