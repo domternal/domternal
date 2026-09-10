@@ -25,6 +25,8 @@ const coordinatedAssets = embeddedAssets || resolverAssets;
 const imagePolicy = query.get('image-policy');
 // An Image uploadHandler whose upload of a file named with @<ms> takes that long, to finish out of order.
 const imageUpload = query.get('image-upload') === 'on';
+// Table before Image, as applications often list them: the table's cell paste handler runs first.
+const tableFirst = query.get('extension-order') === 'table-first';
 const capabilityMinimal = query.get('schema') === 'capability-minimal';
 const capabilityFull = query.get('schema') === 'capability-full';
 // Levels two and three only, as an application that reserves h1 for its page title.
@@ -268,6 +270,8 @@ const AppendDocument = Extension.create({
   })],
 });
 
+const tableExtensions = [Table, TableRow, TableCell, TableHeader];
+
 // Each wrapper supplies Document, Paragraph, Text, BaseKeymap and History.
 // The optional extension list is identical across all four integrations.
 const extensions = [
@@ -278,7 +282,7 @@ const extensions = [
   ...(lists ? [...markerLists, ListItem] : []),
   ...(listMarkers ? [TaskList, TaskItem] : []),
   Blockquote, CodeBlock, HardBreak, UniqueID,
-  ...(imagePolicy === 'missing' ? [] : [Image.configure({
+  ...(tableFirst ? tableExtensions : []), ...(imagePolicy === 'missing' ? [] : [Image.configure({
     allowBase64: imagePolicy !== 'no-base64',
     ...(coordinatedAssets ? { uploadHandler: async () => { assetUploads++; return 'https://paste-probe.invalid/unexpected-upload.png'; } } : {}),
     ...(imageUpload && !coordinatedAssets ? { uploadHandler: async file => {
@@ -287,7 +291,7 @@ const extensions = [
       await new Promise(resolve => setTimeout(resolve, delay));
       return `${resolvedOrigin}/__uploads__/${encodeURIComponent(file.name)}`;
     } } : {}),
-  })]), Table, TableRow, TableCell, TableHeader,
+  })]), ...(tableFirst ? [] : tableExtensions),
   ...(details ? [Details, DetailsSummary, DetailsContent] : []),
   ...(pasteFailure === null ? [] : [FailingPasteHook]),
   Markdown, SmartPaste,

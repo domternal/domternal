@@ -127,7 +127,10 @@ The package handles these pastes itself, with the prosemirror-tables helpers ada
 `src/helpers/pasteCells.ts`, because the upstream handler throws `No cell with offset` and pastes
 nothing when a pasted cell spans rows up to the table's right edge, such as a merged 2x2 cell
 pasted into the last column. A cell clipped at the bottom of a cell selection keeps the rows it
-still covers, and one undo step restores the table.
+still covers, and one undo step restores the table. A paste whose image files are the paste, one
+without text of its own as `pasteHasOwnText` from `@domternal/core/clipboard` decides, goes to the
+image node first, so a screenshot pasted over a cell selection lands in the first selected cell
+whether Table or Image is listed first, instead of clearing the cells and inserting nothing.
 
 A cell background is written into the cell's `style` only when it is a safe CSS value
 (`isSafeCssValue` from `@domternal/core`): a value that could add a declaration, such as

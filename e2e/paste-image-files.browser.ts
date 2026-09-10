@@ -225,6 +225,46 @@ test.describe('image files on drop', () => {
   });
 });
 
+test.describe('image files pasted over a cell selection', () => {
+  for (const [label, query] of [
+    ['Image listed before Table, without PasteCleanup', { 'paste-cleanup': 'off' }],
+    ['Table listed before Image, without PasteCleanup', { 'paste-cleanup': 'off', 'extension-order': 'table-first' }],
+    ['Table listed before Image, with PasteCleanup', { 'extension-order': 'table-first' }],
+  ] as const) {
+    test(`clears the selected cells and places the file in the first of them (${label})`, async ({ page }) => {
+      const params = new URLSearchParams({ framework: 'vanilla', 'unique-id': 'off', ...query });
+      await page.goto(`${BASE_URL}/?${params.toString()}`);
+      await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
+      const outcome = await page.evaluate(async png => {
+        const { editor } = (window as unknown as ProbeWindow).__pasteCleanup;
+        editor.setContent('<table><tbody><tr><td><p>a</p></td><td><p>b</p></td></tr><tr><td><p>c</p></td><td><p>d</p></td></tr></tbody></table>', false);
+        const cells: number[] = [];
+        editor.state.doc.descendants((node, pos) => { if (node.type.name === 'tableCell') cells.push(pos); });
+        editor.commands.setCellSelection({ anchorCell: cells[0] ?? 0, headCell: cells[1] ?? 0 });
+        const data = new DataTransfer();
+        data.items.add(new File([Uint8Array.from(atob(png), value => value.charCodeAt(0))], 'shot.png', { type: 'image/png' }));
+        const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+        if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+        editor.view.dom.dispatchEvent(event);
+        for (let attempt = 0; attempt < 100 && editor.view.dom.querySelector('.domternal-image-uploading') !== null; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        await new Promise(resolve => setTimeout(resolve, 20));
+        const table = editor.state.doc.child(0);
+        const row = table.child(0);
+        return {
+          prevented: event.defaultPrevented,
+          first: row.child(0).firstChild?.type.name,
+          firstSource: String(row.child(0).firstChild?.attrs['src'] ?? '').slice(0, 15),
+          second: row.child(1).textContent,
+          rest: table.child(1).textContent,
+        };
+      }, PNG);
+      expect(outcome).toEqual({ prevented: true, first: 'image', firstSource: 'data:image/png;', second: '', rest: 'cd' });
+    });
+  }
+});
+
 test.describe('uploads in order', () => {
   test('three uploads finishing out of order land in clipboard order', async ({ page }) => {
     await open(page, 'vanilla', 'upload');

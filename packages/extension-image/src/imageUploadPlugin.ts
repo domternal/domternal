@@ -16,7 +16,7 @@
  * its place through it, so another client typing while a file is read or
  * uploaded does not lose the image.
  */
-import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
+import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
@@ -156,10 +156,19 @@ function mapPlaceholders(tr: Transaction, decorations: DecorationSet): Decoratio
   return DecorationSet.create(tr.doc, widgets);
 }
 
-/** Deletes the selection a paste replaces and returns where its images go. */
+/**
+ * Deletes the selection a paste replaces and returns where its images go: where the selection
+ * was, and for a selection of several ranges, such as a cell selection, in the first of them in
+ * document order.
+ */
 function replaceSelection(tr: Transaction): number {
+  const { ranges } = tr.selection;
+  const first = ranges.length > 1 ? Math.min(...ranges.map(range => range.$from.pos)) : undefined;
+  const steps = tr.steps.length;
   tr.deleteSelection();
-  return tr.selection.from;
+  if (first === undefined) return tr.selection.from;
+  const start = tr.mapping.slice(steps).map(first);
+  return Selection.findFrom(tr.doc.resolve(start), 1, true)?.from ?? start;
 }
 
 /** The position of a placeholder, or undefined once it is gone. */
