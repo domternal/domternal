@@ -236,6 +236,31 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
     };
   };
 
+  /**
+   * A heading where the node being built cannot take one, such as at the
+   * start of a list item, whose first block must be a paragraph, parses as a
+   * paragraph with its text, as HTML does, so the item holds no empty
+   * paragraph before a heading.
+   */
+  const headingWhereItCannotStand = (): void => {
+    const headingType = node('heading');
+    const paragraphType = node('paragraph');
+    const open = handlers['heading_open'];
+    const close = handlers['heading_close'];
+    if (headingType === undefined || paragraphType === undefined || open === undefined || close === undefined) return;
+    const asParagraph: boolean[] = [];
+    handlers['heading_open'] = (state, token) => {
+      const text = !state.canAppend(headingType) && state.canAppend(paragraphType);
+      asParagraph.push(text);
+      if (text) state.openNode(paragraphType);
+      else open(state, token);
+    };
+    handlers['heading_close'] = (state, token) => {
+      if (asParagraph.pop() === true) state.closeNode();
+      else close(state, token);
+    };
+  };
+
   const ignore = (...tokenNames: string[]): void => {
     for (const name of tokenNames) {
       handlers[name] = () => {
@@ -251,6 +276,7 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
   block('heading', 'heading', (token) => ({
     level: resolveAttributeValue(schema, 'heading', 'level', Number(token.tag.slice(1)) || 1),
   }), 'paragraph');
+  headingWhereItCannotStand();
   block('blockquote', 'blockquote');
   block('bullet_list', 'bulletList');
   block('ordered_list', 'orderedList', (token) => {

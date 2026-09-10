@@ -225,7 +225,10 @@ and 3, `h1` becomes `h2`. A moved heading keeps its alignment and the other
 attributes a heading of its new level keeps, and each one is reported with a
 `destination-heading-level-adapted` warning at its source offset. It becomes a
 paragraph, with `destination-formatting-unconfirmed`, only when the editor
-confirms no heading level at all, for example without a heading node. Table
+confirms no heading level at all, for example without a heading node. A heading
+where the editor cannot place one, at the start of a list or task item, in a
+details summary or in a preformatted block, keeps its tag and has no warning:
+the editor parses every heading tag there as that block's text. Table
 support that cannot be confirmed blocks the paste with
 `destination-table-unsupported` and terminal reason `unsupported-content`,
 preserving the selection instead of flattening cells into ambiguous text. This

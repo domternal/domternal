@@ -4,7 +4,7 @@
  * writes each heading at the level it renders at, so it matches getHTML.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { Document, Editor, Heading, Node, Paragraph, Text } from '@domternal/core';
+import { Blockquote, Bold, BulletList, Document, Editor, Heading, ListItem, Node, OrderedList, Paragraph, Text } from '@domternal/core';
 import type { AnyExtension, ContentDiagnosticProps, JSONContent } from '@domternal/core';
 import type { Node as PMNode, Schema } from '@domternal/pm/model';
 import { TextSelection } from '@domternal/pm/state';
@@ -101,5 +101,34 @@ describe('Markdown export of a stored heading level the configuration lacks', ()
     const { editor } = mount([2, 3], '<h2>One</h2>');
     editor.view.dispatch(editor.state.tr.setNodeAttribute(0, 'level', 1));
     expect(getMarkdown(editor).markdown).toBe('## One');
+  });
+});
+
+describe('Markdown headings where a heading cannot stand', () => {
+  const listExtensions = [BulletList, OrderedList, ListItem, Blockquote];
+  const shape = (doc: PMNode): unknown => doc.toJSON();
+  const html = (markdown: string): string => {
+    const { editor } = mount(undefined, '<p></p>', listExtensions);
+    editor.commands.setMarkdownContent(markdown);
+    return editor.getHTML();
+  };
+
+  it.each([
+    ['a bullet item', '- # Title\n- two', '<ul><li><p>Title</p></li><li><p>two</p></li></ul>'],
+    ['a numbered item before more blocks', '3. ### Step\n   body\n4. two', '<ol start="3"><li><p>Step</p><p>body</p></li><li><p>two</p></li></ol>'],
+    ['a nested item', '- outer\n  - ## Inner', '<ul><li><p>outer</p><ul><li><p>Inner</p></li></ul></li></ul>'],
+    ['an item, keeping the marks', '- # **Bold** title', '<ul><li><p><strong>Bold</strong> title</p></li></ul>'],
+  ])('parses a heading at the start of %s as the item text, as HTML does', (_name, markdown, expected) => {
+    const { editor } = mount(undefined, '<p></p>', [...listExtensions, Bold]);
+    editor.commands.setMarkdownContent(markdown);
+    expect(editor.getHTML()).toBe(expected);
+    const fromHTML = mount(undefined, '<p></p>', [...listExtensions, Bold]).editor;
+    fromHTML.commands.setContent(expected);
+    expect(shape(editor.state.doc)).toEqual(shape(fromHTML.state.doc));
+  });
+
+  it('keeps a heading after the item text and in a blockquote of the item', () => {
+    expect(html('- lead\n\n  # Later')).toBe('<ul><li><p>lead</p><h1>Later</h1></li></ul>');
+    expect(html('> # Quoted')).toBe('<blockquote><h1>Quoted</h1></blockquote>');
   });
 });

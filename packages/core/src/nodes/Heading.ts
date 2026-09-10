@@ -75,17 +75,19 @@ export const Heading = Node.create<HeadingOptions>({
     // JSON content loads it, instead of as a paragraph. A tag the levels lack
     // ranks below every rule at priority 1 or above, so an application node that
     // parses it wins, and among nodes built from Heading the one whose levels
-    // hold the nearest level wins. Where a heading cannot stand, such a tag
-    // keeps the paragraph it parsed as before, instead of moving out of its list
-    // item, summary or preformatted block.
+    // hold the nearest level wins. Where a heading cannot stand, every heading
+    // tag, a configured one too, parses as that block's text instead of moving
+    // out of its list item, summary or preformatted block, which would split the
+    // list or empty the summary.
     const levels = configuredHeadingLevels(this.options.levels);
     const unconfigured = [1, 2, 3, 4, 5, 6].filter((level) => !levels.includes(level));
+    const standing = (element: HTMLElement): Record<string, never> | null => (headingCannotStand(element) ? null : {});
     return [
-      ...levels.map((level) => ({ tag: `h${String(level)}` })),
+      ...levels.map((level) => ({ tag: `h${String(level)}`, getAttrs: standing })),
       ...unconfigured.map((level) => ({
         tag: `h${String(level)}`,
         priority: unconfiguredTagPriority(level, levels),
-        getAttrs: (element: HTMLElement) => (headingCannotStand(element) ? null : {}),
+        getAttrs: standing,
       })),
     ];
   },

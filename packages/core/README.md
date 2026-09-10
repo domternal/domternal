@@ -435,9 +435,10 @@ HTML follows the same placement without a report, since HTML is converted rather
 initial and set HTML content, `insertContent`, `createDocument`, `generateJSON`, and a paste or
 drop without PasteCleanup parse every `h1` to `h6` tag as a heading at the nearest configured
 level, so with levels 1 to 4 an `h5` becomes a level 4 heading instead of a paragraph. Where a
-heading cannot stand, such a tag still parses as the paragraph it was before: at the start of a
-list or task item, whose first block is a paragraph, and inside a details summary or a
-preformatted block, so the list or summary stays whole. A tag the levels lack ranks below every
+heading cannot stand, every heading tag, a configured level too, parses as that block's text: at
+the start of a list or task item, whose first block is a paragraph, and inside a details summary
+or a preformatted block, so the list keeps its items and numbering and the summary its text
+instead of a heading moving out and splitting them. A tag the levels lack ranks below every
 parse rule at priority 1 or above, so an application node that parses such a tag keeps it, and
 among nodes built from Heading, such as a title node with level 1 next to a heading node with
 levels 2 to 4, the one whose levels hold the nearest level takes it.

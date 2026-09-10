@@ -17,6 +17,9 @@ import { ListItem } from './ListItem.js';
 import { TaskList } from './TaskList.js';
 import { TaskItem } from './TaskItem.js';
 import { CodeBlock } from './CodeBlock.js';
+import { Blockquote } from './Blockquote.js';
+import { Bold } from '../marks/Bold.js';
+import { Italic } from '../marks/Italic.js';
 import { createDocument } from '../helpers/createDocument.js';
 import { generateJSON } from '../helpers/ssr.js';
 import type { AnyExtension, ContentDiagnosticProps, JSONContent } from '../types/index.js';
@@ -192,6 +195,88 @@ describe('a heading tag the levels lack where a heading cannot stand', () => {
   });
 });
 
+describe('a configured heading tag where a heading cannot stand', () => {
+  // The paragraph an element without a rule leaves, as a div does, instead of a heading moved out.
+  const asText = (html: string): string => html.replace(/<(\/?)h[1-6]>/g, '<$1div>');
+
+  it.each([
+    ['at the start of list items, before more blocks', '<ul><li><h2>T</h2><p>b</p></li><li><p>two</p></li></ul>'],
+    ['as the only block of a list item', '<ul><li><h2>T</h2></li><li><p>two</p></li></ul>'],
+    ['in a numbered list that keeps its start', '<ol start="3"><li><h3>S</h3><p>b</p></li><li><p>two</p></li></ol>'],
+    ['after only an empty paragraph', '<ul><li><p></p><h2>A</h2></li></ul>'],
+    ['inside wrappers at the start of the item', '<ul><li><div><span><h2>A</h2></span></div></li></ul>'],
+    ['at the start of a nested item', '<ul><li><p>outer</p><ul><li><h2>I</h2></li></ul></li></ul>'],
+    ['at the start of a task item', '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked></label><div><h2>T</h2></div></li></ul>'],
+    ['in a summary', '<details><summary><h2>S</h2></summary><p>body</p></details>'],
+    ['in a preformatted block', '<pre><h2>x</h2></pre><p>after</p>'],
+    ['with inline marks', '<ul><li><h2><strong>T</strong> <em>u</em></h2></li></ul>'],
+    ['with every configured level', '<ul><li><h1>1</h1></li><li><h2>2</h2></li><li><h3>3</h3></li><li><h4>4</h4></li></ul>'],
+  ])('parses as the block\'s text %s, as a tag without a rule does', (_name, html) => {
+    const { editor, reports } = mount(html, undefined, STRUCTURES);
+    const expected = mount(asText(html), undefined, STRUCTURES).editor.getJSON();
+    expect(editor.getJSON()).toEqual(expected);
+    expect(JSON.stringify(editor.getJSON())).not.toContain('"heading"');
+    expect(reports).toEqual([]);
+
+    editor.commands.setContent(html);
+    expect(editor.getJSON()).toEqual(expected);
+    expect(createDocument(html, editor.schema).toJSON()).toEqual(expected);
+    expect(generateJSON(html, extensionsFor(undefined, STRUCTURES))).toEqual(expected);
+
+    const inserted = mount('<p></p>', undefined, STRUCTURES).editor;
+    expect(inserted.commands.insertContent(html)).toBe(true);
+    expect(JSON.stringify(inserted.getJSON())).not.toContain('"heading"');
+
+    const pasted = mount('<p></p>', undefined, STRUCTURES);
+    paste(pasted.editor, html);
+    expect(JSON.stringify(pasted.editor.getJSON())).not.toContain('"heading"');
+  });
+
+  it('keeps one numbered list with its start and every item', () => {
+    const { editor } = mount('<ol start="3"><li><h3>S</h3><p>b</p></li><li><p>two</p></li></ol>', undefined, STRUCTURES);
+    expect(editor.getHTML()).toBe('<ol start="3"><li><p>S</p><p>b</p></li><li><p>two</p></li></ol>');
+  });
+
+  it('keeps the text and marks of a heading at a list item start in the item paragraph', () => {
+    const { editor } = mount('<ul><li><h2><strong>T</strong> <em>u</em></h2><h3>B</h3></li></ul>', undefined, [...STRUCTURES, Bold, Italic]);
+    expect(editor.getHTML()).toBe('<ul><li><p><strong>T</strong> <em>u</em></p><h3>B</h3></li></ul>');
+  });
+
+  it('keeps a checked task item and its paragraph', () => {
+    const { editor } = mount('<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked></label><div><h2>T</h2></div></li></ul>', undefined, STRUCTURES);
+    const item = editor.getJSON().content?.[0]?.content?.[0];
+    expect(item).toMatchObject({ type: 'taskItem', attrs: { checked: true }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'T' }] }] });
+  });
+
+  it.each([
+    ['after the item paragraph', '<ul><li><p>lead</p><h2>L</h2></li></ul>', '<ul><li><p>lead</p><h2>L</h2></li></ul>'],
+    ['after text in the item', '<ul><li>lead<h2>L</h2></li></ul>', '<ul><li><p>lead</p><h2>L</h2></li></ul>'],
+    ['as the second heading of the item', '<ul><li><h2>A</h2><h3>B</h3></li></ul>', '<ul><li><p>A</p><h3>B</h3></li></ul>'],
+    // A blockquote cannot open an item either, so it moves out of the list, as in 1.2.
+    ['in a blockquote at the item start', '<ul><li><blockquote><h2>Q</h2></blockquote></li></ul>', '<ul><li><p></p></li></ul><blockquote><h2>Q</h2></blockquote>'],
+    ['in a blockquote', '<blockquote><h2>Q</h2></blockquote>', '<blockquote><h2>Q</h2></blockquote>'],
+    ['in the details body', '<details><summary>Sum</summary><h2>body</h2></details>', '<details><summary>Sum</summary><h2>body</h2></details>'],
+  ])('stays a heading %s, where a heading stands', (_name, html, expected) => {
+    const { editor } = mount(html, undefined, [...STRUCTURES, Blockquote]);
+    expect(editor.getHTML()).toBe(expected);
+  });
+
+  it('follows the configured levels: a narrow configuration parses h2 and h1 at an item start as text', () => {
+    const { editor } = mount('<ul><li><h2>two</h2></li><li><h1>one</h1></li></ul><h2>kept</h2>', [2, 3], STRUCTURES);
+    expect(editor.getHTML()).toBe('<ul><li><p>two</p></li><li><p>one</p></li></ul><h2>kept</h2>');
+  });
+
+  it('leaves an application node that parses the tag itself alone', () => {
+    const Kicker = Node.create({
+      name: 'kicker', group: 'block', content: 'inline*',
+      parseHTML: () => [{ tag: 'h2', priority: 60 }],
+      renderHTML: () => ['h2', { class: 'kicker' }, 0],
+    });
+    const { editor } = mount('<ul><li><h2>K</h2></li></ul>', undefined, [...STRUCTURES, Kicker]);
+    expect(JSON.stringify(editor.getJSON())).toContain('"kicker"');
+  });
+});
+
 describe('HTML heading tags under linkedom, the documented server DOM', () => {
   it('parse at the nearest configured level in generateJSON', async () => {
     const { parseHTML } = await import('linkedom');
@@ -207,5 +292,16 @@ describe('HTML heading tags under linkedom, the documented server DOM', () => {
     const json = generateJSON(html, extensionsFor(undefined, STRUCTURES), { document: serverDocument });
     expect(json).toEqual(generateJSON(html, extensionsFor(undefined, STRUCTURES)));
     expect(JSON.stringify(json).match(/"heading"/g)).toHaveLength(1);
+  });
+
+  it('parse a configured tag at the start of a list item or in a summary as its text', async () => {
+    const { parseHTML } = await import('linkedom');
+    const serverDocument = parseHTML('<!DOCTYPE html><html><body></body></html>').document;
+    const html = '<ol start="2"><li><h2>a</h2><p>more</p></li><li><p>x</p><h3>b</h3></li></ol><details><summary><h1>S</h1></summary><p>c</p></details>';
+    const json = generateJSON(html, extensionsFor(undefined, STRUCTURES), { document: serverDocument });
+    expect(json).toEqual(generateJSON(html, extensionsFor(undefined, STRUCTURES)));
+    expect(JSON.stringify(json).match(/"heading"/g)).toHaveLength(1);
+    expect(json.content?.[0]).toMatchObject({ type: 'orderedList', attrs: { start: 2 } });
+    expect(json.content?.[0]?.content).toHaveLength(2);
   });
 });

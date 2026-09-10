@@ -155,10 +155,42 @@ describe('heading levels in clipboard normalization with a destination', () => {
   });
 
   it('maps an empty heading and a heading inside list, quote and cell structure', () => {
-    const html = '<h6></h6><ul><li><h6>Item</h6></li></ul><blockquote><h5>Quote</h5></blockquote><table><tr><td><h6>Cell</h6></td></tr></table>';
+    const html = '<h6></h6><ul><li><p>Lead</p><h6>Item</h6></li></ul><blockquote><h5>Quote</h5></blockquote><table><tr><td><h6>Cell</h6></td></tr></table>';
     const { result } = normalizeClipboardHTML(html, {}, undefined, undefined, stub(levelsFrom(5)));
-    expect(result.html).toBe('<h4></h4><ul><li><h4>Item</h4></li></ul><blockquote><h4>Quote</h4></blockquote><table><tbody><tr><td><h4>Cell</h4></td></tr></tbody></table>');
+    expect(result.html).toBe('<h4></h4><ul><li><p>Lead</p><h4>Item</h4></li></ul><blockquote><h4>Quote</h4></blockquote><table><tbody><tr><td><h4>Cell</h4></td></tr></tbody></table>');
     expect(result.diagnostics).toHaveLength(4);
+  });
+
+  it.each([
+    ['at the start of a list item', '<ul><li><h6>Item</h6><p>b</p></li></ul>'],
+    ['at the start of a list item after white space and empty wrappers', '<ul><li> <span></span><div><h5>Item</h5></div></li></ul>'],
+    ['at the start of a task item after its checkbox', '<ul><li><label><input type="checkbox"></label><div><h6>Task</h6></div></li></ul>'],
+    ['in a summary', '<details><summary><h5>Summary</h5></summary><p>body</p></details>'],
+    ['in a summary after its text', '<details><summary>Lead <h6>Summary</h6></summary></details>'],
+    ['in a preformatted block', '<pre><h6>code</h6></pre>'],
+  ])('leaves a heading %s alone, without a finding or an outline entry, since the editor parses it as text', (_name, html) => {
+    const { result } = normalizeClipboardHTML(html, {}, undefined, undefined, stub(levelsFrom(5)));
+    expect(result.html).toMatch(/<h[56]>/);
+    expect(result.diagnostics.map(item => item.code)).not.toContain('destination-heading-level-adapted');
+    expect(headingOutline(result)).toBeUndefined();
+  });
+
+  it('leaves a configured heading where one cannot stand out of the outline, next to a renamed one', () => {
+    const { result } = normalizeClipboardHTML('<ul><li><h2>Item</h2></li></ul><h6>Six</h6>', {}, undefined, undefined, stub(levelsFrom(5)));
+    expect(headingOutline(result)).toEqual([true]);
+    expect(result.diagnostics.map(item => item.code)).toEqual(['destination-heading-level-adapted']);
+  });
+
+  it.each([
+    ['after text in the item', '<ul><li>Lead <h6>Item</h6></li></ul>'],
+    ['after marked text', '<ul><li><em>x</em><h6>Item</h6></li></ul>'],
+    ['in a blockquote of the item', '<ul><li><blockquote><h6>Item</h6></blockquote></li></ul>'],
+    ['in a table cell of the item', '<ul><li><table><tr><td><h6>Item</h6></td></tr></table></li></ul>'],
+    ['after the summary, in the details body', '<details><summary>S</summary><h6>Body</h6></details>'],
+  ])('maps a heading %s, where one stands', (_name, html) => {
+    const { result } = normalizeClipboardHTML(html, {}, undefined, undefined, stub(levelsFrom(5)));
+    expect(result.html).toContain('<h4>');
+    expect(result.diagnostics.map(item => item.code)).toEqual(['destination-heading-level-adapted']);
   });
 
   it('uses a deeper supported level before promoting, and the deepest level otherwise', () => {
@@ -258,7 +290,7 @@ describe('the heading outline of a cleaned fragment', () => {
   });
 
   it('travels with a normalization result that renamed a heading, and only then', () => {
-    const html = '<h2>Two</h2><ul><li><h6>Six</h6></li></ul><h5>Five</h5>';
+    const html = '<h2>Two</h2><ul><li><p>Item</p><h6>Six</h6></li></ul><h5>Five</h5>';
     const { result } = normalizeClipboardHTML(html, {}, undefined, undefined, stub(levelsFrom(5)));
     expect(headingOutline(result)).toEqual([false, true, true]);
     expect(Object.isFrozen(headingOutline(result))).toBe(true);

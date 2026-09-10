@@ -89,10 +89,11 @@ describe('Heading', () => {
         .toEqual([['h3', 0.89], ['h4', 0.88], ['h5', 0.87], ['h6', 0.86]]);
     });
 
-    it('declines a tag the configured levels lack only where a heading cannot stand', () => {
+    it('declines every heading tag, configured or not, only where a heading cannot stand', () => {
       const rules = Heading.config.parseHTML?.call(Heading) ?? [];
       const host = document.createElement('div');
-      host.innerHTML = '<ul><li><h5 id="first">a</h5></li><li><p>x</p><h5 id="later">b</h5></li></ul>';
+      host.innerHTML = '<ul><li><h5 id="first">a</h5></li><li><p>x</p><h5 id="later">b</h5></li>'
+        + '<li><h1 id="first-one">c</h1></li><li><p>y</p><h1 id="later-one">d</h1></li></ul>';
       const find = (selector: string): HTMLElement => {
         const found = host.querySelector<HTMLElement>(selector);
         if (!found) throw new Error(`No ${selector}`);
@@ -101,7 +102,9 @@ describe('Heading', () => {
       const five = rules.find(rule => rule.tag === 'h5');
       expect(five?.getAttrs?.(find('#first'))).toBeNull();
       expect(five?.getAttrs?.(find('#later'))).toEqual({});
-      expect(rules.find(rule => rule.tag === 'h1')?.getAttrs).toBeUndefined();
+      const one = rules.find(rule => rule.tag === 'h1');
+      expect(one?.getAttrs?.(find('#first-one'))).toBeNull();
+      expect(one?.getAttrs?.(find('#later-one'))).toEqual({});
     });
   });
 

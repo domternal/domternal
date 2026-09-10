@@ -151,6 +151,54 @@ for (const framework of FRAMEWORKS) {
   });
 }
 
+// Where a heading cannot stand, every heading tag, a configured level too, parses as that block's text.
+const CONFIGURED = '<ol start="3"><li><h2>First</h2><p>more</p></li><li><h3>Second</h3><ul><li><h1>Nested</h1></li></ul></li></ol>'
+  + '<details open><summary><h2>Summary</h2></summary><div data-details-content><p>Body</p></div></details>';
+
+for (const cleanup of [false, true]) {
+  for (const framework of FRAMEWORKS) {
+    test(`${framework} ${cleanup ? 'with' : 'without'} PasteCleanup: a configured heading tag that starts a list item or sits in a summary keeps the list and summary whole`, async ({ page }) => {
+      await open(page, framework, { cleanup, details: true });
+      const outcomes = await page.evaluate(async html => {
+        const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+        const editor = probe.editor;
+        const shape = (): unknown => {
+          const names: string[] = [];
+          editor.state.doc.descendants(node => { if (!node.isText) names.push(node.type.name); });
+          const list = editor.state.doc.firstChild;
+          return {
+            top: editor.getJSON().content?.map(node => node.type), headings: names.filter(name => name === 'heading').length,
+            items: names.filter(name => name === 'listItem').length, start: list?.attrs['start'] as unknown, text: editor.state.doc.textContent,
+            codes: probe.operations.flatMap(operation => operation.diagnostics.map(diagnostic => diagnostic.code)),
+          };
+        };
+        const results: unknown[] = [];
+        if (!editor.setContent(html, false)) throw new Error('Could not set the content');
+        results.push(shape());
+        if (!editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
+        editor.commands.focus('start');
+        probe.clearObservations();
+        const data = new DataTransfer();
+        data.setData('text/html', html);
+        data.setData('text/plain', 'First more Second Nested Summary Body');
+        const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+        if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+        editor.view.dom.dispatchEvent(event);
+        for (let attempt = 0; attempt < 20 && probe.operations.length === 0; attempt++) await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const region = document.querySelector('[role="region"][aria-label="Paste notice"]');
+        results.push({ ...(shape() as object), notice: region instanceof HTMLElement && !region.hidden && region.textContent.includes('heading') });
+        return results;
+      }, CONFIGURED);
+      for (const outcome of outcomes) {
+        expect(outcome).toMatchObject({ top: ['orderedList', 'details'], headings: 0, items: 3, start: 3, text: 'FirstmoreSecondNestedSummaryBody' });
+        expect((outcome as { codes: string[] }).codes).not.toContain('destination-heading-level-adapted');
+      }
+      expect(outcomes[1]).toMatchObject({ notice: false });
+    });
+  }
+}
+
 /** Pastes Markdown as plain text, which the Markdown extension converts. */
 function pasteMarkdown(page: Page, markdown: string): Promise<{ levels: unknown[]; codes: string[]; notice: boolean }> {
   return page.evaluate(async markdown => {
@@ -177,6 +225,13 @@ function pasteMarkdown(page: Page, markdown: string): Promise<{ levels: unknown[
 }
 
 for (const cleanup of [false, true]) {
+  test(`Markdown paste ${cleanup ? 'with' : 'without'} PasteCleanup parses a heading that starts a list item as its text`, async ({ page }) => {
+    await open(page, 'vanilla', { cleanup });
+    expect(await pasteMarkdown(page, '- # Title\n- two\n\n# Kept')).toEqual({ levels: [1], codes: [], notice: false });
+    expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.getHTML().replace(/ id="[^"]*"/g, '')))
+      .toContain('<ul><li><p>Title</p></li><li><p>two</p></li></ul>');
+  });
+
   for (const [levels, expected] of [[undefined, [1, 4, 4]], ['narrow', [2, 3, 3]]] as const) {
     test(`Markdown paste ${cleanup ? 'with' : 'without'} PasteCleanup lands headings at the nearest of levels ${levels === 'narrow' ? '2 and 3' : '1 to 4'}`, async ({ page }) => {
       await open(page, 'vanilla', { cleanup, ...(levels === undefined ? {} : { levels }) });

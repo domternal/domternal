@@ -71,11 +71,12 @@ function holdsText(node: ChildNode): boolean {
 }
 
 /**
- * Whether a heading element sits where a heading cannot stand, as 1.2 found
- * every tag the levels lacked: in a summary or a preformatted block, whose
- * content is inline, or before any text of its list item, whose first block
- * must be a paragraph. ProseMirror would move a heading out of each, splitting
- * the list or emptying the summary, so the tag keeps parsing as a paragraph.
+ * Whether a heading element sits where a heading cannot stand: in a summary or
+ * a preformatted block, whose content is inline, or before any text of its
+ * list item, whose first block must be a paragraph. ProseMirror would move a
+ * heading out of each, splitting the list or emptying the summary, so every
+ * heading tag there parses as that block's text, as 1.2 parsed the tags the
+ * levels lacked.
  */
 export function headingCannotStand(element: HTMLElement): boolean {
   if (element.parentElement?.closest('summary, pre')) return true;

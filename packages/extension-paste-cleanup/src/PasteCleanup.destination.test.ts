@@ -275,19 +275,24 @@ describe('heading levels the destination cannot represent', () => {
   });
 
   it.each([
-    ['list item', [BulletList, ListItem], '<ul><li><h6>Inside</h6></li></ul>'],
-    ['blockquote', [Blockquote], '<blockquote><h6>Inside</h6></blockquote>'],
-    ['table cell', [Table, TableRow, TableCell, TableHeader], '<table><tbody><tr><td><h6>Inside</h6></td><td><p>B</p></td></tr></tbody></table>'],
-  ] as const)('maps a heading inside a %s as a supported heading of that level pastes', async (_, extensions, html) => {
+    // A heading cannot open a list item, so the mapped tag parses as the item's text, as an h4 does.
+    ['list item', [BulletList, ListItem], '<ul><li><h6>Inside</h6></li></ul>', { type: 'paragraph', text: 'Inside' }],
+    ['blockquote', [Blockquote], '<blockquote><h6>Inside</h6></blockquote>', { type: 'heading', level: 4, text: 'Inside' }],
+    ['table cell', [Table, TableRow, TableCell, TableHeader], '<table><tbody><tr><td><h6>Inside</h6></td><td><p>B</p></td></tr></tbody></table>',
+      { type: 'heading', level: 4, text: 'Inside' }],
+  ] as const)('maps a heading inside a %s as a supported heading of that level pastes', async (_, extensions, html, block) => {
     const mapped = mount({}, [Heading, ...extensions]);
     paste(mapped.editor, html);
     const result = await terminal(mapped, 'applied');
-    expect(result.diagnostics).toEqual([headingAdapted(html.indexOf('<h6'))]);
+    // A heading that parses as the item's text is not renamed, so nothing is reported.
+    expect(result.diagnostics).toEqual(block.type === 'paragraph' ? [] : [headingAdapted(html.indexOf('<h6'))]);
     const direct = mount({}, [Heading, ...extensions]);
     paste(direct.editor, html.replace(/h6>/g, 'h4>'));
     expect((await terminal(direct, 'applied')).diagnostics).toEqual([]);
     expect(mapped.editor.getJSON()).toEqual(direct.editor.getJSON());
-    expect(blocks(mapped.editor)).toContainEqual({ type: 'heading', level: 4, text: 'Inside' });
+    expect(blocks(mapped.editor)).toContainEqual(block);
+    // The heading notice follows what reached the document.
+    if (block.type === 'paragraph') expect(mapped.host.querySelector('.dm-paste-feedback')?.textContent ?? '').not.toContain(headingNotice);
     expect(() => { mapped.editor.state.doc.check(); }).not.toThrow();
   });
 

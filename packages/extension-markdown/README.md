@@ -54,7 +54,9 @@ level the configuration lacks at the nearest configured level, so with levels 1 
 `#####` heading becomes a level 4 heading, and export writes each heading at the level it
 renders at, so the Markdown matches `getHTML()` even for a level stored by a collaborator
 configured with more levels. A heading node that does not use `Heading`'s level rules keeps
-the level as written.
+the level as written. A heading where one cannot stand, such as `- # Title` at the start of a
+list item, whose first block is a paragraph, imports as that item's text, as HTML does, so the
+item holds no empty paragraph before a heading.
 
 ## Options
 
