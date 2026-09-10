@@ -88,7 +88,7 @@ describe('claiming a native paste once ProseMirror parses it', () => {
     expect(editor.state.doc.textContent).toContain('Pasted bold');
   });
 
-  it('leaves a paste ProseMirror does not parse to the browser', () => {
+  it('leaves a paste ProseMirror does not parse to the browser', async () => {
     // Composing: ProseMirror lets the browser paste into the composition.
     const composing = mount({ transformPastedHTML: fail });
     Object.defineProperty(composing.view, 'composing', { value: true });
@@ -107,6 +107,9 @@ describe('claiming a native paste once ProseMirror parses it', () => {
     const empty = clipboard('paste', null);
     capture.view.dom.dispatchEvent(empty);
     expect(empty.defaultPrevented).toBe(false);
+    // ProseMirror reads the captured paste 50 ms later. Waiting for it keeps its timer from running
+    // after the test file ends, when the DOM environment is gone and it would throw.
+    await new Promise(resolve => { setTimeout(resolve, 80); });
     expect(reported).toEqual([]);
   });
 
