@@ -179,9 +179,11 @@ export interface ImageOptions {
   allowBase64: boolean;
   HTMLAttributes: Record<string, unknown>;
   /**
-   * Async function that uploads a file and returns the URL.
-   * When provided, enables paste/drop image upload.
-   * When null (default), paste/drop is not handled.
+   * Async function that uploads a file and returns the URL. Pasted, dropped
+   * and chosen image files are stored through it. When null (default), they
+   * are read as data URLs if `allowBase64` allows it, and not stored at all
+   * otherwise. A handler that returns the URL itself, not a promise, is read
+   * as `await` reads it.
    */
   uploadHandler: ((file: File) => Promise<string>) | null;
   /**
@@ -195,11 +197,17 @@ export interface ImageOptions {
    */
   maxFileSize: number;
   /**
-   * Called when upload starts for a file.
+   * Called when upload starts for a file. An error it throws is reported
+   * through the editor's `error` event (context `Image.onUploadStart`) and
+   * does not stop the upload.
    */
   onUploadStart: ((file: File) => void) | null;
   /**
-   * Called when upload fails. Receives the error and the file.
+   * Called when storing a file fails: an upload that rejects or throws, a file
+   * that cannot be read, or a source setImage would refuse. Receives the error
+   * and the file. It runs after the other images of the paste or drop are
+   * placed; an error it throws is reported through the editor's `error` event
+   * (context `Image.onUploadError`).
    */
   onUploadError: ((error: Error, file: File) => void) | null;
   /**
@@ -742,6 +750,8 @@ export const Image = Node.create<ImageOptions>({
       allowsSource: src => isValidImageSrc(src, live().allowBase64),
       onUploadStart: () => (live().uploadHandler ? live().onUploadStart : null),
       onUploadError: () => live().onUploadError,
+      // An application callback that throws is reported like an extension hook, through the editor's error event.
+      reportError: (error, context) => { editor.emit('error', { editor, error, context }); },
     }) : undefined;
 
     // Image popover + drag overlay + paste/drop plugin

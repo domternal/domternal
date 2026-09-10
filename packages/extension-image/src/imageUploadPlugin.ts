@@ -40,6 +40,8 @@ export interface ImageFileInsertionOptions {
   onUploadStart: () => ((file: File) => void) | null;
   /** Called when a store fails or returns a refused source. */
   onUploadError: () => ((error: Error, file: File) => void) | null;
+  /** Reports an error a host callback threw, which never stops or holds back an insertion. */
+  reportError: (error: Error, context: string) => void;
 }
 
 interface Entry {
@@ -59,6 +61,8 @@ interface Batch {
 type Action =
   | { type: 'add'; placeholders: readonly { id: string; pos: number }[] }
   | { type: 'settle'; remove: readonly string[]; place: readonly { id: string; pos: number }[] };
+
+const toError = (error: unknown): Error => (error instanceof Error ? error : new Error(String(error)));
 
 let placeholderCounter = 0;
 function createPlaceholderId(): string {
@@ -202,15 +206,26 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
     view.dispatch(tr);
   }
 
+  /** Calls a host callback, reporting an error it throws instead of letting it break the insertion. */
+  function callHost<A extends unknown[]>(callback: ((...args: A) => void) | null, context: string, ...args: A): void {
+    if (callback === null) return;
+    try {
+      callback(...args);
+    } catch (error) {
+      options.reportError(toError(error), context);
+    }
+  }
+
   function settle(view: EditorView, batch: Batch, entry: Entry, result: { src: string } | { error: Error }): void {
     if ('src' in result) {
       entry.status = 'stored';
       entry.src = result.src;
     } else {
       entry.status = 'failed';
-      options.onUploadError()?.(result.error, entry.file);
     }
+    // The settled images are placed before the host hears of a failure, so its callback cannot hold them back.
     flush(view, batch);
+    if ('error' in result) callHost(options.onUploadError(), 'Image.onUploadError', result.error, entry.file);
   }
 
   const plugin = new Plugin<DecorationSet>({
@@ -260,19 +275,20 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
     const batch: Batch = { entries, next: 0 };
     const start = options.onUploadStart();
     for (const entry of entries) {
-      start?.(entry.file);
-      let stored: Promise<string>;
+      callHost(start, 'Image.onUploadStart', entry.file);
+      let stored: Promise<unknown>;
       try {
-        stored = store(entry.file);
+        // A handler that returns the source itself instead of a promise is read as await reads it.
+        stored = Promise.resolve(store(entry.file));
       } catch (error) {
-        stored = Promise.reject(error instanceof Error ? error : new Error(String(error)));
+        stored = Promise.reject(toError(error));
       }
       stored.then(
         src => {
           if (typeof src === 'string' && options.allowsSource(src)) settle(view, batch, entry, { src });
           else settle(view, batch, entry, { error: new RangeError('The stored image source is not allowed') });
         },
-        (error: unknown) => { settle(view, batch, entry, { error: error instanceof Error ? error : new Error(String(error)) }); },
+        (error: unknown) => { settle(view, batch, entry, { error: toError(error) }); },
       );
     }
     return true;

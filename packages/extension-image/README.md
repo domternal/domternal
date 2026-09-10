@@ -82,7 +82,7 @@ editor.commands.deleteImage();
 - `uploadHandler` (`(file: File) => Promise<string>` or `null`, default `null`) - stores pasted, dropped and chosen image files and returns their URL; without it, files are read as `data:` URLs when `allowBase64` allows it.
 - `allowedMimeTypes` (`string[]`) - MIME types accepted for upload (defaults to `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml`, `image/avif`).
 - `maxFileSize` (`number`, default `0`) - max upload size in bytes; `0` means unlimited.
-- `onUploadStart` / `onUploadError` - callbacks fired when an upload through `uploadHandler` begins, and when storing a file fails: an upload that rejects, a file that cannot be read, or a returned source `setImage` would refuse (a `RangeError`).
+- `onUploadStart` / `onUploadError` - callbacks fired when an upload through `uploadHandler` begins, and when storing a file fails: an upload that rejects or throws, a file that cannot be read, or a returned source `setImage` would refuse, including none (a `RangeError`). `onUploadError` runs after the other images of the paste or drop are placed. An error either callback throws is reported through the editor's `error` event (`onError`) with the context `Image.onUploadStart` or `Image.onUploadError`, and never stops or holds back an image. An `uploadHandler` that returns the URL itself instead of a promise is read as `await` reads it.
 - `HTMLAttributes` (`Record<string, unknown>`) - attributes merged onto the rendered `<img>`.
 
 ### Image sources

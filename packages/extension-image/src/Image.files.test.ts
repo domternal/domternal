@@ -402,3 +402,81 @@ describe('image files: what is not taken', () => {
     expect(event.defaultPrevented).toBe(false);
   });
 });
+
+describe('image files: host callbacks that fail', () => {
+  function mountReporting(options: Partial<ImageOptions>): { ed: Editor; errors: { error: Error; context: string }[] } {
+    const errors: { error: Error; context: string }[] = [];
+    editor = new Editor({
+      element: document.body.appendChild(document.createElement('div')),
+      extensions: [Document, Paragraph, Text, History, Image.configure(options)],
+      content: '<p>Hello</p>',
+      onError: ({ error, context }) => { errors.push({ error, context }); },
+    });
+    caret(editor, 6);
+    return { ed: editor, errors };
+  }
+
+  it('places the other images and removes the placeholder when onUploadError throws, and reports the error', async () => {
+    const upload = uploads();
+    const failure = new Error('host bug');
+    const { ed, errors } = mountReporting({ uploadHandler: upload.handler, onUploadError: () => { throw failure; } });
+
+    pasteFiles(ed, [png('a.png'), png('b.png')]);
+    upload.resolve('b.png');
+    await flush();
+    upload.reject('a.png', new Error('network'));
+    await flush();
+
+    expect(html(ed)).toBe('<p>Hello</p><img src="https://cdn.example/b.png">');
+    expect(placeholders(ed)).toBe(0);
+    expect(errors).toEqual([{ error: failure, context: 'Image.onUploadError' }]);
+  });
+
+  it('still uploads and places the files when onUploadStart throws, and reports the error', async () => {
+    const upload = uploads();
+    const failure = new Error('host bug');
+    const { ed, errors } = mountReporting({ uploadHandler: upload.handler, onUploadStart: () => { throw failure; } });
+
+    pasteFiles(ed, [png('a.png'), png('b.png')]);
+    expect(upload.started).toEqual(['a.png', 'b.png']);
+    upload.resolve('a.png');
+    upload.resolve('b.png');
+    await flush();
+
+    expect(html(ed)).toBe('<p>Hello</p><img src="https://cdn.example/a.png"><img src="https://cdn.example/b.png">');
+    expect(errors).toEqual([{ error: failure, context: 'Image.onUploadStart' }, { error: failure, context: 'Image.onUploadStart' }]);
+  });
+
+  it('places the source an uploadHandler returns without a promise, as await would read it', async () => {
+    const { ed } = mountReporting({ uploadHandler: (() => 'https://cdn.example/sync.png') as unknown as ImageOptions['uploadHandler'] });
+
+    pasteFiles(ed, [png('a.png')]);
+    await flush();
+
+    expect(html(ed)).toBe('<p>Hello</p><img src="https://cdn.example/sync.png">');
+    expect(placeholders(ed)).toBe(0);
+  });
+
+  it('reports an uploadHandler that returns no source, or throws before returning, and removes its placeholder', async () => {
+    const onUploadError = vi.fn();
+    const thrown = new Error('not signed in');
+    const files = [png('none.png'), png('throws.png'), png('ok.png')];
+    const { ed } = mountReporting({
+      onUploadError,
+      uploadHandler: ((file: File) => {
+        if (file.name === 'none.png') return undefined;
+        if (file.name === 'throws.png') throw thrown;
+        return Promise.resolve(`https://cdn.example/${file.name}`);
+      }) as unknown as ImageOptions['uploadHandler'],
+    });
+
+    pasteFiles(ed, files);
+    await flush();
+
+    expect(html(ed)).toBe('<p>Hello</p><img src="https://cdn.example/ok.png">');
+    expect(onUploadError).toHaveBeenCalledTimes(2);
+    expect(onUploadError).toHaveBeenCalledWith(expect.any(RangeError), files[0]);
+    expect(onUploadError).toHaveBeenCalledWith(thrown, files[1]);
+    expect(placeholders(ed)).toBe(0);
+  });
+});
