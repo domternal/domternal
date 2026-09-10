@@ -26,14 +26,17 @@ const TARGETS: [string, string, number, number][] = [
 ];
 /** Clipboard HTML, the pasted area's width and height, and the spans of the X cell. */
 const PASTES: [string, string, number, number, [number, number]][] = [
-  ['a 2x2 cell', '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr></tbody></table>', 2, 2, [2, 2]],
-  ['a cell spanning 2 rows', '<table><tbody><tr><td rowspan="2"><p>X</p></td></tr></tbody></table>', 1, 2, [1, 2]],
+  // A copied merged cell brings the rows it covers, empty ones too, as an internal copy and spreadsheets write them.
+  ['a 2x2 cell', '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr><tr></tr></tbody></table>', 2, 2, [2, 2]],
+  ['a cell spanning 2 rows', '<table><tbody><tr><td rowspan="2"><p>X</p></td></tr><tr></tr></tbody></table>', 1, 2, [1, 2]],
   ['a cell spanning 2 columns', '<table><tbody><tr><td colspan="2"><p>X</p></td></tr></tbody></table>', 2, 1, [2, 1]],
   ['a cell spanning 3 columns', '<table><tbody><tr><td colspan="3"><p>X</p></td></tr></tbody></table>', 3, 1, [3, 1]],
   ['2 rows: a 2x2 cell and a cell, then a cell', '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td><td><p>Y</p></td></tr><tr><td><p>Z</p></td></tr></tbody></table>', 3, 2, [2, 2]],
-  ['a 2x2 header cell', '<table><tbody><tr><th colspan="2" rowspan="2"><p>X</p></th></tr></tbody></table>', 2, 2, [2, 2]],
-  ['a 2x3 cell', '<table><tbody><tr><td colspan="2" rowspan="3"><p>X</p></td></tr></tbody></table>', 2, 3, [2, 3]],
-  ['an internal copy of a 2x2 cell', '<table data-pm-slice="1 1 -2 &quot;table&quot; []"><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr></tbody></table>', 2, 2, [2, 2]],
+  ['a 2x2 header cell', '<table><tbody><tr><th colspan="2" rowspan="2"><p>X</p></th></tr><tr></tr></tbody></table>', 2, 2, [2, 2]],
+  ['a 2x3 cell', '<table><tbody><tr><td colspan="2" rowspan="3"><p>X</p></td></tr><tr></tr><tr></tr></tbody></table>', 2, 3, [2, 3]],
+  ['an internal copy of a 2x2 cell', '<table data-pm-slice="1 1 -2 []"><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr><tr></tr></tbody></table>', 2, 2, [2, 2]],
+  // A browser draws a rowspan past the copied rows as ending with them.
+  ['a one-row copy of a 2x2 cell', '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr></tbody></table>', 2, 1, [2, 1]],
 ];
 
 function mount(content: string): Editor {
@@ -130,7 +133,7 @@ describe('pasting cells', () => {
     const cell = (row: number, col: number): number => start + cellOffset(map, row, col);
     editor.view.dispatch(editor.state.tr.setSelection(CellSelection.create(editor.state.doc, cell(1, 1), cell(2, 2))));
 
-    expect(paste(editor, '<table><tbody><tr><td colspan="2" rowspan="3"><p>X</p></td></tr></tbody></table>')).toBe(true);
+    expect(paste(editor, '<table><tbody><tr><td colspan="2" rowspan="3"><p>X</p></td></tr><tr></tr><tr></tr></tbody></table>')).toBe(true);
 
     const after = tableOf(editor);
     expect(TableMap.get(after.table).problems ?? null).toBeNull();
@@ -143,7 +146,7 @@ describe('pasting cells', () => {
     const editor = mount('<table><tbody><tr><td colspan="2"><p>ab</p></td><td><p>c</p></td></tr><tr><td><p>d</p></td><td><p>e</p></td><td><p>f</p></td></tr></tbody></table>');
     caretAt(editor, 1, 1);
 
-    expect(paste(editor, '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr></tbody></table>')).toBe(true);
+    expect(paste(editor, '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr><tr></tr></tbody></table>')).toBe(true);
 
     expect(TableMap.get(tableOf(editor).table).problems ?? null).toBeNull();
     expect(cellAt(editor, 'X').rect).toEqual({ left: 1, top: 1, right: 3, bottom: 3 });
@@ -156,7 +159,7 @@ describe('pasting cells', () => {
     editor.state.doc.descendants((node, pos) => { if (node.isText && node.text === 'b') inner = pos; });
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, inner)));
 
-    expect(paste(editor, '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr></tbody></table>')).toBe(true);
+    expect(paste(editor, '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr><tr></tr></tbody></table>')).toBe(true);
 
     const outer = tableOf(editor).table;
     expect(TableMap.get(outer).width).toBe(2);
@@ -176,5 +179,24 @@ describe('pasting cells', () => {
       clipboardData: { getData: (type: string) => (type === 'text/html' ? PASTES[0]?.[1] ?? '' : ''), types: ['text/html'], files: [], items: [] },
     }));
     expect(editor.state.doc).toBe(before);
+  });
+});
+
+describe('a pasted cell that spans more rows than the copied table holds', () => {
+  it('keeps the rows the copied table holds, as a browser draws such a rowspan, instead of growing the table by them', () => {
+    const editor = mount(grid(2, 2));
+    caretAt(editor, 0, 0);
+    expect(paste(editor, '<table><tbody><tr><td colspan="2" rowspan="1000"><p>X</p></td></tr></tbody></table>')).toBe(true);
+    const { table } = tableOf(editor);
+    expect(table.childCount).toBe(2);
+    expect(cellAt(editor, 'X').node.attrs).toMatchObject({ colspan: 2, rowspan: 1 });
+    expect(TableMap.get(table).problems ?? null).toBeNull();
+
+    caretAt(editor, 1, 0);
+    expect(paste(editor, '<table><tbody><tr><td rowspan="5"><p>Y</p></td><td><p>Z</p></td></tr><tr><td><p>W</p></td></tr></tbody></table>')).toBe(true);
+    const grown = tableOf(editor).table;
+    expect(grown.childCount).toBe(3);
+    expect(cellAt(editor, 'Y').node.attrs).toMatchObject({ rowspan: 2 });
+    expect(TableMap.get(grown).problems ?? null).toBeNull();
   });
 });

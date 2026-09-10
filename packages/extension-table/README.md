@@ -135,7 +135,10 @@ The package handles these pastes itself, with the prosemirror-tables helpers ada
 `src/helpers/pasteCells.ts`, because the upstream handler throws `No cell with offset` and pastes
 nothing when a pasted cell spans rows up to the table's right edge, such as a merged 2x2 cell
 pasted into the last column. A cell clipped at the bottom of a cell selection keeps the rows it
-still covers, and one undo step restores the table. A paste whose image files are the paste, one
+still covers, and one undo step restores the table. A pasted cell spans at most the rows the copied
+table holds, empty ones included, as an internal copy and spreadsheets write them: a `rowspan`
+past them ends with them, as a browser draws it, so a one-row copy of `<td rowspan="1000">` adds no
+rows to the target table. A paste whose image files are the paste, one
 without text of its own as `pasteHasOwnText` from `@domternal/core/clipboard` decides, goes to the
 image node first, so a screenshot pasted over a cell selection lands in the first selected cell
 whether Table or Image is listed first, instead of clearing the cells and inserting nothing.

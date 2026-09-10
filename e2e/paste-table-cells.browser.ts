@@ -21,14 +21,17 @@ const grid = (width: number, height: number): string => {
   const rows = Array.from({ length: height }, () => `<tr>${Array.from({ length: width }, () => `<td><p>${String.fromCharCode(97 + letter++)}</p></td>`).join('')}</tr>`);
   return `<table><tbody>${rows.join('')}</tbody></table>`;
 };
-const X22 = '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr></tbody></table>';
+// A copied merged cell brings the rows it covers, empty ones too, as an internal copy and spreadsheets write them.
+const X22 = '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr><tr></tr></tbody></table>';
 const PASTES: [string, string, number, number][] = [
   ['a 2x2 cell', X22, 2, 2],
-  ['a cell spanning 2 rows', '<table><tbody><tr><td rowspan="2"><p>X</p></td></tr></tbody></table>', 1, 2],
+  ['a cell spanning 2 rows', '<table><tbody><tr><td rowspan="2"><p>X</p></td></tr><tr></tr></tbody></table>', 1, 2],
   ['a cell spanning 2 columns', '<table><tbody><tr><td colspan="2"><p>X</p></td></tr></tbody></table>', 2, 1],
   ['2 rows: a 2x2 cell and a cell, then a cell', '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td><td><p>Y</p></td></tr><tr><td><p>Z</p></td></tr></tbody></table>', 3, 2],
-  ['a 2x2 header cell', '<table><tbody><tr><th colspan="2" rowspan="2"><p>X</p></th></tr></tbody></table>', 2, 2],
-  ['an internal copy of a 2x2 cell', '<table data-pm-slice="1 1 -2 &quot;table&quot; []"><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr></tbody></table>', 2, 2],
+  ['a 2x2 header cell', '<table><tbody><tr><th colspan="2" rowspan="2"><p>X</p></th></tr><tr></tr></tbody></table>', 2, 2],
+  ['an internal copy of a 2x2 cell', '<table data-pm-slice="1 1 -2 []"><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr><tr></tr></tbody></table>', 2, 2],
+  // A browser draws a rowspan past the copied rows as ending with them, and the paste keeps that.
+  ['a one-row copy of a 2x2 cell', '<table><tbody><tr><td colspan="2" rowspan="2"><p>X</p></td></tr></tbody></table>', 2, 1],
 ];
 const TARGETS: [string, string, number, number][] = [
   ['1x1', grid(1, 1), 0, 0], ['2x2 at 0,0', grid(2, 2), 0, 0], ['2x2 at 0,1', grid(2, 2), 0, 1],
@@ -142,10 +145,11 @@ for (const framework of FRAMEWORKS) {
             const observed = await observe(page);
             expect(observed.errors).toEqual([]);
             expect(observed.valid).toBe(true);
-            expect(observed.x).toMatchObject({ left: col, top: row });
+            // The pasted X cell spans the rows of the pasted area, and no more.
+            expect(observed.x).toMatchObject({ left: col, top: row, rowspan: height });
             expect(observed.selection).toBe('cell');
             expect(observed.domMatches).toBe(true);
-            void width; void height;
+            void width;
 
             await page.keyboard.press('ControlOrMeta+z');
             expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.getJSON())).toEqual(before);

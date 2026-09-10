@@ -10,12 +10,14 @@
  * longer throws "No cell with offset" (the original looks for a cell that
  * starts in the last pasted row, where a spanning cell leaves none) and the
  * selection covers exactly the pasted cells; a cell clipped at the bottom of a
- * selection keeps the rows it still covers. A table that holds a span loading
- * would replace gets the pasted cells' content at the selection, since its
- * table map would be wrong or huge, and a paste that fails anyway reports its
- * error and pastes that content too, instead of throwing out of the paste
- * handler. The helpers use only the public exports of prosemirror-tables,
- * which Domternal accepts from version 1.7.0.
+ * selection keeps the rows it still covers; a pasted cell spans at most the
+ * rows the pasted slice holds, as a browser draws a rowspan past the end of
+ * its table, instead of growing the target table by them. A table that holds a
+ * span loading would replace gets the pasted cells' content at the selection,
+ * since its table map would be wrong or huge, and a paste that fails anyway
+ * reports its error and pastes that content too, instead of throwing out of
+ * the paste handler. The helpers use only the public exports of
+ * prosemirror-tables, which Domternal accepts from version 1.7.0.
  */
 import { Fragment, Slice } from '@domternal/pm/model';
 import type { Attrs, Node as PMNode, NodeType, Schema } from '@domternal/pm/model';
@@ -92,11 +94,26 @@ export function pastedCells(slice: Slice): PastedCells | null {
   return ensureRectangular(schema, rows);
 }
 
-/** Pads rows with empty cells so that every row of the area is equally wide. */
+/** A row whose cells span at most `rows` rows. */
+function clipRowspans(row: Fragment, rows: number): Fragment {
+  const cells: PMNode[] = [];
+  for (let index = 0; index < row.childCount; index++) {
+    const cell = row.child(index);
+    cells.push(attrsOf(cell).rowspan > rows ? cell.type.create({ ...cell.attrs, rowspan: rows }, cell.content, cell.marks) : cell);
+  }
+  return cells.every((cell, index) => cell === row.child(index)) ? row : Fragment.from(cells);
+}
+
+/**
+ * Pads rows with empty cells so that every row of the area is equally wide. A
+ * cell spans at most the rows the area holds, as a browser draws a rowspan
+ * past the end of its table.
+ */
 function ensureRectangular(schema: Schema, rows: Fragment[]): PastedCells {
   const widths: number[] = [];
   for (let i = 0; i < rows.length; i++) {
-    const row = entry(rows, i);
+    const row = clipRowspans(entry(rows, i), rows.length - i);
+    rows[i] = row;
     for (let j = row.childCount - 1; j >= 0; j--) {
       const { rowspan, colspan } = attrsOf(row.child(j));
       for (let r = i; r < i + rowspan; r++) widths[r] = (widths[r] ?? 0) + colspan;
