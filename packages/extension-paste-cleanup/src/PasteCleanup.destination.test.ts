@@ -232,7 +232,7 @@ describe('heading levels the destination cannot represent', () => {
     expect(fixture.editor.getHTML()).toBe('<h4>Five</h4><h4>Six</h4><h2>Two</h2>');
     expect(() => { fixture.editor.state.doc.check(); }).not.toThrow();
     expect(notice(fixture).hidden).toBe(false);
-    expect(notice(fixture).querySelector('[role="status"]')?.textContent).toBe('Review the pasted content.');
+    expect(notice(fixture).querySelector('.dm-paste-feedback__status')?.textContent).toBe('Review the pasted content.');
     expect(Array.from(notice(fixture).querySelectorAll('li'), row => row.textContent)).toEqual([headingNotice]);
     expect(fixture.changes).toHaveLength(1);
     expect(undoDepth(fixture.editor.state)).toBe(1);

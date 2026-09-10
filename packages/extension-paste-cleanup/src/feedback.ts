@@ -45,6 +45,11 @@ interface Presentation {
   recovery: Copy;
 }
 
+interface Resolved {
+  readonly text: string;
+  readonly language: string;
+}
+
 interface PendingPresentation {
   status: 'preparing';
   operationId: string;
@@ -91,21 +96,31 @@ function presentation(result: PasteFeedbackResult): Presentation | undefined {
 /**
  * Owner-document UI only: no clipboard access, editor commands or source markup.
  * The caller owns operation receipts and calls refresh from its view lifecycle.
+ * `focus` returns keyboard focus to the editor when the notice hides under it.
  */
-export function createPasteFeedback(view: Pick<EditorView, 'dom'>, i18n: I18nService): PasteFeedbackRenderer {
+export function createPasteFeedback(view: Pick<EditorView, 'dom' | 'focus'>, i18n: I18nService): PasteFeedbackRenderer {
   const doc = view.dom.ownerDocument;
   const notice = doc.createElement('div');
   notice.className = 'dm-paste-feedback';
   notice.contentEditable = 'false';
   notice.setAttribute('role', 'region');
   notice.hidden = true;
+  // The live region stays in the accessibility tree while the notice is hidden, because a
+  // region that appears already filled is not reliably announced. It is visually hidden
+  // through CSSOM properties, which a style-src policy allows, so it needs no theme.
+  const announcer = doc.createElement('div');
+  announcer.className = 'dm-paste-feedback__announcer';
+  announcer.setAttribute('role', 'status');
+  announcer.setAttribute('aria-live', 'polite');
+  announcer.setAttribute('aria-atomic', 'true');
+  Object.assign(announcer.style, {
+    position: 'absolute', width: '1px', height: '1px', margin: '-1px', padding: '0', border: '0',
+    overflow: 'hidden', clip: 'rect(0 0 0 0)', clipPath: 'inset(50%)', whiteSpace: 'nowrap',
+  });
   const header = doc.createElement('div');
   header.className = 'dm-paste-feedback__header';
   const status = doc.createElement('p');
   status.className = 'dm-paste-feedback__status';
-  status.setAttribute('role', 'status');
-  status.setAttribute('aria-live', 'polite');
-  status.setAttribute('aria-atomic', 'true');
   const dismiss = doc.createElement('button');
   dismiss.className = 'dm-paste-feedback__dismiss';
   dismiss.type = 'button';
@@ -132,20 +147,80 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom'>, i18n: I18nSer
   let disposed = false;
   let rendering = false;
   let presentationRevision = 0;
+  // What the live region last announced, so a repaint repeats nothing while a new operation
+  // with the same title is announced again.
+  let announced: { revision: number; text: string; language: string } | undefined;
+  let announceTimer: { clear: () => void } | undefined;
 
   const attach = (): void => {
     const parent = view.dom.parentNode;
-    if (parent === null) { notice.remove(); return; }
+    if (parent === null) { notice.remove(); announcer.remove(); return; }
     if (notice.parentNode !== parent || view.dom.nextSibling !== notice) parent.insertBefore(notice, view.dom.nextSibling);
+    if (announcer.parentNode !== parent || notice.nextSibling !== announcer) parent.insertBefore(announcer, notice.nextSibling);
   };
-  const text = (element: HTMLElement, definition: Copy): void => {
+  const text = (element: HTMLElement, definition: Copy): Resolved => {
     const message = i18n.resolve({ ...definition });
     if (element.textContent !== message.text) element.textContent = message.text;
     if (element.lang !== message.language) element.lang = message.language;
+    return message;
+  };
+  const silence = (): void => {
+    announceTimer?.clear();
+    announceTimer = undefined;
+    announced = undefined;
+    if (announcer.firstChild !== null) announcer.replaceChildren();
+  };
+  const announce = (message: Resolved, connectedBefore: boolean): void => {
+    if (announced?.revision === presentationRevision && announced.text === message.text && announced.language === message.language) return;
+    if (!connectedBefore) {
+      // Just inserted, or detached until the next refresh: write once the region has been in
+      // the accessibility tree, since one that appears already filled may go unannounced.
+      const owner = announcer.ownerDocument.defaultView;
+      if (announcer.isConnected && owner !== null && announceTimer === undefined) {
+        const timer = owner.setTimeout(() => { announceTimer = undefined; render(); }, 50);
+        announceTimer = { clear: () => { owner.clearTimeout(timer); } };
+      }
+      return;
+    }
+    announceTimer?.clear();
+    announceTimer = undefined;
+    announced = { revision: presentationRevision, text: message.text, language: message.language };
+    // A new node each time, so a repeated title is announced again for a new operation.
+    const line = announcer.ownerDocument.createElement('span');
+    line.textContent = message.text;
+    line.lang = message.language;
+    announcer.replaceChildren(line);
+  };
+  const focusedWithin = (): Element | null => {
+    const root = notice.getRootNode() as Document | ShadowRoot;
+    const active = root.activeElement;
+    return active !== null && notice.contains(active) ? active : null;
+  };
+  const focusLost = (): boolean => {
+    const root = notice.getRootNode() as Document | ShadowRoot;
+    const active = root.activeElement;
+    return active === null || active === notice.ownerDocument.body;
+  };
+  const concealed = (element: Element): boolean => {
+    for (let node: Element | null = element; node !== null && node !== announcer.parentElement; node = node.parentElement) {
+      if (node instanceof HTMLElement && node.hidden) return true;
+    }
+    return false;
+  };
+  const returnFocus = (): void => {
+    if (disposed) return;
+    try { view.focus(); } catch { /* Focus is a convenience; a detached view keeps the notice usable. */ }
   };
   const renderPass = (): void => {
     if (disposed) return;
+    // Focus inside a control that this pass hides returns to the editor instead of the page.
+    const focused = focusedWithin();
+    paint();
+    if (focused !== null && concealed(focused)) returnFocus();
+  };
+  const paint = (): void => {
     const shown = current;
+    const connectedBefore = announcer.isConnected;
     attach();
     const label = i18n.resolve(pasteCleanupMessages.label);
     notice.setAttribute('aria-label', label.text);
@@ -164,6 +239,7 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom'>, i18n: I18nSer
       delete notice.dataset['status'];
       notice.hidden = true;
       status.textContent = '';
+      silence();
       recovery.hidden = true;
       recovery.textContent = '';
       details.hidden = true;
@@ -174,8 +250,9 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom'>, i18n: I18nSer
     notice.dataset['status'] = shown.status;
     if (shown.status === 'preparing') {
       notice.hidden = dismissed;
-      if (dismissed) status.textContent = '';
-      else text(status, pasteCleanupMessages.preparing);
+      if (dismissed) { status.textContent = ''; silence(); } else {
+        announce(text(status, pasteCleanupMessages.preparing), connectedBefore);
+      }
       recovery.hidden = true;
       recovery.textContent = '';
       details.hidden = true;
@@ -185,8 +262,8 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom'>, i18n: I18nSer
     }
     const visible = !dismissed && (shown.status === 'rejected' || shown.details.length > 0 || shown.truncated);
     notice.hidden = !visible;
-    if (!visible) { status.textContent = ''; return; }
-    text(status, shown.title);
+    if (!visible) { status.textContent = ''; silence(); return; }
+    announce(text(status, shown.title), connectedBefore);
     recovery.hidden = !shown.images && shown.status !== 'rejected';
     text(recovery, shown.recovery);
     details.hidden = shown.details.length === 0 && !shown.truncated;
@@ -218,19 +295,35 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom'>, i18n: I18nSer
         if (disposed || (revision === i18n.getSnapshot().revision && shownRevision === presentationRevision)) return;
       }
       // A continuously reentrant host must not leave an obsolete notice visible.
+      const focused = focusedWithin();
       notice.hidden = true;
       status.textContent = '';
+      silence();
+      if (focused !== null) returnFocus();
     } finally { rendering = false; }
   };
-  const hide = (): void => { dismissed = true; presentationRevision++; notice.hidden = true; status.textContent = ''; };
+  // Dismiss, Escape and Cancel act on the notice, so focus that was in it, or that a pointer
+  // press on a button took to the page, goes back to the editor.
+  const userHides = (): boolean => focusedWithin() !== null || focusLost();
+  const hide = (): void => {
+    const refocus = userHides();
+    dismissed = true;
+    presentationRevision++;
+    notice.hidden = true;
+    status.textContent = '';
+    silence();
+    if (refocus) returnFocus();
+  };
   const cancelPreparation = (): void => {
     const pending = current;
     if (disposed || pending?.status !== 'preparing') return;
+    const refocus = userHides();
     // Consume the old callback before invoking host code. Reentry can replace or
     // dispose the notice, and nothing after the callback overwrites that state.
     current = undefined;
     presentationRevision++;
     render();
+    if (refocus) returnFocus();
     try { pending.cancel(); } catch { /* Host cancellation cannot escape a UI event. */ }
   };
   const escape = (event: KeyboardEvent): void => {
@@ -271,7 +364,10 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom'>, i18n: I18nSer
       dismiss.removeEventListener('click', hide);
       cancel.removeEventListener('click', cancelPreparation);
       notice.removeEventListener('keydown', escape);
+      announceTimer?.clear();
+      announceTimer = undefined;
       notice.remove();
+      announcer.remove();
     },
   };
 }

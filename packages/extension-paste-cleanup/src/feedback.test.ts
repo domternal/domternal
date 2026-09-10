@@ -31,7 +31,7 @@ function fixture(i18n = new I18nService(), owner = document, parent?: HTMLElemen
   dom.tabIndex = 0;
   dom.textContent = 'Authored content';
   host.append(dom);
-  const renderer = createPasteFeedback({ dom }, i18n);
+  const renderer = createPasteFeedback({ dom, focus: () => { dom.focus(); } }, i18n);
   const notice = required<HTMLDivElement>(host, '.dm-paste-feedback');
   cleanups.push(() => { renderer.dispose(); i18n.destroy(); host.remove(); });
   return { host, dom, renderer, notice, i18n };
@@ -51,7 +51,7 @@ describe('paste loss feedback', () => {
     renderer.preparing('private-operation-id', cancel);
     expect(notice.hidden).toBe(false);
     expect(notice.dataset['status']).toBe('preparing');
-    expect(required(notice, '[role="status"]').textContent).toBe('Preparing pasted images.');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('Preparing pasted images.');
     expect(required(notice, '.dm-paste-feedback__cancel').hidden).toBe(false);
     expect(required(notice, '.dm-paste-feedback__cancel').getAttribute('aria-label')).toBe('Cancel image preparation');
     expect(required(notice, '.dm-paste-feedback__recovery').hidden).toBe(true);
@@ -136,7 +136,7 @@ describe('paste loss feedback', () => {
     renderer.update(result('applied', []));
     expect(notice.hidden).toBe(true);
     expect(notice.dataset['status']).toBe('applied');
-    expect(required(notice, '[role="status"]').textContent).toBe('');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('');
     expect(required(notice, '.dm-paste-feedback__cancel').hidden).toBe(true);
     required<HTMLButtonElement>(notice, '.dm-paste-feedback__cancel').click();
     expect(cancel).not.toHaveBeenCalled();
@@ -149,7 +149,7 @@ describe('paste loss feedback', () => {
     renderer.update({ ...result('rejected'), reason, diagnosticsTruncated: true });
     expect(notice.hidden).toBe(true);
     expect(notice.dataset['status']).toBeUndefined();
-    expect(required(notice, '[role="status"]').textContent).toBe('');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('');
     required<HTMLButtonElement>(notice, '.dm-paste-feedback__cancel').click();
     expect(cancel).not.toHaveBeenCalled();
   });
@@ -164,7 +164,7 @@ describe('paste loss feedback', () => {
     const { renderer, notice } = fixture();
     renderer.preparing('pending', vi.fn());
     renderer.update({ ...result('rejected'), reason });
-    expect(required(notice, '[role="status"]').textContent).toBe(status);
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe(status);
     expect(required(notice, '.dm-paste-feedback__recovery').textContent).toBe(recovery);
     expect(notice.hidden).toBe(false);
     expect(notice.dataset['status']).toBe('rejected');
@@ -176,7 +176,7 @@ describe('paste loss feedback', () => {
     for (const status of ['applied', 'untracked', 'noop'] as const) {
       renderer.update({ ...result(status), reason: 'cancelled' });
       expect(notice.hidden).toBe(false);
-      expect(required(notice, '[role="status"]').textContent).toBe(pasteCleanupMessages[status].defaultValue);
+      expect(required(notice, '.dm-paste-feedback__status').textContent).toBe(pasteCleanupMessages[status].defaultValue);
     }
   });
 
@@ -188,7 +188,7 @@ describe('paste loss feedback', () => {
     button.focus();
     i18n.set({ locale: 'de', messages: deMessages });
     expect(document.activeElement).toBe(button);
-    expect(required(notice, '[role="status"]').textContent).toBe('Bilder zum Einfügen werden vorbereitet.');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('Bilder zum Einfügen werden vorbereitet.');
     expect(button.textContent).toBe('Abbrechen');
     expect(button.getAttribute('aria-label')).toBe('Bildvorbereitung abbrechen');
     const owner = document.implementation.createHTMLDocument('Adopted');
@@ -214,7 +214,7 @@ describe('paste loss feedback', () => {
     } });
     renderer.update(result());
     expect(notice.dataset['status']).toBe('preparing');
-    expect(required(notice, '[role="status"]').textContent).toBe('Preparing pasted images.');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('Preparing pasted images.');
     required<HTMLButtonElement>(notice, '.dm-paste-feedback__cancel').click();
     expect(cancel).toHaveBeenCalledOnce();
   });
@@ -232,7 +232,7 @@ describe('paste loss feedback', () => {
     } });
     renderer.preparing('older', cancel);
     expect(notice.dataset['status']).toBe('rejected');
-    expect(required(notice, '[role="status"]').textContent).toBe('The paste destination changed.');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('The paste destination changed.');
     expect(required(notice, '.dm-paste-feedback__cancel').hidden).toBe(true);
     required<HTMLButtonElement>(notice, '.dm-paste-feedback__cancel').click();
     expect(cancel).not.toHaveBeenCalled();
@@ -251,7 +251,7 @@ describe('paste loss feedback', () => {
     renderer.preparing('first', vi.fn());
     expect(replacements).toBe(4);
     expect(notice.hidden).toBe(true);
-    expect(required(notice, '[role="status"]').textContent).toBe('');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('');
   });
 
   it('clears cancellation and its listener on idempotent disposal, ignoring late preparation', () => {
@@ -275,7 +275,7 @@ describe('paste loss feedback', () => {
     expect(notice.contentEditable).toBe('false');
     expect(notice.getAttribute('role')).toBe('region');
     expect(notice.getAttribute('aria-label')).toBe('Paste notice');
-    expect(required(notice, '[role="status"]').textContent).toBe('');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('');
   });
 
   it.each(['applied', 'untracked', 'noop'] as const)('does not notify for a clean %s result or deliberate adaptation alone', status => {
@@ -284,7 +284,7 @@ describe('paste loss feedback', () => {
     expect(notice.hidden).toBe(true);
     renderer.update({ status, diagnostics: [{ code: 'formatting-adapted', severity: 'info' }], diagnosticsTruncated: false });
     expect(notice.hidden).toBe(true);
-    expect(required(notice, '[role="status"]').textContent).toBe('');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('');
   });
 
   it('shows nonmodal image loss and actionable recovery without moving focus', () => {
@@ -296,10 +296,11 @@ describe('paste loss feedback', () => {
     expect(document.activeElement).toBe(dom);
     expect(dom.textContent).toBe(before);
     expect(notice.querySelector('[role="dialog"], [aria-modal], [autofocus]')).toBeNull();
-    const status = required(notice, '[role="status"]');
+    const status = required(notice, '.dm-paste-feedback__status');
     expect(status.textContent).toBe('Review the pasted content.');
-    expect(status.getAttribute('aria-live')).toBe('polite');
-    expect(status.getAttribute('aria-atomic')).toBe('true');
+    // The notice title is not a second live region; the announcer beside the notice speaks.
+    expect(status.getAttribute('role')).toBeNull();
+    expect(status.getAttribute('aria-live')).toBeNull();
     const recovery = required(notice, '.dm-paste-feedback__recovery');
     expect(recovery.hidden).toBe(false);
     expect(recovery.textContent).toContain('Paste missing images separately.');
@@ -309,7 +310,7 @@ describe('paste loss feedback', () => {
   it.each(['untracked', 'noop'] as const)('describes %s diagnostics without claiming a successful insertion', status => {
     const { renderer, notice } = fixture();
     renderer.update(result(status));
-    expect(required(notice, '[role="status"]').textContent).toBe(status === 'untracked' ? 'Check the paste result.' : 'Paste made no changes.');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe(status === 'untracked' ? 'Check the paste result.' : 'Paste made no changes.');
     expect(notice.dataset['status']).toBe(status);
   });
 
@@ -317,7 +318,7 @@ describe('paste loss feedback', () => {
     const { renderer, notice } = fixture();
     renderer.update(result('rejected', []));
     expect(notice.hidden).toBe(false);
-    expect(required(notice, '[role="status"]').textContent).toBe('Paste was blocked.');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('Paste was blocked.');
     expect(required(notice, '.dm-paste-feedback__recovery').textContent).toBe('Try a smaller selection or paste as plain text.');
     expect(required<HTMLDetailsElement>(notice, 'details').hidden).toBe(true);
   });
@@ -399,7 +400,7 @@ describe('paste loss feedback', () => {
   it('keeps unchanged live text and detail rows stable during ordinary view refreshes', () => {
     const { renderer, notice, i18n } = fixture();
     renderer.update(result());
-    const status = required(notice, '[role="status"]');
+    const status = required(notice, '.dm-paste-feedback__status');
     const text = status.firstChild;
     const row = required(notice, 'li');
     renderer.refresh();
@@ -423,8 +424,8 @@ describe('paste loss feedback', () => {
     expect(required(notice, 'button')).toBe(dismiss);
     expect(document.activeElement).toBe(dismiss);
     expect(details.open).toBe(true);
-    expect(required(notice, '[role="status"]').textContent).toBe('Bitte den eingefügten Inhalt prüfen.');
-    expect(required(notice, '[role="status"]').lang).toBe('de');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('Bitte den eingefügten Inhalt prüfen.');
+    expect(required(notice, '.dm-paste-feedback__status').lang).toBe('de');
     expect(required(notice, 'summary').textContent).toBe('Einzelheiten');
     expect(required(notice, 'li').lang).toBe('en');
     expect(dismiss.lang).toBe('en');
@@ -436,8 +437,8 @@ describe('paste loss feedback', () => {
     const second = fixture();
     first.renderer.update(result());
     second.renderer.update(result('applied', ['link-removed']));
-    expect(required(first.notice, '[role="status"]').textContent).toBe('Check the pasted content.');
-    expect(required(second.notice, '[role="status"]').textContent).toBe('Review the pasted content.');
+    expect(required(first.notice, '.dm-paste-feedback__status').textContent).toBe('Check the pasted content.');
+    expect(required(second.notice, '.dm-paste-feedback__status').textContent).toBe('Review the pasted content.');
     required<HTMLButtonElement>(first.notice, 'button').click();
     expect(second.notice.hidden).toBe(false);
   });
@@ -457,8 +458,8 @@ describe('paste loss feedback', () => {
       }
       return undefined;
     } });
-    expect(required(notice, '[role="status"]').textContent).toBe('Check the content.');
-    expect(required(notice, '[role="status"]').lang).toBe('en-GB');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('Check the content.');
+    expect(required(notice, '.dm-paste-feedback__status').lang).toBe('en-GB');
     expect(required(notice, 'summary').textContent).toBe('Additional details');
   });
 
@@ -467,7 +468,7 @@ describe('paste loss feedback', () => {
     const { renderer, notice } = fixture(new I18nService({ messages: { 'pasteCleanup.feedback.applied': payload } }));
     renderer.update({ status: 'applied', diagnosticsTruncated: false,
       diagnostics: [{ code: payload, severity: 'warning', offset: 987654 }] as unknown as PasteDiagnostic[] });
-    expect(required(notice, '[role="status"]').textContent).toBe(payload);
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe(payload);
     expect(notice.querySelector('img, script, iframe')).toBeNull();
     expect(required(notice, 'li').textContent).toBe('Some pasted content may need review.');
     expect(required(notice, 'li').textContent).not.toContain(payload);
@@ -491,7 +492,7 @@ describe('paste loss feedback', () => {
     renderer.update({ status, diagnosticsTruncated: true,
       diagnostics: Array.from({ length: 100 }, () => ({ code: 'formatting-adapted', severity: 'info' } as const)) });
     expect(notice.hidden).toBe(true);
-    expect(required(notice, '[role="status"]').textContent).toBe('');
+    expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('');
   });
 
   it('omits the incomplete-list line when a retained informational finding proves no warning was dropped', () => {
@@ -604,5 +605,161 @@ describe('paste loss feedback', () => {
       expect(definition.defaultValue).toEqual(expect.any(String));
       expect(definition.description.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('paste notice announcements and focus', () => {
+  function announcer(host: HTMLElement): HTMLElement {
+    return required(host, '.dm-paste-feedback__announcer');
+  }
+
+  it('keeps an empty polite live region in the tree beside the hidden notice before anything happens', () => {
+    const { host, notice } = fixture();
+    const region = announcer(host);
+    expect(notice.contains(region)).toBe(false);
+    expect(notice.nextSibling).toBe(region);
+    expect(region.hidden).toBe(false);
+    expect(region.getAttribute('role')).toBe('status');
+    expect(region.getAttribute('aria-live')).toBe('polite');
+    expect(region.getAttribute('aria-atomic')).toBe('true');
+    expect(region.textContent).toBe('');
+    expect(region.style.position).toBe('absolute');
+    expect(region.style.width).toBe('1px');
+    expect(region.style.overflow).toBe('hidden');
+  });
+
+  it('announces a result, a blocked paste and preparation into the region that was already present', () => {
+    const { host, renderer } = fixture();
+    const region = announcer(host);
+    renderer.update(result());
+    expect(announcer(host)).toBe(region);
+    expect(region.textContent).toBe('Review the pasted content.');
+    renderer.update(result('rejected', []));
+    expect(region.textContent).toBe('Paste was blocked.');
+    renderer.preparing('pending', vi.fn());
+    expect(region.textContent).toBe('Preparing pasted images.');
+  });
+
+  it('announces a repeated title again for a new operation, but not for a repaint of the same one', () => {
+    const { host, renderer, i18n } = fixture();
+    const region = announcer(host);
+    renderer.update(result());
+    const first = region.firstChild;
+    renderer.refresh();
+    i18n.refresh();
+    expect(region.firstChild).toBe(first);
+    renderer.update(result());
+    expect(region.textContent).toBe('Review the pasted content.');
+    expect(region.firstChild).not.toBe(first);
+    renderer.update(result('rejected', []));
+    const blocked = region.firstChild;
+    renderer.update(result('rejected', []));
+    expect(region.firstChild).not.toBe(blocked);
+  });
+
+  it('announces in the language of the message and clears the region when the notice hides', () => {
+    const { host, renderer, notice, i18n } = fixture();
+    renderer.update(result());
+    i18n.set({ locale: 'de', messages: deMessages });
+    expect(announcer(host).textContent).toBe(required(notice, '.dm-paste-feedback__status').textContent);
+    expect(required(announcer(host), 'span').lang).toBe('de');
+    required<HTMLButtonElement>(notice, '.dm-paste-feedback__dismiss').click();
+    expect(announcer(host).textContent).toBe('');
+    renderer.update(result('applied', []));
+    expect(announcer(host).textContent).toBe('');
+  });
+
+  it('waits until a region inserted by an adoption has been in the tree before announcing', () => {
+    vi.useFakeTimers();
+    try {
+      const i18n = new I18nService();
+      const dom = document.createElement('div');
+      const renderer = createPasteFeedback({ dom, focus: () => { dom.focus(); } }, i18n);
+      const host = document.createElement('div');
+      cleanups.push(() => { renderer.dispose(); i18n.destroy(); host.remove(); });
+      renderer.update(result());
+      vi.advanceTimersByTime(1000);
+      document.body.append(host);
+      host.append(dom);
+      renderer.refresh();
+      expect(announcer(host).textContent).toBe('');
+      vi.advanceTimersByTime(50);
+      expect(announcer(host).textContent).toBe('Review the pasted content.');
+    } finally { vi.useRealTimers(); }
+  });
+
+  it.each(['click', 'enter-key', 'escape'] as const)('returns focus to the editor when the notice hides by %s while focus is in it', action => {
+    const { dom, renderer, notice } = fixture();
+    renderer.update(result());
+    const dismiss = required<HTMLButtonElement>(notice, '.dm-paste-feedback__dismiss');
+    const summary = required(notice, 'summary');
+    if (action === 'escape') {
+      summary.tabIndex = 0;
+      summary.focus();
+      expect(document.activeElement).toBe(summary);
+      summary.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    } else {
+      dismiss.focus();
+      expect(document.activeElement).toBe(dismiss);
+      dismiss.click();
+    }
+    expect(notice.hidden).toBe(true);
+    expect(document.activeElement).toBe(dom);
+  });
+
+  it('returns focus to the editor when a pointer press on Dismiss left focus on the page', () => {
+    const { dom, renderer, notice } = fixture();
+    renderer.update(result());
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(document.activeElement).toBe(document.body);
+    required<HTMLButtonElement>(notice, '.dm-paste-feedback__dismiss').click();
+    expect(document.activeElement).toBe(dom);
+  });
+
+  it('leaves focus that another control holds where it is', () => {
+    const { renderer, notice } = fixture();
+    const input = document.createElement('input');
+    document.body.append(input);
+    cleanups.push(() => { input.remove(); });
+    renderer.update(result());
+    input.focus();
+    required<HTMLButtonElement>(notice, '.dm-paste-feedback__dismiss').click();
+    expect(document.activeElement).toBe(input);
+    renderer.update(result());
+    renderer.update(result('applied', []));
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('returns focus to the editor from Cancel, and when preparation ends while Cancel has focus', () => {
+    const { dom, renderer, notice } = fixture();
+    const cancelButton = required<HTMLButtonElement>(notice, '.dm-paste-feedback__cancel');
+    renderer.preparing('first', vi.fn());
+    cancelButton.focus();
+    cancelButton.click();
+    expect(notice.hidden).toBe(true);
+    expect(document.activeElement).toBe(dom);
+
+    renderer.preparing('second', vi.fn());
+    cancelButton.focus();
+    renderer.update(result('applied', []));
+    expect(notice.hidden).toBe(true);
+    expect(document.activeElement).toBe(dom);
+
+    renderer.preparing('third', vi.fn());
+    cancelButton.focus();
+    renderer.update(result());
+    expect(notice.hidden).toBe(false);
+    expect(cancelButton.hidden).toBe(true);
+    expect(document.activeElement).toBe(dom);
+  });
+
+  it('keeps focus on a control that stays visible when the notice repaints', () => {
+    const { renderer, notice, i18n } = fixture();
+    renderer.update(result());
+    const dismiss = required<HTMLButtonElement>(notice, '.dm-paste-feedback__dismiss');
+    dismiss.focus();
+    renderer.update(result('rejected', []));
+    i18n.set({ locale: 'de', messages: deMessages });
+    expect(document.activeElement).toBe(dismiss);
   });
 });

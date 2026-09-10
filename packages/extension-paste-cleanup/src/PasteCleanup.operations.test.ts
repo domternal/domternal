@@ -64,7 +64,7 @@ describe('PasteCleanup accepted operation results', () => {
     const notice = editor.view.dom.nextElementSibling as HTMLElement;
     expect(notice.matches('.dm-paste-feedback')).toBe(true);
     expect(notice.hidden).toBe(false);
-    expect(notice.querySelector('[role="status"]')?.textContent).toBe('Review the pasted content.');
+    expect(notice.querySelector('.dm-paste-feedback__status')?.textContent).toBe('Review the pasted content.');
     expect(document.activeElement).toBe(focused);
     expect(editor.state.doc.textContent).toBe('New diagram');
     expect(undoDepth(editor.state)).toBe(1);

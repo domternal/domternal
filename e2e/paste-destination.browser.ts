@@ -138,8 +138,8 @@ async function unchangedBlocked(page: Page, before: Snapshot, priorHistory: Hist
   expect(observed.hostUpdates).toBe(0);
   const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
   await expect(notice).toBeVisible();
-  await expect(notice.getByRole('status')).toHaveText('Paste was blocked.');
-  await expect(notice.getByRole('status')).toHaveAttribute('aria-live', 'polite');
+  await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Paste was blocked.');
+  await expect(page.locator('.dm-paste-feedback__announcer')).toHaveText('Paste was blocked.');
   await expect(notice).toContainText('Use an editor with table support, or paste as plain text.');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await page.evaluate(() => document.activeElement === (window as unknown as ProbeWindow).__pasteCleanup.editor.view.dom)).toBe(true);
@@ -163,7 +163,7 @@ for (const framework of FRAMEWORKS) {
         expect(observed.results[0]?.diagnostics).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
         expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
         const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
-        await expect(notice.getByRole('status')).toHaveText('Review the pasted content.');
+        await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
         await notice.locator('summary').click();
         await expect(notice).toContainText('This editor may not preserve some pasted formatting.');
       });
@@ -211,7 +211,7 @@ for (const framework of FRAMEWORKS) {
       expect(observed.results[0]?.diagnostics).toEqual([{ code: 'destination-heading-level-adapted', severity: 'warning', offset: 0 }]);
       expect(observed.operations[0]?.status).toBe('applied');
       const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
-      await expect(notice.getByRole('status')).toHaveText('Review the pasted content.');
+      await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
       await notice.locator('summary').click();
       await expect(notice.locator('li')).toHaveText([HEADING_NOTICE]);
     });

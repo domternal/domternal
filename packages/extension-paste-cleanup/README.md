@@ -74,8 +74,12 @@ pasted images in application storage without a separate preparation.
 ## Feedback and accepted results
 
 The default nonmodal notice displays warnings, removed-image guidance and blocked
-input. It provides accessible status text, a details disclosure and dismissal
-without moving focus or adding document content. A clean paste or intentional
+input. It provides a details disclosure and dismissal without moving focus or
+adding document content. A polite live region beside the notice, visually hidden
+and present before any paste, announces each paste's title, also when two pastes
+in a row share it. When Dismiss, Escape or Cancel hides the notice while focus is
+in it, or while a pointer press left focus on the page, focus returns to the
+editor with its selection. A clean paste or intentional
 formatting adaptation alone stays quiet, including when its informational findings
 fill the diagnostic allowance. Load the normal `@domternal/theme` CSS
 for styling. The notice follows editor adoption and is removed on destruction.
