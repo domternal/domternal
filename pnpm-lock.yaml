@@ -1067,6 +1067,30 @@ importers:
         specifier: '*'
         version: 6.0.2
 
+  tests/mixed-version:
+    devDependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@domternal/extension-image':
+        specifier: workspace:*
+        version: link:../../packages/extension-image
+      '@domternal/extension-table':
+        specifier: workspace:*
+        version: link:../../packages/extension-table
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../../packages/pm
+      jsdom:
+        specifier: ^28.1.0
+        version: 28.1.0(@noble/hashes@1.8.0)
+      y-prosemirror:
+        specifier: ~1.3.7
+        version: 1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+      yjs:
+        specifier: ^13.6.32
+        version: 13.6.32
+
 packages:
 
   '@acemir/cssom@0.9.31':

@@ -35,6 +35,7 @@
     "evidence:replay": "node tests/evidence/cli.mjs replay --all",
     "test:ssr-import": "node --test tests/ssr-import/check.test.mjs && node tests/ssr-import/check.mjs",
     "test:subpath-reexports": "node --test tests/subpath-reexports/check.test.mjs && node tests/subpath-reexports/check.mjs",
+    "test:mixed-version": "pnpm --dir tests/mixed-version/v1.2.0 install --frozen-lockfile --ignore-workspace --prefer-offline && node --test tests/mixed-version/*.test.mjs",
     "test:ci-wiring": "node --test tests/ci-wiring/*.test.mjs && node tests/ci-wiring/check.mjs",
     "test:source-boundaries": "node --test tests/source-boundaries/check.test.mjs && node tests/source-boundaries/check.mjs",
     "test:single-prosemirror": "node --test tests/single-prosemirror/check.test.mjs && node tests/single-prosemirror/check.mjs",

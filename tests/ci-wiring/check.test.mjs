@@ -695,9 +695,9 @@ test('gates that read the built packages run after the explicit build', () => {
     'which a clean checkout has only after the build';
   const unbuilt =
     'ci.yml build job never runs "pnpm build", so nothing builds the packages that ' +
-    'lint and typecheck:e2e read';
+    'lint and typecheck:e2e and test:mixed-version read';
 
-  assert.deepEqual(BUILT_OUTPUT_GATES, ['lint', 'typecheck:e2e']);
+  assert.deepEqual(BUILT_OUTPUT_GATES, ['lint', 'typecheck:e2e', 'test:mixed-version']);
   assert.deepEqual(buildOrderProblems(realCi), []);
   assert.deepEqual(
     buildOrderProblems(buildJob('pnpm build', 'pnpm lint', 'pnpm typecheck:e2e')),
@@ -720,6 +720,10 @@ test('gates that read the built packages run after the explicit build', () => {
     early('typecheck:e2e'),
   ]);
   assert.deepEqual(buildOrderProblems(buildJob('pnpm build\npnpm typecheck:e2e', 'pnpm lint')), []);
+  // The mixed-version collaboration test loads the built packages as well.
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm test:mixed-version', 'pnpm build', 'pnpm lint')), [
+    early('test:mixed-version'),
+  ]);
   // A filtered or swallowed build is not the full build the e2e paths resolve against.
   assert.deepEqual(
     buildOrderProblems(buildJob('pnpm --filter @domternal/core build', 'pnpm lint')),

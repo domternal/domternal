@@ -1,0 +1,19 @@
+{
+  "name": "@domternal/tests-mixed-version",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Documents saved by the published 1.2.0 packages, and 1.2.0 clients collaborating with current ones over Yjs: no rewrites, no lost content, migration only through normalizeContentAttributes.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test ./mixed-version.test.mjs"
+  },
+  "devDependencies": {
+    "@domternal/core": "workspace:*",
+    "@domternal/extension-image": "workspace:*",
+    "@domternal/extension-table": "workspace:*",
+    "@domternal/pm": "workspace:*",
+    "jsdom": "^28.1.0",
+    "y-prosemirror": "~1.3.7",
+    "yjs": "^13.6.32"
+  }
+}

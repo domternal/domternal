@@ -193,6 +193,14 @@ jobs:
         # Editor. Only built files show that, in ESM and CommonJS separately.
         run: pnpm test:subpath-reexports
 
+      - name: Mixed-version collaboration
+        # Documents saved by the published 1.2.0 packages, and 1.2.0 clients
+        # editing one Yjs document with clients built here. Installs 1.2.0 from
+        # the registry into its own project, so no workspace package replaces it.
+        # A current client must never rewrite what an older one stored, lose its
+        # text or break its tables; only normalizeContentAttributes migrates.
+        run: pnpm test:mixed-version
+
       - name: Package manifest policy
         # Releases are hand-edited across eighteen manifests. A version bumped
         # without its `>=MAJOR.MINOR.0 <NEXT_MAJOR.0.0` ranges publishes a package a consumer

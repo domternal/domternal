@@ -952,8 +952,9 @@ export function pnpmSetupProblems(
 // `pnpm lint` type-checks e2e/ through that config. Nx builds only the
 // dependencies of projects that own a lint or typecheck target, and none of
 // them depends on every package e2e/ imports, so a clean checkout fails both
-// unless the explicit build runs first.
-export const BUILT_OUTPUT_GATES = ['lint', 'typecheck:e2e'];
+// unless the explicit build runs first. test:mixed-version imports the built
+// packages from plain Node, which no Nx target knows about at all.
+export const BUILT_OUTPUT_GATES = ['lint', 'typecheck:e2e', 'test:mixed-version'];
 
 /** A gate that reads the built packages runs after the explicit build, in the same job. */
 export function buildOrderProblems(workflow) {
