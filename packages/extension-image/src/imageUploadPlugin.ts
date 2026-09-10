@@ -8,12 +8,19 @@
  * the images replace their placeholders in the order the files came, however
  * the stores finish. A failed store removes its placeholder and calls
  * `onUploadError`; an image whose placeholder was deleted is dropped.
+ *
+ * A placeholder is deleted only by a change that removes the content on both
+ * sides of it, as selecting across it and typing does. A collaboration binding
+ * such as y-prosemirror applies every remote change as one replace of the
+ * whole document; a placeholder outside the part that really changed keeps
+ * its place through it, so another client typing while a file is read or
+ * uploaded does not lose the image.
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
-import type { NodeType } from '@domternal/pm/model';
+import type { Node as PMNode, NodeType } from '@domternal/pm/model';
 
 export const imageUploadPluginKey = new PluginKey<DecorationSet>('imageUpload');
 
@@ -70,10 +77,70 @@ function createPlaceholderElement(): HTMLElement {
 }
 
 function placeholder(pos: number, id: string): Decoration {
-  return Decoration.widget(pos, createPlaceholderElement, { id, side: -1 });
+  // The key keeps the rendered indicator when a placeholder is placed anew at a mapped position.
+  return Decoration.widget(pos, createPlaceholderElement, { id, key: id, side: -1 });
 }
 
 const byId = (id: string) => (spec: { id?: string }): boolean => spec.id === id;
+
+/**
+ * The metadata key of y-prosemirror's sync plugin (its `ySyncPluginKey`, a
+ * PluginKey named 'y-sync'). A transaction that carries it with
+ * `isChangeOrigin` applies a change that arrived from the shared document.
+ */
+const COLLABORATION_SYNC_META = 'y-sync$';
+
+function appliesRemoteChange(tr: Transaction): boolean {
+  const meta: unknown = tr.getMeta(COLLABORATION_SYNC_META);
+  return typeof meta === 'object' && meta !== null && (meta as { isChangeOrigin?: unknown }).isChangeOrigin === true;
+}
+
+/** The part of a document that changed: `start` to `endA` before the change, `start` to `endB` after it. */
+interface DocumentChange { readonly start: number; readonly endA: number; readonly endB: number }
+
+/** Compares two documents, as prosemirror-view does for a DOM change; null when they are equal. */
+function documentChange(before: PMNode, after: PMNode): DocumentChange | null {
+  const start = before.content.findDiffStart(after.content);
+  const end = before.content.findDiffEnd(after.content);
+  if (start === null || end === null) return null;
+  let { a: endA, b: endB } = end;
+  // Repeated content lets the equal ends overlap the equal starts; the change then sits at the start.
+  if (endA < start && before.content.size < after.content.size) {
+    endB = start + (endB - endA);
+    endA = start;
+  } else if (endB < start) {
+    endA = start + (endA - endB);
+    endB = start;
+  }
+  return { start, endA, endB };
+}
+
+/**
+ * Maps the placeholders through a transaction. A placeholder stays unless the
+ * transaction removed the content on both sides of it; through a remote change
+ * of a collaboration binding, which replaces the whole document, it stays
+ * wherever the content around it is unchanged.
+ */
+function mapPlaceholders(tr: Transaction, decorations: DecorationSet): DecorationSet {
+  if (!tr.docChanged) return decorations;
+  const found = decorations.find();
+  if (found.length === 0) return decorations.map(tr.mapping, tr.doc);
+  let change: DocumentChange | null | undefined;
+  const widgets: Decoration[] = [];
+  for (const widget of found) {
+    const id = (widget.spec as { id?: string }).id;
+    if (id === undefined) continue;
+    const mapped = tr.mapping.mapResult(widget.from, -1);
+    let pos: number | undefined = mapped.deletedAcross ? undefined : mapped.pos;
+    if (pos === undefined && appliesRemoteChange(tr)) {
+      change = change === undefined ? documentChange(tr.before, tr.doc) : change;
+      if (change === null || widget.from <= change.start) pos = widget.from;
+      else if (widget.from >= change.endA) pos = widget.from - change.endA + change.endB;
+    }
+    if (pos !== undefined && pos <= tr.doc.content.size) widgets.push(placeholder(pos, id));
+  }
+  return DecorationSet.create(tr.doc, widgets);
+}
 
 /** The position of a placeholder, or undefined once it is gone. */
 function placeholderPos(state: EditorState, id: string): number | undefined {
@@ -151,7 +218,7 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
     state: {
       init: () => DecorationSet.empty,
       apply(tr: Transaction, decorations: DecorationSet) {
-        let next = decorations.map(tr.mapping, tr.doc);
+        let next = mapPlaceholders(tr, decorations);
         const action = tr.getMeta(imageUploadPluginKey) as Action | undefined;
         if (action?.type === 'add') {
           next = next.add(tr.doc, action.placeholders.map(({ id, pos }) => placeholder(pos, id)));
