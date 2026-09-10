@@ -1,7 +1,7 @@
 import { act, createElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Document, Editor, Extension, Paragraph, Text } from '@domternal/core';
+import { Document, Editor, Extension, Heading, Paragraph, Text, TrailingNode } from '@domternal/core';
 import { Plugin, TextSelection } from '@domternal/pm/state';
 import { DomternalEditor } from './DomternalEditor.js';
 import { useEditorState } from './useEditorState.js';
@@ -68,6 +68,32 @@ describe('React transaction callbacks', () => {
 
     await update(() => { moveSelection(liveEditor()); });
     expect(calls).toEqual(['selection', 'update:Hello!', 'selection']);
+  });
+
+  it('dispatches nothing on mount, so TrailingNode adds no paragraph and onUpdate stays silent', async () => {
+    const calls: string[] = [];
+    await update(() => {
+      root.render(<DomternalEditor extensions={[Heading, TrailingNode]} content="<p>intro</p><h2>Last</h2>" onCreate={onCreate}
+        onUpdate={() => { calls.push('update'); }} onSelectionChange={() => { calls.push('selection'); }} />);
+    });
+
+    expect(liveEditor().getHTML()).toBe('<p>intro</p><h2>Last</h2>');
+    expect(calls).toEqual([]);
+  });
+
+  it('applies a changed editable prop, and the paragraph TrailingNode adds on that dispatch reaches onUpdate', async () => {
+    const calls: string[] = [];
+    const render = (editable: boolean): ReactNode => (
+      <DomternalEditor extensions={[Heading, TrailingNode]} content="<p>intro</p><h2>Last</h2>" onCreate={onCreate}
+        editable={editable} onUpdate={() => { calls.push('update'); }} />
+    );
+    await update(() => { root.render(render(true)); });
+
+    await update(() => { root.render(render(false)); });
+
+    expect(liveEditor().isEditable).toBe(false);
+    expect(liveEditor().view.dom.getAttribute('aria-readonly')).toBe('true');
+    expect(calls).toEqual(['update']);
   });
 
   it('reports nothing for a vetoed transaction and only the selection move of a skipUpdate root with an appended change', async () => {

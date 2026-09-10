@@ -2,7 +2,7 @@ import {
   Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
   FontFamily, FontSize, TextAlign, Heading, BulletList, OrderedList, ListItem,
   Blockquote, CodeBlock, HardBreak, UniqueID, Extension, Subscript, Superscript, LineHeight, TaskList, TaskItem,
-  CharacterCount,
+  CharacterCount, TrailingNode,
 } from '@domternal/core';
 import { Plugin, TextSelection } from '@domternal/pm/state';
 import { undoDepth, redoDepth, closeHistory } from '@domternal/pm/history';
@@ -46,6 +46,10 @@ const details = query.get('details') === '1';
 const characterLimit = query.has('limit') ? Number(query.get('limit')) : null;
 // An Angular host bound to a reactive form, with the htmlContent signal rendered beside it.
 const angularForm = query.get('angular-form') === '1';
+// StarterKit's TrailingNode, which answers a click into a document that ends in a heading with a paragraph.
+// The editor starts from such a document, since any earlier transaction would add the paragraph.
+const trailingNode = query.get('trailing-node') === 'on';
+const initialContent = trailingNode ? '<p>intro text</p><h2>Last</h2>' : '<p></p>';
 if (listMarkers) await import('@domternal/theme/css');
 // Test-only older/custom schema control: keep list structure but omit the marker attribute.
 const withoutMarker = extension => extension.extend({ addAttributes() {
@@ -295,6 +299,7 @@ const extensions = [
   ...(details ? [Details, DetailsSummary, DetailsContent] : []),
   ...(pasteFailure === null ? [] : [FailingPasteHook]),
   Markdown, SmartPaste,
+  ...(trailingNode ? [TrailingNode] : []),
   ...(lifecycle === 'veto' ? [PasteVeto] : []),
   ...(lifecycle === 'destroy-before-observe' ? [DestroyBeforeReceiptObserver] : []),
   ...(['nested-interception', 'nested-empty-interception'].includes(lifecycle) ? [ConsumeNestedPaste, ConsumeOuterAndNest] : []),
@@ -505,18 +510,18 @@ if (framework === 'vanilla') {
   const mount = document.querySelector('#fixture');
   if (listMarkers) mount.classList.add('dm-editor');
   mount.replaceChildren();
-  wrapper = new DomternalEditor(mount, { extensions, content: '<p></p>', onCreate: capture, ...wrapperCallbacks });
+  wrapper = new DomternalEditor(mount, { extensions, content: initialContent, onCreate: capture, ...wrapperCallbacks });
 } else if (framework === 'react') {
   const { createElement: h } = await import('react');
   const { createRoot } = await import('react-dom/client');
   const { DomternalEditor } = await import('@domternal/react');
   wrapper = createRoot(document.querySelector('#fixture'));
-  wrapper.render(h(DomternalEditor, { extensions, content: '<p></p>', onCreate: capture, ...wrapperCallbacks }));
+  wrapper.render(h(DomternalEditor, { extensions, content: initialContent, onCreate: capture, ...wrapperCallbacks }));
 } else if (framework === 'vue') {
   const { createApp, h } = await import('vue');
   const { DomternalEditor } = await import('@domternal/vue');
   wrapper = createApp({
-    setup: () => () => h(DomternalEditor, { extensions, content: '<p></p>', onCreate: capture, ...wrapperCallbacks }),
+    setup: () => () => h(DomternalEditor, { extensions, content: initialContent, onCreate: capture, ...wrapperCallbacks }),
   });
   wrapper.mount('#fixture');
 } else if (framework === 'angular') {
@@ -528,6 +533,7 @@ if (framework === 'vanilla') {
   class App {
     extensions = extensions;
     control = new FormControl('<p></p>', { nonNullable: true });
+    content = initialContent;
     created(instance) { capture(instance); }
     record(call) { wrapperCalls.push(call); }
   }
@@ -537,7 +543,7 @@ if (framework === 'vanilla') {
     imports: [DomternalEditorComponent, ReactiveFormsModule],
     template: angularForm
       ? `<domternal-editor #editor [extensions]="extensions" [formControl]="control" ${outputs} /><output id="wrapper-html">{{ editor.htmlContent() }}</output>`
-      : `<domternal-editor [extensions]="extensions" content="<p></p>" ${outputs} />`,
+      : `<domternal-editor [extensions]="extensions" [content]="content" ${outputs} />`,
   })(App);
   wrapper = await bootstrapApplication(App, { providers: [provideZonelessChangeDetection()] });
 } else {

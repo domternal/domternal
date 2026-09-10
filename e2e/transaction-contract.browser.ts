@@ -121,6 +121,21 @@ for (const framework of FRAMEWORKS) {
       if (framework === 'angular') expect(observed.form).toEqual({ dirty: true, value: '<p>Hello!</p>', signal: '<p>Hello!</p>' });
     });
 
+    test('a click that TrailingNode answers with a paragraph reaches the selection callback, then the update callback', async ({ page }) => {
+      // The editor starts from this document: any earlier transaction would add the paragraph.
+      await open(page, framework, { 'trailing-node': 'on', 'angular-form': '0' });
+      expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.getHTML()))
+        .toBe('<p>intro text</p><h2>Last</h2>');
+      await page.evaluate(() => { (window as unknown as ProbeWindow).__pasteCleanup.clearObservations(); });
+
+      await page.locator('.ProseMirror p').first().click();
+
+      const observed = await observe(page);
+      expect(observed.html).toBe('<p>intro text</p><h2>Last</h2><p></p>');
+      expect(observed.calls.slice(0, 2)).toEqual(['selection', 'update']);
+      expect(observed.calls.filter(call => call === 'update')).toHaveLength(1);
+    });
+
     test('commands return true under a veto and leave editor.state the same object', async ({ page }) => {
       await open(page, framework, { limit: '5' });
       await seed(page, '<p>Start</p>', 'end');

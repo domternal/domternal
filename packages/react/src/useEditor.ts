@@ -333,10 +333,13 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync editable
+  // Sync editable. The editor is built with the current value, so the mount run
+  // changes nothing; setEditable would still dispatch, and plugins such as
+  // TrailingNode answer any dispatch with a change that reaches onUpdate.
   useEffect(() => {
-    if (instanceRef.current && !instanceRef.current.isDestroyed) {
-      instanceRef.current.setEditable(editable);
+    const ed = instanceRef.current;
+    if (ed && !ed.isDestroyed && ed.isEditable !== editable) {
+      ed.setEditable(editable);
     }
   }, [editable]);
 
