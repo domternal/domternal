@@ -377,9 +377,12 @@ The `LinkPopover` stores what the `Link` accepts, so its input follows the same 
 that starts with `#`, `/`, `./`, `../` or `?` is stored as typed, `//host/x` and a bare host such
 as `example.com` or `localhost:3000` get the Link's `defaultProtocol`, a bare email address
 becomes a `mailto:` link, and anything else with a scheme is stored as typed. A refused address
-keeps the popover open: the input is marked `aria-invalid` and reports the localized
-`core.linkPopover.invalidUrl` message until the value changes. Opening the popover on a stored
-link the Link would not keep shows it already marked invalid. Editing an existing link changes
+keeps the popover open: the input is marked `aria-invalid`, the localized
+`core.linkPopover.invalidUrl` message shows below it as `.dm-link-popover-error`, describes it
+through `aria-describedby` and is its validity message, and a refused Apply announces it as an
+alert. The reason stays until the value changes and follows a live locale change. Opening the
+popover on a stored link the Link would not keep shows it already marked invalid, with the
+reason and without an alert. Editing an existing link changes
 only its href and keeps its `title`, `target`, `rel` and `class`. `LinkPopover.configure({
 protocols })` narrows the schemes the popover accepts, read the way the Link reads its own; the
 default `null` accepts every scheme the Link accepts, and an entry that names no scheme fails

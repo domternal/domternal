@@ -71,6 +71,9 @@ function addressFor(value: string, defaultProtocol: string): string {
 
 const linkPopoverPluginKey = new PluginKey('linkPopover');
 
+/** Numbers each popover's reason element, so the field it describes can name it. */
+let reasonIds = 0;
+
 /**
  * The popover's own schemes, read the way the Link reads its `protocols`, or
  * null to accept every scheme the Link accepts. A value that names no scheme
@@ -134,6 +137,21 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
   removeBtn.className = 'dm-link-popover-btn dm-link-popover-remove';
   removeBtn.innerHTML = defaultIcons['linkBreak'] ?? '';
 
+  // Why an address is refused, visible below the field and tied to it, so the reason
+  // outlasts the browser's validation bubble and reaches assistive technology.
+  const reason = document.createElement('p');
+  reason.className = 'dm-link-popover-error';
+  reason.id = `dm-link-popover-error-${String(++reasonIds)}`;
+  reason.hidden = true;
+
+  /** Writes the localized reason to the field and the reason element. */
+  const writeReason = (): void => {
+    const message = editor.i18n.resolve(coreMessages.linkInvalidUrl);
+    input.setCustomValidity(message.text);
+    if (reason.textContent !== message.text) reason.textContent = message.text;
+    reason.lang = message.language;
+  };
+
   const updateLabels = (): void => {
     const url = editor.i18n.resolve(coreMessages.linkUrlLabel);
     const apply = editor.i18n.resolve(coreMessages.linkApply);
@@ -148,21 +166,39 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
     removeBtn.title = remove.text;
     removeBtn.setAttribute('aria-label', remove.text);
     removeBtn.lang = remove.language;
+    // A refusal shown before a locale change follows it, as the labels do.
+    if (input.getAttribute('aria-invalid') === 'true') writeReason();
   };
 
   el.appendChild(input);
   el.appendChild(applyBtn);
   el.appendChild(removeBtn);
+  el.appendChild(reason);
 
-  /** Marks the input invalid with a localized reason, which the browser announces with the field. */
-  const markInvalid = (report: boolean): void => {
+  /**
+   * Marks the input invalid with a visible, localized reason that describes it.
+   * `announce` makes the reason an alert and replaces its text node, so a refused
+   * Apply is spoken at once, also when the same reason is already shown.
+   */
+  const markInvalid = (announce: boolean): void => {
+    writeReason();
     input.setAttribute('aria-invalid', 'true');
-    input.setCustomValidity(editor.i18n.t(coreMessages.linkInvalidUrl));
-    if (report) input.reportValidity();
+    input.setAttribute('aria-describedby', reason.id);
+    if (announce) {
+      reason.setAttribute('role', 'alert');
+      reason.replaceChildren(document.createTextNode(reason.textContent));
+    } else {
+      reason.removeAttribute('role');
+    }
+    reason.hidden = false;
   };
   const clearInvalid = (): void => {
     input.removeAttribute('aria-invalid');
+    input.removeAttribute('aria-describedby');
     input.setCustomValidity('');
+    reason.hidden = true;
+    reason.removeAttribute('role');
+    reason.textContent = '';
   };
 
   let isOpen = false;

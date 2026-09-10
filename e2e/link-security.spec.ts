@@ -128,9 +128,22 @@ for (const target of demoTargets) {
       await expect(popover).toBeVisible();
       await expect(input).toHaveAttribute('aria-invalid', 'true');
       expect(await input.evaluate(element => (element as HTMLInputElement).validationMessage)).toBe('This address cannot be used as a link.');
+      // The reason stays visible below the field and describes it, and the field keeps an error border.
+      const reason = popover.locator('.dm-link-popover-error');
+      await expect(reason).toBeVisible();
+      await expect(reason).toHaveText('This address cannot be used as a link.');
+      await expect(input).toHaveAccessibleDescription('This address cannot be used as a link.');
+      const border = (): Promise<string> => input.evaluate(element => getComputedStyle(element).borderTopColor);
+      expect(await border()).not.toBe('rgb(37, 99, 235)');
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Shift+Tab');
+      await expect(input).toBeFocused();
+      await expect(reason).toBeVisible();
       await expect(editor.locator('a')).toHaveCount(0);
       await input.fill('#section');
       await expect(input).not.toHaveAttribute('aria-invalid', /.*/);
+      await expect(reason).toBeHidden();
+      expect(await border()).toBe('rgb(37, 99, 235)');
       await page.keyboard.press('Enter');
       await expect(popover).toBeHidden();
       await expect(editor.locator('a')).toHaveAttribute('href', '#section');

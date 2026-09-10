@@ -322,3 +322,86 @@ describe('LinkPopover options', () => {
     expect(LinkPopover.configure({ protocols: ['https:'] }).options.protocols).toEqual(['https:']);
   });
 });
+
+describe('LinkPopover refusal reason', () => {
+  const reason = (): HTMLElement => popover().querySelector<HTMLElement>('.dm-link-popover-error')!;
+
+  it('shows a persistent reason tied to the field and announces it when Apply is refused', () => {
+    mount();
+    select(1, 6);
+    openPopover();
+    expect(reason().hidden).toBe(true);
+    expect(input().hasAttribute('aria-describedby')).toBe(false);
+
+    apply('javascript:alert(1)');
+
+    expect(reason().hidden).toBe(false);
+    expect(reason().textContent).toBe('This address cannot be used as a link.');
+    expect(reason().lang).toBe('en');
+    expect(reason().getAttribute('role')).toBe('alert');
+    expect(reason().id).not.toBe('');
+    expect(input().getAttribute('aria-describedby')).toBe(reason().id);
+    expect(input().getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(input());
+
+    // A repeated refusal replaces the reason's node, so it is announced again.
+    const first = reason().firstChild;
+    apply('javascript:alert(2)');
+    expect(reason().firstChild).not.toBe(first);
+    expect(reason().textContent).toBe('This address cannot be used as a link.');
+
+    input().value = 'https://ok.example/';
+    input().dispatchEvent(new Event('input', { bubbles: true }));
+    expect(reason().hidden).toBe(true);
+    expect(reason().textContent).toBe('');
+    expect(input().hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('shows the reason without an alert when it opens on a stored link the popover refuses', () => {
+    mount({ popover: { protocols: ['https:'] }, content: '<p>Mail <a href="mailto:a@b.co">me</a> now</p>' });
+    select(7);
+    openPopover();
+    expect(input().getAttribute('aria-invalid')).toBe('true');
+    expect(reason().hidden).toBe(false);
+    expect(reason().textContent).toBe('This address cannot be used as a link.');
+    expect(reason().hasAttribute('role')).toBe(false);
+    expect(input().getAttribute('aria-describedby')).toBe(reason().id);
+  });
+
+  it('gives every popover its own reason id', () => {
+    mount();
+    const firstId = reason().id;
+    editor!.destroy();
+    mount();
+    expect(reason().id).not.toBe(firstId);
+  });
+
+  it('follows a live locale change in the reason, the field message and their language', () => {
+    mount();
+    select(1, 6);
+    openPopover();
+    apply('javascript:alert(1)');
+    expect(input().validationMessage).toBe('This address cannot be used as a link.');
+
+    editor!.i18n.set({ locale: 'de', messages: deMessages });
+
+    expect(input().validationMessage).toBe('Diese Adresse kann nicht als Link verwendet werden.');
+    expect(reason().textContent).toBe('Diese Adresse kann nicht als Link verwendet werden.');
+    expect(reason().lang).toBe('de');
+    expect(input().getAttribute('aria-invalid')).toBe('true');
+
+    editor!.i18n.set({ locale: 'en', messages: {} });
+    expect(input().validationMessage).toBe('This address cannot be used as a link.');
+    expect(reason().lang).toBe('en');
+  });
+
+  it('leaves a valid field alone on a locale change', () => {
+    mount();
+    select(1, 6);
+    openPopover();
+    editor!.i18n.set({ locale: 'de', messages: deMessages });
+    expect(input().validationMessage).toBe('');
+    expect(input().hasAttribute('aria-invalid')).toBe(false);
+    expect(reason().hidden).toBe(true);
+  });
+});
