@@ -103,7 +103,8 @@ persisted document content, or an API response.
 ### Reactive forms
 
 `DomternalEditorComponent` is a `ControlValueAccessor`, so it binds directly to
-`ngModel` or a `FormControl`. Set `outputFormat="json"` to emit JSON instead of HTML;
+`ngModel` or a `FormControl`. Set `outputFormat="json"` to emit JSON instead of HTML, each
+value its own object, so changing it in place leaves the `jsonContent` signal alone;
 calling `disable()`/`enable()` on the bound `FormControl` toggles the editor's editable
 state.
 

@@ -314,8 +314,9 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     editor.on('update', () => {
       this.ngZone.run(() => {
         this.contentUpdated.emit({ editor });
-        // The transaction listener above has already refreshed the signals for this change.
-        const value: Content = this.outputFormat() === 'html' ? this._htmlContent() : this._jsonContent() ?? editor.getJSON();
+        // The transaction listener above has already refreshed the signals for this change. The
+        // form gets its own JSON object, so a value changed in place cannot change jsonContent.
+        const value: Content = this.outputFormat() === 'html' ? this._htmlContent() : editor.getJSON();
         this.onChange(value);
       });
     });

@@ -107,3 +107,36 @@ describe('DomternalEditorComponent transaction callbacks', () => {
     expect(host.control.dirty).toBe(false);
   });
 });
+
+class JsonFormHost {
+  readonly control = new FormControl<Content>({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] }] }, { nonNullable: true });
+  readonly created: Editor[] = [];
+}
+Component({
+  selector: 'json-form-host',
+  imports: [ReactiveFormsModule, DomternalEditorComponent],
+  template: `<domternal-editor outputFormat="json" [formControl]="control" (editorCreated)="created.push($event)" />`,
+})(JsonFormHost);
+
+describe('DomternalEditorComponent JSON form value', () => {
+  it('gives the form its own copy of the document JSON, so changing it leaves the jsonContent signal alone', async () => {
+    const fixture = TestBed.createComponent(JsonFormHost);
+    await fixture.whenStable();
+    const host = fixture.componentInstance;
+    const component = fixture.debugElement.query(By.directive(DomternalEditorComponent)).componentInstance as DomternalEditorComponent;
+    const editor = host.created.at(-1);
+    if (!editor) throw new Error('Expected a live editor.');
+
+    editor.commands.insertContent('!');
+    await fixture.whenStable();
+
+    const value = host.control.value as { content?: { content?: { text?: string }[] }[] };
+    expect(value).toEqual(component.jsonContent());
+    expect(value).not.toBe(component.jsonContent());
+    // An application that edits the form value in place changes only its own copy.
+    const text = value.content?.[0]?.content?.[0];
+    if (text) text.text = 'changed by the form';
+    expect(component.jsonContent()).toEqual(editor.getJSON());
+    expect(JSON.stringify(component.jsonContent())).not.toContain('changed by the form');
+  });
+});
