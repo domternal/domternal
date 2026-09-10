@@ -579,3 +579,47 @@ describe('image files: next to a code block', () => {
     expect(html(ed)).toBe('<pre><code>let a = 1;</code></pre><img src="https://cdn.example/c.png"><img src="https://cdn.example/a.png"><img src="https://cdn.example/b.png"><p>after</p>');
   });
 });
+
+describe('image files: how many one paste or drop inserts', () => {
+  const names = (count: number): File[] => Array.from({ length: count }, (_, index) => png(`${String(index + 1)}.png`));
+  const sources = (target: Editor): string[] => {
+    const found: string[] = [];
+    target.state.doc.descendants(node => { if (node.type.name === 'image') found.push(String(node.attrs['src']).split('/').pop() ?? ''); });
+    return found;
+  };
+
+  it('inserts the first 10 files of a paste by default, in order, and leaves the others out', async () => {
+    const upload = uploads();
+    const ed = mount({ uploadHandler: upload.handler });
+    caret(ed, 6);
+    pasteFiles(ed, names(12));
+    expect(upload.started).toEqual(names(10).map(file => file.name));
+    for (const name of upload.started) upload.resolve(name);
+    await flush();
+    expect(sources(ed)).toEqual(names(10).map(file => file.name));
+    expect(placeholders(ed)).toBe(0);
+  });
+
+  it('reads at most maxFiles files as data URLs, and counts only files it accepts', async () => {
+    const ed = mount({ maxFiles: 2, allowedMimeTypes: ['image/png'] });
+    caret(ed, 6);
+    pasteFiles(ed, [png('a.gif', 'image/gif'), png('1.png'), png('2.png'), png('3.png')]);
+    await vi.waitFor(() => { expect(ed.getHTML().match(/<img/g)).toHaveLength(2); });
+    await flush();
+    expect(ed.getHTML().match(/<img/g)).toHaveLength(2);
+  });
+
+  it('applies maxFiles to a drop, and inserts every file with maxFiles 0', async () => {
+    const limited = mount({ maxFiles: 1, uploadHandler: file => Promise.resolve(`https://cdn.example/${file.name}`) }, '<p>A</p>');
+    dropFiles(limited, names(3), 3);
+    await flush();
+    expect(sources(limited)).toEqual(['1.png']);
+    limited.destroy();
+
+    const unlimited = mount({ maxFiles: 0, uploadHandler: file => Promise.resolve(`https://cdn.example/${file.name}`) });
+    caret(unlimited, 6);
+    pasteFiles(unlimited, names(25));
+    await flush();
+    expect(sources(unlimited)).toHaveLength(25);
+  });
+});

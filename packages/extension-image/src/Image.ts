@@ -223,6 +223,15 @@ export interface ImageOptions {
    */
   maxFileSize: number;
   /**
+   * The most image files one paste, drop or file choice inserts: the first
+   * ones of an accepted type and size, in the order they came; the others are
+   * left out. Every file is read or uploaded at once, and without an
+   * `uploadHandler` each is stored in the document as a data URL, so dropping a
+   * folder of photos would otherwise add them all. 0 inserts every file.
+   * @default 10
+   */
+  maxFiles: number;
+  /**
    * Called when upload starts for a file. An error it throws is reported
    * through the editor's `error` event (context `Image.onUploadStart`) and
    * does not stop the upload.
@@ -297,6 +306,7 @@ export const Image = Node.create<ImageOptions>({
         'image/avif',
       ],
       maxFileSize: 0,
+      maxFiles: 10,
       onUploadStart: null,
       onUploadError: null,
       placement: null,
@@ -752,6 +762,7 @@ export const Image = Node.create<ImageOptions>({
         const { allowedMimeTypes, maxFileSize } = live();
         return allowedMimeTypes.includes(file.type) && (maxFileSize <= 0 || file.size <= maxFileSize);
       },
+      maxFiles: () => live().maxFiles,
       allowsSource: src => isValidImageSrc(src, live().allowBase64),
       onUploadStart: () => (live().uploadHandler ? live().onUploadStart : null),
       onUploadError: () => live().onUploadError,

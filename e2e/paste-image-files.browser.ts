@@ -306,6 +306,16 @@ test.describe('image files pasted over a cell selection', () => {
   }
 });
 
+test.describe('how many files one paste or drop inserts', () => {
+  for (const transport of ['paste', 'drop'] as const) {
+    test(`a ${transport} of 12 image files inserts the first 10, as maxFiles allows by default`, async ({ page }) => {
+      await open(page, 'vanilla', 'off');
+      const outcome = await transfer(page, { files: 12 }, transport);
+      expect(outcome.files).toHaveLength(10);
+    });
+  }
+});
+
 test.describe('uploads in order', () => {
   test('three uploads finishing out of order land in clipboard order', async ({ page }) => {
     await open(page, 'vanilla', 'upload');

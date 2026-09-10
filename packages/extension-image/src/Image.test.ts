@@ -44,6 +44,7 @@ describe('Image', () => {
           'image/avif',
         ],
         maxFileSize: 0,
+        maxFiles: 10,
         onUploadStart: null,
         onUploadError: null,
         placement: null,

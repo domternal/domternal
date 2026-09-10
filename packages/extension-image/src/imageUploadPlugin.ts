@@ -37,6 +37,8 @@ export interface ImageFileInsertionOptions {
   store: () => ((file: File) => Promise<string>) | null;
   /** Whether a file is one the configuration accepts: its type and size. */
   accepts: (file: File) => boolean;
+  /** The most accepted files one insertion takes, the first ones; 0 for any number. Read for each insertion. */
+  maxFiles: () => number;
   /** Whether a stored source may be inserted, as setImage decides. */
   allowsSource: (src: string) => boolean;
   /** Called when a store through the uploadHandler starts. */
@@ -311,7 +313,10 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
 
   function insert(view: EditorView, files: readonly File[], placement: ImageFilePlacement, alt?: string): boolean {
     const store = options.store();
-    const accepted = files.filter(file => options.accepts(file));
+    const limit = options.maxFiles();
+    const acceptable = files.filter(file => options.accepts(file));
+    // Every file is read or uploaded at once, so the number of one paste or drop is bounded.
+    const accepted = limit > 0 ? acceptable.slice(0, limit) : acceptable;
     if (store === null || accepted.length === 0 || view.isDestroyed) return false;
     const tr = view.state.tr;
     let pos: number;
