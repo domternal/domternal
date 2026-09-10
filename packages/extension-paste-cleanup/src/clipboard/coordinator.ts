@@ -1,4 +1,4 @@
-import { getClipboardImageDestination, getClipboardPasteAttemptEvent, registerClipboardHTMLPreparation } from '@domternal/core/clipboard';
+import { getClipboardImageDestination, getClipboardPasteAttemptEvent, pasteHasOwnText, registerClipboardHTMLPreparation } from '@domternal/core/clipboard';
 import type { ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay } from '@domternal/core/clipboard';
 import type { Slice } from '@domternal/pm/model';
 import type { EditorState, Transaction } from '@domternal/pm/state';
@@ -150,7 +150,8 @@ export interface ClipboardAssetCoordinator {
   ordinaryAttempt(): boolean;
   replayHTML(html: string): ClipboardReplayNormalization | undefined;
   handleReplay(event: ClipboardEvent, slice: Slice): ClipboardReplayHandling | undefined;
-  handleImageOnly(event: ClipboardEvent, slice: Slice): boolean;
+  /** Prepares the clipboard's image files when the cleaned content has no text of its own. */
+  handleImageOnly(event: ClipboardEvent, slice: Slice, standIns?: readonly string[]): boolean;
   assetsHandled(event: ClipboardEvent): boolean;
   observe(): void;
   adopt(): void;
@@ -198,6 +199,21 @@ function resolverNonce(view: EditorView): string {
   return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
 }
 
+/** The alt text of the one image a pasted slice held, or the one stand-in cleanup left for it. */
+function singleImageAlt(slice: Slice, nodeTypeName: string | undefined, standIns: readonly string[]): string | undefined {
+  const alts: unknown[] = [];
+  slice.content.descendants(node => {
+    if (node.type.name === nodeTypeName) alts.push(node.attrs['alt']);
+  });
+  if (alts.length === 1) return typeof alts[0] === 'string' && alts[0] !== '' ? alts[0] : undefined;
+  return alts.length === 0 && standIns.length === 1 && standIns[0] !== '' ? standIns[0] : undefined;
+}
+
+/** A value written into a double-quoted HTML attribute. */
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export function createClipboardAssetCoordinator(
   view: EditorView,
   assetOptions: ResolvedImageAssets,
@@ -224,6 +240,7 @@ export function createClipboardAssetCoordinator(
     maxOutputUnits: assetLimits.maxPreparedOutputUnits });
   const captures = new WeakMap<ClipboardEvent, CaptureEntry>();
   const nativeAttempts = new WeakMap<ClipboardEvent, number>();
+  const ordinaryAttempts = new WeakMap<ClipboardEvent, number>();
   const replays = new WeakMap<ClipboardEvent, ReplayEntry>();
   const handledAssets = new WeakSet<ClipboardEvent>();
   const applying = new Map<string, AssetOperation>();
@@ -558,7 +575,13 @@ export function createClipboardAssetCoordinator(
       rejectCapture(entry);
       return true;
     },
-    ordinaryAttempt: () => current(begin()),
+    ordinaryAttempt: () => {
+      const ownGeneration = begin();
+      // The image-only route of the same event continues this generation.
+      const event = getClipboardPasteAttemptEvent(view);
+      if (event !== undefined) ordinaryAttempts.set(event, ownGeneration);
+      return current(ownGeneration);
+    },
     replayHTML(html) {
       const event = getClipboardPasteAttemptEvent(view);
       const own = event === undefined ? undefined : replays.get(event);
@@ -576,9 +599,13 @@ export function createClipboardAssetCoordinator(
       if (blocked && !own.asset.done) stop(own.asset, slice.content.size === 0 ? 'assets-unavailable' : cancellationReason(own.asset.session?.cancellation));
       return { operation: own.asset.operation, blocked, preserveOrderedListStart: own.preserveOrderedListStart };
     },
-    handleImageOnly(event, slice) {
-      if (destroyed || slice.content.size !== 0 || replays.has(event)) return false;
-      const stored = event.currentTarget === view.dom && event.eventPhase !== 0 ? captures.get(event) : undefined;
+    handleImageOnly(event, slice, standIns = []) {
+      // Core's rule: white space, format characters and alt text left in place of removed images are not text of its own.
+      if (destroyed || replays.has(event) || pasteHasOwnText(event, slice, { imageStandIns: standIns })) return false;
+      const captured = event.currentTarget === view.dom && event.eventPhase !== 0 ? captures.get(event) : undefined;
+      // Cleaning the event's HTML began a newer generation; the capture belongs to it.
+      const ordinary = ordinaryAttempts.get(event);
+      const stored = captured === undefined || ordinary === undefined ? captured : { ...captured, generation: ordinary };
       const ownGeneration = stored?.generation ?? begin();
       if (!current(ownGeneration)) { event.preventDefault(); return true; }
       const entry = stored ?? capture(event);
@@ -586,11 +613,13 @@ export function createClipboardAssetCoordinator(
       if (entry.capture.status === 'rejected') { event.preventDefault(); rejectCapture(entry); return true; }
       if (entry.capture.status !== 'captured') return false;
       const snapshot = entry.capture.snapshot;
-      if (Object.values(snapshot.text).some(text => text.trim() !== '')) return false;
       const files = snapshot.items.filter(item => item.kind === 'file' && (item.declaredType.startsWith('image/') || item.fileType?.startsWith('image/') === true));
       if (files.length === 0) return false;
       event.preventDefault();
-      const result = prepare(files.map(item => `<img src="cid:clipboard-item-${String(item.itemIndex)}">`).join(''));
+      // One file stands for the one image the pasted content held and keeps its alt text.
+      const alt = files.length === 1 ? singleImageAlt(slice, readDestination()?.nodeTypeName, standIns) : undefined;
+      const altAttribute = alt === undefined ? '' : ` alt="${escapeAttribute(alt)}"`;
+      const result = prepare(files.map(item => `<img src="cid:clipboard-item-${String(item.itemIndex)}"${altAttribute}>`).join(''));
       const asset = makeOperation(result, entry);
       if (result.status !== 'prepared') return true;
       // Each source File is the explicitly selected image in this HTML-free route.

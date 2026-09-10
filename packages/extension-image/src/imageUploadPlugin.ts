@@ -13,7 +13,7 @@ import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
-import type { NodeType, Slice } from '@domternal/pm/model';
+import type { NodeType } from '@domternal/pm/model';
 
 export const imageUploadPluginKey = new PluginKey<DecorationSet>('imageUpload');
 
@@ -78,19 +78,6 @@ const byId = (id: string) => (spec: { id?: string }): boolean => spec.id === id;
 /** The position of a placeholder, or undefined once it is gone. */
 function placeholderPos(state: EditorState, id: string): number | undefined {
   return imageUploadPluginKey.getState(state)?.find(undefined, undefined, byId(id))[0]?.from;
-}
-
-/**
- * The alt text of the one image a pasted or dropped slice held, for one file:
- * the file stands for that image.
- */
-export function singleImageAlt(slice: Slice | undefined, nodeType: NodeType): string | undefined {
-  if (slice === undefined) return undefined;
-  const alts: unknown[] = [];
-  slice.content.descendants(node => {
-    if (node.type === nodeType) alts.push(node.attrs['alt']);
-  });
-  return alts.length === 1 && typeof alts[0] === 'string' && alts[0] !== '' ? alts[0] : undefined;
 }
 
 export interface ImageFileInsertion {

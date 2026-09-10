@@ -2303,7 +2303,8 @@ describe('Image popover', () => {
       preventDefault: () => { /* noop */ },
     } as any;
 
-    const result = (plugin as any).props.handleDrop(editor.view, event);
+    // ProseMirror hands every drop handler the dropped slice, empty for files alone.
+    const result = (plugin as any).props.handleDrop(editor.view, event, Slice.empty, false);
     expect(result).toBe(true);
 
     (editor.view as any).posAtCoords = origPosAtCoords;

@@ -25,6 +25,7 @@ export {
 export {
   pasteHasOwnText,
   pasteClipboardImageFiles,
+  dropClipboardImageFiles,
   type ClipboardImageFileInsertion,
   type ClipboardPasteTextOptions,
 } from './helpers/clipboardImageFiles.js';

@@ -9,7 +9,7 @@ import { Document } from '../nodes/Document.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Text } from '../nodes/Text.js';
 import { Node } from '../Node.js';
-import { pasteClipboardImageFiles, pasteHasOwnText, registerClipboardImageDestination, setClipboardPasteBehavior } from '../clipboard.js';
+import { dropClipboardImageFiles, pasteClipboardImageFiles, pasteHasOwnText, registerClipboardImageDestination, setClipboardPasteBehavior } from '../clipboard.js';
 import type { ClipboardImageDestinationPolicy, ClipboardImageFileInsertion } from '../clipboard.js';
 
 const Photo = Node.create({
@@ -257,5 +257,61 @@ describe('pasteClipboardImageFiles', () => {
     registerClipboardImageDestination(ed.view, () => policy);
     expect(pasteClipboardImageFiles(ed.view, pasteEvent({ files: [png()] }), Slice.empty)).toBe(false);
     expect(older).not.toHaveBeenCalled();
+  });
+});
+
+describe('dropClipboardImageFiles', () => {
+  function drop(files: File[], html = ''): DragEvent {
+    const event = new Event('drop', { cancelable: true }) as DragEvent;
+    Object.defineProperty(event, 'dataTransfer', { value: {
+      types: ['Files'], files, items: files.map(file => ({ kind: 'file', type: file.type, getAsFile: () => file })),
+      getData: (type: string) => (type === 'text/html' ? html : ''),
+    } });
+    Object.defineProperty(event, 'clientX', { value: 3 });
+    Object.defineProperty(event, 'clientY', { value: 4 });
+    return event;
+  }
+
+  it('hands every dropped image file to the destination at the drop position, text or not', () => {
+    const insert = vi.fn(() => true);
+    const ed = mount();
+    registerClipboardImageDestination(ed.view, () => policy, insert);
+    const at = vi.spyOn(ed.view, 'posAtCoords').mockReturnValue({ pos: 1, inside: -1 });
+    const files = [png('a.png'), png('b.png')];
+
+    expect(dropClipboardImageFiles(ed.view, drop(files, '<p>Dragged text</p>'), sliceOf(ed, '<p>Dragged text</p>'))).toBe(true);
+
+    expect(at).toHaveBeenCalledWith({ left: 3, top: 4 });
+    expect(insert).toHaveBeenCalledExactlyOnceWith({ files, position: 1 });
+  });
+
+  it('gives one dropped file the alt text of the one image, or of the one stand-in, the drop held', () => {
+    const insert = vi.fn(() => true);
+    const ed = mount();
+    registerClipboardImageDestination(ed.view, () => policy, insert);
+    vi.spyOn(ed.view, 'posAtCoords').mockReturnValue({ pos: 1, inside: -1 });
+    const file = png();
+    const html = '<img src="https://example.com/a.png" alt="A cat">';
+
+    dropClipboardImageFiles(ed.view, drop([file], html), sliceOf(ed, html));
+    expect(insert).toHaveBeenLastCalledWith({ files: [file], position: 1, alt: 'A cat' });
+    dropClipboardImageFiles(ed.view, drop([file]), textSlice(ed, 'A cat'), { imageStandIns: ['A cat'] });
+    expect(insert).toHaveBeenLastCalledWith({ files: [file], position: 1, alt: 'A cat' });
+  });
+
+  it('returns false without image files, a destination, a position, or when the destination declines or throws', () => {
+    const ed = mount();
+    vi.spyOn(ed.view, 'posAtCoords').mockReturnValue({ pos: 1, inside: -1 });
+    expect(dropClipboardImageFiles(ed.view, drop([png()]), Slice.empty)).toBe(false);
+    const dispose = registerClipboardImageDestination(ed.view, () => policy, () => false);
+    expect(dropClipboardImageFiles(ed.view, drop([]), Slice.empty)).toBe(false);
+    expect(dropClipboardImageFiles(ed.view, drop([png()]), Slice.empty)).toBe(false);
+    dispose();
+    const throwing = registerClipboardImageDestination(ed.view, () => policy, () => { throw new Error('failed'); });
+    expect(dropClipboardImageFiles(ed.view, drop([png()]), Slice.empty)).toBe(false);
+    throwing();
+    registerClipboardImageDestination(ed.view, () => policy, () => true);
+    vi.spyOn(ed.view, 'posAtCoords').mockReturnValue(null);
+    expect(dropClipboardImageFiles(ed.view, drop([png()]), Slice.empty)).toBe(false);
   });
 });

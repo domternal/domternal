@@ -123,6 +123,22 @@ Callback exceptions cannot revoke an accepted paste or disable cleanup.
 | `untracked` | No accepted receipt was found, for example after a plugin veto or a custom handler |
 
 An empty cleaned slice preserves the selection instead of deleting selected text.
+
+When the cleaned content has no text of its own, the clipboard's image files are the paste.
+White space, a no-break space, invisible format characters such as zero-width spaces, and the
+alt text cleanup leaves in place of the images it removes do not count as text, so a copied web
+image (an `<img>` next to its file), a meta element, blank paragraphs or a `blob:` image with a
+file paste the file instead of nothing or the alt text. Core's `pasteHasOwnText` decides, as it
+does for the Image extension and the Link paste. Without `imageAssets`, the Image extension
+inserts the files; one file keeps the alt text of the one image the content held. Such an
+operation reports `untracked` without findings in `onPasteResult` and the notice, since nothing
+of the cleaned content reached the document, while `onResult` still reports the cleanup as it
+ran. A drop's image files win over its content, and one dropped file keeps the alt text cleanup
+left in place of the one image it removed. Content with text of its own keeps the paste, since
+Word, Excel and Google Docs put a picture of the copied selection next to it. A rejected paste
+never reaches the files. With `allowBase64: false` and no `uploadHandler`, the Image cannot store
+files and the cleaned content pastes as it would without them.
+
 `untracked` does not prove that nothing was inserted. Custom asynchronous handlers
 and legacy image-only routes that skip text/HTML transforms are outside this receipt
 contract. The optional `imageAssets` coordinator does track its image-only route.
@@ -384,7 +400,13 @@ the destination Image extension's `allowBase64` policy.
 
 `imageAssets` defaults to `false`. Enable `imageAssets: { mode: 'embedded' }`
 alongside `Image.configure({ allowBase64: true })` to prepare image-only clipboard
-files as embedded raster images. Preparation reads captured local files without
+files as embedded raster images. A paste is image-only when its cleaned content has no text of
+its own, by the rule above, so a copied web image, blank paragraphs or a meta element next to a
+file prepare the file too, with the one copied image's alt text; the cleaned operation then
+reports `untracked` without findings and the prepared files report as their own `applied`
+operation. A local `file:` or `blob:` image reference is not such a stand-in: it follows the
+bindings below, so `unresolved: 'reject'` rejects it and `'omit'` leaves its alt text, file or
+not. Preparation reads captured local files without
 uploading, fetching, creating object URLs or adding document placeholders.
 
 With `imageAssets`, PasteCleanup also owns the editor's clipboard HTML

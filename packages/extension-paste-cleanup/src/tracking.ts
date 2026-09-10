@@ -100,6 +100,11 @@ export function createPasteTracking(
   /** Installed acceptance survives reference expiry, Undo, destruction, and terminal delivery. */
   hasAcceptedReceipt: (operation: PendingPasteOperation) => boolean;
   skip: (operation: PendingPasteOperation) => void;
+  /**
+   * Marks an operation whose cleaned content the clipboard's image files replaced: nothing of it
+   * reached the document, so it reports no finding, and the images arrive through the image node.
+   */
+  replacedByFiles: (operation: PendingPasteOperation) => void;
   /** Records the slice a paste handler lets ProseMirror or a later handler insert, so heading findings can follow it. */
   recordSlice: (operation: PendingPasteOperation, slice: Slice) => void;
   finish: (view: EditorView, operation: PendingPasteOperation, rejected: boolean, details?: PasteFinishDetails) => Promise<PasteOperationResult>;
@@ -114,6 +119,7 @@ export function createPasteTracking(
     reason: PasteOperationRejectionReason | undefined;
     settled: boolean;
     skipped?: boolean;
+    replacedByFiles?: boolean;
     accepted?: ReturnType<typeof readPasteReceipt>;
   }
   const waiting = new Map<string, Waiting>();
@@ -144,6 +150,10 @@ export function createPasteTracking(
     skip(operation) {
       const entry = waiting.get(operation.operationId);
       if (entry !== undefined) entry.skipped = true;
+    },
+    replacedByFiles(operation) {
+      const entry = waiting.get(operation.operationId);
+      if (entry !== undefined) entry.replacedByFiles = true;
     },
     finish(view, operation, rejected, details = {}) {
       const previous = completions.get(operation);
@@ -178,9 +188,10 @@ export function createPasteTracking(
           documentRevision: currentRevision, ranges: Object.freeze([]), expired: true,
         });
         // The notice and onPasteResult follow what an applied paste inserted; onResult keeps the cleanup's view.
-        const diagnostics = receipt?.changed === true
-          ? reconcileHeadingDiagnostics(normalized.diagnostics, outline, slices.get(operation), receipt.insertion)
-          : normalized.diagnostics;
+        const diagnostics = entry.replacedByFiles === true && receipt === undefined ? Object.freeze([])
+          : receipt?.changed === true
+            ? reconcileHeadingDiagnostics(normalized.diagnostics, outline, slices.get(operation), receipt.insertion)
+            : normalized.diagnostics;
         const result: PasteOperationResult = Object.freeze({
           ...normalized,
           diagnostics,

@@ -7,6 +7,7 @@ ClipboardImageFileInserter @experimental
 ClipboardImageFileInsertion @experimental
 ClipboardPasteBehavior @experimental
 ClipboardPasteTextOptions @experimental
+dropClipboardImageFiles @experimental
 getClipboardImageDestination @experimental
 getClipboardPasteAttemptEvent @experimental
 getClipboardPasteBehavior @experimental

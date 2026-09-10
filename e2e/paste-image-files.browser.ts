@@ -63,10 +63,12 @@ const ROWS: Row[] = [
   {
     name: 'a copied local image with alt text and its file',
     clipboard: { html: '<img src="file:///C:/Users/me/cat.png" alt="A cat">', files: 1 },
-    expect: { off: { file: 1, alt: 'A cat' }, cleanup: { file: 1, alt: 'A cat' }, assets: { rejected: true }, 'assets-omit': { file: 1, alt: 'A cat' }, upload: { file: 1, alt: 'A cat' } },
+    // Image assets bind a local reference only through the host's matcher: 'reject' rejects the
+    // unbound reference, 'omit' leaves its alt text, and the clipboard file is not bound to it.
+    expect: { off: { file: 1, alt: 'A cat' }, cleanup: { file: 1, alt: 'A cat' }, assets: { rejected: true }, 'assets-omit': { text: 'A cat' }, upload: { file: 1, alt: 'A cat' } },
   },
   { name: 'a data image and its file', clipboard: { html: `<img src="data:image/png;base64,${PNG}">`, files: 1 }, expect: { off: FILE, cleanup: FILE, assets: FILE, 'assets-omit': FILE, upload: FILE } },
-  { name: 'a blob image and its file', clipboard: { html: '<img src="blob:https://example.com/1234">', files: 1 }, expect: { off: FILE, cleanup: FILE, assets: { rejected: true }, 'assets-omit': FILE, upload: FILE } },
+  { name: 'a blob image and its file', clipboard: { html: '<img src="blob:https://example.com/1234">', files: 1 }, expect: { off: FILE, cleanup: FILE, assets: { rejected: true }, 'assets-omit': { rejected: true }, upload: FILE } },
   { name: 'HTML white space and a file', clipboard: { html: '<p> </p>', files: 1 }, expect: ALL_FILE },
   { name: 'HTML no-break space and a file', clipboard: { html: '<p>&nbsp;</p>', files: 1 }, expect: ALL_FILE },
   { name: 'HTML zero-width characters and a file', clipboard: { html: '<p>\u200b\u200d\u00ad</p>', files: 1 }, expect: ALL_FILE },
@@ -174,7 +176,7 @@ function check(outcome: Outcome, expected: Expected, config: Config): void {
   }
 }
 
-const CONFIGS: Config[] = ['off', 'upload', 'no-base64'];
+const CONFIGS: Config[] = ['off', 'upload', 'no-base64', 'cleanup', 'assets', 'assets-omit'];
 
 for (const config of CONFIGS) {
   test.describe(`image files on paste (${config})`, () => {
@@ -190,8 +192,8 @@ for (const config of CONFIGS) {
 }
 
 for (const framework of ['react', 'vue', 'angular'] as const) {
-  test(`${framework}: a copied web image pastes its file with the alt text`, async ({ page }) => {
-    for (const config of ['off'] as const) {
+  test(`${framework}: a copied web image pastes its file with the alt text, with and without PasteCleanup`, async ({ page }) => {
+    for (const config of ['off', 'cleanup'] as const) {
       await open(page, framework, config);
       check(await transfer(page, { html: `<meta charset="utf-8"><img src="${REMOTE}" alt="A cat">`, files: 1 }, 'paste'), { file: 1, alt: 'A cat' }, config);
     }
@@ -199,7 +201,7 @@ for (const framework of ['react', 'vue', 'angular'] as const) {
 }
 
 test.describe('image files on drop', () => {
-  for (const config of ['off', 'upload'] as const) {
+  for (const config of ['off', 'cleanup', 'upload'] as const) {
     test(`every dropped file wins over the dropped HTML, in order (${config})`, async ({ page }) => {
       await open(page, 'vanilla', config);
       const outcome = await transfer(page, { html: '<p>Dragged text</p>', files: 2 }, 'drop');
@@ -253,7 +255,7 @@ test.describe('uploads in order', () => {
 test('Chromium: a trusted paste of a copied image inserts its file once, with the alt text', async ({ page, context, browserName }) => {
   test.skip(browserName !== 'chromium', 'The system clipboard takes an image file in Chromium only');
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE_URL });
-  for (const config of ['off'] as const) {
+  for (const config of ['off', 'cleanup'] as const) {
     await open(page, 'vanilla', config);
     await page.evaluate(async png => {
       const bytes = Uint8Array.from(atob(png), value => value.charCodeAt(0));

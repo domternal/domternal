@@ -33,6 +33,34 @@ function accept(editor: Editor, operationId: string): void {
 }
 
 describe('asynchronous paste completion tracking', () => {
+  it('reports an operation whose content image files replaced as untracked without findings, unless a receipt says otherwise', async () => {
+    const observer = vi.fn();
+    const tracking = createPasteTracking('preserve', observer);
+    const editor = mount(tracking);
+    const { result } = normalizeClipboardHTML('<img src="https://example.com/a.png" alt="A">');
+    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toContain('image-removed');
+    const replaced = tracking.create(result);
+    const completion = tracking.finish(editor.view, replaced, false);
+    tracking.replacedByFiles(replaced);
+    await expect(completion).resolves.toMatchObject({ status: 'untracked', diagnostics: [] });
+    expect(observer).toHaveBeenCalledOnce();
+
+    // An accepted receipt still wins, with the cleanup's own findings.
+    const accepted = tracking.create(result);
+    const acceptedCompletion = tracking.finish(editor.view, accepted, false);
+    tracking.replacedByFiles(accepted);
+    accept(editor, accepted.operationId);
+    await expect(acceptedCompletion).resolves.toMatchObject({ status: 'applied' });
+    expect((await acceptedCompletion).diagnostics.map(diagnostic => diagnostic.code)).toContain('image-removed');
+
+    // A replacement learned after completion changes nothing.
+    const late = tracking.create(result);
+    const lateCompletion = tracking.finish(editor.view, late, false);
+    await lateCompletion;
+    tracking.replacedByFiles(late);
+    expect((await lateCompletion).diagnostics).toHaveLength(1);
+  });
+
   it('keeps installed no-change acceptance separate from an unaccepted skipped paste', async () => {
     const tracking = createPasteTracking('preserve', undefined);
     const editor = mount(tracking);

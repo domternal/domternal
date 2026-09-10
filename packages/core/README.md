@@ -256,6 +256,8 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   hands every image file, in clipboard order, to the latest destination's `insertFiles` (the
   optional third argument of `registerClipboardImageDestination`), with the alt text of the one
   image the content held when there is one image and one file, and returns whether it took them.
+  `dropClipboardImageFiles(view, event, slice)` does the same for a drop at its position, where
+  the files win over whatever else the drop carries.
   A paste whose content has text of its own keeps that content, because Office applications and
   Google Docs put a picture of the copied selection next to it. The Image extension, Paste Cleanup
   and the Link paste all ask this rule, so their paste handlers cannot disagree.

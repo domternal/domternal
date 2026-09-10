@@ -14,6 +14,7 @@ import { assertOutputTreeBounds } from './treeBounds.js';
 import { collectDestinationDemand } from './destinationDemand.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
 import { adaptHeadingLevels, HEADING_LEVEL_FEATURES, recordHeadingOutline } from './headingLevels.js';
+import { recordImageStandIns } from './imageStandIns.js';
 import { LINK_FEATURES, unwrapLinks } from './links.js';
 import { reconstructOfficeLists } from './officeLists.js';
 import type { OfficeListReconstructionOptions } from './officeLists.js';
@@ -152,6 +153,8 @@ export function normalizeClipboardHTML(
     assertTableBounds(tree, limits.maxTableCells);
     let images = 0;
     let pixels = 0;
+    // The alt text left in place of each removed image, so the editor can tell it from pasted text.
+    const standIns: string[] = [];
     const consumePixels = (count: number): boolean => {
       if (pixels + count > limits.maxImagePixels) return false;
       pixels += count;
@@ -270,6 +273,7 @@ export function normalizeClipboardHTML(
               preparation?.removedImage?.();
               report('image-removed', child);
               if (typeof original.alt === 'string') children.push({ type: 'text', value: original.alt });
+              standIns.push(typeof original.alt === 'string' ? original.alt : '');
               continue;
             }
             // HAST data comes from this trusted sink, never from pasted HTML attributes.
@@ -294,6 +298,7 @@ export function normalizeClipboardHTML(
       parent.children = children;
     };
     normalizeChildren(tree);
+    recordImageStandIns(result, standIns);
     assertOutputTreeBounds(tree, limits.maxNodes, limits.maxDepth);
     const sanitized = sanitize(tree, schema);
     if (sanitized.type !== 'root') throw new Error('Expected a sanitized fragment');

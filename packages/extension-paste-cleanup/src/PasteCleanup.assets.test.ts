@@ -393,14 +393,25 @@ describe('coordinated embedded clipboard assets', () => {
     expect(fixture.upload).not.toHaveBeenCalled();
   });
 
-  it('keeps an already embedded HTML image once without appending or reading its duplicate clipboard file', async () => {
+  it('inserts the clipboard file once, with the alt text, in place of an embedded HTML image with no text beside it', async () => {
     const asset = imageFile();
     const fixture = mount();
     paste(fixture.editor, { html: `<img src="${PNG_URL}" alt="Existing">`, files: [asset.file] });
+    // The cleaned content reports untracked without findings; the prepared file reports as applied.
+    await terminal(fixture, 'applied', undefined, 2);
+    expect(fixture.completed.mock.calls[0]?.[0]).toMatchObject({ status: 'untracked', diagnostics: [] });
+    expect(imageNodes(fixture.editor).map(image => [image.src, image.alt])).toEqual([[PNG_URL, 'Existing']]);
+    expect(asset.read).toHaveBeenCalledOnce();
+    expect(fixture.upload).not.toHaveBeenCalled();
+  });
+
+  it('keeps an embedded HTML image with text beside it, without reading the clipboard file', async () => {
+    const asset = imageFile();
+    const fixture = mount();
+    paste(fixture.editor, { html: `<p>Caption</p><img src="${PNG_URL}" alt="Existing">`, files: [asset.file] });
     await terminal(fixture, 'applied');
     expect(imageNodes(fixture.editor).map(image => [image.src, image.alt])).toEqual([[PNG_URL, 'Existing']]);
     expect(asset.read).not.toHaveBeenCalled();
-    expect(fixture.upload).not.toHaveBeenCalled();
   });
 
   it('rejects unmatched references by default without guessing a one-to-one file association', async () => {

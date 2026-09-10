@@ -9,14 +9,14 @@
  */
 
 import { Node, PluginKey, checkUrl, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages } from '@domternal/core';
-import { getClipboardPasteBehavior, pasteClipboardImageFiles, registerClipboardImageDestination } from '@domternal/core/clipboard';
+import { dropClipboardImageFiles, getClipboardPasteBehavior, pasteClipboardImageFiles, registerClipboardImageDestination } from '@domternal/core/clipboard';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
 import type { Node as PmNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { imageMessages } from './messages.js';
-import { imageFileInsertion, singleImageAlt } from './imageUploadPlugin.js';
+import { imageFileInsertion } from './imageUploadPlugin.js';
 
 /** Float values for image text wrapping. */
 export type ImageFloat = 'none' | 'left' | 'right' | 'center';
@@ -761,7 +761,8 @@ export const Image = Node.create<ImageOptions>({
               policyVersion: 'builtin:1',
             };
           // Core hands over a paste's image files when they are the paste, for PasteCleanup and Link too.
-          }, insertion => files.insert(view, insertion.files, { at: 'selection' }, insertion.alt)),
+          }, insertion => files.insert(view, insertion.files,
+            insertion.position === undefined ? { at: 'selection' } : { at: 'position', pos: insertion.position }, insertion.alt)),
         }),
       }));
 
@@ -1037,15 +1038,13 @@ export const Image = Node.create<ImageOptions>({
           handleDrop(view, event, slice, moved) {
             // A drag inside the editor moves its own content.
             if (moved) return false;
-            const dropped = clipboardImageFiles(event.dataTransfer);
-            if (dropped.length === 0) return false;
-            const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            // One dropped file stands for the one image the drop held, and keeps its alt text.
-            const alt = dropped.length === 1 ? singleImageAlt(slice, nodeType) : undefined;
-            if (pos && files.insert(view, dropped, { at: 'position', pos: pos.pos }, alt)) {
+            // A drop's files win; Core hands them to this node's insertFiles at the drop position,
+            // with the alt text of the one image the drop held for one file.
+            if (dropClipboardImageFiles(view, event, slice)) {
               event.preventDefault();
               return true;
             }
+            if (clipboardImageFiles(event.dataTransfer).length === 0) return false;
             // Image files alone that nothing inserts: the browser must not open them instead.
             if (holdsOnlyFiles(event.dataTransfer)) {
               event.preventDefault();

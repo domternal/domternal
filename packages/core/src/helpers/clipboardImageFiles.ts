@@ -16,6 +16,8 @@ export interface ClipboardImageFileInsertion {
   readonly files: readonly File[];
   /** The alt text of the one image the pasted content held, when there is one image and one file. */
   readonly alt?: string;
+  /** Where a drop puts the files; without it, a paste replaces the selection. */
+  readonly position?: number;
 }
 
 /** @experimental Options of the paste file rule. */
@@ -131,6 +133,33 @@ export function pasteClipboardImageFiles(
   const alt = files.length === 1 ? singleAlt(slice, destination.nodeTypeName, options.imageStandIns ?? []) : undefined;
   try {
     return destination.insertFiles(Object.freeze({ files: Object.freeze(files), ...(alt === undefined ? {} : { alt }) }));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @experimental Hands the image files of a drop to the view's image destination at the drop
+ * position. A drop's files win over the HTML or text it carries, since an operating system's file
+ * drag carries only a name as text; with one file and one image in the dropped content, the file
+ * keeps that image's alt text. Returns whether the destination took the files. A drag inside the
+ * editor moves its own content and carries no files.
+ */
+export function dropClipboardImageFiles(
+  view: EditorView,
+  event: DragEvent,
+  slice: Slice,
+  options: ClipboardPasteTextOptions = {},
+): boolean {
+  const files = clipboardImageFiles(event.dataTransfer);
+  if (files.length === 0) return false;
+  const destination = clipboardImageFileDestination(view);
+  if (destination === undefined) return false;
+  const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+  if (!at) return false;
+  const alt = files.length === 1 ? singleAlt(slice, destination.nodeTypeName, options.imageStandIns ?? []) : undefined;
+  try {
+    return destination.insertFiles(Object.freeze({ files: Object.freeze(files), position: at.pos, ...(alt === undefined ? {} : { alt }) }));
   } catch {
     return false;
   }
