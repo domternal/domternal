@@ -599,6 +599,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
       ng-packagr:
         specifier: ^21.0.0
         version: 21.2.7(@angular/compiler-cli@21.2.20(@angular/compiler@21.2.20)(typescript@5.9.3))(tailwindcss@4.3.3)(tslib@2.8.1)(typescript@5.9.3)
@@ -975,6 +978,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
       jsdom:
         specifier: ^28.1.0
         version: 28.1.0(@noble/hashes@1.8.0)

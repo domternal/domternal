@@ -13,7 +13,6 @@ import type {
   AnyExtension,
   FocusPosition,
   EditorPreset,
-  TransactionEventProps,
   FocusEventProps,
   I18nOptions,
   ContentErrorProps,
@@ -199,16 +198,13 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
 
   /** Wire transaction, focus, blur event handlers to an editor instance. */
   function wireEvents(ed: Editor): void {
-    ed.on('transaction', ({ transaction }: TransactionEventProps) => {
-      const cbs = callbacksRef.current;
-      // Mirror core's `update` event: skip programmatic writes (setContent(content, false))
-      // that set skipUpdate, so onUpdate never echoes a silent content sync.
-      if (transaction.docChanged && !transaction.getMeta('skipUpdate')) {
-        cbs.onUpdate?.({ editor: ed });
-      }
-      if (!transaction.docChanged && transaction.selectionSet) {
-        cbs.onSelectionChange?.({ editor: ed });
-      }
+    // Follow core's events, which count changes that appended transactions make
+    // and skip programmatic writes (setContent(content, false)) that set skipUpdate.
+    ed.on('update', () => {
+      callbacksRef.current.onUpdate?.({ editor: ed });
+    });
+    ed.on('selectionUpdate', () => {
+      callbacksRef.current.onSelectionChange?.({ editor: ed });
     });
 
     ed.on('focus', ({ event }: FocusEventProps) => {

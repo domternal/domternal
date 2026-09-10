@@ -298,29 +298,31 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     this._jsonContent.set(editor.getJSON());
     this._isEmpty.set(editor.isEmpty);
 
-    editor.on('transaction', ({ transaction }: TransactionEventProps) => {
+    // The signals follow every accepted document change, including one an
+    // appended transaction made and programmatic writes (writeValue, [content])
+    // that set skipUpdate. Those writes emit nothing and leave the reactive form
+    // pristine: contentUpdated and the form follow core's update event.
+    editor.on('transaction', ({ transaction, appendedTransactions = [] }: TransactionEventProps) => {
+      if (!transaction.docChanged && !appendedTransactions.some(appended => appended.docChanged)) return;
       this.ngZone.run(() => {
-        const ed = editor;
+        this._htmlContent.set(editor.getHTML());
+        this._jsonContent.set(editor.getJSON());
+        this._isEmpty.set(editor.isEmpty);
+      });
+    });
 
-        if (transaction.docChanged) {
-          const html = ed.getHTML();
-          this._htmlContent.set(html);
-          this._jsonContent.set(ed.getJSON());
-          this._isEmpty.set(ed.isEmpty);
+    editor.on('update', () => {
+      this.ngZone.run(() => {
+        this.contentUpdated.emit({ editor });
+        // The transaction listener above has already refreshed the signals for this change.
+        const value: Content = this.outputFormat() === 'html' ? this._htmlContent() : this._jsonContent() ?? editor.getJSON();
+        this.onChange(value);
+      });
+    });
 
-          // Programmatic writes (writeValue, [content]) set skipUpdate: keep local
-          // state in sync but do not emit change or mark the reactive form dirty.
-          if (!transaction.getMeta('skipUpdate')) {
-            this.contentUpdated.emit({ editor: ed });
-
-            const value: Content = this.outputFormat() === 'html' ? html : ed.getJSON();
-            this.onChange(value);
-          }
-        }
-
-        if (!transaction.docChanged && transaction.selectionSet) {
-          this.selectionChanged.emit({ editor: ed });
-        }
+    editor.on('selectionUpdate', () => {
+      this.ngZone.run(() => {
+        this.selectionChanged.emit({ editor });
       });
     });
 

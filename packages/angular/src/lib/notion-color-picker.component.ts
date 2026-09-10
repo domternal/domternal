@@ -20,7 +20,7 @@ import {
   untracked,
 } from '@angular/core';
 
-import type { Editor, PickerLabel } from '@domternal/core';
+import type { Editor, PickerLabel, TransactionEventProps } from '@domternal/core';
 import { coreMessages, resolveColorName, resolveColorSwatch, positionFloating } from '@domternal/core';
 
 interface NotionColorPickerStorage {
@@ -159,6 +159,7 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
   private clickOutsideHandler: ((e: Event) => void) | null = null;
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
   private selectionHandler: (() => void) | null = null;
+  private selectionMoveWithChangeHandler: ((props: TransactionEventProps) => void) | null = null;
   private cleanupFloating: (() => void) | null = null;
 
   constructor() {
@@ -393,6 +394,11 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
       'selectionUpdate',
       this.selectionHandler
     );
+    // A selection move that a plugin answers with a document change arrives as update.
+    this.selectionMoveWithChangeHandler = ({ transaction }: TransactionEventProps) => {
+      if (!transaction.docChanged && transaction.selectionSet) this.selectionHandler?.();
+    };
+    this.editor().on('update', this.selectionMoveWithChangeHandler);
   }
 
   private removeGlobalListeners(): void {
@@ -410,6 +416,10 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
         this.selectionHandler
       );
       this.selectionHandler = null;
+    }
+    if (this.selectionMoveWithChangeHandler) {
+      this.editor().off('update', this.selectionMoveWithChangeHandler);
+      this.selectionMoveWithChangeHandler = null;
     }
   }
 

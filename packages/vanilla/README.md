@@ -92,6 +92,10 @@ The matching mount points:
 `onCreate`, `onUpdate`, `onSelectionChange`, `onFocus`, `onBlur`, and `onDestroy` callbacks are
 accepted alongside them, and the same moments are dispatched on the instance as `create`,
 `update`, `selectionchange`, `focus`, `blur`, and `destroy` `CustomEvent`s.
+`onUpdate` and the `update` event follow the core `update` event: it runs after every accepted change to the document,
+including a change a plugin appended to a selection move, and never for a transaction a plugin
+vetoed or a programmatic write that skips updates. `onSelectionChange` and `selectionchange` run when only the selection
+moved.
 
 `onContentError` and `onContentDiagnostic` report what loading content changed, and are
 dispatched as `contenterror` and `contentdiagnostic` events. `onContentError` receives

@@ -106,6 +106,10 @@ const isBold = useEditorState(editor, (ed) => ed.isActive('bold'));
 accepted alongside them. `<Domternal>` and `<DomternalEditor>` take the same options as props,
 except `history`: their prop lists are fixed, so `:history="false"` never reaches the composable.
 Call `useEditor({ history: false })` with `provideEditor` instead.
+`onUpdate` (and `v-model`) follows the core `update` event: it runs after every accepted change to the document,
+including a change a plugin appended to a selection move, and never for a transaction a plugin
+vetoed or a programmatic write that skips updates. `onSelectionChange` runs when only the selection
+moved.
 
 `onContentError` and `onContentDiagnostic` (`@content-error` and `@content-diagnostic` on the
 components) report what loading content changed. `onContentError` receives

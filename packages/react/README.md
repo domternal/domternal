@@ -95,6 +95,10 @@ export default function Editor() {
 `onCreate`, `onUpdate`, `onSelectionChange`, `onFocus`, `onBlur`, and `onDestroy` callbacks are
 accepted alongside them. `<Domternal>` additionally takes `deps`, the dependency array
 `useEditor` reads as its second argument: change a value in it and the editor is rebuilt.
+`onUpdate` follows the core `update` event: it runs after every accepted change to the document,
+including a change a plugin appended to a selection move, and never for a transaction a plugin
+vetoed or a programmatic write that skips updates. `onSelectionChange` runs when only the selection
+moved.
 
 `onContentError` and `onContentDiagnostic` report what loading content changed. `onContentError`
 receives `{ editor, error, content }` when the initial content does not match the schema, so the

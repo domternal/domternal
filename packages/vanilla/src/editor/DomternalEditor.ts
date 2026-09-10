@@ -13,7 +13,6 @@ import type {
   EditorPreset,
   I18nOptions,
   JSONContent,
-  TransactionEventProps,
   FocusEventProps,
   ContentErrorProps,
   ContentDiagnosticProps,
@@ -155,7 +154,8 @@ export class DomternalEditor extends EventTarget {
   #onContentError: DomternalEditorOptions['onContentError'];
   #onContentDiagnostic: DomternalEditorOptions['onContentDiagnostic'];
 
-  #transactionHandler: ((props: TransactionEventProps) => void) | null = null;
+  #updateHandler: (() => void) | null = null;
+  #selectionHandler: (() => void) | null = null;
   #focusHandler: ((props: FocusEventProps) => void) | null = null;
   #blurHandler: ((props: FocusEventProps) => void) | null = null;
 
@@ -309,21 +309,19 @@ export class DomternalEditor extends EventTarget {
   }
 
   #wireEditorEvents(): void {
-    this.#transactionHandler = ({ transaction }: TransactionEventProps): void => {
-      // skipUpdate marks programmatic content writes (setContent(content, false))
-      // that must not emit update to consumers.
-      if (transaction.docChanged && !transaction.getMeta('skipUpdate')) {
-        this.#onUpdate?.({ editor: this.editor });
-        this.dispatchEvent(
-          new CustomEvent('update', { detail: { editor: this.editor } }),
-        );
-      }
-      if (!transaction.docChanged && transaction.selectionSet) {
-        this.#onSelectionChange?.({ editor: this.editor });
-        this.dispatchEvent(
-          new CustomEvent('selectionchange', { detail: { editor: this.editor } }),
-        );
-      }
+    // Follow core's events, which count changes that appended transactions make
+    // and skip programmatic writes (setContent(content, false)) that set skipUpdate.
+    this.#updateHandler = (): void => {
+      this.#onUpdate?.({ editor: this.editor });
+      this.dispatchEvent(
+        new CustomEvent('update', { detail: { editor: this.editor } }),
+      );
+    };
+    this.#selectionHandler = (): void => {
+      this.#onSelectionChange?.({ editor: this.editor });
+      this.dispatchEvent(
+        new CustomEvent('selectionchange', { detail: { editor: this.editor } }),
+      );
     };
 
     this.#focusHandler = ({ event }: FocusEventProps): void => {
@@ -340,15 +338,20 @@ export class DomternalEditor extends EventTarget {
       );
     };
 
-    this.editor.on('transaction', this.#transactionHandler);
+    this.editor.on('update', this.#updateHandler);
+    this.editor.on('selectionUpdate', this.#selectionHandler);
     this.editor.on('focus', this.#focusHandler);
     this.editor.on('blur', this.#blurHandler);
   }
 
   #unwireEditorEvents(): void {
-    if (this.#transactionHandler) {
-      this.editor.off('transaction', this.#transactionHandler);
-      this.#transactionHandler = null;
+    if (this.#updateHandler) {
+      this.editor.off('update', this.#updateHandler);
+      this.#updateHandler = null;
+    }
+    if (this.#selectionHandler) {
+      this.editor.off('selectionUpdate', this.#selectionHandler);
+      this.#selectionHandler = null;
     }
     if (this.#focusHandler) {
       this.editor.off('focus', this.#focusHandler);

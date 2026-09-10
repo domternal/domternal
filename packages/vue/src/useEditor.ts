@@ -14,7 +14,6 @@ import type {
   AnyExtension,
   FocusPosition,
   EditorPreset,
-  TransactionEventProps,
   FocusEventProps,
   I18nOptions,
   ContentErrorProps,
@@ -124,15 +123,13 @@ export function useEditor(options: UseEditorOptions = {}): {
   let pendingContent: Content | null = null;
 
   function wireEvents(ed: Editor): void {
-    ed.on('transaction', ({ transaction }: TransactionEventProps) => {
-      // Mirror core's `update` event: skip programmatic writes (setContent(content, false))
-      // that set skipUpdate, so onUpdate never echoes a silent content sync.
-      if (transaction.docChanged && !transaction.getMeta('skipUpdate')) {
-        options.onUpdate?.({ editor: ed });
-      }
-      if (!transaction.docChanged && transaction.selectionSet) {
-        options.onSelectionChange?.({ editor: ed });
-      }
+    // Follow core's events, which count changes that appended transactions make
+    // and skip programmatic writes (setContent(content, false)) that set skipUpdate.
+    ed.on('update', () => {
+      options.onUpdate?.({ editor: ed });
+    });
+    ed.on('selectionUpdate', () => {
+      options.onSelectionChange?.({ editor: ed });
     });
 
     ed.on('focus', ({ event }: FocusEventProps) => {

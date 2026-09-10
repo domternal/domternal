@@ -154,7 +154,10 @@ All components are standalone (no NgModule). Import them directly from
   `outputFormat` are reactive; the rest are read once at creation), `editorCreated`,
   `contentUpdated`, `selectionChanged`, `focusChanged`, `blurChanged`, `editorDestroyed`,
   `contentError`, and `contentDiagnostic` outputs, and read-only `htmlContent`,
-  `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals.
+  `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals. `contentUpdated` and the form
+  value follow the core `update` event, including a change a plugin appended to a selection
+  move, and never a vetoed transaction; the content signals also follow programmatic writes
+  (`writeValue`, `[content]`), which emit nothing and leave the form pristine.
 - `DomternalToolbarComponent` (`<domternal-toolbar>`): auto-rendered formatting
   toolbar with keyboard navigation, custom `icons`, and `layout` overrides.
 - `DomternalBubbleMenuComponent` (`<domternal-bubble-menu>`): inline selection menu
