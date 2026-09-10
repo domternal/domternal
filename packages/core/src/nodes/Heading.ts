@@ -16,6 +16,7 @@ import {
   configuredHeadingLevels, headingCannotStand, headingLevelAttribute, resolveHeadingLevel, unconfiguredTagPriority,
 } from '../utils/headingLevel.js';
 import { pastedAttributesPlugin } from '../utils/pastedAttributes.js';
+import { extensionSchema } from '../utils/extensionSchema.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
@@ -81,7 +82,15 @@ export const Heading = Node.create<HeadingOptions>({
     // list or empty the summary.
     const levels = configuredHeadingLevels(this.options.levels);
     const unconfigured = [1, 2, 3, 4, 5, 6].filter((level) => !levels.includes(level));
-    const standing = (element: HTMLElement): Record<string, never> | null => (headingCannotStand(element) ? null : {});
+    // The schema is read at parse time: whether a list item, summary or code block can hold the
+    // heading depends on the nodes it holds.
+    const extension = this as object;
+    const name = this.name;
+    const standing = (element: HTMLElement): Record<string, never> | null => {
+      const schema = extensionSchema(extension);
+      const heading = schema?.nodes[name];
+      return headingCannotStand(element, schema && heading ? { schema, heading } : undefined) ? null : {};
+    };
     return [
       ...levels.map((level) => ({ tag: `h${String(level)}`, getAttrs: standing })),
       ...unconfigured.map((level) => ({

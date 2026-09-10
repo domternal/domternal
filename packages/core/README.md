@@ -452,7 +452,12 @@ level, so with levels 1 to 4 an `h5` becomes a level 4 heading instead of a para
 heading cannot stand, every heading tag, a configured level too, parses as that block's text: at
 the start of a list or task item, whose first block is a paragraph, and inside a details summary
 or a preformatted block, so the list keeps its items and numbering and the summary its text
-instead of a heading moving out and splitting them. A tag the levels lack ranks below every
+instead of a heading moving out and splitting them. Text or a paragraph element before the
+heading, even an empty `<p></p>` as `getHTML` writes an empty item label, gives the item its
+paragraph, so the heading after it stays a heading and such HTML loads back unchanged. Only the
+nodes the schema holds count: without a list item, details summary or code block node, or with a
+list item whose content may start with a heading (`ListItem.extend({ content: 'block+' })`), the
+heading stays a heading there, as in 1.2. A tag the levels lack ranks below every
 parse rule at priority 1 or above, so an application node that parses such a tag keeps it, and
 among nodes built from Heading, such as a title node with level 1 next to a heading node with
 levels 2 to 4, the one whose levels hold the nearest level takes it.

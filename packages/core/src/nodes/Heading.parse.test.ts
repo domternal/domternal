@@ -203,7 +203,6 @@ describe('a configured heading tag where a heading cannot stand', () => {
     ['at the start of list items, before more blocks', '<ul><li><h2>T</h2><p>b</p></li><li><p>two</p></li></ul>'],
     ['as the only block of a list item', '<ul><li><h2>T</h2></li><li><p>two</p></li></ul>'],
     ['in a numbered list that keeps its start', '<ol start="3"><li><h3>S</h3><p>b</p></li><li><p>two</p></li></ol>'],
-    ['after only an empty paragraph', '<ul><li><p></p><h2>A</h2></li></ul>'],
     ['inside wrappers at the start of the item', '<ul><li><div><span><h2>A</h2></span></div></li></ul>'],
     ['at the start of a nested item', '<ul><li><p>outer</p><ul><li><h2>I</h2></li></ul></li></ul>'],
     ['at the start of a task item', '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked></label><div><h2>T</h2></div></li></ul>'],
@@ -303,5 +302,94 @@ describe('HTML heading tags under linkedom, the documented server DOM', () => {
     expect(JSON.stringify(json).match(/"heading"/g)).toHaveLength(1);
     expect(json.content?.[0]).toMatchObject({ type: 'orderedList', attrs: { start: 2 } });
     expect(json.content?.[0]?.content).toHaveLength(2);
+  });
+});
+
+describe('a heading after an explicit item paragraph, as getHTML writes an empty label', () => {
+  it.each([
+    ['after an empty paragraph', '<ul><li><p></p><h2>A</h2></li></ul>', '<ul><li><p></p><h2>A</h2></li></ul>'],
+    ['after an empty paragraph, before more blocks', '<ol><li><p></p><h3>Step</h3><p>body</p></li></ol>', '<ol><li><p></p><h3>Step</h3><p>body</p></li></ol>'],
+    ['after a paragraph of a no-break space', '<ul><li><p>&nbsp;</p><h2>A</h2></li></ul>', '<ul><li><p>\u00a0</p><h2>A</h2></li></ul>'],
+    ['after a paragraph inside a wrapper', '<ul><li><div><p></p></div><h2>A</h2></li></ul>', '<ul><li><p></p><h2>A</h2></li></ul>'],
+    ['after an empty task item paragraph', '<ul data-type="taskList"><li data-type="taskItem"><label><input type="checkbox"></label><div><p></p><h3>Task heading</h3></div></li></ul>',
+      '<ul data-type="taskList"><li data-checked="false" data-type="taskItem"><label contenteditable="false"><input type="checkbox" aria-label="Task status"></label><div><p></p><h3>Task heading</h3></div></li></ul>'],
+  ])('stays a heading %s, on load, setContent, insertContent, SSR and paste', (_name, html, expected) => {
+    const { editor } = mount(html, undefined, STRUCTURES);
+    expect(editor.getHTML().replace(/&nbsp;/g, '\u00a0')).toBe(expected);
+    const json = editor.getJSON();
+
+    editor.commands.setContent(html);
+    expect(editor.getJSON()).toEqual(json);
+    expect(createDocument(html, editor.schema).toJSON()).toEqual(json);
+    expect(generateJSON(html, extensionsFor(undefined, STRUCTURES))).toEqual(json);
+
+    const pasted = mount('<p></p>', undefined, STRUCTURES);
+    paste(pasted.editor, html);
+    expect(JSON.stringify(pasted.editor.getJSON())).toContain('"heading"');
+  });
+
+  it('keeps a list item that holds an empty label and a heading through getHTML and back', () => {
+    const json: JSONContent = { type: 'doc', content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [
+      { type: 'paragraph' }, { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Kept heading' }] },
+    ] }] }] };
+    const { editor } = mount('<p></p>', undefined, STRUCTURES);
+    editor.commands.setContent(json);
+    const html = editor.getHTML();
+    expect(html).toBe('<ul><li><p></p><h2>Kept heading</h2></li></ul>');
+
+    editor.commands.setContent(html);
+    expect(editor.getJSON()).toEqual(editor.schema.nodeFromJSON(json).toJSON());
+  });
+
+  it('keeps the heading when the item is copied and pasted in the same editor', () => {
+    const { editor } = mount('<ul><li><p></p><h2>Section</h2></li></ul><p>end</p>', undefined, STRUCTURES);
+    const { dom } = editor.view.serializeForClipboard(editor.state.doc.slice(0, editor.state.doc.child(0).nodeSize));
+    paste(editor, dom.innerHTML);
+    expect(JSON.stringify(editor.getJSON()).match(/"heading"/g)).toHaveLength(2);
+  });
+
+  it('loads a tag the levels lack after an empty paragraph at the nearest level, as its JSON loads', () => {
+    const { editor } = mount('<ul><li><p></p><h6>Deep</h6></li></ul>', undefined, STRUCTURES);
+    expect(editor.getHTML()).toBe('<ul><li><p></p><h4>Deep</h4></li></ul>');
+  });
+
+  it('still parses a heading as the label when only an empty element other than a paragraph comes before it', () => {
+    const { editor } = mount('<ul><li><div></div><span> </span><h2>A</h2></li></ul>', undefined, STRUCTURES);
+    expect(editor.getHTML()).toBe('<ul><li><p>A</p></li></ul>');
+  });
+});
+
+describe('heading tags in a schema that lacks the node where a heading cannot stand', () => {
+  const NO_STRUCTURES = [Blockquote];
+
+  it.each([
+    ['in a list item', '<ul><li><h2>Title</h2></li></ul>', '<h2>Title</h2>'],
+    ['at the start of a list item with more blocks', '<ol><li><h1>Chapter</h1><p>body</p></li></ol>', '<h1>Chapter</h1><p>body</p>'],
+    ['in a summary', '<details><summary><h3>Sum</h3></summary><p>x</p></details>', '<h3>Sum</h3><p>x</p>'],
+    ['in a preformatted block', '<pre><h2>Code?</h2></pre>', '<h2>Code?</h2>'],
+    ['of a level the configuration lacks, in a list item', '<ul><li><h5>Deep</h5></li></ul>', '<h4>Deep</h4>'],
+  ])('keeps a heading %s, as 1.2 did, on every HTML path', (_name, html, expected) => {
+    const { editor } = mount(html, undefined, NO_STRUCTURES);
+    expect(editor.getHTML()).toBe(expected);
+    editor.commands.setContent(html);
+    expect(editor.getHTML()).toBe(expected);
+    expect(generateJSON(html, extensionsFor(undefined, NO_STRUCTURES))).toEqual(editor.getJSON());
+
+    const pasted = mount('<p></p>', undefined, NO_STRUCTURES);
+    paste(pasted.editor, html);
+    expect(JSON.stringify(pasted.editor.getJSON())).toContain('"heading"');
+  });
+
+  it('keeps a heading at the start of a list item whose content may start with one', () => {
+    const BlockItem = ListItem.extend({ content: 'block+' });
+    const html = '<ul><li><h2>Title</h2><p>body</p></li></ul>';
+    const { editor } = mount(html, undefined, [BulletList, BlockItem]);
+    expect(editor.getHTML()).toBe(html);
+    expect(generateJSON(html, extensionsFor(undefined, [BulletList, BlockItem]))).toEqual(editor.getJSON());
+  });
+
+  it('still parses the heading as the item text where the list item needs a paragraph first, with lists only', () => {
+    const { editor } = mount('<ul><li><h2>Title</h2></li></ul><details><summary><h3>Sum</h3></summary></details>', undefined, [BulletList, ListItem]);
+    expect(editor.getHTML()).toBe('<ul><li><p>Title</p></li></ul><h3>Sum</h3>');
   });
 });

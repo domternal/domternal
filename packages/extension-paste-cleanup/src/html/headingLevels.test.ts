@@ -193,6 +193,36 @@ describe('heading levels in clipboard normalization with a destination', () => {
     expect(result.diagnostics.map(item => item.code)).toEqual(['destination-heading-level-adapted']);
   });
 
+  it.each([
+    ['after an empty paragraph of its list item, as getHTML writes an empty label', '<ul><li><p></p><h6>Item</h6></li></ul>'],
+    ['after a paragraph inside a wrapper of its list item', '<ul><li><div><p></p></div><h6>Item</h6></li></ul>'],
+    ['after an empty paragraph of a task item', '<ul><li><label><input type="checkbox"></label><div><p></p><h6>Task</h6></div></li></ul>'],
+  ])('maps a heading %s, where Core keeps it', (_name, html) => {
+    const { result } = normalizeClipboardHTML(html, {}, undefined, undefined, stub(levelsFrom(5)));
+    expect(result.html).toContain('<h4>');
+    expect(result.diagnostics.filter(item => item.code === 'destination-heading-level-adapted')).toHaveLength(1);
+    expect(headingOutline(result)).toEqual([true]);
+  });
+
+  it.each([
+    ['at the start of a list item', '<ul><li><h6>Item</h6></li></ul>', 'heading-text-at-list-item-start'],
+    ['in a summary', '<details><summary><h6>Summary</h6></summary><p>b</p></details>', 'heading-text-in-summary'],
+    ['in a preformatted block', '<pre><h6>code</h6></pre>', 'heading-text-in-preformatted'],
+  ] as const)('maps a heading %s when the destination keeps one there, as a schema without that block does', (_name, html, keeps) => {
+    const destination = stub([...levelsFrom(5), keeps]);
+    const { result } = normalizeClipboardHTML(html, {}, undefined, undefined, destination);
+    expect(result.html).toContain('<h4>');
+    expect(result.diagnostics.map(item => item.code)).toEqual(['destination-heading-level-adapted']);
+    expect(headingOutline(result)).toEqual([true]);
+    expect(destination.calls.filter(call => call.includes('heading-text-at-list-item-start'))).toHaveLength(1);
+  });
+
+  it('asks the destination where a heading stands only for a heading inside a list item, summary or preformatted block', () => {
+    const destination = stub(levelsFrom(5));
+    normalizeClipboardHTML('<h6>Six</h6><blockquote><h5>Five</h5></blockquote>', {}, undefined, undefined, destination);
+    expect(destination.calls.some(call => call.includes('heading-text-at-list-item-start'))).toBe(false);
+  });
+
   it('uses a deeper supported level before promoting, and the deepest level otherwise', () => {
     const { result } = normalizeClipboardHTML('<h1>One</h1><h2>Two</h2><h4>Four</h4><h6>Six</h6>', {}, undefined, undefined,
       stub(['heading-1', 'heading-4', 'heading-5', 'heading-6']));

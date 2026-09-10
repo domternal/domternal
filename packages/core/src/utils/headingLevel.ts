@@ -2,6 +2,8 @@
  * Heading levels: the vocabulary every configuration shares (whole numbers
  * from 1 to 6) and the rule that places a level a configuration lacks.
  */
+import { DOMParser } from '@domternal/pm/model';
+import type { NodeType, Schema, TagParseRule } from '@domternal/pm/model';
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 import type { AttributeSpec } from '../types/AttributeSpec.js';
 import { registerAttributeNormalizer } from './normalizedAttributes.js';
@@ -64,28 +66,79 @@ export function unconfiguredTagPriority(level: number, levels: readonly number[]
 // Elements whose text ProseMirror's parser never reads.
 const UNREAD = new Set(['HEAD', 'NOSCRIPT', 'OBJECT', 'SCRIPT', 'STYLE', 'TEMPLATE', 'TITLE']);
 
-/** Whether a node before the heading holds text the parser reads into the list item. */
-function holdsText(node: ChildNode): boolean {
+/**
+ * Whether a node before the heading gives its list item the paragraph it must
+ * start with: text the parser reads into the item, or a paragraph element,
+ * even an empty one, such as the `<p></p>` getHTML writes for an empty label.
+ */
+function givesLabel(node: ChildNode): boolean {
   if (node.nodeType === 3) return /\S/.test(node.nodeValue ?? '');
-  return node.nodeType === 1 && !UNREAD.has((node as Element).tagName.toUpperCase()) && /\S/.test(node.textContent ?? '');
+  if (node.nodeType !== 1) return false;
+  const element = node as Element;
+  if (UNREAD.has(element.tagName.toUpperCase())) return false;
+  return /\S/.test(element.textContent) || element.tagName.toUpperCase() === 'P' || element.querySelector('p') !== null;
+}
+
+/** The schema a heading is parsed into, and its heading node type. */
+export interface HeadingParseContext {
+  readonly schema: Schema;
+  readonly heading: NodeType;
+}
+
+/**
+ * The node type a schema's parse rules give an element, as its parser matches
+ * rules in priority order, apart from rule contexts; null when no node rule
+ * matches, so the element's content joins the enclosing node.
+ */
+function parsedNodeType(schema: Schema, element: Element): NodeType | null {
+  for (const rule of DOMParser.fromSchema(schema).rules) {
+    if (!('tag' in rule)) continue;
+    const { tag, node, getAttrs, skip, closeParent, ignore } = rule as TagParseRule;
+    let matches: boolean;
+    try {
+      matches = element.matches(tag);
+    } catch {
+      continue;
+    }
+    if (!matches || (getAttrs !== undefined && getAttrs(element as HTMLElement) === false)) continue;
+    // A rule that skips, closes the parent or ignores the element makes no node of it.
+    if (node === undefined || ignore === true || closeParent === true || skip === true) return null;
+    return schema.nodes[node] ?? null;
+  }
+  return null;
+}
+
+/** Whether the node an element parses as can start with a heading; true when no node parses it. */
+function startsWithHeading(context: HeadingParseContext, element: Element): boolean {
+  const type = parsedNodeType(context.schema, element);
+  if (type === null) return true;
+  return type.contentMatch.matchType(context.heading) !== null;
 }
 
 /**
  * Whether a heading element sits where a heading cannot stand: in a summary or
- * a preformatted block, whose content is inline, or before any text of its
- * list item, whose first block must be a paragraph. ProseMirror would move a
- * heading out of each, splitting the list or emptying the summary, so every
- * heading tag there parses as that block's text, as 1.2 parsed the tags the
- * levels lacked.
+ * a preformatted block, whose content is inline, or at the start of its list
+ * item, whose first block must be a paragraph, with no text and no paragraph
+ * element before it. ProseMirror would move a heading out of each, splitting
+ * the list or emptying the summary, so every heading tag there parses as that
+ * block's text, as 1.2 parsed the tags the levels lacked.
+ *
+ * With the parse context, only the nodes the schema holds count: without a
+ * list item, details summary or code block node, or with one that can start
+ * with a heading, such as a list item whose content is `block+`, the element
+ * is no such place and the heading stands, as in 1.2. Without it, as for a
+ * spec built outside the ExtensionManager, the elements alone decide.
  */
-export function headingCannotStand(element: HTMLElement): boolean {
-  if (element.parentElement?.closest('summary, pre')) return true;
+export function headingCannotStand(element: HTMLElement, context?: HeadingParseContext): boolean {
+  const inline = element.parentElement?.closest('summary, pre');
+  if (inline && (context === undefined || !startsWithHeading(context, inline))) return true;
   // A table cell, blockquote or details inside the item holds blocks of its own.
   const item = element.parentElement?.closest('li, td, th, blockquote, details');
   if (item?.tagName.toUpperCase() !== 'LI') return false;
+  if (context !== undefined && startsWithHeading(context, item)) return false;
   for (let node: ChildNode | null = element; node !== null && node !== item; node = node.parentNode as ChildNode | null) {
     for (let before = node.previousSibling; before !== null; before = before.previousSibling) {
-      if (holdsText(before)) return false;
+      if (givesLabel(before)) return false;
     }
   }
   return true;

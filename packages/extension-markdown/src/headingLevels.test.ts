@@ -131,4 +131,13 @@ describe('Markdown headings where a heading cannot stand', () => {
     expect(html('- lead\n\n  # Later')).toBe('<ul><li><p>lead</p><h1>Later</h1></li></ul>');
     expect(html('> # Quoted')).toBe('<blockquote><h1>Quoted</h1></blockquote>');
   });
+  it('keeps a heading at the start of a list item that may start with one, as HTML does', () => {
+    const BlockItem = ListItem.extend({ content: 'block+' });
+    const { editor } = mount(undefined, '<p></p>', [BulletList, BlockItem]);
+    editor.commands.setMarkdownContent('- # Title\n  body');
+    expect(editor.getHTML()).toBe('<ul><li><h1>Title</h1><p>body</p></li></ul>');
+    const fromHTML = mount(undefined, '<p></p>', [BulletList, BlockItem]).editor;
+    fromHTML.commands.setContent('<ul><li><h1>Title</h1><p>body</p></li></ul>');
+    expect(shape(fromHTML.state.doc)).toEqual(shape(editor.state.doc));
+  });
 });

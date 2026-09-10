@@ -13,7 +13,8 @@ import { assertTagWork, TagWorkLimitError } from './tagWork.js';
 import { assertOutputTreeBounds } from './treeBounds.js';
 import { collectDestinationDemand } from './destinationDemand.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
-import { adaptHeadingLevels, HEADING_LEVEL_FEATURES, recordHeadingOutline } from './headingLevels.js';
+import { adaptHeadingLevels, HEADING_LEVEL_FEATURES, HEADING_TEXT_FEATURES, recordHeadingOutline } from './headingLevels.js';
+import type { HeadingPlacement } from './headingLevels.js';
 import { recordImageStandIns } from './imageStandIns.js';
 import { LINK_FEATURES, unwrapLinks } from './links.js';
 import { reconstructOfficeLists } from './officeLists.js';
@@ -321,8 +322,17 @@ export function normalizeClipboardHTML(
         const supported = HEADING_LEVEL_FEATURES.flatMap((feature, index) =>
           missing.includes(feature) || unconfirmed.includes(feature) ? [] : [index + 1]);
         if (supported.length > 0) {
+          // Where the destination parses a heading as the block's text, it is left alone.
+          const placement = (): HeadingPlacement => {
+            const keeps = destination(HEADING_TEXT_FEATURES);
+            return {
+              listItemStart: keeps.includes('heading-text-at-list-item-start'),
+              summary: keeps.includes('heading-text-in-summary'),
+              preformatted: keeps.includes('heading-text-in-preformatted'),
+            };
+          };
           // The outline lets the editor report only the renamed headings that land as headings.
-          recordHeadingOutline(result, adaptHeadingLevels(sanitized, supported, node => { report('destination-heading-level-adapted', node); }));
+          recordHeadingOutline(result, adaptHeadingLevels(sanitized, supported, node => { report('destination-heading-level-adapted', node); }, placement));
           remaining = remaining.filter(feature => !HEADING_LEVEL_FEATURES.includes(feature));
         }
       }

@@ -12,7 +12,10 @@ export type PasteDestinationFeature =
   | 'font-family' | 'font-size' | 'text-color' | 'highlight' | 'text-align' | 'line-height'
   | 'table' | 'table-header' | 'ordered-list' | 'bullet-list' | 'nested-list'
   | 'ordered-list-style' | 'bullet-list-style'
-  | 'link-http' | 'link-https' | 'link-mailto' | 'link-tel';
+  | 'link-http' | 'link-https' | 'link-mailto' | 'link-tel'
+  // Where the destination parses a heading as the enclosing block's text: at the start of a list
+  // item, in a summary, in a preformatted block. Asked only by heading level adaptation.
+  | 'heading-text-at-list-item-start' | 'heading-text-in-summary' | 'heading-text-in-preformatted';
 
 const featureOrder: readonly PasteDestinationFeature[] = Object.freeze([
   'bold', 'italic', 'underline', 'strike', 'subscript', 'superscript',

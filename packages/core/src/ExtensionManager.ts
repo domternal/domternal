@@ -17,6 +17,7 @@ import type { InputRule } from '@domternal/pm/inputrules';
 import { inputRulesPlugin as createInputRulesPlugin } from './helpers/inputRulesPlugin.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { describeForeignExtension } from './utils/prosemirrorSingleton.js';
+import { recordExtensionSchema } from './utils/extensionSchema.js';
 
 import type { Command as PMCommand } from '@domternal/pm/state';
 
@@ -633,11 +634,14 @@ export class ExtensionManager {
       }
     }
 
-    return new Schema({
+    const schema = new Schema({
       nodes,
       marks,
       ...(topNode && { topNode }),
     });
+    // Parse rules that must know which nodes the schema holds read it at parse time.
+    for (const ext of this._extensions) recordExtensionSchema(ext, schema);
+    return schema;
   }
 
   /**

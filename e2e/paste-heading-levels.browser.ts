@@ -23,9 +23,10 @@ interface ProbeWindow {
 }
 type Transport = 'event' | 'pasteHTML' | 'drop';
 
-async function open(page: Page, framework: string, options: { cleanup: boolean; levels?: 'narrow'; details?: boolean }): Promise<void> {
+async function open(page: Page, framework: string, options: { cleanup: boolean; levels?: 'narrow'; details?: boolean; noLists?: boolean }): Promise<void> {
   const query = new URLSearchParams({
     framework, ...(options.cleanup ? {} : { 'paste-cleanup': 'off' }), ...(options.levels === 'narrow' ? { schema: 'heading-levels' } : {}),
+    ...(options.noLists === true ? { schema: 'no-lists' } : {}),
     ...(options.details === true ? { details: '1' } : {}),
   });
   await page.goto(`${BASE_URL}/?${query.toString()}`);
@@ -197,6 +198,26 @@ for (const cleanup of [false, true]) {
       expect(outcomes[1]).toMatchObject({ notice: false });
     });
   }
+}
+
+for (const cleanup of [false, true]) {
+  for (const framework of FRAMEWORKS) {
+    test(`${framework} ${cleanup ? 'with' : 'without'} PasteCleanup: a heading after an empty item paragraph stays a heading, as getHTML writes it`, async ({ page }) => {
+      await open(page, framework, { cleanup });
+      const outcome = await transfer(page, '<ul><li><p></p><h5>Kept</h5></li><li><p>two</p></li></ul>', 'event');
+      expect(outcome.levels).toEqual([4]);
+      expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.getHTML().replace(/ id="[^"]*"/g, '')))
+        .toContain('<ul><li><p></p><h4>Kept</h4></li><li><p>two</p></li></ul>');
+      if (cleanup) expect(outcome.codes).toContain('destination-heading-level-adapted');
+    });
+  }
+
+  test(`${cleanup ? 'with' : 'without'} PasteCleanup: a heading that starts a list item stays a heading in an editor without lists, as in 1.2`, async ({ page }) => {
+    await open(page, 'vanilla', { cleanup, noLists: true });
+    const outcome = await transfer(page, '<ul><li><h2>Title</h2></li><li><h5>Deep</h5></li></ul>', 'event');
+    expect(outcome.levels).toEqual([2, 4]);
+    if (cleanup) expect(outcome.codes).toContain('destination-heading-level-adapted');
+  });
 }
 
 /** Pastes Markdown as plain text, which the Markdown extension converts. */

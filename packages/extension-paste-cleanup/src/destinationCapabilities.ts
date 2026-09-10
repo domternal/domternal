@@ -11,7 +11,19 @@ const FEATURES: readonly PasteDestinationFeature[] = Object.freeze([
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
   'ordered-list-style', 'bullet-list-style',
   'link-http', 'link-https', 'link-mailto', 'link-tel',
+  'heading-text-at-list-item-start', 'heading-text-in-summary', 'heading-text-in-preformatted',
 ]);
+/**
+ * One constant fragment per place where Core's Heading parses a heading as the enclosing block's
+ * text when the schema holds that block with its usual content. A destination supports the
+ * feature when the parsed fragment holds no heading; one without the block, or whose block can
+ * start with a heading, keeps it.
+ */
+const HEADING_TEXT_PROBES: Readonly<Partial<Record<PasteDestinationFeature, string>>> = Object.freeze({
+  'heading-text-at-list-item-start': '<ul><li><h1>Probe</h1></li></ul>',
+  'heading-text-in-summary': '<details><summary><h1>Probe</h1></summary><p>Probe</p></details>',
+  'heading-text-in-preformatted': '<pre><h1>Probe</h1></pre>',
+});
 /**
  * One constant address per link scheme. A scheme is supported when the parsed
  * text carries a mark with exactly this href, which covers a renamed link
@@ -111,6 +123,15 @@ export function getUnsupportedDestinationFeatures(
         lists = officeListCapabilities(schema, document);
       }
       return feature === 'ordered-list' ? lists.orderedLists : feature === 'bullet-list' ? lists.bulletLists : lists.nestedLists;
+    }
+    const placement = HEADING_TEXT_PROBES[feature];
+    if (placement !== undefined) {
+      let heading = false;
+      for (const node of parse(placement)) {
+        if (node.type.name === 'heading') heading = true;
+        node.descendants(child => { if (child.type.name === 'heading') heading = true; return !heading; });
+      }
+      return !heading;
     }
     const probe = LINK_PROBES[feature];
     if (probe !== undefined) {

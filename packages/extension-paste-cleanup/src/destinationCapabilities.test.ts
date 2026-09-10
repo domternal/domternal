@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  Bold, BulletList, Document, ExtensionManager, FontFamily, FontSize, Heading, Highlight,
+  Bold, BulletList, CodeBlock, Document, ExtensionManager, FontFamily, FontSize, Heading, Highlight, Node,
   Italic, LineHeight, ListItem, OrderedList, Paragraph, Strike, Subscript, Superscript,
   Text, TextAlign, TextColor, TextStyle, Underline,
 } from '@domternal/core';
@@ -215,6 +215,20 @@ describe('built-in destination parser capabilities', () => {
     expect(parser).not.toHaveBeenCalled();
     const result = getUnsupportedDestinationFeatures(schema, document, ['italic', 'bold', 'bold', 'unknown' as PasteDestinationFeature]);
     expect(result).toEqual(['bold', 'italic']); expect(Object.isFrozen(result)).toBe(true);
+  });
+
+  it('probes where a heading parses as the enclosing block\'s text, following the nodes the schema holds', () => {
+    const PLACES: readonly PasteDestinationFeature[] = ['heading-text-at-list-item-start', 'heading-text-in-summary', 'heading-text-in-preformatted'];
+    const Summary = Node.create({ name: 'detailsSummary', content: 'inline*', parseHTML: () => [{ tag: 'summary' }], renderHTML: () => ['summary', 0] });
+    const DetailsBox = Node.create({ name: 'details', group: 'block', content: 'detailsSummary block*', parseHTML: () => [{ tag: 'details' }], renderHTML: () => ['details', 0] });
+    // Lists, a summary and a code block with their usual content parse such a heading as text.
+    expect(getUnsupportedDestinationFeatures(schemaWith([Heading, ListItem, BulletList, CodeBlock, DetailsBox, Summary]), document, PLACES)).toEqual([]);
+    // Without those nodes, or with a list item that can start with a heading, the heading stays one.
+    expect(getUnsupportedDestinationFeatures(schemaWith([Heading]), document, PLACES)).toEqual(PLACES);
+    expect(getUnsupportedDestinationFeatures(schemaWith([Heading, BulletList, ListItem.extend({ content: 'block+' })]), document, PLACES))
+      .toEqual(['heading-text-at-list-item-start', 'heading-text-in-summary', 'heading-text-in-preformatted']);
+    expect(getUnsupportedDestinationFeatures(schemaWith([Heading, BulletList, ListItem]), document, PLACES))
+      .toEqual(['heading-text-in-summary', 'heading-text-in-preformatted']);
   });
 
   it('constructs only fixed resource-free probes for requested features', () => {
