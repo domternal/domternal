@@ -2,6 +2,7 @@ import {
   Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
   FontFamily, FontSize, TextAlign, Heading, BulletList, OrderedList, ListItem,
   Blockquote, CodeBlock, HardBreak, UniqueID, Extension, Subscript, Superscript, LineHeight, TaskList, TaskItem,
+  CharacterCount,
 } from '@domternal/core';
 import { Plugin, TextSelection } from '@domternal/pm/state';
 import { undoDepth, redoDepth, closeHistory } from '@domternal/pm/history';
@@ -37,6 +38,10 @@ const withoutSmartPaste = query.get('smart-paste') === 'off';
 // Blocks without ids, so a pasted heading can share the markup of the heading it lands in.
 const withoutUniqueID = query.get('unique-id') === 'off';
 const details = query.get('details') === '1';
+// A CharacterCount limit, whose filterTransaction vetoes keystrokes beyond it.
+const characterLimit = query.has('limit') ? Number(query.get('limit')) : null;
+// An Angular host bound to a reactive form, with the htmlContent signal rendered beside it.
+const angularForm = query.get('angular-form') === '1';
 if (listMarkers) await import('@domternal/theme/css');
 // Test-only older/custom schema control: keep list structure but omit the marker attribute.
 const withoutMarker = extension => extension.extend({ addAttributes() {
@@ -58,6 +63,7 @@ const limits = query.get('limits') === 'small'
   ? { maxInputLength: 1024, maxNodes: 80, maxDepth: 8, maxTableCells: 16 }
   : undefined;
 const results = [];
+const wrapperCalls = [];
 const transactions = [];
 const operations = [];
 const operationSnapshots = [];
@@ -249,6 +255,17 @@ const ConsumeOuterAndNest = Extension.create({
   } })],
 });
 
+// Answers a transaction marked appendDoc with a document change, for the callback contract.
+const AppendDocument = Extension.create({
+  name: 'pasteFixtureAppendDocument',
+  addProseMirrorPlugins: () => [new Plugin({
+    appendTransaction(transactions, _previous, state) {
+      if (!transactions.some(transaction => transaction.getMeta('appendDoc') === true)) return null;
+      return state.tr.insertText('!', state.doc.content.size - 1);
+    },
+  })],
+});
+
 // Each wrapper supplies Document, Paragraph, Text, BaseKeymap and History.
 // The optional extension list is identical across all four integrations.
 const extensions = [
@@ -270,6 +287,8 @@ const extensions = [
   ...(lifecycle === 'destroy-before-observe' ? [DestroyBeforeReceiptObserver] : []),
   ...(['nested-interception', 'nested-empty-interception'].includes(lifecycle) ? [ConsumeNestedPaste, ConsumeOuterAndNest] : []),
   ...(coordinatedAssets ? [AssetHookObserver] : []),
+  ...(characterLimit === null ? [] : [CharacterCount.configure({ limit: characterLimit })]),
+  ...(lifecycle === 'append-doc' ? [AppendDocument] : []),
   PasteCleanup.configure({
     formatting,
     feedback,
@@ -359,6 +378,12 @@ window.__pasteCleanup = {
   get wrapper() { return wrapper; },
   get framework() { return framework; },
   get results() { return results; },
+  get wrapperCalls() { return wrapperCalls; },
+  get angularForm() {
+    const control = wrapper?.components?.[0]?.instance?.control;
+    const signal = document.querySelector('#wrapper-html')?.textContent ?? null;
+    return control === undefined ? null : { dirty: control.dirty, value: control.value, signal };
+  },
   get transactions() { return transactions; },
   get operations() { return operations; },
   get operationSnapshots() { return operationSnapshots; },
@@ -424,6 +449,7 @@ window.__pasteCleanup = {
   },
   clearObservations() {
     results.length = 0;
+    wrapperCalls.length = 0;
     transactions.length = 0;
     operations.length = 0;
     operationSnapshots.length = 0;
@@ -456,38 +482,50 @@ window.__pasteCleanup = {
   },
 };
 
+// The callbacks each wrapper derives from the editor's events.
+const wrapperCallbacks = {
+  onUpdate: () => { wrapperCalls.push('update'); },
+  onSelectionChange: () => { wrapperCalls.push('selection'); },
+};
+
 if (framework === 'vanilla') {
   const { DomternalEditor } = await import('@domternal/vanilla');
   const mount = document.querySelector('#fixture');
   if (listMarkers) mount.classList.add('dm-editor');
   mount.replaceChildren();
-  wrapper = new DomternalEditor(mount, { extensions, content: '<p></p>', onCreate: capture });
+  wrapper = new DomternalEditor(mount, { extensions, content: '<p></p>', onCreate: capture, ...wrapperCallbacks });
 } else if (framework === 'react') {
   const { createElement: h } = await import('react');
   const { createRoot } = await import('react-dom/client');
   const { DomternalEditor } = await import('@domternal/react');
   wrapper = createRoot(document.querySelector('#fixture'));
-  wrapper.render(h(DomternalEditor, { extensions, content: '<p></p>', onCreate: capture }));
+  wrapper.render(h(DomternalEditor, { extensions, content: '<p></p>', onCreate: capture, ...wrapperCallbacks }));
 } else if (framework === 'vue') {
   const { createApp, h } = await import('vue');
   const { DomternalEditor } = await import('@domternal/vue');
   wrapper = createApp({
-    setup: () => () => h(DomternalEditor, { extensions, content: '<p></p>', onCreate: capture }),
+    setup: () => () => h(DomternalEditor, { extensions, content: '<p></p>', onCreate: capture, ...wrapperCallbacks }),
   });
   wrapper.mount('#fixture');
 } else if (framework === 'angular') {
   await import('@angular/compiler');
   const { Component, provideZonelessChangeDetection } = await import('@angular/core');
   const { bootstrapApplication } = await import('@angular/platform-browser');
+  const { FormControl, ReactiveFormsModule } = await import('@angular/forms');
   const { DomternalEditorComponent } = await import('@domternal/angular');
   class App {
     extensions = extensions;
+    control = new FormControl('<p></p>', { nonNullable: true });
     created(instance) { capture(instance); }
+    record(call) { wrapperCalls.push(call); }
   }
+  const outputs = '(editorCreated)="created($event)" (contentUpdated)="record(\'update\')" (selectionChanged)="record(\'selection\')"';
   Component({
     selector: 'paste-cleanup-test-app', standalone: true,
-    imports: [DomternalEditorComponent],
-    template: '<domternal-editor [extensions]="extensions" content="<p></p>" (editorCreated)="created($event)" />',
+    imports: [DomternalEditorComponent, ReactiveFormsModule],
+    template: angularForm
+      ? `<domternal-editor #editor [extensions]="extensions" [formControl]="control" ${outputs} /><output id="wrapper-html">{{ editor.htmlContent() }}</output>`
+      : `<domternal-editor [extensions]="extensions" content="<p></p>" ${outputs} />`,
   })(App);
   wrapper = await bootstrapApplication(App, { providers: [provideZonelessChangeDetection()] });
 } else {
