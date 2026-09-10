@@ -72,6 +72,13 @@ const json = editor.getJSON();
 editor.destroy();
 ```
 
+`onUpdate` and the `update` event run after every accepted change to the document, including
+a change a plugin appended to a selection move (its payload lists those as
+`appendedTransactions`); `onSelectionUpdate` runs when only the selection moved. A transaction
+that a plugin vetoes changes nothing and runs no callback, while the command that dispatched it
+still returns `true`. The full callback contract:
+https://domternal.dev/v1/guides/editor-api/#transaction-flow
+
 The engine ships no styles. Import [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) for ready-made light/dark editor styling, or supply your own CSS.
 
 `StarterKit` bundles the common nodes, marks, and behaviors; each entry can be

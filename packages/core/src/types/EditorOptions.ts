@@ -151,17 +151,21 @@ export interface EditorOptions {
   onMount?: (props: MountEventProps) => void;
 
   /**
-   * Called when the document content changes
+   * Called after the `update` event: an accepted dispatch in which the root or
+   * an appended transaction changed the document, unless the root has the
+   * `skipUpdate` meta. See `EditorEvents` for the full contract.
    */
   onUpdate?: (props: TransactionEventProps) => void;
 
   /**
-   * Called when selection changes (without content change)
+   * Called after the `selectionUpdate` event: an accepted dispatch that set
+   * the selection without any accepted transaction changing the document.
    */
   onSelectionUpdate?: (props: TransactionEventProps) => void;
 
   /**
-   * Called on every transaction
+   * Called after the `transaction` event, once for every accepted root
+   * transaction; never for a transaction a plugin vetoed.
    */
   onTransaction?: (props: TransactionEventProps) => void;
 

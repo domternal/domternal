@@ -39,6 +39,7 @@ import type {
   EditorOptions,
   EditorPreset,
   EditorEvents,
+  TransactionEventProps,
   Content,
   JSONContent,
   FocusPosition,
@@ -1081,7 +1082,11 @@ export class Editor extends EventEmitter<EditorEvents> {
   }
 
   /**
-   * Handles ProseMirror transactions
+   * Handles ProseMirror transactions. The callback contract is described on
+   * `EditorEvents`: nothing runs for a vetoed root; an accepted root runs one
+   * sequence (transaction, contentDiagnostic, selectionUpdate or update) that
+   * reflects every accepted transaction, and a listener that destroys the
+   * editor ends it.
    */
   private dispatchTransaction(transaction: Transaction): void {
     if (this._isDestroyed) {
@@ -1094,32 +1099,43 @@ export class Editor extends EventEmitter<EditorEvents> {
     const { state: newState, transactions } = this.view.state.applyTransaction(transaction);
     if (transactions.length === 0) return;
 
-    // 2. Update view
+    // 2. Update view: plugin views update here, before any editor callback.
     this.view.updateState(newState);
     if (!this.view.composing) this._localeRepaintPending = false;
 
-    // 3. Emit one callback sequence for the accepted root transaction.
-    this.emit('transaction', { editor: this, transaction });
-    this.options.onTransaction?.({ editor: this, transaction });
-    this._extensionManager.callOnTransaction({ transaction });
-    const diagnostics = contentDiagnosticsOf(transaction);
-    if (diagnostics) this.reportContentDiagnostics(diagnostics);
-
-    // 4. Check if we should skip update event
-    const skipUpdate = transaction.getMeta('skipUpdate') as boolean | undefined;
-
-    // 5. Emit selectionUpdate if selection changed (without doc change)
-    if (!transaction.docChanged && transaction.selectionSet) {
-      this.emit('selectionUpdate', { editor: this, transaction });
-      this.options.onSelectionUpdate?.({ editor: this, transaction });
-      this._extensionManager.callOnSelectionUpdate();
+    // 3. One callback sequence for the accepted root, derived from every accepted transaction.
+    const appendedTransactions: readonly Transaction[] = Object.freeze(transactions.slice(1));
+    const props = (): TransactionEventProps => ({ editor: this, transaction, appendedTransactions });
+    const docChanged = transactions.some(accepted => accepted.docChanged);
+    const selectionSet = !docChanged && transactions.some(accepted => accepted.selectionSet);
+    const skipUpdate = Boolean(transaction.getMeta('skipUpdate'));
+    const steps: (() => void)[] = [
+      () => this.emit('transaction', props()),
+      () => this.options.onTransaction?.(props()),
+      () => { this._extensionManager.callOnTransaction({ transaction, appendedTransactions }); },
+      () => {
+        const diagnostics = contentDiagnosticsOf(transaction);
+        if (diagnostics) this.reportContentDiagnostics(diagnostics);
+      },
+    ];
+    if (selectionSet) {
+      steps.push(
+        () => this.emit('selectionUpdate', props()),
+        () => this.options.onSelectionUpdate?.(props()),
+        () => { this._extensionManager.callOnSelectionUpdate(); },
+      );
     }
-
-    // 6. Emit update if document changed
-    if (transaction.docChanged && !skipUpdate) {
-      this.emit('update', { editor: this, transaction });
-      this.options.onUpdate?.({ editor: this, transaction });
-      this._extensionManager.callOnUpdate();
+    if (docChanged && !skipUpdate) {
+      steps.push(
+        () => this.emit('update', props()),
+        () => this.options.onUpdate?.(props()),
+        () => { this._extensionManager.callOnUpdate(); },
+      );
+    }
+    for (const step of steps) {
+      // A listener that destroyed the editor ends the sequence.
+      if (this.isDestroyed) return;
+      step();
     }
   }
 

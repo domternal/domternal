@@ -13,11 +13,25 @@ export interface EditorInstance {
 }
 
 /**
- * Props passed to event handlers that include transaction
+ * Props passed to the `transaction`, `selectionUpdate` and `update` handlers.
+ *
+ * A dispatch applies the root transaction and the transactions plugins append
+ * to it (`appendTransaction`). The handlers run once per accepted root, after
+ * the view shows the new state; see `EditorEvents` for the full contract.
  */
 export interface TransactionEventProps {
   editor: EditorInstance;
+  /**
+   * The dispatched root transaction. In `update` its `docChanged` can be
+   * false when only an appended transaction changed the document.
+   */
   transaction: Transaction;
+  /**
+   * The accepted transactions plugins appended to the root, in the order they
+   * were applied; empty when there are none. The editor always sets it; it is
+   * optional only so that code emitting these events itself keeps compiling.
+   */
+  appendedTransactions?: readonly Transaction[];
 }
 
 /**
@@ -97,6 +111,38 @@ export interface ErrorEventProps {
 
 /**
  * All editor events with their payload types.
+ *
+ * Transaction callback contract. `editor.view.dispatch(tr)` applies the root
+ * transaction and every transaction plugins append to it:
+ *
+ * - When a plugin's `filterTransaction` rejects the root, nothing changes and
+ *   nothing runs: no view update, event, option callback or extension hook,
+ *   and no `contentDiagnostic`. When it rejects only an appended transaction,
+ *   the root and the other appended transactions still apply.
+ * - For an accepted root, in this order: plugin views update with the new
+ *   state; `transaction` (event, then the `onTransaction` option, then
+ *   extension `onTransaction` hooks) once per root, never per appended
+ *   transaction; `contentDiagnostic` when the root reported replaced values;
+ *   then either `selectionUpdate` or `update`, each as event, option and
+ *   extension hook.
+ * - `update` runs when any accepted transaction, root or appended, changed the
+ *   document, unless the root carries the `skipUpdate` meta. `selectionUpdate`
+ *   runs when none changed the document and at least one set the selection.
+ * - A listener that dispatches runs the nested transaction's whole sequence
+ *   before the outer one continues, so later listeners can see a newer
+ *   `editor.state` than their payload: read `editor.state`, not
+ *   `transaction.doc`, for the current document.
+ * - A listener that destroys the editor ends the sequence.
+ * - Event listeners and option callbacks are not isolated: an error thrown
+ *   there reaches the caller of `dispatch` and ends the sequence, with the new
+ *   state already installed. Extension hooks are isolated and report through
+ *   `error`.
+ * - Transactions plugin views dispatch while the editor is constructed are
+ *   applied without any callback; they are initial state.
+ * - Commands and `chain().run()` return true when they dispatched, even when
+ *   a plugin vetoed the transaction. An accepted dispatch always installs a
+ *   new `editor.state` object, so the same object before and after a call
+ *   means nothing was applied.
  */
 export interface EditorEvents {
   /** Fired before editor is created - can modify options */
@@ -105,13 +151,23 @@ export interface EditorEvents {
   /** Fired when editor is created and ready */
   create: CreateEventProps;
 
-  /** Fired when document content changes */
+  /**
+   * Fired after an accepted dispatch in which the root or an appended
+   * transaction changed the document, unless the root has the `skipUpdate`
+   * meta (programmatic writes such as `setContent(content, { emitUpdate: false })`).
+   */
   update: TransactionEventProps;
 
-  /** Fired when selection changes (without content change) */
+  /**
+   * Fired after an accepted dispatch that set the selection without any
+   * accepted transaction changing the document.
+   */
   selectionUpdate: TransactionEventProps;
 
-  /** Fired on every transaction (content or selection) */
+  /**
+   * Fired once for every accepted root transaction, whatever it changed;
+   * never for a transaction a plugin vetoed.
+   */
   transaction: TransactionEventProps;
 
   /** Fired when editor receives focus */
