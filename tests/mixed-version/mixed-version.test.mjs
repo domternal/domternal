@@ -3,10 +3,16 @@
 // rewriting the shared document, and that values change only through normalizeContentAttributes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { Editor } from '@domternal/core';
 import {
-  SIX, codes, counts, destroy, editSeed, linkText, makeEditor, makeOldEditor, network, nodeValues, oldSeedFromJSON,
-  settle, sharedAttributes, sharedText, typeAfter, words,
+  OldEditor, SIX, assertPublishedOldClient, codes, counts, destroy, editSeed, linkText, makeEditor, makeOldEditor, network, nodeValues,
+  oldSeedFromJSON, settle, sharedAttributes, sharedText, typeAfter, words,
 } from './clients.mjs';
+
+test('the older client runs the published 1.2.0 packages from its own install, not the current build', () => {
+  assert.doesNotThrow(() => { assertPublishedOldClient(); });
+  assert.notEqual(OldEditor, Editor);
+});
 
 const SPAN_HTML = '<table><tbody><tr>'
   + '<td colspan="0"><p>zero</p></td>'

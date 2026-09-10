@@ -12,6 +12,8 @@ import * as old from './v1.2.0/client.mjs';
 
 export const SIX = [1, 2, 3, 4, 5, 6];
 export const oldVersion = old.version;
+export const assertPublishedOldClient = old.assertPublishedClient;
+export const OldEditor = old.Editor;
 export const makeOldEditor = old.makeEditor;
 export const oldSeedFromJSON = old.seedFromJSON;
 const REMOTE = 'mixed-version-remote';

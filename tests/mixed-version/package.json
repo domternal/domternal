@@ -5,7 +5,7 @@
   "description": "Documents saved by the published 1.2.0 packages, and 1.2.0 clients collaborating with current ones over Yjs: no rewrites, no lost content, migration only through normalizeContentAttributes.",
   "type": "module",
   "scripts": {
-    "test": "node --test ./mixed-version.test.mjs"
+    "test:mixed": "node --test ./mixed-version.test.mjs"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",
