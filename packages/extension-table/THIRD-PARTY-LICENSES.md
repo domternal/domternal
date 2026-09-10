@@ -15,11 +15,13 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-The fixTables guard in this package's source (`src/helpers/guardedTableEditing.ts`,
-shipped inside `dist/`) walks changed nodes the way the `changedDescendants`
-helper of prosemirror-tables (https://github.com/ProseMirror/prosemirror-tables)
-does, Copyright (C) 2015-2016 by Marijn Haverbeke <marijnh@gmail.com> and others,
-MIT License:
+Two files in this package's source, shipped inside `dist/`, derive from
+prosemirror-tables (https://github.com/ProseMirror/prosemirror-tables),
+Copyright (C) 2015-2016 by Marijn Haverbeke <marijnh@gmail.com> and others,
+MIT License: the cell paste helpers in `src/helpers/pasteCells.ts` are adapted
+from its `src/copypaste.ts` and the paste handler of `src/input.ts` (version
+1.8.5), and the fixTables guard in `src/helpers/guardedTableEditing.ts` walks
+changed nodes the way its `changedDescendants` helper does:
 
 Copyright (C) 2015-2016 by Marijn Haverbeke <marijnh@gmail.com> and others
 

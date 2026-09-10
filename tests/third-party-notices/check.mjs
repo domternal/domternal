@@ -102,6 +102,12 @@ export const REQUIRED = [
     reason: 'src/helpers/guardedTableEditing.ts walks changed nodes after prosemirror-tables',
   },
   {
+    package: 'packages/extension-table',
+    source: 'src/helpers/pasteCells.ts',
+    markers: ['prosemirror-tables', 'Marijn Haverbeke'],
+    reason: 'src/helpers/pasteCells.ts adapts the prosemirror-tables cell paste helpers',
+  },
+  {
     package: 'packages/theme',
     source: 'src/_prosemirror.scss',
     markers: ['prosemirror-view', 'prosemirror-gapcursor', 'prosemirror-tables', 'Marijn Haverbeke'],

@@ -50,6 +50,7 @@ import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 import { createResizeSuppressionPlugin } from './plugins/resizeSuppressionPlugin.js';
 import { createCellSelectionPlugin } from './plugins/cellSelectionPlugin.js';
 import { guardedTableEditing } from './helpers/guardedTableEditing.js';
+import { createTableCellPastePlugin } from './plugins/tableCellPastePlugin.js';
 import { TableRow } from './TableRow.js';
 import { TableCell } from './TableCell.js';
 import { TableHeader } from './TableHeader.js';
@@ -507,6 +508,9 @@ export const Table = Node.create<TableOptions>({
         cellMinWidth: this.options.cellMinWidth,
         defaultCellMinWidth: this.options.defaultCellMinWidth,
       }),
+
+      // Cell pastes, ahead of tableEditing's own handler, which throws on cells that span rows.
+      createTableCellPastePlugin(),
 
       // fixTables leaves a table that holds an unsupported span to normalizeContentAttributes.
       guardedTableEditing({

@@ -121,6 +121,14 @@ entries (`1e6`). A table that holds such a span is therefore left alone until
 `normalizeContentAttributes` replaces the span; the next change then repairs it as usual. Table
 commands inside such a table still follow the stored spans.
 
+Pasting cells into a table places them at the caret or over a cell selection, grows the table
+where they reach past its edges and selects exactly the pasted cells, as prosemirror-tables does.
+The package handles these pastes itself, with the prosemirror-tables helpers adapted in
+`src/helpers/pasteCells.ts`, because the upstream handler throws `No cell with offset` and pastes
+nothing when a pasted cell spans rows up to the table's right edge, such as a merged 2x2 cell
+pasted into the last column. A cell clipped at the bottom of a cell selection keeps the rows it
+still covers, and one undo step restores the table.
+
 A cell background is written into the cell's `style` only when it is a safe CSS value
 (`isSafeCssValue` from `@domternal/core`): a value that could add a declaration, such as
 `red;position:fixed`, or load a resource through `url()` is left out of the editor DOM,
