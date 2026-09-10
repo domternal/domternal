@@ -16,7 +16,7 @@ import { InputRule } from '@domternal/pm/inputrules';
 import type { Node as PmNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { imageMessages } from './messages.js';
-import { hasPastedText, imageUploadPlugin } from './imageUploadPlugin.js';
+import { hasPastedText, imageFileInsertion } from './imageUploadPlugin.js';
 
 /** Float values for image text wrapping. */
 export type ImageFloat = 'none' | 'left' | 'right' | 'center';
@@ -132,6 +132,28 @@ function applyWidth(img: HTMLImageElement, value: unknown): void {
         ? Number.parseFloat(/^\s*(\d+(?:\.\d+)?)(?:px)?\s*$/.exec(value)?.[1] ?? '')
         : Number.NaN;
   img.style.width = Number.isFinite(px) && px > 0 ? `${String(px)}px` : '';
+}
+
+/** The image files of a clipboard or drop in their order: file items whose type is an image type. */
+function clipboardImageFiles(data: DataTransfer | null): File[] {
+  const found: File[] = [];
+  if (!data) return found;
+  const add = (file: File | null): void => {
+    if (file?.type.startsWith('image/') === true && !found.includes(file)) found.push(file);
+  };
+  // A synthetic or older transfer may list its files only.
+  const items = data.items as DataTransferItemList | null | undefined;
+  if (items) {
+    for (const item of Array.from(items)) if (item.kind === 'file') add(item.getAsFile());
+  } else {
+    for (const file of Array.from(data.files)) add(file);
+  }
+  return found;
+}
+
+/** Whether a clipboard or drop carries files and no text of either kind. */
+function holdsOnlyFiles(data: DataTransfer | null): boolean {
+  return data !== null && data.getData('text/html') === '' && data.getData('text/plain') === '';
 }
 
 /** Reads a File as a base64 data URL. */
@@ -704,9 +726,26 @@ export const Image = Node.create<ImageOptions>({
     const nodeType = this.nodeType;
     const options = this.options;
     const storage = this.storage as Record<string, unknown>;
+    const live = (): ImageOptions => this.options;
+    // One path for pasted, dropped and chosen files: an uploadHandler stores them, otherwise
+    // they are read as data URLs when allowBase64 allows it, and without either nothing is stored.
+    const files = nodeType ? imageFileInsertion({
+      nodeType,
+      store: () => {
+        const { uploadHandler, allowBase64 } = live();
+        return uploadHandler ?? (allowBase64 ? readFileAsDataURL : null);
+      },
+      accepts: file => {
+        const { allowedMimeTypes, maxFileSize } = live();
+        return allowedMimeTypes.includes(file.type) && (maxFileSize <= 0 || file.size <= maxFileSize);
+      },
+      allowsSource: src => isValidImageSrc(src, live().allowBase64),
+      onUploadStart: () => (live().uploadHandler ? live().onUploadStart : null),
+      onUploadError: () => live().onUploadError,
+    }) : undefined;
 
     // Image popover + drag overlay + paste/drop plugin
-    if (nodeType) {
+    if (nodeType && files) {
       plugins.push(new Plugin({
         key: new PluginKey('imageClipboardDestination'),
         view: view => ({
@@ -807,7 +846,8 @@ export const Image = Node.create<ImageOptions>({
         urlInput.value = '';
         altInput.value = prefill?.alt ?? '';
         urlInput.hidden = editing;
-        browseBtn.hidden = editing;
+        // Without an uploadHandler or allowBase64 a chosen file could not be stored.
+        browseBtn.hidden = editing || !files.canStore();
         altInput.hidden = !editing;
         refreshLabels();
         el.setAttribute('data-show', '');
@@ -855,26 +895,7 @@ export const Image = Node.create<ImageOptions>({
       };
 
       const insertFromFile = (file: File): void => {
-        if (options.uploadHandler) {
-          options.uploadHandler(file)
-            .then((url) => {
-              editor.commands.setImage({ src: url });
-            })
-            .catch((error: unknown) => {
-              if (options.onUploadError) {
-                options.onUploadError(
-                  error instanceof Error ? error : new Error(String(error)),
-                  file,
-                );
-              }
-            });
-        } else {
-          void readFileAsDataURL(file).then(src => {
-            const { tr } = editor.view.state;
-            tr.replaceSelectionWith(nodeType.create({ src }));
-            editor.view.dispatch(tr);
-          });
-        }
+        files.insert(editor.view, [file], { at: 'selection' });
       };
 
       const applyUrl = (): void => {
@@ -937,7 +958,7 @@ export const Image = Node.create<ImageOptions>({
       // Popover event listeners. The focusable order depends on the mode:
       // insert shows [url, apply, browse], the edit menu shows [alt, apply].
       const focusables = (): HTMLElement[] =>
-        editingPos !== null ? [altInput, applyBtn] : [urlInput, applyBtn, browseBtn];
+        editingPos !== null ? [altInput, applyBtn] : [urlInput, applyBtn, browseBtn].filter(element => !element.hidden);
       const moveFocus = (current: HTMLElement, dir: 1 | -1): void => {
         const list = focusables();
         const i = list.indexOf(current);
@@ -1002,50 +1023,35 @@ export const Image = Node.create<ImageOptions>({
           },
           handlePaste(view, event, slice) {
             if (getClipboardPasteBehavior(view, event)?.assetsAlreadyHandled === true) return false;
-            // When uploadHandler is set, let imageUploadPlugin handle paste
-            if (options.uploadHandler) return false;
-            const items = event.clipboardData?.items;
-            if (!items) return false;
-
-            for (const item of Array.from(items)) {
-              if (item.kind === 'file' && item.type.startsWith('image/')) {
-                const file = item.getAsFile();
-                if (!file) continue;
-                if (!options.allowedMimeTypes.includes(file.type)) continue;
-                if (options.maxFileSize > 0 && file.size > options.maxFileSize) continue;
-                if (hasPastedText(slice)) return false;
-
-                event.preventDefault();
-                void readFileAsDataURL(file).then(src => {
-                  const { tr } = view.state;
-                  tr.replaceSelectionWith(nodeType.create({ src }));
-                  view.dispatch(tr);
-                });
-                return true;
-              }
+            const pasted = clipboardImageFiles(event.clipboardData);
+            if (pasted.length === 0 || hasPastedText(slice)) return false;
+            if (files.insert(view, pasted, { at: 'selection' })) {
+              event.preventDefault();
+              return true;
+            }
+            // Files alone that Image cannot store insert nothing, not a rendering of them.
+            if (!files.canStore() && holdsOnlyFiles(event.clipboardData)) {
+              event.preventDefault();
+              return true;
             }
             return false;
           },
-          handleDrop(view, event) {
-            // When uploadHandler is set, let imageUploadPlugin handle it
-            if (options.uploadHandler) return false;
-            const files = event.dataTransfer?.files;
-            if (!files?.length) return false;
-
-            const file = files[0];
-            if (!file || !options.allowedMimeTypes.includes(file.type)) return false;
-            if (options.maxFileSize > 0 && file.size > options.maxFileSize) return false;
-
-            event.preventDefault();
+          handleDrop(view, event, _slice, moved) {
+            // A drag inside the editor moves its own content.
+            if (moved) return false;
+            const dropped = clipboardImageFiles(event.dataTransfer);
+            if (dropped.length === 0) return false;
             const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            if (!pos) return false;
-
-            void readFileAsDataURL(file).then(src => {
-              const tr = view.state.tr;
-              tr.insert(pos.pos, nodeType.create({ src }));
-              view.dispatch(tr);
-            });
-            return true;
+            if (pos && files.insert(view, dropped, { at: 'position', pos: pos.pos })) {
+              event.preventDefault();
+              return true;
+            }
+            // Image files alone that nothing inserts: the browser must not open them instead.
+            if (holdsOnlyFiles(event.dataTransfer)) {
+              event.preventDefault();
+              return true;
+            }
+            return false;
           },
         },
         view() {
@@ -1093,19 +1099,8 @@ export const Image = Node.create<ImageOptions>({
       }));
     }
 
-    // Paste/drop upload plugin
-    if (options.uploadHandler && nodeType) {
-      plugins.push(
-        imageUploadPlugin({
-          nodeType,
-          uploadHandler: options.uploadHandler,
-          allowedMimeTypes: options.allowedMimeTypes,
-          maxFileSize: options.maxFileSize,
-          onUploadStart: options.onUploadStart,
-          onUploadError: options.onUploadError,
-        }),
-      );
-    }
+    // Placeholders of pasted, dropped and chosen files.
+    if (files) plugins.push(files.plugin);
 
     return plugins;
   },

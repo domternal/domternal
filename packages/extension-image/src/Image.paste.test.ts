@@ -79,7 +79,8 @@ describe.each(['base64', 'upload'] as const)('image paste ownership in %s mode',
     Object.defineProperty(event, 'clipboardData', { get: clipboard });
     setClipboardPasteBehavior(instance.view, event, { assetsAlreadyHandled: true, preserveOrderedListStart: true });
     const handlers = instance.state.plugins.filter(plugin => plugin.props.handlePaste !== undefined && plugin.props.handleDrop !== undefined);
-    expect(handlers).toHaveLength(mode === 'upload' ? 2 : 1);
+    // One plugin takes pasted and dropped files, with or without an uploadHandler.
+    expect(handlers).toHaveLength(1);
     const state = instance.state;
     for (const plugin of handlers) expect(plugin.props.handlePaste?.call(plugin, instance.view, event, Slice.empty)).toBe(false);
     expect(instance.state).toBe(state);

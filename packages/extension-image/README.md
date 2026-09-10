@@ -78,11 +78,11 @@ editor.commands.deleteImage();
 
 - `inline` (`boolean`, default `false`) - render images inline within paragraphs instead of as block nodes.
 - `placement` (`'float' | 'align'` or `null`, default `null`) - which placement set the bubble menu offers. `null` follows the editor: `preset: 'notion'` offers align, `'classic'` offers float.
-- `allowBase64` (`boolean`, default `true`) - permit `data:image/` URLs; when `false`, only non-data sources are allowed.
-- `uploadHandler` (`(file: File) => Promise<string>` or `null`, default `null`) - when set, enables image upload on paste and drop.
+- `allowBase64` (`boolean`, default `true`) - permit `data:image/` URLs; when `false`, only non-data sources are allowed, and without an `uploadHandler` pasted, dropped and chosen files are not stored at all.
+- `uploadHandler` (`(file: File) => Promise<string>` or `null`, default `null`) - stores pasted, dropped and chosen image files and returns their URL; without it, files are read as `data:` URLs when `allowBase64` allows it.
 - `allowedMimeTypes` (`string[]`) - MIME types accepted for upload (defaults to `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml`, `image/avif`).
 - `maxFileSize` (`number`, default `0`) - max upload size in bytes; `0` means unlimited.
-- `onUploadStart` / `onUploadError` - callbacks fired when an upload begins or fails.
+- `onUploadStart` / `onUploadError` - callbacks fired when an upload through `uploadHandler` begins, and when storing a file fails: an upload that rejects, a file that cannot be read, or a returned source `setImage` would refuse (a `RangeError`).
 - `HTMLAttributes` (`Record<string, unknown>`) - attributes merged onto the rendered `<img>`.
 
 ### Image sources
@@ -115,7 +115,7 @@ Float and align are one choice on a node, so setting either clears the other. Al
 serializes as `data-align` plus block margins, never a float, so exported HTML lands
 correctly with no theme loaded. `ImageFloat`, `ImageAlign`, `ImagePlacement`,
 `SetImageOptions`, and `ImageOptions` are exported, along with `imageUploadPluginKey`,
-whose plugin state is the `DecorationSet` of in-flight upload placeholders.
+whose plugin state is the `DecorationSet` of the placeholders of files being stored.
 
 ## Editing UI
 
@@ -123,7 +123,8 @@ The user-facing counterpart to the commands above:
 
 - Selecting an image opens a bubble menu with placement controls, an "Edit alt text" action, and Delete. The menu offers exactly one placement set: wrapping (Inline / Float left / Center / Float right) under the classic preset, alignment (Align left / Align center / Align right) under `preset: 'notion'`, or whichever the `placement` option pins.
 - The main toolbar and the slash (floating) menu both expose an "Image" action that opens a popover with a URL field and a button to browse for a local file. Alt text is set afterward: the bubble menu's "Edit alt text" action reopens the same popover with a single alt field, pre-filled from the image.
-- When `uploadHandler` is set, pasting or dropping an image file uploads it through the handler and inserts the returned URL. Without an `uploadHandler`, pasted and dropped images are inlined as base64 `data:` URLs.
+- Pasted, dropped and chosen image files take one path. Every file of an accepted type and size gets a placeholder, a widget decoration that shows a loading indicator, and is stored through `uploadHandler`, or read as a `data:` URL when `allowBase64` allows it. The images replace their placeholders in the order the files came, however the stores finish; a block image moves out of the start or end of a textblock instead of splitting it, so no empty paragraphs appear, and splits it only in the middle. A paste replaces the selection, a drop inserts at the drop position, which follows edits made while the files are stored, and the images of one paste undo together. A file whose store fails is skipped and reported to `onUploadError`, and an image whose placeholder was deleted is dropped.
+- With `allowBase64: false` and no `uploadHandler`, no file is stored: a paste or drop of files alone inserts nothing and is taken, so the browser inserts nothing either, and the popover hides its file button. A drop of image files alone that no configuration accepts is taken too, so the browser does not open the file.
 
 ## Clipboard image destination
 
