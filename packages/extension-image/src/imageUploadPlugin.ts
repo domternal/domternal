@@ -80,18 +80,6 @@ function placeholderPos(state: EditorState, id: string): number | undefined {
   return imageUploadPluginKey.getState(state)?.find(undefined, undefined, byId(id))[0]?.from;
 }
 
-/** Rich clipboard text belongs to the parsed slice, not a separate image insertion. */
-export function hasPastedText(slice: Slice | undefined): boolean {
-  let found = false;
-  slice?.content.descendants(node => {
-    if (found) return false;
-    // Image alt text is not a text node and must not disable screenshot paste.
-    if (node.isText && (node.text ?? '').trim() !== '') found = true;
-    return !found;
-  });
-  return found;
-}
-
 /**
  * The alt text of the one image a pasted or dropped slice held, for one file:
  * the file stands for that image.

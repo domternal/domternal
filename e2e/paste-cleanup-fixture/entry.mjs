@@ -23,6 +23,8 @@ const embeddedAssets = query.get('assets') === 'embedded';
 const resolverAssets = query.get('assets') === 'resolver';
 const coordinatedAssets = embeddedAssets || resolverAssets;
 const imagePolicy = query.get('image-policy');
+// An Image uploadHandler whose upload of a file named with @<ms> takes that long, to finish out of order.
+const imageUpload = query.get('image-upload') === 'on';
 const capabilityMinimal = query.get('schema') === 'capability-minimal';
 const capabilityFull = query.get('schema') === 'capability-full';
 // Levels two and three only, as an application that reserves h1 for its page title.
@@ -279,6 +281,12 @@ const extensions = [
   ...(imagePolicy === 'missing' ? [] : [Image.configure({
     allowBase64: imagePolicy !== 'no-base64',
     ...(coordinatedAssets ? { uploadHandler: async () => { assetUploads++; return 'https://paste-probe.invalid/unexpected-upload.png'; } } : {}),
+    ...(imageUpload && !coordinatedAssets ? { uploadHandler: async file => {
+      assetUploads++;
+      const delay = Number(/@(\d+)/.exec(file.name)?.[1] ?? 0);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return `${resolvedOrigin}/__uploads__/${encodeURIComponent(file.name)}`;
+    } } : {}),
   })]), Table, TableRow, TableCell, TableHeader,
   ...(details ? [Details, DetailsSummary, DetailsContent] : []),
   ...(pasteFailure === null ? [] : [FailingPasteHook]),

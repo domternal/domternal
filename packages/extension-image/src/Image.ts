@@ -9,14 +9,14 @@
  */
 
 import { Node, PluginKey, checkUrl, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages } from '@domternal/core';
-import { getClipboardPasteBehavior, registerClipboardImageDestination } from '@domternal/core/clipboard';
+import { getClipboardPasteBehavior, pasteClipboardImageFiles, registerClipboardImageDestination } from '@domternal/core/clipboard';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
 import type { Node as PmNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { imageMessages } from './messages.js';
-import { hasPastedText, imageFileInsertion } from './imageUploadPlugin.js';
+import { imageFileInsertion, singleImageAlt } from './imageUploadPlugin.js';
 
 /** Float values for image text wrapping. */
 export type ImageFloat = 'none' | 'left' | 'right' | 'center';
@@ -760,7 +760,8 @@ export const Image = Node.create<ImageOptions>({
               maxFileBytes: liveOptions.maxFileSize === 0 ? Number.MAX_SAFE_INTEGER : liveOptions.maxFileSize,
               policyVersion: 'builtin:1',
             };
-          }),
+          // Core hands over a paste's image files when they are the paste, for PasteCleanup and Link too.
+          }, insertion => files.insert(view, insertion.files, { at: 'selection' }, insertion.alt)),
         }),
       }));
 
@@ -1023,26 +1024,25 @@ export const Image = Node.create<ImageOptions>({
           },
           handlePaste(view, event, slice) {
             if (getClipboardPasteBehavior(view, event)?.assetsAlreadyHandled === true) return false;
-            const pasted = clipboardImageFiles(event.clipboardData);
-            if (pasted.length === 0 || hasPastedText(slice)) return false;
-            if (files.insert(view, pasted, { at: 'selection' })) {
-              event.preventDefault();
-              return true;
-            }
+            // Core decides whether the files are the paste: the pasted content has no text of its
+            // own. It hands them to this node's insertFiles, with the one copied image's alt text.
+            if (pasteClipboardImageFiles(view, event, slice)) return true;
             // Files alone that Image cannot store insert nothing, not a rendering of them.
-            if (!files.canStore() && holdsOnlyFiles(event.clipboardData)) {
+            if (!files.canStore() && clipboardImageFiles(event.clipboardData).length > 0 && holdsOnlyFiles(event.clipboardData)) {
               event.preventDefault();
               return true;
             }
             return false;
           },
-          handleDrop(view, event, _slice, moved) {
+          handleDrop(view, event, slice, moved) {
             // A drag inside the editor moves its own content.
             if (moved) return false;
             const dropped = clipboardImageFiles(event.dataTransfer);
             if (dropped.length === 0) return false;
             const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            if (pos && files.insert(view, dropped, { at: 'position', pos: pos.pos })) {
+            // One dropped file stands for the one image the drop held, and keeps its alt text.
+            const alt = dropped.length === 1 ? singleImageAlt(slice, nodeType) : undefined;
+            if (pos && files.insert(view, dropped, { at: 'position', pos: pos.pos }, alt)) {
               event.preventDefault();
               return true;
             }

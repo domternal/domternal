@@ -2217,16 +2217,19 @@ describe('Image popover', () => {
 
     const file = new File(['fake'], 'img.png', { type: 'image/png' });
     const clipboardData = {
+      types: ['Files'],
       items: [{
         kind: 'file',
         type: 'image/png',
         getAsFile: () => file,
       }],
+      getData: () => '',
     };
     const event = new Event('paste', { bubbles: true, cancelable: true }) as any;
     event.clipboardData = clipboardData;
 
-    const result = (plugin as any).props.handlePaste(editor.view, event);
+    // ProseMirror hands every paste handler the parsed slice, empty for files alone.
+    const result = (plugin as any).props.handlePaste(editor.view, event, Slice.empty);
     expect(result).toBe(true);
   });
 
