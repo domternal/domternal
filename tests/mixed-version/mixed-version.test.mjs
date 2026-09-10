@@ -449,3 +449,57 @@ test('Yjs: a read-only current client beside a 1.2.0 client and a default one ne
   assert.equal(quiet[2], 0);
   destroy(clients);
 });
+
+/** Pastes HTML on a client, as a paste event carries it. */
+function pasteHTML(client, html) {
+  client.editor.view.pasteHTML(html, new window.Event('paste', { cancelable: true }));
+}
+
+for (const span of ['0', '-1', 'abc']) {
+  test(`Yjs: a current client pastes cells into a table a 1.2.0 client loaded with colspan="${span}", losing no cell`, async () => {
+    const clients = network([{ kind: 'old' }, { kind: 'current' }]);
+    const [old, current] = clients;
+    await settle();
+    old.editor.commands.setContent(`<table><tbody><tr><td><p>a</p></td><td colspan="${span}"><p>b</p></td><td><p>c</p></td></tr>`
+      + '<tr><td><p>d</p></td><td><p>e</p></td><td><p>f</p></td></tr></tbody></table>');
+    await settle();
+    const before = words(current.editor);
+    let at;
+    current.editor.state.doc.descendants((node, pos) => { if (at === undefined && node.isText && node.text === 'd') at = pos; });
+    current.editor.view.dispatch(current.editor.state.tr.setSelection(current.TextSelection.create(current.editor.state.doc, at)));
+
+    assert.doesNotThrow(() => { pasteHTML(current, '<table><tbody><tr><td><p>S</p></td></tr></tbody></table>'); });
+    await settle();
+
+    // The pasted cell's content lands at the caret; every cell and its text stays for every client.
+    assert.equal(words(current.editor), before.replace('|d|', '|Sd|'));
+    assert.deepEqual(current.errors, []);
+    for (const text of ['a', 'b', 'c', 'Sd', 'e', 'f']) assert.ok(words(old.editor).split('|').includes(text), `the 1.2.0 client lost ${text}`);
+    destroy(clients);
+  });
+}
+
+test('Yjs: an image pasted on a current client lands while a 1.2.0 client types, for both', async () => {
+  const clients = network([{ kind: 'current' }, { kind: 'old' }]);
+  const [current, old] = clients;
+  await settle();
+  current.editor.commands.setContent('<p>alpha</p><p>beta</p>');
+  await settle();
+  let at;
+  current.editor.state.doc.descendants((node, pos) => { if (at === undefined && node.isText && node.text === 'alpha') at = pos + 5; });
+  current.editor.view.dispatch(current.editor.state.tr.setSelection(current.TextSelection.create(current.editor.state.doc, at)));
+  const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC'), c => c.charCodeAt(0));
+  const file = new window.File([bytes], 'shot.png', { type: 'image/png' });
+  const event = new window.Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'clipboardData', { value: { types: ['Files'], files: [file], items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }], getData: () => '' } });
+  current.editor.view.dom.dispatchEvent(event);
+  // The 1.2.0 client types before the file is read, and its change reaches the current client as a replace of the whole document.
+  typeAfter(old, 'beta', '!');
+
+  for (let attempt = 0; attempt < 50 && !current.editor.getHTML().includes('<img'); attempt++) await settle();
+  await settle();
+  for (const client of clients) {
+    assert.match(client.editor.getHTML(), /^<p>alpha<\/p><img src="data:image\/png;base64,[^"]+"><p>beta!<\/p>$/, `${client.kind} lost the image`);
+  }
+  destroy(clients);
+});
