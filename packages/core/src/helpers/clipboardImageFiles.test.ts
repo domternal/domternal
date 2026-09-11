@@ -107,12 +107,40 @@ describe('pasteHasOwnText', () => {
     const two = [png('a.png'), png('b.png')];
     expect(pasteHasOwnText(pasteEvent({ text: 'photo.png', files: one }), textSlice(ed, 'photo.png'))).toBe(false);
     expect(pasteHasOwnText(pasteEvent({ text: 'a.png\r\nb.png\n', files: two }), textSlice(ed, 'a.png b.png'))).toBe(false);
-    // Another line, a path, another order, HTML or no file keeps the text.
+    // Another line, another order, HTML or no file keeps the text.
     expect(pasteHasOwnText(pasteEvent({ text: 'a.png\nb.png\nc', files: two }), textSlice(ed, 'a.png b.png c'))).toBe(true);
-    expect(pasteHasOwnText(pasteEvent({ text: '/home/me/photo.png', files: one }), textSlice(ed, '/home/me/photo.png'))).toBe(true);
     expect(pasteHasOwnText(pasteEvent({ text: 'b.png\na.png', files: two }), textSlice(ed, 'b.png a.png'))).toBe(true);
     expect(pasteHasOwnText(pasteEvent({ html: '<p>photo.png</p>', text: 'photo.png', files: one }), textSlice(ed, 'photo.png'))).toBe(true);
     expect(pasteHasOwnText(pasteEvent({ text: 'photo.png' }), textSlice(ed, 'photo.png'))).toBe(true);
+  });
+});
+
+describe('pasteHasOwnText with names a file manager writes', () => {
+  it('matches a name written in another Unicode normalization form, as macOS writes accented names', () => {
+    const ed = mount();
+    const nfc = 'Capture d\u2019\u00e9cran caf\u00e9.png';
+    const nfd = nfc.normalize('NFD');
+    expect(nfd).not.toBe(nfc);
+    expect(pasteHasOwnText(pasteEvent({ text: nfd, files: [png(nfc)] }), textSlice(ed, nfd))).toBe(false);
+    expect(pasteHasOwnText(pasteEvent({ text: nfc, files: [png(nfd)] }), textSlice(ed, nfc))).toBe(false);
+  });
+
+  it('matches a path or file URL by the name at its end', () => {
+    const ed = mount();
+    const one = [png('f0.png')];
+    for (const text of ['/Users/me/Desktop/f0.png', 'C:\\Users\\me\\f0.png', 'file:///home/me/f0.png']) {
+      expect(pasteHasOwnText(pasteEvent({ text, files: one }), textSlice(ed, text)), text).toBe(false);
+    }
+    const accented = [png('caf\u00e9 1.png')];
+    expect(pasteHasOwnText(pasteEvent({ text: 'file:///home/me/caf%C3%A9%201.png', files: accented }), textSlice(ed, 'x'))).toBe(false);
+  });
+
+  it('keeps text whose name only resembles the file, or a path to another name', () => {
+    const ed = mount();
+    const one = [png('f0.png')];
+    for (const text of ['/Users/me/f0.png.txt', '/Users/me/other.png', 'see f0.png', 'file:///home/me/%E0%A4%A.png', 'f0']) {
+      expect(pasteHasOwnText(pasteEvent({ text, files: one }), textSlice(ed, text)), text).toBe(true);
+    }
   });
 });
 

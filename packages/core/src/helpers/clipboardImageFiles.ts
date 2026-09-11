@@ -81,11 +81,27 @@ function clipboardImageFiles(data: DataTransfer | null | undefined): File[] {
 }
 
 /**
+ * The file name a plain-text clipboard line stands for, as file managers write a copied file: the
+ * name itself, a path, or a `file:` URL, whose name is percent-decoded. Compared in Unicode NFC,
+ * since macOS writes accented names decomposed in one flavor and composed in another.
+ */
+function lineFileName(line: string): string {
+  let name = line;
+  const url = /^file:/i.test(line);
+  const slash = Math.max(line.lastIndexOf('/'), line.lastIndexOf('\\'));
+  if (slash >= 0) name = line.slice(slash + 1);
+  if (url) {
+    try { name = decodeURIComponent(name); } catch { return ''; }
+  }
+  return name.normalize('NFC');
+}
+
+/**
  * @experimental Whether a paste's content has text of its own, so the clipboard's image files are
  * ignored. Characters that show nothing (white space and Unicode format characters) do not count,
  * nor alt text a handler left in place of images it removed (`imageStandIns`), nor a plain-text
- * clipboard without HTML whose lines are exactly the names of its image files, as file managers
- * copy files.
+ * clipboard without HTML whose lines name its image files in order, as file managers copy files:
+ * each line the file's name, its path or its `file:` URL, in any Unicode normalization form.
  */
 export function pasteHasOwnText(event: ClipboardEvent, slice: Slice, options: ClipboardPasteTextOptions = {}): boolean {
   const own = visible(sliceText(slice));
@@ -96,7 +112,8 @@ export function pasteHasOwnText(event: ClipboardEvent, slice: Slice, options: Cl
   if (data && !hasType(data, 'text/html')) {
     const files = clipboardImageFiles(data);
     const lines = data.getData('text/plain').split(/\r\n|\r|\n/).map(line => line.trim()).filter(line => line !== '');
-    if (files.length > 0 && lines.length === files.length && lines.every((line, index) => line === files[index]?.name)) return false;
+    if (files.length > 0 && lines.length === files.length
+      && lines.every((line, index) => lineFileName(line) === files[index]?.name.normalize('NFC'))) return false;
   }
   return true;
 }
