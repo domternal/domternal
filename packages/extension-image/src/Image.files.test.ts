@@ -234,6 +234,38 @@ describe('image files: order and uploads', () => {
     expect(html(ed)).toBe('<p>Hello</p>');
   });
 
+  it.each([
+    ['the end', 7, 12, '<p>hello </p><img src="https://cdn.example/a.png">'],
+    ['the start', 1, 6, '<img src="https://cdn.example/a.png"><p> world</p>'],
+    ['the middle', 3, 9, '<p>he</p><img src="https://cdn.example/a.png"><p>rld</p>'],
+  ])('undoes an image pasted over a selection at %s of a paragraph together with the replaced text', async (_where, from, to, pasted) => {
+    for (const uploadHandler of [undefined, (file: File) => Promise.resolve(`https://cdn.example/${file.name}`)]) {
+      const ed = mount(uploadHandler ? { uploadHandler } : {}, '<p>hello world</p>');
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, from, to)));
+      pasteFiles(ed, [png('a.png')]);
+      await vi.waitFor(() => { expect(ed.view.dom.querySelectorAll('img')).toHaveLength(1); });
+      if (uploadHandler) expect(html(ed)).toBe(pasted);
+
+      expect(ed.commands.undo()).toBe(true);
+      expect(html(ed)).toBe('<p>hello world</p>');
+      ed.destroy();
+    }
+  });
+
+  it('keeps an image that lands after an edit made meanwhile a step of its own', async () => {
+    const upload = uploads();
+    const ed = mount({ uploadHandler: upload.handler }, '<p>hello world</p><p>other</p>');
+    ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, 7, 12)));
+    pasteFiles(ed, [png('a.png')]);
+    ed.view.dispatch(ed.state.tr.insertText('!', 14));
+    upload.resolve('a.png');
+    await flush();
+    expect(html(ed)).toBe('<p>hello </p><img src="https://cdn.example/a.png"><p>other!</p>');
+
+    expect(ed.commands.undo()).toBe(true);
+    expect(html(ed)).toBe('<p>hello </p><p>other!</p>');
+  });
+
   it('undoes the images of one paste together, back to the text before it', async () => {
     const ed = mount();
     caret(ed, 6);

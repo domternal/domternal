@@ -20,7 +20,9 @@ import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
+import { Slice } from '@domternal/pm/model';
 import type { Node as PMNode, NodeType } from '@domternal/pm/model';
+import { ReplaceStep } from '@domternal/pm/transform';
 
 export const imageUploadPluginKey = new PluginKey<DecorationSet>('imageUpload');
 
@@ -68,6 +70,8 @@ interface Batch {
   next: number;
   /** Whether the images go where setImage places one, as a chosen file does. */
   readonly asCommand: boolean;
+  /** Whether the paste replaced a selection that the first image should undo with. */
+  joinsReplace: boolean;
 }
 
 type Action =
@@ -246,6 +250,14 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
       positions.delete(entry.id);
       if (pos === undefined || entry.status === 'failed' || entry.src === undefined) continue;
       const node = nodeType.create({ src: entry.src, ...(entry.alt === undefined ? {} : { alt: entry.alt }) });
+      if (batch.joinsReplace) {
+        batch.joinsReplace = false;
+        // The history groups a change with the one before it only when they touch, and a block
+        // image moves out of the textblock the replaced selection left. A step that changes
+        // nothing where that selection was lets the image undo with the text it replaced, when
+        // it lands within the grouping delay and no other edit came between.
+        if (tr.steps.length === 0) tr.step(new ReplaceStep(pos, pos, Slice.empty));
+      }
       const before = tr.steps.length;
       // A chosen file is its batch's one entry, so its transaction has no steps yet.
       if (batch.asCommand && before === 0) placeAsCommand(state, tr, pos, node);
@@ -335,7 +347,7 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
     // Placeholders alone are not an edit to undo; a replaced selection is.
     if (!tr.docChanged) tr.setMeta('addToHistory', false);
     view.dispatch(tr);
-    const batch: Batch = { entries, next: 0, asCommand: placement.at === 'command' };
+    const batch: Batch = { entries, next: 0, asCommand: placement.at === 'command', joinsReplace: tr.docChanged };
     const start = options.onUploadStart();
     for (const entry of entries) {
       callHost(start, 'Image.onUploadStart', entry.file);
