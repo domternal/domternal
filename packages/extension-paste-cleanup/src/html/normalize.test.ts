@@ -20,6 +20,26 @@ describe('normalizePasteHTML', () => {
     expect(result.diagnostics.map(d => d.offset)).toEqual([html.indexOf('<span'), html.indexOf('<span'), html.indexOf('<span')]);
   });
 
+  it.each([
+    ['<td rowspan="0">a</td><td>b</td>', '<td>a</td><td>b</td>'],
+    ['<td colspan="">a</td><td>b</td>', '<td>a</td><td>b</td>'],
+    ['<td colspan="abc">a</td><td>b</td>', '<td>a</td><td>b</td>'],
+    ['<td colspan="2x">a</td>', '<td colspan="2">a</td>'],
+    ['<td colspan=" 3 ">a</td>', '<td colspan="3">a</td>'],
+    ['<td rowspan="2.5">a</td><td>b</td>', '<td rowspan="2">a</td><td>b</td>'],
+  ])('reads the table span in %s as the Table extension does, instead of blocking the paste', (cells, expected) => {
+    const result = normalizePasteHTML(`<table><tr>${cells}</tr><tr><td>c</td></tr></table>`);
+    expect(result.status).not.toBe('rejected');
+    expect(result.diagnostics.map(diagnostic => diagnostic.code)).not.toContain('structure-limit');
+    expect(result.html).toContain(`<tr>${expected}</tr>`);
+  });
+
+  it('still blocks a pasted table span above 1,000', () => {
+    const result = normalizePasteHTML('<table><tr><td colspan="1001">a</td></tr></table>');
+    expect(result.status).toBe('rejected');
+    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toContain('structure-limit');
+  });
+
   it('preserves table spans and list starts', () => {
     const result = normalizePasteHTML('<ol start="7"><li><p>Seven</p><ul><li>Nested</li></ul></li></ol><table><tr><td colspan="2" rowspan="3">Merged</td></tr></table>');
     expect(result.html).toContain('<ol start="7">');

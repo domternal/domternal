@@ -646,7 +646,10 @@ so normal extension error isolation cannot silently disable cleanup.
 | Declared raster pixels across the fragment | 50,000,000 |
 
 Additional fixed bounds protect attributes per tag, attribute-name length,
-table spans, individual raster dimensions/pixels, and GIF frames. A lexical work
+table spans, individual raster dimensions/pixels, and GIF frames. A `colspan` or
+`rowspan` reads as a browser and the Table extension read it, the whole number it
+starts with and 1 when it is missing, invalid or zero, and only a span above
+1,000 rejects the paste with `structure-limit`. A lexical work
 guard runs before parse5, including conservative checks in comments/raw text.
 Generated inherited-style attributes share the input-length ceiling, preventing
 a long source value from multiplying across many text or hard-break leaves without

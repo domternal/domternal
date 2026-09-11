@@ -11,14 +11,30 @@ export class TableLimitError extends Error {
   }
 }
 
-function span(value: unknown): number {
-  if (value === undefined) return 1;
-  const numeric = typeof value === 'number' ? value
-    : typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : NaN;
-  if (!Number.isSafeInteger(numeric) || numeric < 1 || numeric > MAX_TABLE_SPAN) {
-    throw new TableLimitError('Table spans must be positive integers no greater than 1000');
+// HTML's rules for a non-negative integer: leading white space, an optional plus sign,
+// then digits up to the first other character.
+const HTML_SPAN = /^[\t\n\f\r ]*\+?(\d+)/;
+
+/**
+ * A colspan or rowspan as a browser and the Table extension read it: the whole number
+ * the attribute starts with, and 1 when it is missing, invalid or zero. The parser
+ * turns a numeric attribute into a number, which reads rounded down. The result is not
+ * bounded; a span above 1,000 is refused by {@link assertTableBounds}.
+ */
+export function readTableSpan(value: unknown): number {
+  let read = 0;
+  if (typeof value === 'number') read = Number.isFinite(value) ? Math.floor(value) : 0;
+  else if (typeof value === 'string') {
+    const digits = HTML_SPAN.exec(value)?.[1];
+    read = digits === undefined ? 0 : Number(digits);
   }
-  return numeric;
+  return read < 1 ? 1 : read;
+}
+
+function span(value: unknown): number {
+  const read = readTableSpan(value);
+  if (read > MAX_TABLE_SPAN) throw new TableLimitError('Table spans must be no greater than 1000');
+  return read;
 }
 
 /** Rows belong to their nearest table, including rows inside implicit tbody elements. */

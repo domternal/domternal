@@ -250,3 +250,36 @@ test.describe('a table that holds an unsupported span', () => {
     });
   }
 });
+
+/**
+ * PasteCleanup reads a pasted colspan or rowspan as a browser and the Table extension do, so a
+ * table the editor accepts on its own is never blocked by installing it.
+ */
+test.describe('pasted table spans that a browser reads as 1 or as a leading number', () => {
+  for (const framework of FRAMEWORKS) {
+    test(`pastes rowspan="0", colspan="" and colspan="2x" as the Table extension reads them (${framework})`, async ({ page }) => {
+      await open(page, framework);
+      await page.evaluate(() => {
+        const target = window as unknown as ProbeWindow;
+        const { editor } = target.__pasteCleanup;
+        if (!editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
+        editor.commands.focus('end');
+        target.__pasteCleanup.clearObservations();
+      });
+
+      expect(await pasteEvent(page, '<table><tr><td rowspan="0"><p>a</p></td><td colspan=""><p>b</p></td></tr>'
+        + '<tr><td colspan="2x"><p>c</p></td></tr></table>')).toBe(true);
+
+      await expect(page.locator('.ProseMirror table')).toHaveCount(1);
+      const spans = await page.evaluate(() => {
+        const found: [string, unknown, unknown][] = [];
+        (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.descendants(node => {
+          if (node.type.name === 'tableCell') found.push([node.textContent, node.attrs['colspan'], node.attrs['rowspan']]);
+        });
+        return found;
+      });
+      expect(spans).toEqual([['a', 1, 1], ['b', 1, 1], ['c', 2, 1]]);
+      await expect(page.locator('.dm-paste-feedback')).toBeHidden();
+    });
+  }
+});

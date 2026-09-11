@@ -8,7 +8,7 @@ import { listStyleFromType } from './listStyles.js';
 import { safeImage, safeLink } from './urls.js';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
 import { confirmSliceAnchor, readSliceOrigin, sliceAnchorContext } from './sliceOrigin.js';
-import { assertTableBounds, TableLimitError } from './tables.js';
+import { assertTableBounds, readTableSpan, TableLimitError } from './tables.js';
 import { assertTagWork, TagWorkLimitError } from './tagWork.js';
 import { assertOutputTreeBounds } from './treeBounds.js';
 import { collectDestinationDemand } from './destinationDemand.js';
@@ -284,7 +284,9 @@ export function normalizeClipboardHTML(
           if (typeof original.alt === 'string') clean.alt = original.alt;
         }
         for (const key of ['colSpan', 'rowSpan', 'span', 'start', 'value', 'width', 'height']) {
-          const value = Number(original[key]);
+          // A cell span keeps the value a browser and the Table extension read, which the table bounds counted.
+          const value = key === 'colSpan' || key === 'rowSpan' ? readTableSpan(original[key]) : Number(original[key]);
+          if (value === 1 && Number(original[key]) !== 1) continue;
           if (Number.isSafeInteger(value) && value > 0 && value <= 10_000) clean[key] = value;
         }
         if (child.tagName === 'ol' && ['1', 'a', 'A', 'i', 'I'].includes(String(original.type))) clean.type = original.type;

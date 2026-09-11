@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Element, ElementContent, Properties, Root } from 'hast';
 import { parseBoundedHTML } from './parse.js';
-import { assertTableBounds, TableLimitError } from './tables.js';
+import { assertTableBounds, readTableSpan, TableLimitError } from './tables.js';
 
 function parse(html: string): Root {
   return parseBoundedHTML(html, {
@@ -106,13 +106,23 @@ describe('assertTableBounds', () => {
     expect(() => { assertTableBounds(tableWithCell({ colSpan: '2', rowSpan: '1' }), 2); }).not.toThrow();
   });
 
-  it.each([0, -1, 1.5, NaN, Infinity, 1_001, 10_000, 'invalid', '', '1e3', true])(
-    'rejects invalid or oversized spans: %s',
+  it.each([1_001, 10_000, '1001', ' +1001', '99999999999999999999'])(
+    'rejects a span above 1,000: %j',
     value => {
       expect(() => { assertTableBounds(tableWithCell({ colSpan: value })); }).toThrow(TableLimitError);
       expect(() => { assertTableBounds(tableWithCell({ rowSpan: value })); }).toThrow(TableLimitError);
     },
   );
+
+  it.each([
+    [0, 1], [-1, 1], [1.5, 1], [2.9, 2], [NaN, 1], [Infinity, 1], [true, 1], [null, 1],
+    ['0', 1], ['', 1], ['invalid', 1], ['2x', 2], [' 3 ', 3], ['+2', 2], ['-2', 1], ['1e3', 1], ['1000', 1_000],
+  ] as const)('reads the span %j as a browser and the Table extension do, as %d', (value, read) => {
+    expect(readTableSpan(value)).toBe(read);
+    expect(() => { assertTableBounds(tableWithCell({ colSpan: value }), read); }).not.toThrow();
+    if (read > 1) expect(() => { assertTableBounds(tableWithCell({ colSpan: value }), read - 1); }).toThrow(TableLimitError);
+    expect(() => { assertTableBounds(tableWithCell({ rowSpan: value })); }).not.toThrow();
+  });
 
   it('rejects malformed raw tree shapes that could hide uncounted cells', () => {
     const orphan: Root = { type: 'root', children: [element('table', [element('td')])] };
