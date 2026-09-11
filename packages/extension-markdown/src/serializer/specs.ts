@@ -41,6 +41,18 @@ function warnLossyBlockAttrs(state: MarkdownSerializerState, node: PMNode): void
 }
 
 /**
+ * An explicit list marker, such as upper-roman or square, as the configuration
+ * renders it. Markdown writes every ordered list as decimal and every bullet
+ * list with the renderer's markers, so the style does not survive export.
+ */
+function warnListMarker(state: MarkdownSerializerState, node: PMNode): void {
+  const rendered = resolveAttributeValue(node.type.schema, node.type.name, 'listStyleType', node.attrs['listStyleType']);
+  if (rendered !== null && rendered !== undefined) {
+    state.warn('lossy-attribute', 'List marker style is not representable in Markdown', node.type.name);
+  }
+}
+
+/**
  * An `&` that starts a character reference, such as `&colon;`, `&#106;` or
  * `&amp;`. Written as `&amp;`, it reaches the output as the stored `&` in
  * every renderer, which decodes the reference once; a backslash before it
@@ -285,10 +297,12 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
   },
 
   bulletList: (state, node) => {
+    warnListMarker(state, node);
     state.renderList(node, '  ', () => '- ');
   },
 
   orderedList: (state, node) => {
+    warnListMarker(state, node);
     const start = attrNumber(node, 'start') ?? 1;
     const maxWidth = String(start + node.childCount - 1).length;
     const indent = ' '.repeat(maxWidth + 2);

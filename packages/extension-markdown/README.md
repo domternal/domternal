@@ -6,7 +6,7 @@
 Bidirectional Markdown for the [Domternal](https://domternal.dev) editor: parse GitHub-flavored Markdown into the document and serialize the document back to Markdown, covering the full Notion-style schema.
 
 - **Import**: `insertMarkdown` / `setMarkdownContent` commands, plus automatic conversion of Markdown-looking plain-text pastes (opt-out).
-- **Export**: `getMarkdown(editor)` and a `downloadMarkdown` helper, with a warning channel for anything Markdown cannot express (alignment, colors, merged table cells).
+- **Export**: `getMarkdown(editor)` and a `downloadMarkdown` helper, with a warning channel for anything Markdown cannot express (alignment, colors, explicit list markers, merged table cells).
 - **Headless**: `parseMarkdown` / `serializeMarkdown` work against any schema without an editor instance.
 - Coverage: headings, lists (bullet, ordered with start, GFM task lists), blockquotes, fenced code with language, tables with column alignment, images, links and autolinks, bold/italic/strike/inline code, hard breaks, LaTeX math (`$...$`, `$$` blocks, and GitHub's `` $`...`$ `` and `math` fences), emoji glyphs.
 
@@ -140,7 +140,7 @@ the math nodes; a `math` fence becomes block math only when the schema has it.
 
 ## Fidelity notes
 
-Markdown cannot express everything the editor can. The serializer keeps the content and reports a warning for: text alignment and line height, text and background colors, underline, merged table cells, multi-block table cells, table cell background and vertical alignment, image resize dimensions, toggle (details) structure, and mentions. Two cases drop the content instead of keeping it, each with its own warning: an image without a `src`, and a table of contents block (generated content). Round trips of the supported subset are exact and covered by tests.
+Markdown cannot express everything the editor can. The serializer keeps the content and reports a warning for: text alignment and line height, an explicit list marker (`listStyleType`, such as `upper-roman` or `square`, written as `1.` or `-`), text and background colors, underline, merged table cells, multi-block table cells, table cell background and vertical alignment, image resize dimensions, toggle (details) structure, and mentions. Two cases drop the content instead of keeping it, each with its own warning: an image without a `src`, and a table of contents block (generated content). Round trips of the supported subset, which leaves out everything these warnings report, are exact and covered by tests.
 
 ## License
 
