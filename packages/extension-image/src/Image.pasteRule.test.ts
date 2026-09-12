@@ -66,6 +66,8 @@ describe('pasting image files without PasteCleanup', () => {
     ['HTML holding only a data image', { html: '<img src="data:image/png;base64,iVBORw0KGgo=">' }],
     ['HTML holding only a blob image', { html: '<img src="blob:https://example.com/123">' }],
     ['HTML holding two images and no text', { html: '<img src="https://example.com/a.png"><img src="https://example.com/b.png">' }],
+    ['plain text that is the file\'s path, as a file manager copies a file', { text: '/home/me/shot.png' }],
+    ['plain text that is the file\'s file URL', { text: 'file:///home/me/shot.png' }],
   ])('inserts the file for %s', async (_name, clipboard) => {
     const ed = mount();
     const event = paste(ed, { ...clipboard, files: [png()] });
@@ -95,7 +97,8 @@ describe('pasting image files without PasteCleanup', () => {
 
   it.each([
     ['plain text', { text: 'Hello' }, 'StartHello'],
-    ['a file name with a path', { text: '/home/me/shot.png' }, 'Start/home/me/shot.png'],
+    ['a path to another file name', { text: '/home/me/other.png' }, 'Start/home/me/other.png'],
+    ['a web address ending in the file name', { text: 'https://example.com/shot.png' }, 'Starthttps://example.com/shot.png'],
     ['HTML text', { html: '<p>Hello</p>' }, 'StartHello'],
     ['a figure with a caption', { html: '<figure><img src="https://example.com/a.png"><figcaption>Caption</figcaption></figure>' }, 'Start\n\nCaption'],
     ['a braille blank, which is a character', { html: '<p>\u2800</p>' }, 'Start\u2800'],

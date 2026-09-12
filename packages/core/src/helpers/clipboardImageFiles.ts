@@ -80,16 +80,19 @@ function clipboardImageFiles(data: DataTransfer | null | undefined): File[] {
   return files;
 }
 
+/** An absolute file path: POSIX, home-relative, a Windows drive or a network share. */
+const FILE_PATH = /^(?:\/|~\/|[a-z]:[\\/]|\\\\)/i;
+
 /**
  * The file name a plain-text clipboard line stands for, as file managers write a copied file: the
- * name itself, a path, or a `file:` URL, whose name is percent-decoded. Compared in Unicode NFC,
- * since macOS writes accented names decomposed in one flavor and composed in another.
+ * name itself, an absolute path, or a `file:` URL, whose name is percent-decoded. Any other line,
+ * such as a web address, stands for itself. Compared in Unicode NFC, since macOS writes accented
+ * names decomposed in one flavor and composed in another.
  */
 function lineFileName(line: string): string {
-  let name = line;
   const url = /^file:/i.test(line);
-  const slash = Math.max(line.lastIndexOf('/'), line.lastIndexOf('\\'));
-  if (slash >= 0) name = line.slice(slash + 1);
+  if (!url && !FILE_PATH.test(line)) return line.normalize('NFC');
+  let name = line.slice(Math.max(line.lastIndexOf('/'), line.lastIndexOf('\\')) + 1);
   if (url) {
     try { name = decodeURIComponent(name); } catch { return ''; }
   }
@@ -101,7 +104,8 @@ function lineFileName(line: string): string {
  * ignored. Characters that show nothing (white space and Unicode format characters) do not count,
  * nor alt text a handler left in place of images it removed (`imageStandIns`), nor a plain-text
  * clipboard without HTML whose lines name its image files in order, as file managers copy files:
- * each line the file's name, its path or its `file:` URL, in any Unicode normalization form.
+ * each line the file's name, its absolute path or its `file:` URL, in any Unicode normalization
+ * form. A web address that ends in the name stays text.
  */
 export function pasteHasOwnText(event: ClipboardEvent, slice: Slice, options: ClipboardPasteTextOptions = {}): boolean {
   const own = visible(sliceText(slice));

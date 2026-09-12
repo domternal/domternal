@@ -138,7 +138,8 @@ describe('pasteHasOwnText with names a file manager writes', () => {
   it('keeps text whose name only resembles the file, or a path to another name', () => {
     const ed = mount();
     const one = [png('f0.png')];
-    for (const text of ['/Users/me/f0.png.txt', '/Users/me/other.png', 'see f0.png', 'file:///home/me/%E0%A4%A.png', 'f0']) {
+    for (const text of ['/Users/me/f0.png.txt', '/Users/me/other.png', 'see f0.png', 'file:///home/me/%E0%A4%A.png', 'f0',
+      'https://example.com/f0.png', 'docs/f0.png']) {
       expect(pasteHasOwnText(pasteEvent({ text, files: one }), textSlice(ed, text)), text).toBe(true);
     }
   });
