@@ -601,3 +601,26 @@ test('the committed Core snapshot marks the attribute registry helpers experimen
     'resolveAttributeValue @experimental',
   ]);
 });
+
+/** The JSDoc block that ends right before `marker` in a built declaration file, or null. */
+function docAbove(text, marker) {
+  const at = text.indexOf(marker);
+  assert.notEqual(at, -1, `${marker} is declared`);
+  const before = text.slice(0, at).trimEnd();
+  if (!before.endsWith('*/')) return null;
+  return before.slice(before.lastIndexOf('/**'));
+}
+
+test('the built Core declarations keep the doc comments an editor shows on hover', () => {
+  for (const file of ['index.d.ts', 'index.d.cts']) {
+    const text = readFileSync(join(repoRoot, 'packages/core/dist', file), 'utf8');
+    assert.match(docAbove(text, 'declare class Editor extends') ?? '', /Main editor class[\s\S]*@example/, `${file}: Editor`);
+    // Both hover targets carry the warning: the standalone export and editor.commands.
+    for (const marker of ['declare const normalizeContentAttributes', '    normalizeContentAttributes: CommandSpec']) {
+      const doc = docAbove(text, marker) ?? '';
+      assert.match(doc, /every client/, `${file}: ${marker}`);
+      assert.match(doc, /heading levels/, `${file}: ${marker}`);
+      assert.match(doc, /Link/, `${file}: ${marker}`);
+    }
+  }
+});

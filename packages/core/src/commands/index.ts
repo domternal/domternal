@@ -114,6 +114,15 @@ declare module '@domternal/core' {
     toggleList: CommandSpec<
       [listNodeName: string, listItemNodeName: string, attributes?: Attrs, options?: { perItem?: boolean }]
     >;
+    /**
+     * Replaces stored values that loading JSON content would replace: unknown
+     * list markers, heading levels the configuration lacks, unsupported table
+     * spans and links the Link's URL policy refuses (removed, text kept), in
+     * one transaction outside the undo history. Run it only when every client
+     * shares this version, heading levels and Link configuration; `codes`
+     * limits it to chosen diagnostic codes. False in a read-only editor or
+     * when nothing needs replacing.
+     */
     normalizeContentAttributes: CommandSpec<[options?: NormalizeContentAttributesOptions]>;
     insertContent: CommandSpec<[content: Content]>;
     selectNodeBackward: CommandSpec;

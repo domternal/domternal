@@ -12,11 +12,12 @@
  * restore a removed node. Rendering shows the replacement and never rewrites
  * the document, so the value stays until an app runs this command, for
  * example on one writer client after the first sync. Run it only when every
- * client shares this version and this heading configuration: a client with
- * an older marker vocabulary or fewer heading levels would replace values
- * that another client supports. Replacements that are the same for every
- * version and configuration, `unsafe-url` and `unsupported-table-span`, can
- * run earlier on their own through the `codes` option.
+ * client shares this version, heading levels and Link configuration: a client
+ * with an older marker vocabulary, fewer heading levels or narrower Link
+ * `protocols` would replace values, or remove links, that another client
+ * supports. Replacements that are the same for every version and
+ * configuration, `unsafe-url` and `unsupported-table-span`, can run earlier on
+ * their own through the `codes` option.
  */
 import type { EditorView } from '@domternal/pm/view';
 import type { CommandSpec } from '../types/Commands.js';
@@ -34,6 +35,18 @@ import { diagnosticCode, forEachNormalizedAttribute } from '../utils/normalizedA
 import { contentReport, recordContentDiagnostics, reportReplacedValue } from '../helpers/normalizeContent.js';
 
 /**
+ * The explicit migration of stored values that loading JSON content would
+ * replace: list markers this version does not know, heading levels the
+ * Heading configuration lacks, table spans the Table extension does not
+ * support, and links whose href the Link's URL policy refuses, which are
+ * removed with their text kept.
+ *
+ * Run it only when every client shares this version, heading levels and Link
+ * configuration: a client with an older marker vocabulary, fewer heading
+ * levels or narrower Link `protocols` would replace values, or remove links,
+ * that another client supports. `codes: ['unsafe-url', 'unsupported-table-span']`
+ * replaces only what every version and configuration replaces the same way.
+ *
  * Replaces every such value in one transaction of attribute-only steps that
  * stays out of the undo history, so undo cannot bring the value back, and
  * reports each one through contentDiagnostic.

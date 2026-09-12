@@ -60,6 +60,16 @@ interface EditorDomContext {
 }
 
 /**
+ * A start tag as HTML serialization writes it: every attribute value in
+ * double quotes, which never hold a `"`, and no `<` in text, so only real
+ * tags match. No name holds a `<`, so a failed match ends at the next one.
+ */
+const START_TAG = /<[a-z][^\s/<>]*(?:\s+[^\s"'<>/=]+(?:="[^"]*")?)*\s*\/?>/gi;
+/** The style attribute of a start tag, not one whose name only ends in style. */
+const STYLE_ATTRIBUTE = /(\sstyle=")([^"]*)"/;
+const RGB_COLOR = /rgba?\(\s*\d+[\s,]+\d+[\s,]+\d+[^)]*\)/g;
+
+/**
  * Main editor class
  *
  * Wraps ProseMirror's EditorView and EditorState with a cleaner API.
@@ -90,16 +100,6 @@ interface EditorDomContext {
  * editor.destroy();
  * ```
  */
-/**
- * A start tag as HTML serialization writes it: every attribute value in
- * double quotes, which never hold a `"`, and no `<` in text, so only real
- * tags match. No name holds a `<`, so a failed match ends at the next one.
- */
-const START_TAG = /<[a-z][^\s/<>]*(?:\s+[^\s"'<>/=]+(?:="[^"]*")?)*\s*\/?>/gi;
-/** The style attribute of a start tag, not one whose name only ends in style. */
-const STYLE_ATTRIBUTE = /(\sstyle=")([^"]*)"/;
-const RGB_COLOR = /rgba?\(\s*\d+[\s,]+\d+[\s,]+\d+[^)]*\)/g;
-
 export class Editor extends EventEmitter<EditorEvents> {
   /** Per-editor UI translations. Changes never modify document content. */
   readonly i18n: I18nService;
