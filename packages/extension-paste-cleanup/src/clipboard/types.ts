@@ -18,7 +18,8 @@ export interface ClipboardImageMatchContext {
   readonly items: readonly ClipboardImageItemMetadata[];
 }
 
-interface ClipboardImageAssetCommonOptions {
+/** The options every clipboard image asset mode shares. */
+export interface ClipboardImageAssetCommonOptions {
   /** Supply explicit placement bindings. No filename, CID, or positional matching is inferred. */
   readonly match?: (context: ClipboardImageMatchContext) => readonly ClipboardImageBinding[];
   /** Missing bindings reject the entire paste unless omissions are explicitly enabled. */

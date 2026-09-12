@@ -519,3 +519,16 @@ const TransactionHook = Extension.create({
 });
 declare const rootTransaction: Parameters<NonNullable<typeof TransactionHook.config.onTransaction>>[0]['transaction'];
 TransactionHook.config.onTransaction?.call(TransactionHook as never, { transaction: rootTransaction });
+
+// Every type a public PasteCleanup signature uses can be named by a consumer. ClipboardResolverReport
+// is named ClipboardAssetRecoveryReport.
+import type { ClipboardRasterMime, ClipboardResolverAsset, ClipboardImageAssetCommonOptions } from '@domternal/extension-paste-cleanup';
+
+const rasterMime: ClipboardRasterMime = 'image/png';
+declare const resolverAsset: ClipboardResolverAsset;
+const commonAssetOptions: ClipboardImageAssetCommonOptions = { unresolved: 'omit' };
+declare const recoveryReport: ClipboardAssetRecoveryReport;
+void rasterMime;
+void resolverAsset.mimeType;
+void commonAssetOptions;
+void recoveryReport.phase;
