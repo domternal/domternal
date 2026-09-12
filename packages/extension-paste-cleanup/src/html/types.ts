@@ -1,3 +1,8 @@
+/**
+ * Where pasted HTML most likely came from, read from its markup. The list is open: a minor
+ * release can add a source or detect one more precisely, so keep a default branch when you
+ * switch on it.
+ */
 export type PasteSource = 'word' | 'google-docs' | 'libreoffice' | 'html';
 export type PasteFormatting = 'preserve' | 'adapt';
 

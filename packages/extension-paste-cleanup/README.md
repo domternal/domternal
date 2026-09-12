@@ -517,6 +517,13 @@ The same explicit placement bindings, raster preflight, input limits, stale-targ
 checks and one-operation history behavior apply. Choosing this mode authorizes
 the configured adapter; it does not enable remote images from source HTML.
 
+The resolver ownership protocol is experimental and may change in a minor release:
+`ClipboardResolvedImageAssetOptions`, `ClipboardResolverAdapter` and its request,
+result, release, diagnostic and recovery types, `ClipboardCreatedResource` and
+`ClipboardAssetRecoveryReport` carry `@experimental`. The diagnostic code and
+recovery reason lists are open, as is `PasteSource`: keep a default branch when
+you switch on them.
+
 The resolver handles explicitly matched clipboard files. When the live destination
 forbids embedded images, it also handles supported raster data URLs already present
 at their exact HTML positions, unless `allowDataImages: false` forbids that source

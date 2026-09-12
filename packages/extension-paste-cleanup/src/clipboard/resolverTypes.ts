@@ -1,6 +1,9 @@
 import type { ClipboardRasterMime } from './destination.js';
 
-/** Private C1 contract. The caller must have already validated the immutable raster bytes. */
+/**
+ * @experimental One prepared clipboard image a resolver receives: validated, immutable raster
+ * bytes with their identity. The resolver ownership protocol may change in a minor release.
+ */
 export interface ClipboardResolverAsset {
   readonly assetId: string;
   readonly idempotencyKey: string;
@@ -9,9 +12,10 @@ export interface ClipboardResolverAsset {
 }
 
 declare const createdResource: unique symbol;
-/** Authentic capabilities are issued only by the current asset's registerCreated callback. */
+/** @experimental Authentic capabilities are issued only by the current asset's registerCreated callback. */
 export interface ClipboardCreatedResource { readonly [createdResource]: true }
 
+/** @experimental What a resolver's `resolve` receives for one asset. */
 export interface ClipboardResolverRequest extends ClipboardResolverAsset {
   readonly operationId: string;
   readonly signal: AbortSignal;
@@ -19,11 +23,13 @@ export interface ClipboardResolverRequest extends ClipboardResolverAsset {
   readonly registerCreated: (handle: string) => ClipboardCreatedResource | undefined;
 }
 
+/** @experimental What a resolver's `resolve` returns for one asset. */
 export type ClipboardResolverAdapterResult =
   | { readonly status: 'resolved'; readonly src: string; readonly ownership: 'existing' }
   | { readonly status: 'resolved'; readonly src: string; readonly ownership: 'created'; readonly resource: ClipboardCreatedResource }
   | { readonly status: 'failed'; readonly creation: 'none' | 'registered' | 'unknown'; readonly recoveryToken?: string };
 
+/** @experimental What a resolver's `releaseUncommitted` receives for a resource it created. */
 export interface ClipboardResolverReleaseRequest {
   readonly operationId: string;
   readonly assetId: string;
@@ -31,11 +37,15 @@ export interface ClipboardResolverReleaseRequest {
   readonly handle: string;
 }
 
+/** @experimental What a resolver's `releaseUncommitted` returns. */
 export type ClipboardResolverReleaseResult =
   | { readonly status: 'released' }
   | { readonly status: 'cleanup-pending'; readonly retryToken: string };
 
-/** No adapter callback is retried by this foundation, regardless of its declaration. */
+/**
+ * @experimental An application resolver that stores pasted images and owns what it creates.
+ * No adapter callback is retried by this foundation, regardless of its declaration.
+ */
 export interface ClipboardResolverAdapter {
   readonly idempotency: 'none' | 'operation-asset-key';
   /** Creation and registration must stop when this promise settles. */
@@ -74,20 +84,26 @@ export interface ClipboardResolverOperationOptions {
   readonly limits?: Partial<ClipboardResolverLimits>;
 }
 
+/**
+ * @experimental Why the resolver reported an asset. The list is open: a minor release can add a
+ * code, so keep a default branch when you switch on it.
+ */
 export type ClipboardResolverDiagnosticCode =
   | 'resolver-failed' | 'unknown-creation' | 'invalid-result' | 'invalid-source'
   | 'invalid-registration' | 'late-registration' | 'resource-limit' | 'ownership-conflict'
   | 'cleanup-failed' | 'cleanup-pending' | 'invalid-cleanup-result';
 
+/** @experimental One resolver diagnostic, naming the asset it concerns. */
 export interface ClipboardResolverDiagnostic {
   readonly code: ClipboardResolverDiagnosticCode;
   readonly assetId: string;
 }
 
-/** Recovery identities are private host data. They must not be rendered as diagnostics. */
+/** @experimental Recovery identities are private host data. They must not be rendered as diagnostics. */
 export interface ClipboardResolverRecovery {
   readonly assetId: string;
   readonly idempotencyKey: string;
+  /** The list is open: a minor release can add a reason, so keep a default branch when you switch on it. */
   readonly reason: 'unknown-creation' | 'cleanup-pending' | 'uncertain-acceptance';
   readonly resourceId?: number;
   readonly token?: string;
@@ -103,6 +119,7 @@ export type ClipboardResolverResolution =
   | { readonly status: 'ready'; readonly assets: readonly ClipboardResolvedAsset[] }
   | { readonly status: 'failed' | 'cancelled' };
 
+/** @experimental The resolver operation's ownership and recovery state, for the host only. */
 export interface ClipboardResolverReport {
   /** Monotonic operation revision. Coalesced notifications can skip intermediate revisions. */
   readonly revision: number;

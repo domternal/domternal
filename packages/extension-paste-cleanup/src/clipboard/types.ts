@@ -31,9 +31,10 @@ export interface ClipboardEmbeddedImageAssetOptions extends ClipboardImageAssetC
   readonly mode: 'embedded';
 }
 
-/** Host-only resource ownership information. Recovery tokens must not appear in user feedback. */
+/** @experimental Host-only resource ownership information. Recovery tokens must not appear in user feedback. */
 export type ClipboardAssetRecoveryReport = ClipboardResolverReport;
 
+/** @experimental Image assets stored by an application resolver, which owns what it creates. */
 export interface ClipboardResolvedImageAssetOptions extends ClipboardImageAssetCommonOptions {
   readonly mode: 'resolver';
   readonly resolver: ClipboardResolverAdapter;

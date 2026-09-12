@@ -624,3 +624,19 @@ test('the built Core declarations keep the doc comments an editor shows on hover
     }
   }
 });
+
+test('the committed PasteCleanup snapshot marks the resolver ownership protocol experimental, and its code lists are documented as open', () => {
+  const lines = readFileSync(join(here, 'snapshots/extension-paste-cleanup.txt'), 'utf8').trimEnd().split('\n');
+  const resolver = lines.filter((line) => /^(ClipboardResolver|ClipboardCreatedResource|ClipboardAssetRecoveryReport|ClipboardResolvedImageAssetOptions)/.test(line));
+  assert.ok(resolver.length >= 12);
+  assert.deepEqual(resolver.filter((line) => !line.endsWith(' @experimental')), []);
+  // Receipts, normalization and the embedded mode stay stable.
+  for (const name of ['getPasteAffectedReferences', 'PasteOperationResult', 'normalizePasteHTML', 'ClipboardEmbeddedImageAssetOptions']) {
+    assert.ok(lines.includes(name), name);
+  }
+  const html = readFileSync(join(repoRoot, 'packages/extension-paste-cleanup/dist/html/index.d.ts'), 'utf8');
+  assert.match(docAbove(html, 'type PasteSource =') ?? '', /open/);
+  const main = readFileSync(join(repoRoot, 'packages/extension-paste-cleanup/dist/index.d.ts'), 'utf8');
+  assert.match(docAbove(main, 'type ClipboardResolverDiagnosticCode =') ?? '', /open/);
+  assert.match(main, /The list is open[^*]*\*\/\s*readonly reason:/);
+});
