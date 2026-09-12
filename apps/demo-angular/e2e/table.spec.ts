@@ -2590,13 +2590,11 @@ test.describe('Table - Column resize: colwidth persistence', () => {
     await placeCursorInCell(page, 0);
     await runTableCommand(page, 'addColumnAfter');
 
-    // Col count increased to 3; original colwidths preserved on existing cells
+    // Existing widths stay intact and the new column keeps the table explicitly sized.
     const colwidths = await getDocColwidths(page);
-    expect(colwidths).toHaveLength(3);
-    expect(colwidths[0]).toEqual([200]);
-    expect(colwidths[1]).toEqual([150]);
-    // New column gets null colwidth
-    expect(colwidths[2]).toBeNull();
+    expect(colwidths).toEqual([[200], [150], [100]]);
+    const width = await page.locator(`${editorSelector} table`).evaluate(table => (table as HTMLTableElement).style.width);
+    expect(width).toBe('450px');
   });
 });
 

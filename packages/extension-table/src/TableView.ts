@@ -30,7 +30,7 @@ import {
 } from '@domternal/pm/tables';
 import { positionFloating, positionFloatingOnce } from '@domternal/core';
 
-import { constrainedAddColumn } from './helpers/constrainedColumn.js';
+import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 
 import {
   DOTS_H, DOTS_V, CHEVRON_DOWN,
@@ -891,8 +891,18 @@ export class TableView implements NodeView {
   private execColCmd(cmd: PMCommand): void {
     if (!this.view.editable) return;
     this.setCursorInCell(0, this.hoveredCol);
-    if (this.constrainToContainer && (cmd === addColumnBefore || cmd === addColumnAfter)) {
-      constrainedAddColumn(cmd, this.view, this.cellMinWidth, this.defaultCellMinWidth);
+    if (cmd === addColumnBefore || cmd === addColumnAfter) {
+      addColumnWithWidths(
+        cmd === addColumnBefore ? 'before' : 'after',
+        this.view.state,
+        this.view.dispatch,
+        this.view,
+        {
+          cellMinWidth: this.cellMinWidth,
+          defaultCellMinWidth: this.defaultCellMinWidth,
+          constrainToContainer: this.constrainToContainer,
+        },
+      );
       return;
     }
     const state = this.view.state;

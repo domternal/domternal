@@ -63,12 +63,19 @@ Table.configure({
 });
 ```
 
-With `constrainToContainer` on (the default) the table never outgrows its container: a
-last-column resize is capped at the container edge, and adding a column redistributes
-the existing widths when the table would otherwise overflow. Either way, a table whose
-columns carry no stored widths is floored at `defaultCellMinWidth` per column: inside a
-narrow container such as a layout column the cells stay readable and the `.tableWrapper`
-scrolls horizontally instead of crushing them.
+With `constrainToContainer` on (the default), last-column resize is capped at the
+container edge. Adding a column to a table with custom widths first uses available
+container space, then borrows only the required space from the closest columns,
+starting on the selected side. Other widths stay unchanged. The new column uses
+`defaultCellMinWidth` when possible; borrowing never shrinks a column below
+`cellMinWidth`. If even the minimum widths cannot fit, or the table already overflows,
+the wrapper scrolls horizontally instead of resetting the table's widths.
+
+With the constraint off, adding a column preserves existing custom widths and grows
+the table by the new column's width. In either mode, a table with no stored widths
+keeps automatic layout and a floor of `defaultCellMinWidth` per column. Adding to a
+partially sized table first resolves the unspecified widths from its rendered columns.
+Insertion and width changes form one undoable operation, including in command chains.
 
 ## Commands
 
