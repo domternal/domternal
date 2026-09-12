@@ -312,7 +312,15 @@ export interface ExtensionConfigBase<Options = unknown, Storage = unknown> {
    * ProseMirror plugin (`filterTransaction`, `appendTransaction`) to veto or
    * change them. Never called for a transaction a plugin vetoed.
    */
-  onTransaction?: (props: { transaction: Transaction; appendedTransactions: readonly Transaction[] }) => void;
+  onTransaction?: (props: {
+    transaction: Transaction;
+    /**
+     * The accepted transactions plugins appended to the root, in order. The
+     * editor always sets it; it is optional only so that code calling a hook
+     * itself, as 1.2 code did with `{ transaction }`, keeps compiling.
+     */
+    appendedTransactions?: readonly Transaction[];
+  }) => void;
 
   /**
    * Called when editor receives focus

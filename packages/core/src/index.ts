@@ -386,6 +386,7 @@ export {
   Link,
   type LinkOptions,
   type LinkAttributes,
+  type LinkProtocolOptions,
   Subscript,
   type SubscriptOptions,
   Superscript,

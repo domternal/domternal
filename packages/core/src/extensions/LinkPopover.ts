@@ -20,6 +20,7 @@ import { Decoration, DecorationSet } from '@domternal/pm/view';
 import { Extension } from '../Extension.js';
 import { checkUrl, cleanUrl, normalizeUrlProtocol } from '../helpers/checkUrl.js';
 import { linkUrlPolicy, protocolScheme } from '../marks/Link.js';
+import type { LinkProtocolOptions } from '../marks/Link.js';
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 import { getExactMarkRange } from '../helpers/getMarkRange.js';
 import { isSupportedAttributeValue } from '../utils/normalizedAttributes.js';
@@ -34,16 +35,16 @@ export interface LinkPopoverOptions {
    * Schemes the popover accepts, narrowing the Link's own policy, such as
    * `['https:']` to offer only web links in the popover. `null` accepts every
    * address the Link accepts. Relative references follow the Link's
-   * `allowRelative` either way.
+   * `allowRelative` either way. Entries are read as the Link reads its own.
    * @default null
    */
-  protocols: string[] | null;
+  protocols: readonly (string | LinkProtocolOptions)[] | null;
 }
 
 interface LinkPopoverPluginOptions {
   editor: Editor;
   markType: MarkType;
-  protocols: string[] | null;
+  protocols: unknown;
 }
 
 /** A relative reference as typed: a fragment, a path, a dot path or a query. */

@@ -542,7 +542,9 @@ every entry point above then follows the attribute.
 the colon or slashes, so `['HTTPS']` and `['https://']` mean `https:`, and Tiptap's
 `{ scheme: 'tel', optionalSlashes: true }` means `tel:`. An unset value (`undefined` or `null`),
 such as `Link.configure({ protocols: props.protocols })` without the prop, means the default
-schemes. An entry that names no scheme, or that is `javascript:`, `vbscript:` or `data:`, fails
+schemes. The option is typed `readonly (string | LinkProtocolOptions)[] | null`, so each of these
+forms and an `as const` list type-check, and `allowRelative` (Link) and `maxFiles` (Image) are
+optional in their options types, so an options object written in full for 1.2 still compiles. An entry that names no scheme, or that is `javascript:`, `vbscript:` or `data:`, fails
 `new Editor(...)` and the SSR helpers with an `ExtensionConfigurationError`, and so does a value
 that is not a list. `setMark`, `toggleMark` and `updateAttributes` return `false` for a
 link href that is not a string or that the policy refuses, and a stored href does not block a

@@ -220,6 +220,7 @@ linkPastePluginKey
 LinkPastePluginOptions
 LinkPopover
 LinkPopoverOptions
+LinkProtocolOptions
 LIST_ITEM_TYPE_NAMES
 ListIndent
 ListItem

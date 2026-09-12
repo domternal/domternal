@@ -18,6 +18,16 @@ import { linkExitPlugin } from './helpers/linkExitPlugin.js';
 import type { Editor } from '../Editor.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
+/**
+ * A `protocols` entry written as Tiptap writes one: `{ scheme: 'tel' }`.
+ * `optionalSlashes` is accepted for Tiptap configurations; a scheme matches
+ * with or without slashes either way.
+ */
+export interface LinkProtocolOptions {
+  scheme: string;
+  optionalSlashes?: boolean;
+}
+
 export interface LinkOptions {
   /**
    * HTML attributes to add to the rendered element
@@ -33,7 +43,7 @@ export interface LinkOptions {
    * fail editor creation with an ExtensionConfigurationError.
    * @default ['http:', 'https:', 'mailto:', 'tel:']
    */
-  protocols: string[];
+  protocols: readonly (string | LinkProtocolOptions)[] | null;
   /**
    * When an editable editor opens links on click. A read-only editor leaves
    * clicks to the browser, which follows the rendered link.
@@ -71,10 +81,11 @@ export interface LinkOptions {
    * `?query` and `#fragment`. They render with their href and open resolved
    * against the page; a fragment scrolls to its target. A network path
    * (`//host`), a backslash and a colon in the first segment are refused
-   * either way. `false` refuses every relative link, as 1.2 did.
+   * either way. `false` refuses every relative link, as 1.2 did. Optional in
+   * the type, so an options object written in full for 1.2 still compiles.
    * @default true
    */
-  allowRelative: boolean;
+  allowRelative?: boolean;
   /**
    * Custom validation for autolink
    * Return false to prevent auto-linking specific URLs
@@ -147,7 +158,7 @@ function configuredProtocols(protocols: unknown): readonly string[] {
 
 /** The URL policy of a Link configuration. */
 function linkPolicy(options: LinkOptions): UrlPolicyOptions {
-  return { protocols: configuredProtocols(options.protocols), allowRelative: options.allowRelative };
+  return { protocols: configuredProtocols(options.protocols), allowRelative: options.allowRelative !== false };
 }
 
 /**
@@ -158,8 +169,9 @@ function linkPolicy(options: LinkOptions): UrlPolicyOptions {
  * as an extended Link that redefines it without the parent's validator.
  */
 export function linkUrlPolicy(options: unknown): UrlPolicyOptions | null {
-  if (options === null || typeof options !== 'object' || !('protocols' in options) || !('allowRelative' in options)) return null;
-  return { protocols: configuredProtocols(options.protocols), allowRelative: options.allowRelative !== false };
+  if (options === null || typeof options !== 'object' || !('protocols' in options)) return null;
+  // An options object written in full for 1.2 has no allowRelative, which means the default.
+  return { protocols: configuredProtocols(options.protocols), allowRelative: (options as { allowRelative?: unknown }).allowRelative !== false };
 }
 
 /** The Link's own attributes, which a refused link does not render. */
@@ -462,7 +474,7 @@ export const Link = Mark.create<LinkOptions>({
         openOnClick: this.options.openOnClick,
         enableClickSelection: this.options.enableClickSelection,
         protocols: configuredProtocols(this.options.protocols),
-        allowRelative: this.options.allowRelative,
+        allowRelative: this.options.allowRelative !== false,
         noreferrer: this.options.addRelNoopener,
       })
     );

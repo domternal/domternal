@@ -262,7 +262,7 @@ describe('LinkPopover edits of an existing link (E12)', () => {
 
 describe('LinkPopover options', () => {
   it('reads its own protocols the way the Link does, and refuses an entry that names no scheme', () => {
-    mount({ link: { protocols: ['https:', 'ftp:'] }, popover: { protocols: ['FTP://', { scheme: 'https' }] as unknown as string[] } });
+    mount({ link: { protocols: ['https:', 'ftp:'] }, popover: { protocols: ['FTP://', { scheme: 'https' }] } });
     select(1, 6);
     openPopover();
     apply('ftp://files.example/f');

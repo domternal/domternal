@@ -228,9 +228,11 @@ export interface ImageOptions {
    * left out. Every file is read or uploaded at once, and without an
    * `uploadHandler` each is stored in the document as a data URL, so dropping a
    * folder of photos would otherwise add them all. 0 inserts every file.
+   * Optional in the type, so an options object written in full for 1.2 still
+   * compiles.
    * @default 10
    */
-  maxFiles: number;
+  maxFiles?: number;
   /**
    * Called when upload starts for a file. An error it throws is reported
    * through the editor's `error` event (context `Image.onUploadStart`) and
@@ -762,7 +764,7 @@ export const Image = Node.create<ImageOptions>({
         const { allowedMimeTypes, maxFileSize } = live();
         return allowedMimeTypes.includes(file.type) && (maxFileSize <= 0 || file.size <= maxFileSize);
       },
-      maxFiles: () => live().maxFiles,
+      maxFiles: () => live().maxFiles ?? 10,
       allowsSource: src => isValidImageSrc(src, live().allowBase64),
       onUploadStart: () => (live().uploadHandler ? live().onUploadStart : null),
       onUploadError: () => live().onUploadError,

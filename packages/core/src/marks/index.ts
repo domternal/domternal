@@ -9,7 +9,7 @@ export { Italic, type ItalicOptions } from './Italic.js';
 export { Underline, type UnderlineOptions } from './Underline.js';
 export { Strike, type StrikeOptions } from './Strike.js';
 export { Code, type CodeOptions } from './Code.js';
-export { Link, type LinkOptions, type LinkAttributes } from './Link.js';
+export { Link, type LinkOptions, type LinkAttributes, type LinkProtocolOptions } from './Link.js';
 export { Subscript, type SubscriptOptions } from './Subscript.js';
 export { Superscript, type SuperscriptOptions } from './Superscript.js';
 export { TextStyle, type TextStyleOptions } from './TextStyle.js';

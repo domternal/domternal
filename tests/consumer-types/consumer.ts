@@ -493,3 +493,29 @@ import { isSafeCssValue } from '@domternal/core';
 
 const safeColor: boolean = isSafeCssValue(editor.getAttributes('textStyle')['color']);
 void safeColor;
+
+// Options objects written in full for 1.2 still compile, and the documented option forms type-check.
+import { Extension } from '@domternal/core';
+import type { ImageOptions } from '@domternal/extension-image';
+
+const linkOptions12: LinkOptions = {
+  HTMLAttributes: {}, protocols: ['https:'], openOnClick: true, addRelNoopener: true, autolink: true,
+  linkOnPaste: true, defaultProtocol: 'https', enableClickSelection: false,
+};
+void linkOptions12;
+Link.configure({ protocols: [{ scheme: 'tel' }, 'https:', { scheme: 'ftp', optionalSlashes: true }] });
+Link.configure({ protocols: null });
+Link.configure({ protocols: ['https:', 'mailto:'] as const });
+LinkPopover.configure({ protocols: [{ scheme: 'https' }] });
+LinkPopover.configure({ protocols: ['https:'] as const });
+const imageOptions12: ImageOptions = {
+  inline: false, allowBase64: true, HTMLAttributes: {}, uploadHandler: null,
+  allowedMimeTypes: ['image/png'], maxFileSize: 0, onUploadStart: null, onUploadError: null, placement: null,
+};
+void imageOptions12;
+const TransactionHook = Extension.create({
+  name: 'transactionHook',
+  onTransaction({ transaction, appendedTransactions = [] }) { void transaction; void appendedTransactions.length; },
+});
+declare const rootTransaction: Parameters<NonNullable<typeof TransactionHook.config.onTransaction>>[0]['transaction'];
+TransactionHook.config.onTransaction?.call(TransactionHook as never, { transaction: rootTransaction });
