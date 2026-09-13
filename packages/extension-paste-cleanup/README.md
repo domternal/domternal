@@ -29,8 +29,10 @@ const extensions = [
 ];
 ```
 
-The package has `@domternal/core` and `@domternal/pm` peer dependencies in
-`>=1.2.0 <2.0.0`. It adds no toolbar or UI framework. Register it explicitly in
+The package has `@domternal/core` and `@domternal/pm` peer dependencies from the
+release that ships it up to, not including, 2.0.0: it needs the
+`@domternal/core/clipboard` subpath, which `@domternal/core` 1.2.0 does not have.
+It adds no toolbar or UI framework. Register it explicitly in
 the same extension list used by Vanilla, React, Vue, or Angular. Installations
 that do not import it do not load its parser or sanitizer.
 
