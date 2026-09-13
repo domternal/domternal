@@ -174,7 +174,11 @@ const result = normalizePasteHTML(clipboardHTML, {
 });
 ```
 
-Both entries support ESM and CommonJS. The `/html` entry needs no browser DOM,
+Both entries support ESM and CommonJS. The main entry carries its own copy of the
+normalizer and re-exports `normalizePasteHTML` and `DEFAULT_PASTE_HTML_LIMITS` from
+it, so code that loads the extension imports them from the main entry; importing
+the `/html` entry as well loads the normalizer a second time, with its own function
+and object identities. The `/html` entry needs no browser DOM,
 Editor, ProseMirror instance, fetch, conversion server, or image decoder. It uses
 parse5 for HTML parsing, a narrow normalization policy, and hast-util-sanitize
 before serialization. The bundled dependencies and licenses are recorded in
