@@ -31,7 +31,7 @@ handles, so [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)
 equivalent CSS of your own, is what makes placement and resizing visible in the editor.
 Exported HTML carries its own inline styles either way.
 
-Version 1.1 requires both `@domternal/core` and `@domternal/pm` in the range
+Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
 `>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage

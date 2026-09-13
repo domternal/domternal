@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.1 (2026-09-13)
+
+### Fixes
+
+- Adding a column to a resized table preserves existing widths wherever possible instead of equalizing every column. Constrained tables use free container space first, then borrow only the required width from the nearest columns while respecting minimum widths. Tables that already overflow retain their widths, and tables without stored widths keep automatic layout. The same behavior applies to editor commands and the table dropdown. (#183)
+- Column insertion resolves mixed explicit and automatic widths from the rendered table, including merged cells and WebKit measurement differences. Insertion and width updates form one undoable operation, including in command chains. (#183)
+
+### Docs
+
+- Package READMEs identify the coordinated 1.1.1 patch release and retain the `>=1.1.0 <2.0.0` compatibility range. The table README documents width preservation, minimum widths, and overflow behavior.
+
+### Internal
+
+- Unit and browser regressions cover table column insertion, width preservation, command chains, and history, with browser coverage across the four framework demos. (#183)
+
 ## 1.1.0 (2026-09-09)
 
 ### Features

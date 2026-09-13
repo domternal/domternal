@@ -25,6 +25,9 @@ pnpm add @domternal/core @domternal/theme @domternal/vanilla
 `@domternal/core` (>=1.1.0 <2.0.0) is a peer dependency. `@domternal/theme` supplies the editor
 styles (import it once in your app).
 
+This package is part of the coordinated Domternal 1.1.1 release.
+Upgrade installed `@domternal/*` packages together.
+
 ## Usage
 
 ```ts

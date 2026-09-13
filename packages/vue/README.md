@@ -22,6 +22,9 @@ pnpm add @domternal/vue @domternal/core @domternal/theme vue
 `vue` (>=3.3) and `@domternal/core` (>=1.1.0 <2.0.0) are peer dependencies. `@domternal/theme`
 supplies the editor styles.
 
+This package is part of the coordinated Domternal 1.1.1 release.
+Upgrade installed `@domternal/*` packages together.
+
 ## Usage
 
 Composable component pattern (recommended): `Domternal` creates the editor and provides it to all

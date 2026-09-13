@@ -27,6 +27,9 @@ to your global stylesheet (e.g. `styles.scss`):
 @use '@domternal/theme';
 ```
 
+This package is part of the coordinated Domternal 1.1.1 release.
+Upgrade installed `@domternal/*` packages together.
+
 ## Usage
 
 ```ts

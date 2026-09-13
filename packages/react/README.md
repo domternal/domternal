@@ -26,6 +26,9 @@ pnpm add @domternal/react @domternal/core @domternal/theme react react-dom
 @import '@domternal/theme';
 ```
 
+This package is part of the coordinated Domternal 1.1.1 release.
+Upgrade installed `@domternal/*` packages together.
+
 ## Usage
 
 The recommended pattern uses the composable `Domternal` component. It creates the editor and provides it

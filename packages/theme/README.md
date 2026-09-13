@@ -29,6 +29,9 @@ pnpm add @domternal/theme
 
 This package has no peer dependencies.
 
+This package is part of the coordinated Domternal 1.1.1 release.
+Upgrade installed `@domternal/*` packages together.
+
 ## Usage
 
 Import the stylesheet once in your application entry point:

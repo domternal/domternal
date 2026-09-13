@@ -24,7 +24,7 @@ pnpm add @domternal/extension-emoji
 `@domternal/core` and `@domternal/pm` are peer dependencies (installed with the
 editor itself).
 
-Version 1.1 requires both `@domternal/core` and `@domternal/pm` in the range
+Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
 `>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
