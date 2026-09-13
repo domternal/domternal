@@ -34,11 +34,13 @@
  * notice file becomes the only copy of that license the customer will ever
  * receive.
  *
- * No package here declares `noExternal` today, so this half currently guards
- * nothing, and that is exactly the point. The failure it exists for is a green
- * build: somebody adds one entry to one tsup config, the tarball starts
- * carrying somebody else's MIT or Apache code with the header stripped, and a
- * hardcoded list of three packages goes on printing OK release after release.
+ * One package declares `noExternal` today: extension-paste-cleanup inlines
+ * three hast utilities and the dependencies they pull in, and its notice names
+ * each of them. That is the case this half exists for. The failure it guards
+ * against is a green build: somebody adds one entry to one tsup config, the
+ * tarball starts carrying somebody else's MIT or Apache code with the header
+ * stripped, and a hardcoded list of three packages goes on printing OK release
+ * after release.
  * The sibling Pro repository supplied the near miss this half is ported from,
  * where a notice named a bundled dependency while claiming it was not bundled.
  *
