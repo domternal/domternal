@@ -29,8 +29,8 @@ the DOM, so it runs anywhere without it.
 pnpm add linkedom
 ```
 
-The 1.1 release installs `@domternal/pm` in the range `>=1.1.0 <2.0.0`.
-Use matching 1.1 versions of the framework wrappers and extensions when upgrading.
+The 1.1.1 release installs `@domternal/pm` in the range `>=1.1.0 <2.0.0`.
+Upgrade installed `@domternal/*` packages together to 1.1.1.
 
 ### One copy of the core, and of ProseMirror
 

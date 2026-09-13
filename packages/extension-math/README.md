@@ -22,7 +22,7 @@ pnpm add @domternal/extension-math katex
 supported range is `^0.16.0 || ^0.17.0`. You may swap it for any engine implementing the
 `MathRenderer` interface, since the package never imports KaTeX itself.
 
-Version 1.1 requires both `@domternal/core` and `@domternal/pm` in the range
+Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
 `>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
