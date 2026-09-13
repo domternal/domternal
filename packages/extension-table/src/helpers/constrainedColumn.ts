@@ -1,13 +1,12 @@
 /**
- * Shared helpers for constraining table columns within container width.
- *
- * Used by both Table.ts (editor commands) and TableView.ts (dropdown)
- * to prevent add-column operations from causing table overflow.
+ * Shared table measurements and column insertion that preserves custom widths.
+ * Editor commands and the TableView dropdown use the same insertion policy.
  */
 
-import type { EditorState, Transaction } from '@domternal/pm/state';
+import { EditorState } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
-import { TableMap } from '@domternal/pm/tables';
+import { addColumnBefore, addColumnAfter, selectedRect, TableMap } from '@domternal/pm/tables';
 
 export interface TableInfo {
   tableStart: number;
@@ -27,24 +26,26 @@ export function getTableInfo(state: EditorState): TableInfo | null {
 
     const tableStart = $from.start(d);
     const map = TableMap.get(node);
-    const oldWidths: number[] = [];
-    let allFrozen = true;
-
-    for (let col = 0; col < map.width; col++) {
-      const cellOffset = map.map[col] ?? 0;
-      const cell = node.nodeAt(cellOffset);
-      if (!cell) { allFrozen = false; oldWidths.push(0); continue; }
-
-      const colInCell = col - map.colCount(cellOffset);
-      const colwidth = cell.attrs['colwidth'] as number[] | null;
-      const w = colwidth?.[colInCell];
-      if (w) {
-        oldWidths.push(w);
-      } else {
-        allFrozen = false;
-        oldWidths.push(0);
+    const oldWidths: number[] = new Array<number>(map.width).fill(0);
+    const visited = new Set<number>();
+    let assigned = 0;
+    for (let index = 0; index < map.map.length; index++) {
+      const offset = map.map[index];
+      if (offset === undefined || visited.has(offset)) continue;
+      visited.add(offset);
+      const cell = node.nodeAt(offset);
+      const colwidth = cell?.attrs['colwidth'] as number[] | null | undefined;
+      const start = index % map.width;
+      for (let part = 0; part < (colwidth?.length ?? 0); part++) {
+        const width = colwidth?.[part];
+        if (width && width > 0 && !oldWidths[start + part]) {
+          oldWidths[start + part] = width;
+          assigned++;
+        }
       }
+      if (assigned === map.width) break;
     }
+    const allFrozen = oldWidths.every((width) => width > 0);
 
     return { tableStart, oldWidths, allFrozen };
   }
@@ -78,112 +79,179 @@ export function getContainerWidth(view: EditorView, tableStart: number): number 
   return 0;
 }
 
-/**
- * Redistribute all column widths equally in a captured transaction.
- * Modifies the transaction in-place.
- */
-export function redistributeColumns(
-  tr: Transaction,
-  tableStartPos: number,
-  targetWidth: number,
-  cellMinWidth: number,
+interface ColumnInsertionOptions {
+  cellMinWidth: number;
+  defaultCellMinWidth: number;
+  constrainToContainer: boolean;
+}
+
+/** Resolve only unspecified widths; explicit widths remain authoritative. */
+function readColumnWidths(
+  info: TableInfo,
+  tableDom: HTMLTableElement | null,
+  options: ColumnInsertionOptions,
+): number[] {
+  if (info.allFrozen) return info.oldWidths.slice();
+  const { cellMinWidth, defaultCellMinWidth } = options;
+  const cols = tableDom?.querySelector('colgroup')?.children;
+  const measured = info.oldWidths.map((_width, col) => cols?.[col]?.getBoundingClientRect().width ?? 0);
+  const sources = measured.map((width) => width > 0 ? 0 : Infinity);
+
+  // WebKit gives COL elements empty rectangles. Resolve their widths from real
+  // cells instead, preferring an unmerged cell over an estimate from a colspan.
+  const rowspans = new Array<number>(info.oldWidths.length).fill(0);
+  for (const row of Array.from(tableDom?.rows ?? [])) {
+    let col = 0;
+    for (const cell of Array.from(row.cells)) {
+      while ((rowspans[col] ?? 0) > 0) col++;
+      const end = col + cell.colSpan;
+      let explicit = 0;
+      let unsized = 0;
+      for (let part = col; part < end; part++) {
+        const width = info.oldWidths[part] ?? 0;
+        explicit += width;
+        if (!width) unsized++;
+        rowspans[part] = cell.rowSpan;
+      }
+      const width = unsized > 0 ? (cell.getBoundingClientRect().width - explicit) / unsized : 0;
+      for (let part = col; part < end; part++) {
+        if (!info.oldWidths[part] && width > 0 && cell.colSpan < (sources[part] ?? Infinity)) {
+          measured[part] = width;
+          sources[part] = cell.colSpan;
+        }
+      }
+      col = end;
+    }
+    for (let col = 0; col < rowspans.length; col++) rowspans[col] = Math.max(0, (rowspans[col] ?? 0) - 1);
+  }
+  const widths = info.oldWidths.map((width, col) => {
+    if (width > 0) return width;
+    const measurement = measured[col] ?? 0;
+    return Math.max(cellMinWidth, measurement > 0 ? Math.round(measurement) : defaultCellMinWidth);
+  });
+
+  // Correct collapsed-border rounding using only columns we just measured.
+  const renderedWidth = Math.floor(tableDom?.getBoundingClientRect().width ?? 0) - 1;
+  if (renderedWidth > 0) {
+    let excess = widths.reduce((sum, width) => sum + width, 0) - renderedWidth;
+    for (let col = widths.length - 1; col >= 0 && excess > 0; col--) {
+      if (info.oldWidths[col]) continue;
+      const width = widths[col] ?? cellMinWidth;
+      const reduction = Math.min(excess, Math.max(0, width - cellMinWidth));
+      widths[col] = width - reduction;
+      excess -= reduction;
+    }
+  }
+  return widths;
+}
+
+/** Use spare space, then borrow only what is needed from the closest columns. */
+function insertColumnWidth(
+  widths: number[],
+  index: number,
+  side: 'before' | 'after',
+  containerWidth: number,
+  options: ColumnInsertionOptions,
 ): void {
-  // Resolve the table in the new (post-addColumn) document
-  const $pos = tr.doc.resolve(tableStartPos);
-  let tableDepth = -1;
-  for (let d = $pos.depth; d > 0; d--) {
-    if ($pos.node(d).type.name === 'table') {
-      tableDepth = d;
-      break;
+  const { cellMinWidth, defaultCellMinWidth, constrainToContainer } = options;
+  const oldTotal = widths.reduce((sum, width) => sum + width, 0);
+  let newWidth = Math.max(cellMinWidth, defaultCellMinWidth);
+
+  // An already overflowing table keeps its widths and its horizontal scroll.
+  if (constrainToContainer && containerWidth > 0 && oldTotal <= containerWidth) {
+    const spare = containerWidth - oldTotal;
+    const available = spare + widths.reduce((sum, width) => sum + Math.max(0, width - cellMinWidth), 0);
+    newWidth = Math.max(cellMinWidth, Math.min(newWidth, available));
+    let deficit = Math.max(0, newWidth - spare);
+
+    for (let distance = 0; distance < widths.length && deficit > 0; distance++) {
+      const left = index - 1 - distance;
+      const right = index + distance;
+      // Prefer the selected side when both neighbors are equally close.
+      for (const col of side === 'after' ? [left, right] : [right, left]) {
+        const width = widths[col];
+        if (width === undefined) continue;
+        const reduction = Math.min(deficit, Math.max(0, width - cellMinWidth));
+        widths[col] = width - reduction;
+        deficit -= reduction;
+      }
     }
   }
-  if (tableDepth === -1) return;
 
-  const table = $pos.node(tableDepth);
-  const tableStart = $pos.start(tableDepth);
+  // If even minimum widths cannot fit, the wrapper supplies horizontal scroll.
+  widths.splice(index, 0, newWidth);
+}
+
+/** Write each complete cell width array once, including colspan and rowspan. */
+function applyColumnWidths(tr: Transaction, tableStart: number, widths: number[]): void {
+  const table = tr.doc.nodeAt(tableStart - 1);
+  if (table?.type.name !== 'table') return;
   const map = TableMap.get(table);
-  const colCount = map.width;
 
-  // Equal distribution, clamped at cellMinWidth
-  const baseWidth = Math.max(cellMinWidth, Math.floor(targetWidth / colCount));
-  const newWidths: number[] = new Array(colCount).fill(baseWidth) as number[];
-
-  // Adjust last column for rounding remainder
-  const used = baseWidth * colCount;
-  const diff = targetWidth - used;
-  if (diff !== 0 && colCount > 0) {
-    const lastIdx = colCount - 1;
-    newWidths[lastIdx] = Math.max(cellMinWidth, (newWidths[lastIdx] ?? baseWidth) + diff);
-  }
-
-  // Apply widths to all cells via setNodeMarkup
-  for (let col = 0; col < map.width; col++) {
-    // newWidths has colCount entries; ProseMirror table invariant guarantees
-    // map.width === colCount, so this index is always defined.
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const targetW = newWidths[col]!;
-    for (let row = 0; row < map.height; row++) {
-      const mapIndex = row * map.width + col;
-      // Skip if same cell as row above (rowspan)
-      if (row > 0 && map.map[mapIndex] === map.map[mapIndex - map.width]) continue;
-
-      const pos = map.map[mapIndex] ?? 0;
-      const cellNode = table.nodeAt(pos);
-      if (!cellNode) continue;
-
-      const colspan = (cellNode.attrs['colspan'] as number) || 1;
-      const index = colspan === 1 ? 0 : col - map.colCount(pos);
-      const colwidth = cellNode.attrs['colwidth'] as number[] | null;
-
-      if (colwidth?.[index] === targetW) continue;
-
-      const newColwidth = colwidth ? colwidth.slice() : new Array(colspan).fill(0) as number[];
-      newColwidth[index] = targetW;
-      tr.setNodeMarkup(tableStart + pos, null, { ...cellNode.attrs, colwidth: newColwidth });
-    }
+  const visited = new Set<number>();
+  for (let index = 0; index < map.map.length; index++) {
+    const offset = map.map[index];
+    if (offset === undefined || visited.has(offset)) continue;
+    visited.add(offset);
+    const cell = table.nodeAt(offset);
+    if (!cell) continue;
+    const start = index % map.width;
+    const colspan = cell.attrs['colspan'] as number;
+    const colwidth = widths.slice(start, start + colspan);
+    const previous = cell.attrs['colwidth'] as number[] | null;
+    if (previous?.length === colwidth.length && previous.every((width, col) => width === colwidth[col])) continue;
+    tr.setNodeMarkup(tableStart + offset, null, { ...cell.attrs, colwidth });
   }
 }
 
-type PMCommand = (
-  state: EditorState,
-  dispatch?: (tr: Transaction) => void,
-) => boolean;
-
 /**
- * Execute an addColumn command with container constraint.
- * If columns are frozen and adding would overflow, redistributes.
- * Otherwise delegates to the PM command normally.
+ * Insert a column and its widths in one transaction. A table with no stored
+ * widths retains native automatic layout. Once widths are customized, every
+ * column stays explicit so adding a column cannot reactivate CSS redistribution.
+ * The optional pending transaction supplies a chain's current doc and selection;
+ * only the caller dispatches, so failed chains leave the editor untouched.
  */
-export function constrainedAddColumn(
-  pmCommand: PMCommand,
+export function addColumnWithWidths(
+  side: 'before' | 'after',
+  state: EditorState,
+  dispatch: ((tr: Transaction) => void) | undefined,
   view: EditorView,
-  cellMinWidth: number,
-  defaultCellMinWidth: number,
+  options: ColumnInsertionOptions,
+  pending?: Transaction,
 ): boolean {
-  const state = view.state;
-  const info = getTableInfo(state);
+  const current = pending && (pending.doc !== state.doc || pending.selection !== state.selection)
+    ? EditorState.create({ doc: pending.doc, selection: pending.selection, storedMarks: pending.storedMarks })
+    : state;
+  const command = side === 'before' ? addColumnBefore : addColumnAfter;
+  if (!dispatch) return command(current);
 
-  if (!info?.allFrozen) {
-    return pmCommand(state, view.dispatch.bind(view));
+  const info = getTableInfo(current);
+  if (!info?.oldWidths.some((width) => width > 0)) return command(current, dispatch);
+
+  const rect = selectedRect(current);
+  const index = side === 'before' ? rect.left : rect.right;
+  // Map each step separately: replacing a table's opening token and inserting
+  // its first row invalidate different boundaries without replacing the table.
+  let liveTableStart: number | null = info.tableStart;
+  for (const step of pending?.mapping.invert().maps ?? []) {
+    const opening = step.mapResult(liveTableStart - 1);
+    const content = step.mapResult(liveTableStart);
+    if (!opening.deleted) liveTableStart = opening.pos + 1;
+    else if (!content.deleted) liveTableStart = content.pos;
+    else { liveTableStart = null; break; }
   }
+  const liveTable = liveTableStart === null ? null : view.state.doc.nodeAt(liveTableStart - 1);
+  const hasLiveTable = liveTableStart !== null && liveTable?.type.name === 'table';
+  const tableDom = hasLiveTable && liveTableStart !== null ? findTableDom(view, liveTableStart) : null;
+  const containerWidth = hasLiveTable && liveTableStart !== null ? getContainerWidth(view, liveTableStart) : 0;
+  // A chain may already have changed the grid; old DOM columns then cannot be
+  // used to measure its unspecified widths by index.
+  const canMeasureColumns = hasLiveTable && TableMap.get(liveTable).width === info.oldWidths.length;
+  const widths = readColumnWidths(info, canMeasureColumns ? tableDom : null, options);
+  insertColumnWidth(widths, index, side, containerWidth, options);
 
-  const containerWidth = getContainerWidth(view, info.tableStart);
-  if (containerWidth <= 0) {
-    return pmCommand(state, view.dispatch.bind(view));
-  }
-
-  const oldTotal = info.oldWidths.reduce((a, b) => a + b, 0);
-  // If table + new min column still fits, let PM handle normally
-  if (oldTotal + defaultCellMinWidth <= containerWidth) {
-    return pmCommand(state, view.dispatch.bind(view));
-  }
-
-  // Would overflow - capture transaction, redistribute, then dispatch
-  let captured: Transaction | undefined;
-  pmCommand(state, (tr) => { captured = tr; });
-  if (!captured) return false;
-
-  redistributeColumns(captured, info.tableStart, Math.min(oldTotal, containerWidth), cellMinWidth);
-  view.dispatch(captured);
-  return true;
+  return command(current, (tr) => {
+    applyColumnWidths(tr, info.tableStart, widths);
+    dispatch(tr);
+  });
 }

@@ -17,8 +17,6 @@ import type { EditorView, NodeView, NodeViewConstructor } from '@domternal/pm/vi
 import {
   tableEditing,
   columnResizing,
-  addColumnBefore,
-  addColumnAfter,
   deleteColumn,
   addRowBefore,
   addRowAfter,
@@ -40,7 +38,7 @@ import {
 import { TableView } from './TableView.js';
 import { createTable } from './helpers/createTable.js';
 import { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCellsSelected.js';
-import { constrainedAddColumn } from './helpers/constrainedColumn.js';
+import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 import { createResizeSuppressionPlugin } from './plugins/resizeSuppressionPlugin.js';
 import { createCellSelectionPlugin } from './plugins/cellSelectionPlugin.js';
 import { TableRow } from './TableRow.js';
@@ -100,7 +98,9 @@ export interface TableOptions {
 
   /**
    * Prevent the table from exceeding its container (.tableWrapper) width.
-   * When true: last-column resize is capped, add-column redistributes if needed.
+   * When true: last-column resize is capped; adding a column uses free space,
+   * then borrows from the nearest columns without equalizing custom widths.
+   * Existing overflow and unavoidable minimum-width overflow scroll horizontally.
    * When false: original behavior (table can grow beyond container).
    * Either way a table without explicit column widths is floored at
    * defaultCellMinWidth per column: in a container narrower than that
@@ -260,32 +260,14 @@ export const Table = Node.create<TableOptions>({
 
       addColumnBefore:
         () =>
-        ({ state, dispatch, editor }) => {
-          if (!this.options.constrainToContainer || !dispatch) {
-            return addColumnBefore(state, dispatch);
-          }
-          const view = editor.view as EditorView;
-          return constrainedAddColumn(
-            addColumnBefore,
-            view,
-            this.options.cellMinWidth,
-            this.options.defaultCellMinWidth
-          );
+        ({ state, dispatch, editor, tr }) => {
+          return addColumnWithWidths('before', state, dispatch, editor.view as EditorView, this.options, tr);
         },
 
       addColumnAfter:
         () =>
-        ({ state, dispatch, editor }) => {
-          if (!this.options.constrainToContainer || !dispatch) {
-            return addColumnAfter(state, dispatch);
-          }
-          const view = editor.view as EditorView;
-          return constrainedAddColumn(
-            addColumnAfter,
-            view,
-            this.options.cellMinWidth,
-            this.options.defaultCellMinWidth
-          );
+        ({ state, dispatch, editor, tr }) => {
+          return addColumnWithWidths('after', state, dispatch, editor.view as EditorView, this.options, tr);
         },
 
       deleteColumn:
