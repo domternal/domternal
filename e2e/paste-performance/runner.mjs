@@ -153,8 +153,9 @@ function selectLargeCases() {
     }
   }
   const rtf = protocol.rtfFlavor;
-  cases.push({ profile: rtf.profile, formatting: rtf.formatting, label: 'rtf-flavor-limit', size: rtf.size,
-    words: generateLarge(rtf.profile, rtf.size).words, rtfUnits: rtf.units, expected: { status: 'rejected', code: 'input-limit' } });
+  // PasteCleanup never reads RTF, so a flavor past the ceiling leaves the accepted HTML as it is.
+  cases.push({ profile: rtf.profile, formatting: rtf.formatting, label: 'rtf-flavor-unread', size: rtf.size,
+    words: generateLarge(rtf.profile, rtf.size).words, rtfUnits: rtf.units, expected: { status: 'cleaned' } });
   return cases;
 }
 

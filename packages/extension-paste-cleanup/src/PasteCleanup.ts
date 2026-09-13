@@ -163,12 +163,15 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
             const clipboard = event.clipboardData;
             if (clipboard === null) return false;
             const maximum = options.limits.maxInputLength ?? DEFAULT_PASTE_HTML_LIMITS.maxInputLength;
-            // Bound every source a downstream Markdown or image handler could read.
+            // Bound the flavors the editor reads: HTML, and plain text that the Markdown, link and
+            // image handlers read before ProseMirror. Flavors nothing here reads, such as RTF, stay
+            // unread and cannot reject the paste. ProseMirror falls back to text/uri-list only without
+            // plain text, and transformPastedText bounds the text it makes of it.
             let overLimit: boolean;
             try {
-              overLimit = ['text/html', 'text/plain', 'text/rtf', 'Text', 'text/uri-list'].some(type => {
+              overLimit = ['text/html', 'text/plain', 'Text'].some(type => {
                 const value = clipboard.getData(type);
-                return value.length > maximum || (['text/plain', 'Text', 'text/uri-list'].includes(type) && tooComplex(value, view.state.selection.$from.parent.type.spec.code === true));
+                return value.length > maximum || (type !== 'text/html' && tooComplex(value, view.state.selection.$from.parent.type.spec.code === true));
               });
             } catch {
               event.preventDefault();

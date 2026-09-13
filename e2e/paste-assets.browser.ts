@@ -342,3 +342,44 @@ test.describe('clipboard image preparation boundaries', () => {
     });
   }
 });
+
+test.describe('clipboard content a coordinated paste does not use', () => {
+  /** A paste with HTML, plain text, other string flavors and files, binding cid:private-chart to `bind` among the files. */
+  async function pasteItems(page: Page, options: {
+    html: string;
+    flavors?: Record<string, string>;
+    files: readonly ({ readonly png: true } | { readonly type: string; readonly size: number })[];
+    bind?: number;
+  }): Promise<void> {
+    await page.evaluate(({ options, png }) => {
+      const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+      const data = new DataTransfer();
+      data.setData('text/html', options.html);
+      data.setData('text/plain', 'New');
+      for (const [type, value] of Object.entries(options.flavors ?? {})) data.setData(type, value);
+      const bytes = Uint8Array.from(atob(png), value => value.charCodeAt(0));
+      const first = data.items.length;
+      for (const file of options.files) {
+        data.items.add('png' in file
+          ? new File([bytes], 'private-source.png', { type: 'image/png' })
+          : new File([new Uint8Array(file.size)], 'private-unrelated.bin', { type: file.type }));
+      }
+      probe.setAssetBindings(options.bind === undefined ? [] : [{ reference: 'cid:private-chart', itemIndex: first + options.bind }]);
+      const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+      if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+      probe.editor.view.dom.dispatchEvent(event);
+    }, { options, png: PNG });
+  }
+
+  test('prepares the paste beside RTF and URI list flavors past the input ceiling, which the editor never reads', async ({ page }) => {
+    await open(page, 'vanilla', { limits: 'small' });
+    const oversized = 'x'.repeat(4096);
+    await pasteItems(page, {
+      html: MIXED_HTML, files: [{ png: true }], bind: 0,
+      flavors: { 'text/rtf': `{\\rtf1 ${oversized}}`, 'application/rtf': `{\\rtf1 ${oversized}}`, 'text/uri-list': `https://example.com/${oversized}` },
+    });
+    expect((await terminal(page)).status).toBe('applied');
+    await expect(page.locator('.ProseMirror img')).toHaveAttribute('src', PNG_URL);
+    await expect(page.locator('.ProseMirror strong')).toHaveText('New');
+  });
+});

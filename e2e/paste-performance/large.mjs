@@ -217,7 +217,8 @@ export const LARGE_PROTOCOL = Object.freeze({
   formatting: Object.freeze(['preserve', 'adapt']), measuredDispatches: 5,
   viewport: Object.freeze({ width: 1280, height: 800 }), deviceScaleFactor: 1,
   blockTimeoutMs: 120_000, runTimeoutMs: 45 * 60_000,
-  // One synthetic RTF flavor above the per-flavor ceiling, next to HTML that alone would be accepted.
+  // One synthetic RTF flavor longer than the input ceiling, next to HTML that alone is accepted.
+  // PasteCleanup never reads RTF, so the paste is accepted.
   rtfFlavor: Object.freeze({ profile: 'word-short-paragraphs', formatting: 'preserve', size: 10, units: 2_000_001 }),
 });
 export const LARGE_SMOKE = Object.freeze({ measuredDispatches: 1 });

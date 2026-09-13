@@ -671,8 +671,13 @@ depth allowance before it is allocated.
 Plain/Markdown input has a conservative markup-token budget before downstream
 handlers can expand it. HTML/structure rejection inserts nothing; removed images,
 links and unsupported formatting are reported without discarding unrelated text.
-Every clipboard flavor, including `text/rtf`, is checked against the input ceiling
-before parsing, so one oversized flavor rejects the whole paste with `input-limit`.
+The clipboard flavors the editor reads, `text/html` and `text/plain` (also as
+`Text`), are checked against the input ceiling before parsing, so one oversized
+flavor rejects the whole paste with `input-limit`. Flavors PasteCleanup never reads,
+such as `text/rtf`, `application/rtf` and `text/uri-list`, are not checked and do
+not reject a paste, however large. ProseMirror falls back to `text/uri-list` only
+when the clipboard has no plain text, and the text it makes of it then goes through
+the plain-text checks.
 
 Parser allocations count every element, comment and text insertion the HTML
 parser makes. The parser inserts text once per run of whitespace or

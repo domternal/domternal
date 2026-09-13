@@ -79,18 +79,25 @@ function mount(
   return editor;
 }
 
-function paste(target: Editor, data: { html?: string; text?: string; rtf?: string }): Event {
+function paste(
+  target: Editor,
+  data: { html?: string; text?: string; flavors?: Readonly<Record<string, string>> },
+  read: string[] = []
+): Event {
   const event = new Event('paste', { bubbles: true, cancelable: true });
   const clipboard: Record<string, string | undefined> = {
+    ...data.flavors,
     'text/html': data.html ?? '',
     'text/plain': data.text ?? '',
-    'text/rtf': data.rtf ?? '',
   };
   Object.defineProperty(event, 'clipboardData', {
     value: {
       items: [],
       files: [],
-      getData: (type: string) => clipboard[type] ?? '',
+      getData: (type: string) => {
+        read.push(type);
+        return clipboard[type] ?? '';
+      },
     },
   });
   target.view.dom.dispatchEvent(event);
@@ -283,7 +290,7 @@ describe('PasteCleanup editor integration', () => {
   it.each([
     { source: 'HTML', data: { html: '<p>' + 'x'.repeat(80) + '</p>', text: 'Fallback' } },
     { source: 'plain text', data: { html: '<p>Safe</p>', text: 'x'.repeat(80) } },
-    { source: 'RTF', data: { html: '<p>Safe</p>', text: 'Safe', rtf: 'x'.repeat(80) } },
+    { source: 'Text alias', data: { html: '<p>Safe</p>', text: 'Safe', flavors: { Text: 'x'.repeat(80) } } },
   ])(
     'rejects excess $source before downstream paste handlers can mutate the document',
     ({ data }) => {
@@ -322,6 +329,44 @@ describe('PasteCleanup editor integration', () => {
       );
     }
   );
+
+  it.each(['text/rtf', 'application/rtf', 'text/uri-list'])(
+    'pastes the HTML when %s, a flavor the editor never reads, exceeds the input ceiling',
+    (flavor) => {
+      const onResult = vi.fn();
+      const instance = mount({ limits: { maxInputLength: 32 }, onResult }, '<p>Keep selection</p>');
+      const read: string[] = [];
+
+      expect(
+        paste(instance, { html: '<p>Safe</p>', text: 'Safe', flavors: { [flavor]: 'x'.repeat(80) } }, read)
+          .defaultPrevented
+      ).toBe(true);
+
+      expect(instance.getHTML()).toBe('<p>Safe</p>');
+      expect(changes).toHaveLength(1);
+      expect(read).not.toContain(flavor);
+      expect(onResult).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ status: 'cleaned', html: '<p>Safe</p>' })
+      );
+    }
+  );
+
+  it('bounds the text ProseMirror makes of a URI list when the clipboard has no plain text', () => {
+    const onResult = vi.fn();
+    const instance = mount({ limits: { maxInputLength: 32 }, onResult }, '<p>Keep selection</p>');
+    const before = instance.state.doc;
+
+    expect(
+      paste(instance, { flavors: { 'text/uri-list': 'https://example.com/' + 'x'.repeat(80) } })
+        .defaultPrevented
+    ).toBe(true);
+
+    expect(instance.state.doc.eq(before)).toBe(true);
+    expect(changes).toHaveLength(0);
+    expect(onResult).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ status: 'rejected', diagnostics: [{ code: 'input-limit', severity: 'error' }] })
+    );
+  });
 
   it('blocks structure rejection before a lower handler can consume the raw clipboard', () => {
     const onResult = vi.fn(() => {

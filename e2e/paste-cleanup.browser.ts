@@ -41,6 +41,8 @@ interface ClipboardPayload {
   text: string;
   html?: string;
   imageBase64?: string;
+  /** Other string flavors, such as text/rtf. */
+  flavors?: Record<string, string>;
 }
 
 interface ProbeWindow {
@@ -97,6 +99,7 @@ async function syntheticPaste(page: Page, payload: ClipboardPayload): Promise<vo
     const data = new DataTransfer();
     data.setData('text/plain', payload.text);
     if (payload.html !== undefined) data.setData('text/html', payload.html);
+    for (const [type, value] of Object.entries(payload.flavors ?? {})) data.setData(type, value);
     if (payload.imageBase64 !== undefined) {
       const bytes = Uint8Array.from(atob(payload.imageBase64), character => character.charCodeAt(0));
       data.items.add(new File([bytes], 'clipboard.png', { type: 'image/png' }));
@@ -369,6 +372,18 @@ for (const framework of FRAMEWORKS) {
         await expect(page.locator('.ProseMirror')).toHaveText('Keep ok');
       });
     }
+
+    test('pastes the HTML beside RTF and URI list flavors past the input ceiling, which the editor never reads', async ({ page }) => {
+      await openFixture(page, framework, { smallLimits: true });
+      await seed(page, '<p>Keep</p>');
+      const oversized = 'x'.repeat(4096);
+      await syntheticPaste(page, {
+        text: ' rich', html: '<p> <strong>rich</strong></p>',
+        flavors: { 'text/rtf': `{\\rtf1 ${oversized}}`, 'application/rtf': `{\\rtf1 ${oversized}}`, 'text/uri-list': `https://example.com/${oversized}` },
+      });
+      await expect(page.locator('.ProseMirror strong')).toHaveText('rich');
+      expect((await observations(page)).results.at(-1)).toMatchObject({ status: 'cleaned' });
+    });
 
     test('serialized internal copy preserves styles, regenerates copied IDs and supports undo', async ({ page }) => {
       await openFixture(page, framework, { formatting: 'adapt' });

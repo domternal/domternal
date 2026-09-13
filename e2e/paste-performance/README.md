@@ -192,10 +192,13 @@ node e2e/paste-performance/runner.mjs --large --reference-id local-macos-arm64 -
 `--large` first runs the sweep, then measures the D4 target, the largest accepted
 and the first rejected size of every profile and policy on each engine. It adds
 one case with a synthetic `text/rtf` flavor of 2,000,001 UTF-16 units next to
-HTML that alone would be accepted, which demonstrates the per-flavor ceiling
-that rejects the whole paste before parsing. Each case runs in a fresh context:
-one first paste, then five measured dispatches (one with `--smoke`), each in a
-fresh editor through the actual Cleanup extension and default feedback. There is
+HTML that alone is accepted. PasteCleanup never reads RTF, so the paste is
+accepted: only the flavors the editor reads, HTML and plain text, have a
+per-flavor ceiling that rejects the whole paste before parsing. The report of
+2026-09-28 predates that rule and records the rejection. Each case runs in a
+fresh context: one first paste, then five measured dispatches (one with
+`--smoke`), each in a fresh editor through the actual Cleanup extension and
+default feedback. There is
 no paired baseline. An accepted paste must apply once, keep every token in
 order, match the authored counts and leave one history entry; a rejected paste
 must leave the document unchanged and report exactly the expected error. The

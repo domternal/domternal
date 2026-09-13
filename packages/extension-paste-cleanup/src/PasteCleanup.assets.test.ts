@@ -60,7 +60,14 @@ function explicitMatch(mapping: Readonly<Record<string, number>> = { 'cid:chart'
   });
 }
 
-interface ClipboardSource { html?: string; text?: string; files?: readonly (File | null)[]; declaredType?: string }
+interface ClipboardSource {
+  html?: string;
+  text?: string;
+  files?: readonly (File | null)[];
+  declaredType?: string;
+  /** Other string flavors, such as text/rtf, that getData returns. */
+  flavors?: Readonly<Record<string, string>>;
+}
 function clipboard(source: ClipboardSource): ClipboardEvent {
   const event = new Event('paste', { bubbles: true, cancelable: true });
   const fileItems = (source.files ?? []).map(file => ({
@@ -69,7 +76,7 @@ function clipboard(source: ClipboardSource): ClipboardEvent {
   Object.defineProperty(event, 'clipboardData', { value: {
     items: [{ kind: 'string', type: 'text/html', getAsFile: () => null }, ...fileItems],
     files: (source.files ?? []).filter(file => file !== null),
-    getData: (type: string) => type === 'text/html' ? source.html ?? '' : type === 'text/plain' ? source.text ?? '' : '',
+    getData: (type: string) => type === 'text/html' ? source.html ?? '' : type === 'text/plain' ? source.text ?? '' : source.flavors?.[type] ?? '',
   } });
   return event as ClipboardEvent;
 }
@@ -520,6 +527,31 @@ describe('coordinated embedded clipboard assets', () => {
     expect(snapshot(fixture.editor)).toEqual(before);
     expect(first.read).not.toHaveBeenCalled();
     expect(second.read).not.toHaveBeenCalled();
+  });
+
+  it.each(['text/rtf', 'application/rtf', 'text/uri-list'])('prepares the paste when %s, a flavor the editor never reads, exceeds the input ceiling', async flavor => {
+    const asset = imageFile();
+    const fixture = mount({ cleanup: { limits: { maxInputLength: 64 } } });
+    paste(fixture.editor, { html: '<p>Rich<img src="cid:chart"></p>', text: 'Rich', files: [asset.file], flavors: { [flavor]: 'x'.repeat(200) } });
+    await terminal(fixture, 'applied');
+    expect(fixture.editor.state.doc.textContent).toBe('Rich');
+    expect(imageNodes(fixture.editor)).toEqual([expect.objectContaining({ src: PNG_URL })]);
+  });
+
+  it.each(['text/html', 'text/plain', 'Text'])('still rejects %s, a flavor the editor reads, above the input ceiling', async flavor => {
+    const asset = imageFile();
+    const fixture = mount({ cleanup: { limits: { maxInputLength: 64 } } });
+    const before = snapshot(fixture.editor);
+    const oversized = 'x'.repeat(200);
+    paste(fixture.editor, {
+      html: flavor === 'text/html' ? `<p>${oversized}</p>` : '<p>Rich<img src="cid:chart"></p>',
+      text: flavor === 'text/plain' ? oversized : 'Rich',
+      files: [asset.file],
+      ...(flavor === 'Text' ? { flavors: { Text: oversized } } : {}),
+    });
+    await terminal(fixture, 'rejected');
+    expect(snapshot(fixture.editor)).toEqual(before);
+    expect(asset.read).not.toHaveBeenCalled();
   });
 
   it('fails configuration for a zero asset budget instead of treating it as unlimited', () => {

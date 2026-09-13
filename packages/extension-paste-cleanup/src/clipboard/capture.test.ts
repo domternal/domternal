@@ -43,14 +43,14 @@ describe('captureClipboard', () => {
     expect(captureClipboard(clipboard(), limits)).toEqual({
       status: 'captured',
       snapshot: {
-        text: { 'text/html': '', 'text/plain': '', 'text/rtf': '', Text: '', 'text/uri-list': '' },
+        text: { 'text/html': '', 'text/plain': '', Text: '' },
         items: [], textBytes: 0, fileBytes: 0,
       },
     });
   });
 
   it('captures every supported string format once and preserves whitespace', () => {
-    const text = { 'text/html': '<p>x</p>', 'text/plain': ' x\n', 'text/rtf': '{\\rtf1 x}', Text: ' x\n', 'text/uri-list': 'https://x/' };
+    const text = { 'text/html': '<p>x</p>', 'text/plain': ' x\n', Text: ' x\n' };
     const data = clipboard(text);
     const getData = vi.spyOn(data, 'getData');
     const result = captureClipboard(data, limits);
@@ -58,7 +58,20 @@ describe('captureClipboard', () => {
     if (result.status !== 'captured') throw new Error('Expected captured clipboard');
     expect(result.snapshot.text).toEqual(text);
     expect(result.snapshot.textBytes).toBe(Object.values(text).reduce((total, value) => total + value.length, 0));
-    expect(getData.mock.calls.map(call => call[0])).toEqual(['text/html', 'text/plain', 'text/rtf', 'Text', 'text/uri-list']);
+    expect(getData.mock.calls.map(call => call[0])).toEqual(['text/html', 'text/plain', 'Text']);
+  });
+
+  it('never retrieves the RTF and URI list flavors the editor does not read, so their size cannot reject', () => {
+    const oversized = 'x'.repeat(limits.maxStringLength + 1);
+    const data = clipboard({ 'text/html': '<p>x</p>', 'text/plain': 'x' });
+    const flavors: Record<string, string> = { 'text/rtf': oversized, 'application/rtf': oversized, 'text/uri-list': oversized };
+    const getData = vi.spyOn(data, 'getData').mockImplementation((format: string) =>
+      flavors[format] ?? (format === 'text/html' ? '<p>x</p>' : format === 'text/plain' ? 'x' : ''));
+    const result = captureClipboard(data, limits);
+    expect(result.status).toBe('captured');
+    if (result.status !== 'captured') throw new Error('Expected captured clipboard');
+    expect(result.snapshot.text).toEqual({ 'text/html': '<p>x</p>', 'text/plain': 'x', Text: '' });
+    for (const format of Object.keys(flavors)) expect(getData).not.toHaveBeenCalledWith(format);
   });
 
   it('preserves original indexes, metadata and null files without keeping live items', () => {

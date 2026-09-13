@@ -65,7 +65,7 @@ export type ClipboardReferenceResult = ReferenceCheckResult & (
 
 type RejectionReason = Extract<ClipboardReferenceResult, { status: 'rejected' }>['reason'];
 const EMPTY_MATCHES: readonly ClipboardMatchedImage[] = Object.freeze([]);
-const TEXT_FORMATS = ['text/html', 'text/plain', 'text/rtf', 'Text', 'text/uri-list'] as const;
+const TEXT_FORMATS = ['text/html', 'text/plain', 'Text'] as const;
 
 function validatedLimits(input: ClipboardReferenceLimits): ClipboardReferenceLimits {
   const limits = {

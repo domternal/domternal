@@ -1,4 +1,8 @@
-const TEXT_FORMATS = ['text/html', 'text/plain', 'text/rtf', 'Text', 'text/uri-list'] as const;
+/**
+ * The string flavors the editor reads. Flavors it never reads, such as RTF or a URI list, are
+ * never retrieved, so their size cannot reject a paste.
+ */
+const TEXT_FORMATS = ['text/html', 'text/plain', 'Text'] as const;
 
 export type ClipboardTextFormat = typeof TEXT_FORMATS[number];
 
@@ -118,9 +122,7 @@ export function captureClipboard(data: DataTransfer | null, inputLimits: Clipboa
       items.push(Object.freeze({ itemIndex, kind, declaredType, file, fileType, fileSize }));
     }
 
-    const text: Record<ClipboardTextFormat, string> = {
-      'text/html': '', 'text/plain': '', 'text/rtf': '', Text: '', 'text/uri-list': '',
-    };
+    const text: Record<ClipboardTextFormat, string> = { 'text/html': '', 'text/plain': '', Text: '' };
     let textBytes = 0;
     for (const format of TEXT_FORMATS) {
       const value: unknown = data.getData(format);
