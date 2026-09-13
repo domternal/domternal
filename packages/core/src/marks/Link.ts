@@ -7,7 +7,7 @@ import { localizedGroup } from '../messages/presentation.js';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import { Mark } from '../Mark.js';
 import type { CommandSpec } from '../types/Commands.js';
-import { checkUrl, normalizeUrlProtocol, type UrlPolicyOptions } from '../helpers/checkUrl.js';
+import { checkUrl, normalizeUrlProtocol, type UrlCheck, type UrlPolicyOptions } from '../helpers/checkUrl.js';
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 import { registerAttributeNormalizer } from '../utils/normalizedAttributes.js';
 import { getMarkRange } from '../helpers/getMarkRange.js';
@@ -154,6 +154,37 @@ function configuredProtocols(protocols: unknown): readonly string[] {
   });
   checkedProtocols.set(protocols, schemes);
   return schemes;
+}
+
+/**
+ * The checks of rendered string hrefs, per `protocols` value and `allowRelative`: the wrappers
+ * call getHTML on every update, which renders every link of the document again. Bounded, and
+ * cleared when full, so a document of many distinct links cannot grow it without limit.
+ */
+const renderedChecks = new WeakMap<object, Map<string, UrlCheck>>();
+const DEFAULT_PROTOCOLS_KEY = {};
+const RENDERED_CHECKS_LIMIT = 4096;
+
+/** The URL check of an href a Link renders, remembered for a string under the same policy options. */
+function renderedCheck(options: LinkOptions, href: unknown): UrlCheck {
+  const protocols: unknown = options.protocols;
+  if (typeof href !== 'string' || (protocols !== null && protocols !== undefined && typeof protocols !== 'object')) {
+    return checkUrl(href, linkPolicy(options));
+  }
+  const key = protocols ?? DEFAULT_PROTOCOLS_KEY;
+  let checks = renderedChecks.get(key);
+  if (checks === undefined) {
+    checks = new Map();
+    renderedChecks.set(key, checks);
+  }
+  const entry = `${options.allowRelative === false ? '0' : '1'}${href}`;
+  let check = checks.get(entry);
+  if (check === undefined) {
+    check = checkUrl(href, linkPolicy(options));
+    if (checks.size >= RENDERED_CHECKS_LIMIT) checks.clear();
+    checks.set(entry, check);
+  }
+  return check;
 }
 
 /** The URL policy of a Link configuration. */
@@ -305,7 +336,7 @@ export const Link = Mark.create<LinkOptions>({
     // value that is not a string, renders as plain text: no anchor to follow
     // or copy, and none that styles would show as a link. Attributes other
     // extensions add stay. The document keeps the stored value.
-    const check = checkUrl({ ...this.options.HTMLAttributes, ...HTMLAttributes }['href'], linkPolicy(this.options));
+    const check = renderedCheck(this.options, { ...this.options.HTMLAttributes, ...HTMLAttributes }['href']);
     if (check.status !== 'allowed') {
       const rest = Object.fromEntries(Object.entries(HTMLAttributes).filter(([name]) => !LINK_ATTRIBUTES.includes(name)));
       return ['span', rest, 0];
