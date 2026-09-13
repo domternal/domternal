@@ -6,7 +6,11 @@ const TEXT_FORMATS = ['text/html', 'text/plain', 'Text'] as const;
 
 export type ClipboardTextFormat = typeof TEXT_FORMATS[number];
 
-/** Explicit capture budgets. Zero is a zero allowance, never an unlimited setting. */
+/**
+ * Explicit capture budgets. Zero is a zero allowance, never an unlimited setting. Items past
+ * `maxItems` and Files past the byte budgets are left out rather than rejecting the paste: what
+ * a paste uses is known only when its bindings are, and a binding to a left-out item rejects it.
+ */
 export interface ClipboardCaptureLimits {
   readonly maxItems: number;
   /** UTF-16 code units per source string, checked before counting UTF-8 bytes. */
@@ -28,12 +32,18 @@ export interface CapturedClipboardItem {
   readonly file: File | null;
   readonly fileType: string | null;
   readonly fileSize: number | null;
+  /** A File past the byte budgets: its metadata stays, its File is dropped unread. */
+  readonly overLimit: boolean;
 }
 
 export interface ClipboardSnapshot {
   readonly text: Readonly<Record<ClipboardTextFormat, string>>;
+  /** The first `maxItems` items. */
   readonly items: readonly CapturedClipboardItem[];
+  /** How many items the clipboard held, including those past `maxItems`. */
+  readonly itemCount: number;
   readonly textBytes: number;
+  /** The bytes of the Files kept, never those of a File over the limits. */
   readonly fileBytes: number;
 }
 
@@ -91,10 +101,11 @@ export function captureClipboard(data: DataTransfer | null, inputLimits: Clipboa
     const sourceItems = data.items;
     const count: unknown = sourceItems.length;
     if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) return unreadable;
-    if (count > limits.maxItems) return inputLimit;
     const items: CapturedClipboardItem[] = [];
     let fileBytes = 0;
-    for (let itemIndex = 0; itemIndex < count; itemIndex++) {
+    // Items past the bound are never read.
+    const read = Math.min(count, limits.maxItems);
+    for (let itemIndex = 0; itemIndex < read; itemIndex++) {
       const sourceItem = sourceItems[itemIndex];
       if (sourceItem === undefined) return unreadable;
       const kind: unknown = sourceItem.kind;
@@ -112,14 +123,18 @@ export function captureClipboard(data: DataTransfer | null, inputLimits: Clipboa
         const size: unknown = captured.size;
         const type: unknown = captured.type;
         if (typeof size !== 'number' || !Number.isSafeInteger(size) || size < 0 || typeof type !== 'string') return unreadable;
-        if (type.length > limits.maxMetadataLength || size > limits.maxFileBytes
-          || size > limits.maxTotalFileBytes - fileBytes || size > limits.maxClipboardBytes - fileBytes) return inputLimit;
+        if (type.length > limits.maxMetadataLength) return inputLimit;
+        // Files count in clipboard order. One past the budgets keeps its metadata and loses its File.
+        if (size > limits.maxFileBytes || size > limits.maxTotalFileBytes - fileBytes || size > limits.maxClipboardBytes - fileBytes) {
+          items.push(Object.freeze({ itemIndex, kind, declaredType, file: null, fileType: type, fileSize: size, overLimit: true }));
+          continue;
+        }
         fileBytes += size;
         file = captured;
         fileSize = size;
         fileType = type;
       }
-      items.push(Object.freeze({ itemIndex, kind, declaredType, file, fileType, fileSize }));
+      items.push(Object.freeze({ itemIndex, kind, declaredType, file, fileType, fileSize, overLimit: false }));
     }
 
     const text: Record<ClipboardTextFormat, string> = { 'text/html': '', 'text/plain': '', Text: '' };
@@ -136,7 +151,7 @@ export function captureClipboard(data: DataTransfer | null, inputLimits: Clipboa
     }
     return Object.freeze({
       status: 'captured',
-      snapshot: Object.freeze({ text: Object.freeze(text), items: Object.freeze(items), textBytes, fileBytes }),
+      snapshot: Object.freeze({ text: Object.freeze(text), items: Object.freeze(items), itemCount: count, textBytes, fileBytes }),
     });
   } catch {
     return unreadable;

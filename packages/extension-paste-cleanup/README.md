@@ -468,6 +468,16 @@ markup, escaping and each repeated image URL count toward the output allowance;
 repeated placements also share the existing raster-pixel limit. File metadata,
 actual bytes, raster headers and current destination policy are rechecked.
 
+The file limits apply to the files a paste uses. Files count in clipboard order:
+a file over `maxFileBytes`, one that would take the files before it past
+`maxTotalFileBytes`, and every clipboard item after the first 256 are left out
+unread, and the paste goes ahead while no binding uses them, so a large unrelated
+attachment does not block a text paste. A binding to a left-out item rejects the
+paste with `asset-limit`, under `unresolved: 'omit'` too. So does an image-only
+paste that holds a left-out image file or more than 256 items, since it pastes
+every image file. In `match`, a left-out file has `available: false` with its type
+and size, and the items after the first 256 are not listed.
+
 `onPasteProgress({ operationId, phase: 'preparing', cancel })` lets applications
 present pending work. The default notice includes a localized Cancel action.
 Dismissal or Escape only hides the notice; cancellation is explicit. No progress

@@ -33,11 +33,14 @@ function file(type = 'image/png', data = 'abc'): File {
   return new File([data], 'same-name.png', { type });
 }
 
-function capture(entries: readonly { kind: string; type: string; file?: File | null }[] = [{ kind: 'file', type: 'image/png', file: file() }]): ClipboardSnapshot {
+function capture(
+  entries: readonly { kind: string; type: string; file?: File | null }[] = [{ kind: 'file', type: 'image/png', file: file() }],
+  captureLimits: ClipboardReferenceLimits = limits,
+): ClipboardSnapshot {
   const result = captureClipboard({
     items: entries.map(entry => ({ kind: entry.kind, type: entry.type, getAsFile: () => entry.file ?? null })),
     getData: (format: string) => format === 'text/html' ? '<p>' + 'x'.repeat(100) + '</p>' : '',
-  } as unknown as DataTransfer, limits);
+  } as unknown as DataTransfer, captureLimits);
   if (result.status !== 'captured') throw new Error('Expected captured clipboard');
   return result.snapshot;
 }
@@ -196,6 +199,42 @@ describe('explicit clipboard image bindings', () => {
     expect(check(snapshot, [reference()], [binding()], destination(), { ...limits, maxClipboardBytes: snapshot.textBytes + 6 }).status).toBe('checked');
   });
 
+  it('rejects a binding to a File the capture left out over its budgets, instead of reporting it unavailable', () => {
+    const large = file('image/png', 'x'.repeat(40));
+    const small = file();
+    const snapshot = capture([{ kind: 'file', type: 'image/png', file: large }, { kind: 'file', type: 'image/png', file: small }], { ...limits, maxFileBytes: 16 });
+    expect(snapshot.items[0]).toMatchObject({ file: null, fileSize: 40, overLimit: true });
+    const result = check(snapshot, [reference('a'), reference('b')], [binding('a', 0), binding('b', 1)]);
+    expect(result).toMatchObject({ status: 'rejected', reason: 'input-limit', matches: [] });
+    expect(result.diagnostics).toEqual([{ code: 'input-limit' }]);
+  });
+
+  it('rejects a binding to an item past the item bound, and keeps an index past the clipboard invalid', () => {
+    const entries = [{ kind: 'file', type: 'image/png', file: file() }, ...Array.from({ length: 4 }, () => ({ kind: 'string', type: 'text/plain' }))];
+    const snapshot = capture(entries, { ...limits, maxItems: 2 });
+    expect(snapshot.items).toHaveLength(2);
+    expect(snapshot.itemCount).toBe(5);
+    expect(check(snapshot, [reference()], [binding('a', 4)])).toMatchObject({ status: 'rejected', reason: 'input-limit' });
+    const outside = check(snapshot, [reference()], [binding('a', 5)]);
+    expect(outside.status).toBe('checked');
+    expect(outside.hasInvalidBindings).toBe(true);
+  });
+
+  it('resolves the bound File while left-out items that no binding uses change nothing', () => {
+    const image = file();
+    const entries = [
+      { kind: 'file', type: 'image/png', file: image },
+      { kind: 'file', type: 'application/pdf', file: file('application/pdf', 'x'.repeat(40)) },
+      ...Array.from({ length: 4 }, () => ({ kind: 'string', type: 'text/plain' })),
+    ];
+    const snapshot = capture(entries, { ...limits, maxItems: 3, maxFileBytes: 16 });
+    expect(snapshot.items.map(entry => entry.overLimit)).toEqual([false, true, false]);
+    const result = check(snapshot, [reference()], [binding('a', 0)]);
+    expect(result.status).toBe('checked');
+    expect(result.matches).toEqual([{ reference: reference(), itemIndex: 0, file: image, fileSize: 3, mimeType: 'image/png' }]);
+    expect(result.diagnostics).toEqual([]);
+  });
+
   it('rejects inconsistent captured counters or item indexes', () => {
     const snapshot = capture();
     for (const changed of [
@@ -204,6 +243,9 @@ describe('explicit clipboard image bindings', () => {
       { ...snapshot, items: snapshot.items.map(entry => ({ ...entry, fileSize: -1 })) },
       { ...snapshot, items: snapshot.items.map(entry => ({ ...entry, file: null })) },
       { ...snapshot, items: snapshot.items.map(entry => ({ ...entry, kind: 'string' })) },
+      { ...snapshot, itemCount: 0 }, { ...snapshot, itemCount: -1 },
+      { ...snapshot, items: snapshot.items.map(entry => ({ ...entry, overLimit: undefined as unknown as boolean })) },
+      { ...snapshot, items: snapshot.items.map(entry => ({ ...entry, overLimit: true })) },
     ]) {
       const result = check(changed);
       expect(result.status).toBe('rejected');

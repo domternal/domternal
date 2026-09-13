@@ -44,7 +44,7 @@ describe('captureClipboard', () => {
       status: 'captured',
       snapshot: {
         text: { 'text/html': '', 'text/plain': '', Text: '' },
-        items: [], textBytes: 0, fileBytes: 0,
+        items: [], itemCount: 0, textBytes: 0, fileBytes: 0,
       },
     });
   });
@@ -84,11 +84,12 @@ describe('captureClipboard', () => {
     expect(result.status).toBe('captured');
     if (result.status !== 'captured') throw new Error('Expected captured clipboard');
     expect(result.snapshot.items).toEqual([
-      { itemIndex: 0, kind: 'string', declaredType: 'text/html', file: null, fileType: null, fileSize: null },
-      { itemIndex: 1, kind: 'file', declaredType: 'image/png', file, fileType: 'image/png', fileSize: 3 },
-      { itemIndex: 2, kind: 'file', declaredType: 'image/jpeg', file: null, fileType: null, fileSize: null },
-      { itemIndex: 3, kind: 'string', declaredType: 'text/plain', file: null, fileType: null, fileSize: null },
+      { itemIndex: 0, kind: 'string', declaredType: 'text/html', file: null, fileType: null, fileSize: null, overLimit: false },
+      { itemIndex: 1, kind: 'file', declaredType: 'image/png', file, fileType: 'image/png', fileSize: 3, overLimit: false },
+      { itemIndex: 2, kind: 'file', declaredType: 'image/jpeg', file: null, fileType: null, fileSize: null, overLimit: false },
+      { itemIndex: 3, kind: 'string', declaredType: 'text/plain', file: null, fileType: null, fileSize: null, overLimit: false },
     ]);
+    expect(result.snapshot.itemCount).toBe(4);
     expect(getStringFile).not.toHaveBeenCalled();
     expect(result.snapshot.items[1]?.file).toBe(file);
     expect(result.snapshot.items).not.toBe(items);
@@ -224,14 +225,20 @@ describe('captureClipboard', () => {
     expect(captureClipboard(data, { ...limits, maxTextBytes: 5 })).toEqual(rejectedLimit);
   });
 
-  it('checks item count before accessing any item or text format', () => {
-    const data = clipboard();
-    const access = vi.fn(() => { throw new Error('Item must not be read'); });
-    Object.defineProperty(data, 'items', { value: { length: 17, get 0() { return access(); } } });
-    const getData = vi.spyOn(data, 'getData');
-    expect(captureClipboard(data, limits)).toEqual(rejectedLimit);
+  it('reads no item past the item bound and records how many the clipboard held', () => {
+    const entries = Array.from({ length: limits.maxItems }, () => item('string', 'text/x-kept'));
+    const access = vi.fn(() => { throw new Error('An item past the bound must not be read'); });
+    const listed: Record<string | number, unknown> = { ...entries, length: limits.maxItems + 3 };
+    for (const index of [limits.maxItems, limits.maxItems + 1, limits.maxItems + 2]) Object.defineProperty(listed, index, { get: access });
+    const data = clipboard({ 'text/html': '<p>x</p>' });
+    Object.defineProperty(data, 'items', { value: listed });
+    const result = captureClipboard(data, limits);
+    expect(result.status).toBe('captured');
+    if (result.status !== 'captured') throw new Error('Expected captured clipboard');
+    expect(result.snapshot.items).toHaveLength(limits.maxItems);
+    expect(result.snapshot.itemCount).toBe(limits.maxItems + 3);
+    expect(result.snapshot.text['text/html']).toBe('<p>x</p>');
     expect(access).not.toHaveBeenCalled();
-    expect(getData).not.toHaveBeenCalled();
   });
 
   it('allows the exact item limit and keeps unsupported metadata without interpreting it', () => {
@@ -258,20 +265,43 @@ describe('captureClipboard', () => {
     expect(captureClipboard(clipboard({}, [entry]), { ...limits, maxMetadataLength: 8 })).toEqual(rejectedLimit);
   });
 
-  it('applies per-file limits to unsupported file types too', () => {
-    const entry = item('file', 'application/octet-stream', sizedFile(5, 'application/octet-stream'));
-    expect(captureClipboard(clipboard({}, [entry]), { ...limits, maxFileBytes: 5 }).status).toBe('captured');
-    expect(captureClipboard(clipboard({}, [entry]), { ...limits, maxFileBytes: 4 })).toEqual(rejectedLimit);
+  it('keeps the metadata of a File over the per-file limit and drops the File, of any type', () => {
+    const file = sizedFile(5, 'application/octet-stream');
+    const data = clipboard({ 'text/html': '<p>x</p>' }, [item('file', 'application/octet-stream', file)]);
+    const kept = captureClipboard(data, { ...limits, maxFileBytes: 5 });
+    if (kept.status !== 'captured') throw new Error('Expected captured clipboard');
+    expect(kept.snapshot.items[0]).toMatchObject({ file, fileSize: 5, overLimit: false });
+    const left = captureClipboard(data, { ...limits, maxFileBytes: 4 });
+    if (left.status !== 'captured') throw new Error('Expected captured clipboard');
+    expect(left.snapshot.items).toEqual([{
+      itemIndex: 0, kind: 'file', declaredType: 'application/octet-stream',
+      file: null, fileType: 'application/octet-stream', fileSize: 5, overLimit: true,
+    }]);
+    expect(left.snapshot.fileBytes).toBe(0);
+    expect(left.snapshot.text['text/html']).toBe('<p>x</p>');
   });
 
-  it('counts repeated File references conservatively before later deduplication', () => {
+  it('counts repeated File references conservatively, leaving out the one past the total', () => {
     const file = sizedFile(3);
     const data = clipboard({}, [item('file', 'image/png', file), item('file', 'image/png', file)]);
     const result = captureClipboard(data, { ...limits, maxTotalFileBytes: 6 });
     expect(result.status).toBe('captured');
     if (result.status !== 'captured') throw new Error('Expected captured clipboard');
     expect(result.snapshot.fileBytes).toBe(6);
-    expect(captureClipboard(data, { ...limits, maxTotalFileBytes: 5 })).toEqual(rejectedLimit);
+    const left = captureClipboard(data, { ...limits, maxTotalFileBytes: 5 });
+    if (left.status !== 'captured') throw new Error('Expected captured clipboard');
+    expect(left.snapshot.items.map(entry => [entry.file, entry.overLimit])).toEqual([[file, false], [null, true]]);
+    expect(left.snapshot.fileBytes).toBe(3);
+  });
+
+  it('keeps a later File that fits after one over the limits', () => {
+    const large = sizedFile(8);
+    const small = sizedFile(2);
+    const data = clipboard({}, [item('file', 'image/png', large), item('file', 'image/png', small)]);
+    const result = captureClipboard(data, { ...limits, maxFileBytes: 4 });
+    if (result.status !== 'captured') throw new Error('Expected captured clipboard');
+    expect(result.snapshot.items.map(entry => [entry.file, entry.overLimit])).toEqual([[null, true], [small, false]]);
+    expect(result.snapshot.fileBytes).toBe(2);
   });
 
   it('enforces a shared file and text budget at the exact byte boundary', () => {
@@ -280,11 +310,12 @@ describe('captureClipboard', () => {
     expect(captureClipboard(data, { ...limits, maxClipboardBytes: 4 })).toEqual(rejectedLimit);
   });
 
-  it('rejects aggregate files before retrieving source strings', () => {
-    const data = clipboard({ 'text/html': 'later' }, [item('file', 'image/png', sizedFile(4))]);
-    const getData = vi.spyOn(data, 'getData');
-    expect(captureClipboard(data, { ...limits, maxClipboardBytes: 3 })).toEqual(rejectedLimit);
-    expect(getData).not.toHaveBeenCalled();
+  it('leaves out a File past the shared budget and keeps the budget for the text', () => {
+    const data = clipboard({ 'text/html': 'abc' }, [item('file', 'image/png', sizedFile(4))]);
+    const result = captureClipboard(data, { ...limits, maxClipboardBytes: 3 });
+    if (result.status !== 'captured') throw new Error('Expected captured clipboard');
+    expect(result.snapshot.items[0]).toMatchObject({ file: null, fileSize: 4, overLimit: true });
+    expect(result.snapshot.textBytes).toBe(3);
   });
 
   it('treats zero limits as actual zero ceilings and permits zero-byte files', () => {
@@ -293,15 +324,21 @@ describe('captureClipboard', () => {
     expect(captureClipboard(clipboard({ 'text/html': 'x' }), zero)).toEqual(rejectedLimit);
     const data = clipboard({}, [item('file', 'image/png', sizedFile(0))]);
     expect(captureClipboard(data, { ...limits, maxFileBytes: 0, maxTotalFileBytes: 0, maxClipboardBytes: 0 }).status).toBe('captured');
-    expect(captureClipboard(data, zero)).toEqual(rejectedLimit);
+    // A zero item bound reads no item at all.
+    const none = captureClipboard(data, zero);
+    if (none.status !== 'captured') throw new Error('Expected captured clipboard');
+    expect(none.snapshot.items).toEqual([]);
+    expect(none.snapshot.itemCount).toBe(1);
   });
 
   it('uses subtraction bounds so large synthetic file totals cannot overflow safe integers', () => {
     const maximum = Number.MAX_SAFE_INTEGER;
     const data = clipboard({}, [item('file', '', sizedFile(maximum)), item('file', '', sizedFile(1))]);
     const large = { ...limits, maxFileBytes: maximum, maxTotalFileBytes: maximum, maxClipboardBytes: maximum };
-    expect(captureClipboard(data, large)).toEqual(rejectedLimit);
-    expect(captureClipboard(clipboard({}, [item('file', '', sizedFile(maximum))]), large).status).toBe('captured');
+    const result = captureClipboard(data, large);
+    if (result.status !== 'captured') throw new Error('Expected captured clipboard');
+    expect(result.snapshot.items.map(entry => entry.overLimit)).toEqual([false, true]);
+    expect(result.snapshot.fileBytes).toBe(maximum);
   });
 
   it.each([NaN, Infinity, -1, 0.5, Number.MAX_SAFE_INTEGER + 1])('rejects malformed file size %s without partial output', size => {

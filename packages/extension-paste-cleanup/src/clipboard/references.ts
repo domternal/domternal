@@ -92,14 +92,15 @@ function isArray(value: unknown): boolean { return Array.isArray(value); }
 
 /** Recheck the capture producer's metadata and counters without touching File properties. */
 function checkSnapshot(snapshot: ClipboardSnapshot, limits: ClipboardReferenceLimits):
-  | { readonly items: readonly CapturedClipboardItem[]; readonly htmlLength: number }
+  | { readonly items: readonly CapturedClipboardItem[]; readonly itemCount: number; readonly htmlLength: number }
   | RejectionReason {
   const sourceItems: unknown = snapshot.items;
+  const sourceCount: unknown = snapshot.itemCount;
   const textBytes: unknown = snapshot.textBytes;
   const fileBytes: unknown = snapshot.fileBytes;
-  if (!Array.isArray(sourceItems) || !size(textBytes) || !size(fileBytes)) return 'invalid-snapshot';
+  if (!Array.isArray(sourceItems) || !size(sourceCount) || !size(textBytes) || !size(fileBytes)) return 'invalid-snapshot';
   const itemCount = sourceItems.length;
-  if (!size(itemCount)) return 'invalid-snapshot';
+  if (!size(itemCount) || itemCount > sourceCount) return 'invalid-snapshot';
   if (itemCount > limits.maxItems || textBytes > limits.maxTextBytes
     || fileBytes > limits.maxTotalFileBytes || fileBytes > limits.maxClipboardBytes
     || textBytes > limits.maxClipboardBytes - fileBytes) return 'input-limit';
@@ -122,21 +123,29 @@ function checkSnapshot(snapshot: ClipboardSnapshot, limits: ClipboardReferenceLi
     const file: unknown = entry.file;
     const fileType: unknown = entry.fileType;
     const fileSize: unknown = entry.fileSize;
-    if (itemIndex !== index || typeof kind !== 'string' || typeof declaredType !== 'string') return 'invalid-snapshot';
+    const overLimit: unknown = entry.overLimit;
+    if (itemIndex !== index || typeof kind !== 'string' || typeof declaredType !== 'string' || typeof overLimit !== 'boolean') return 'invalid-snapshot';
     if (kind.length > limits.maxMetadataLength || declaredType.length > limits.maxMetadataLength) return 'input-limit';
+    if (overLimit) {
+      // A File the capture left out: only its metadata remains, and no budget counts it.
+      if (file !== null || kind !== 'file' || typeof fileType !== 'string' || !size(fileSize)) return 'invalid-snapshot';
+      if (fileType.length > limits.maxMetadataLength) return 'input-limit';
+      items.push(Object.freeze({ itemIndex: index, kind, declaredType, file: null, fileType, fileSize, overLimit: true }));
+      continue;
+    }
     if (file === null) {
       if (fileType !== null || fileSize !== null) return 'invalid-snapshot';
-      items.push(Object.freeze({ itemIndex: index, kind, declaredType, file: null, fileType: null, fileSize: null }));
+      items.push(Object.freeze({ itemIndex: index, kind, declaredType, file: null, fileType: null, fileSize: null, overLimit: false }));
       continue;
     }
     if (typeof file !== 'object' || kind !== 'file' || typeof fileType !== 'string' || !size(fileSize)) return 'invalid-snapshot';
     if (fileType.length > limits.maxMetadataLength || fileSize > limits.maxFileBytes
       || fileSize > limits.maxTotalFileBytes - total || fileSize > limits.maxClipboardBytes - total) return 'input-limit';
     total += fileSize;
-    items.push(Object.freeze({ itemIndex: index, kind, declaredType, file: file as File, fileType, fileSize }));
+    items.push(Object.freeze({ itemIndex: index, kind, declaredType, file: file as File, fileType, fileSize, overLimit: false }));
   }
   if (total !== fileBytes) return 'invalid-snapshot';
-  return { items, htmlLength };
+  return { items, itemCount: sourceCount, htmlLength };
 }
 
 function copyReference(input: ClipboardImageReference, htmlLength: number, limits: ClipboardReferenceLimits): ClipboardImageReference | RejectionReason {
@@ -234,7 +243,7 @@ export function resolveClipboardImageBindings(
         : kind === 'verified-profile' ? (evidence as { readonly profileId?: unknown }).profileId : undefined;
       if (typeof kind === 'string' && kind.length > limits.maxMetadataLength) return reject('input-limit');
       if (typeof identifier === 'string' && identifier.length > limits.maxMetadataLength) return reject('input-limit');
-      if (typeof identifier !== 'string' || identifier.length === 0 || !size(itemIndex) || itemIndex >= capture.items.length) {
+      if (typeof identifier !== 'string' || identifier.length === 0 || !size(itemIndex) || itemIndex >= capture.itemCount) {
         state.invalid = true;
         continue;
       }
@@ -248,7 +257,10 @@ export function resolveClipboardImageBindings(
       if (state.conflict) { invalidBinding('conflicting-binding', reference); continue; }
       if (state.invalid || state.itemIndex === undefined) { invalidBinding('invalid-binding', reference); continue; }
       const item = capture.items[state.itemIndex];
-      if (item?.file === undefined || item.file === null || item.fileType === null || item.fileSize === null) {
+      // A bound item past the item bound, or a bound File over the byte budgets, rejects the paste
+      // under every unresolved policy. Left-out items nothing binds to change nothing.
+      if (item === undefined || item.overLimit) return reject('input-limit');
+      if (item.file === null || item.fileType === null || item.fileSize === null) {
         report('file-unavailable', reference);
         continue;
       }

@@ -382,4 +382,46 @@ test.describe('clipboard content a coordinated paste does not use', () => {
     await expect(page.locator('.ProseMirror img')).toHaveAttribute('src', PNG_URL);
     await expect(page.locator('.ProseMirror strong')).toHaveText('New');
   });
+
+  test('pastes text beside an unrelated file over maxFileBytes without reading it', async ({ page }) => {
+    await open(page, 'vanilla', { 'asset-limits': 'small' });
+    await pasteItems(page, { html: '<p><strong>New</strong> text</p>', files: [{ type: 'application/pdf', size: 4096 }] });
+    expect((await terminal(page)).status).toBe('applied');
+    await expect(page.locator('.ProseMirror strong')).toHaveText('New');
+    expect((await observations(page)).assetReads).toBe(0);
+  });
+
+  for (const unresolved of ['reject', 'omit']) {
+    test(`prepares the bound image while an unrelated file is over maxFileBytes, with unresolved ${unresolved}`, async ({ page }) => {
+      await open(page, 'vanilla', { 'asset-total-bytes': String(atob(PNG).length), unresolved });
+      await pasteItems(page, { html: MIXED_HTML, files: [{ png: true }, { type: 'image/png', size: 4096 }], bind: 0 });
+      expect((await terminal(page)).status).toBe('applied');
+      await expect(page.locator('.ProseMirror img')).toHaveAttribute('src', PNG_URL);
+      expect((await observations(page)).assetReads).toBe(1);
+    });
+
+    test(`rejects a bound file over maxFileBytes before reading it, with unresolved ${unresolved}`, async ({ page }) => {
+      const before = await open(page, 'vanilla', { 'asset-limits': 'small', unresolved });
+      await pasteItems(page, { html: MIXED_HTML, files: [{ png: true }], bind: 0 });
+      expect(await terminal(page)).toMatchObject({ status: 'rejected', reason: 'asset-limit' });
+      expect(await snapshot(page)).toEqual(before);
+      expect((await observations(page)).assetReads).toBe(0);
+    });
+  }
+
+  test('prepares the bound image while unrelated items run past the item bound of 256', async ({ page }) => {
+    await open(page, 'vanilla');
+    await pasteItems(page, { html: MIXED_HTML, files: [{ png: true }, ...Array.from({ length: 300 }, () => ({ type: 'application/octet-stream', size: 1 }))], bind: 0 });
+    expect((await terminal(page)).status).toBe('applied');
+    await expect(page.locator('.ProseMirror img')).toHaveAttribute('src', PNG_URL);
+    expect((await observations(page)).assetReads).toBe(1);
+  });
+
+  test('rejects a binding to an item past the item bound of 256', async ({ page }) => {
+    const before = await open(page, 'vanilla');
+    await pasteItems(page, { html: MIXED_HTML, files: [...Array.from({ length: 299 }, () => ({ type: 'application/octet-stream', size: 1 })), { png: true }], bind: 299 });
+    expect(await terminal(page)).toMatchObject({ status: 'rejected', reason: 'asset-limit' });
+    expect(await snapshot(page)).toEqual(before);
+    expect((await observations(page)).assetReads).toBe(0);
+  });
 });

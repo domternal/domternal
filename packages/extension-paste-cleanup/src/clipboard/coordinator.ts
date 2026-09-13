@@ -613,6 +613,13 @@ export function createClipboardAssetCoordinator(
       if (entry.capture.status === 'rejected') { event.preventDefault(); rejectCapture(entry); return true; }
       if (entry.capture.status !== 'captured') return false;
       const snapshot = entry.capture.snapshot;
+      // This route pastes every image file, and an item past the item bound is never read, so
+      // it may be one. A file over the byte budgets is bound below and rejects at binding.
+      if (snapshot.itemCount > snapshot.items.length) {
+        event.preventDefault();
+        rejectCapture({ ...entry, capture: { status: 'rejected', reason: 'input-limit' } });
+        return true;
+      }
       const files = snapshot.items.filter(item => item.kind === 'file' && (item.declaredType.startsWith('image/') || item.fileType?.startsWith('image/') === true));
       if (files.length === 0) return false;
       event.preventDefault();

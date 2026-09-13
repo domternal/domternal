@@ -8,6 +8,12 @@ export interface ClipboardImageItemMetadata {
   readonly declaredType: string;
   readonly fileType: string | null;
   readonly fileSize: number | null;
+  /**
+   * Whether the item holds a File the paste can read. A File over `maxFileBytes`, or past
+   * `maxTotalFileBytes` with the Files before it, is not, though its type and size are given,
+   * and a binding to it rejects the paste with `asset-limit`. The items past the first 256 are
+   * not listed, and a binding to one of them rejects the paste too.
+   */
   readonly available: boolean;
 }
 

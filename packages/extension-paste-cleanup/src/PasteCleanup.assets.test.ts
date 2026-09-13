@@ -51,6 +51,17 @@ function imageFile(binary = PNG, type = 'image/png', pending?: Promise<ArrayBuff
   return { file, read };
 }
 
+/** A File that claims `size` bytes without holding them, and must never be read. */
+function sizedFile(size: number, type = 'application/octet-stream'): { file: File; read: Mock<() => Promise<ArrayBuffer>> } {
+  const file = new File([], 'private-unrelated-name', { type });
+  Object.defineProperty(file, 'size', { value: size });
+  const read = vi.fn(() => Promise.reject(new Error('This file must not be read')));
+  Object.defineProperty(file, 'arrayBuffer', { value: read, configurable: false, writable: false });
+  return { file, read };
+}
+
+const MIB = 1024 * 1024;
+
 function explicitMatch(mapping: Readonly<Record<string, number>> = { 'cid:chart': 1 }): Matcher {
   return context => context.references.flatMap(reference => {
     const itemIndex = mapping[reference.rawReference];
@@ -552,6 +563,78 @@ describe('coordinated embedded clipboard assets', () => {
     await terminal(fixture, 'rejected');
     expect(snapshot(fixture.editor)).toEqual(before);
     expect(asset.read).not.toHaveBeenCalled();
+  });
+
+  it('pastes text beside an unrelated file over maxFileBytes without reading it', async () => {
+    const unrelated = sizedFile(2 * MIB);
+    const fixture = mount();
+    paste(fixture.editor, { html: '<p><strong>Rich</strong> text</p>', text: 'Rich text', files: [unrelated.file] });
+    await terminal(fixture, 'applied');
+    expect(fixture.editor.getHTML()).toBe('<p><strong>Rich</strong> text</p>');
+    expect(unrelated.read).not.toHaveBeenCalled();
+  });
+
+  it.each(['reject', 'omit'] as const)('prepares the bound image while an unrelated file is over maxFileBytes, with unresolved %s', async unresolved => {
+    const asset = imageFile();
+    const unrelated = sizedFile(2 * MIB, 'image/png');
+    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded', unresolved, match: explicitMatch({ 'cid:chart': 1 }) } } });
+    paste(fixture.editor, { html: '<p>Rich<img src="cid:chart"></p>', text: 'Rich', files: [asset.file, unrelated.file] });
+    await terminal(fixture, 'applied');
+    expect(imageNodes(fixture.editor)).toEqual([expect.objectContaining({ src: PNG_URL })]);
+    expect(asset.read).toHaveBeenCalledOnce();
+    expect(unrelated.read).not.toHaveBeenCalled();
+  });
+
+  it('prepares the bound image while unrelated items run past the item bound', async () => {
+    const asset = imageFile();
+    const unrelated = sizedFile(8);
+    const fixture = mount();
+    paste(fixture.editor, { html: '<p>Rich<img src="cid:chart"></p>', text: 'Rich', files: [asset.file, ...Array.from({ length: 300 }, () => unrelated.file)] });
+    await terminal(fixture, 'applied');
+    expect(imageNodes(fixture.editor)).toEqual([expect.objectContaining({ src: PNG_URL })]);
+    expect(unrelated.read).not.toHaveBeenCalled();
+  });
+
+  it.each(['reject', 'omit'] as const)('rejects a bound file over maxFileBytes before reading it, with unresolved %s', async unresolved => {
+    const bound = sizedFile(2 * MIB, 'image/png');
+    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded', unresolved, match: explicitMatch({ 'cid:chart': 1 }) } } });
+    const before = snapshot(fixture.editor);
+    paste(fixture.editor, { html: '<p>Rich<img src="cid:chart"></p>', text: 'Rich', files: [bound.file] });
+    await terminal(fixture, 'rejected', 'asset-limit');
+    expect(snapshot(fixture.editor)).toEqual(before);
+    expect(bound.read).not.toHaveBeenCalled();
+  });
+
+  it('rejects a binding to an item past the item bound', async () => {
+    const unrelated = sizedFile(8, 'image/png');
+    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded', match: explicitMatch({ 'cid:chart': 290 }) } } });
+    const before = snapshot(fixture.editor);
+    paste(fixture.editor, { html: '<p>Rich<img src="cid:chart"></p>', text: 'Rich', files: Array.from({ length: 300 }, () => unrelated.file) });
+    await terminal(fixture, 'rejected', 'asset-limit');
+    expect(snapshot(fixture.editor)).toEqual(before);
+    expect(unrelated.read).not.toHaveBeenCalled();
+  });
+
+  it('prepares the image of an image-only paste while an unrelated file is over maxFileBytes', async () => {
+    const asset = imageFile();
+    const unrelated = sizedFile(2 * MIB);
+    const fixture = mount();
+    paste(fixture.editor, { files: [asset.file, unrelated.file] });
+    await terminal(fixture, 'applied');
+    expect(imageNodes(fixture.editor)).toEqual([expect.objectContaining({ src: PNG_URL })]);
+    expect(unrelated.read).not.toHaveBeenCalled();
+  });
+
+  it.each(['an image file over maxFileBytes', 'more items than the item bound'] as const)('rejects an image-only paste with %s, since it pastes every image file', async kind => {
+    const large = sizedFile(2 * MIB, 'image/png');
+    const asset = imageFile();
+    const fixture = mount();
+    const before = snapshot(fixture.editor);
+    paste(fixture.editor, { files: kind === 'an image file over maxFileBytes' ? [asset.file, large.file] : Array.from({ length: 300 }, () => asset.file) });
+    await terminal(fixture, 'rejected', 'asset-limit');
+    expect(snapshot(fixture.editor)).toEqual(before);
+    expect(asset.read).not.toHaveBeenCalled();
+    expect(large.read).not.toHaveBeenCalled();
   });
 
   it('fails configuration for a zero asset budget instead of treating it as unlimited', () => {
