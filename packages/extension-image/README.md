@@ -133,7 +133,7 @@ The user-facing counterpart to the commands above:
 The image node registers its live policy (node type, `src` attribute, `inline`, `allowBase64`,
 `allowedMimeTypes` and `maxFileSize`) as the editor's clipboard image destination through the
 experimental `@domternal/core/clipboard` subpath. Clipboard preparation, such as
-[`@domternal/extension-paste-cleanup`](https://www.npmjs.com/package/@domternal/extension-paste-cleanup)
+[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup) (in development)
 with `imageAssets`, reads it to decide where pasted local images may go. The registration
 follows the plugin view and is removed when the editor is destroyed.
 

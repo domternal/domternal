@@ -228,7 +228,7 @@ editor, and binds `Mod-P` to `printDocument` while the caret is in the editor.
 ## Clipboard coordination (experimental)
 
 Extensions that cooperate on paste and copy, such as
-[`@domternal/extension-paste-cleanup`](https://www.npmjs.com/package/@domternal/extension-paste-cleanup)
+[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup) (in development)
 and the image extension, coordinate through the `@domternal/core/clipboard` subpath. Most
 applications never import it. A custom image node uses it to declare where pasted images may go:
 
@@ -575,7 +575,7 @@ the SSR helpers with an `ExtensionConfigurationError`. `updateAttributes`, `setB
 `toggleBlockType` refuse a level that is not a whole number from 1 to 6, and `setHeading` and
 `toggleHeading` accept only configured levels. HTML content parses every heading tag at the
 nearest configured level, as [Content normalization](#content-normalization) describes; with
-[`@domternal/extension-paste-cleanup`](https://www.npmjs.com/package/@domternal/extension-paste-cleanup),
+[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup) (in development),
 a pasted heading moves to the nearest supported level before parsing and is reported.
 
 ## SSR

@@ -34,7 +34,7 @@ import {
   readinessProblems,
   releaseRefusal,
 } from '../../scripts/release-readiness.mjs';
-import { refusalProblems, runTransformCopy, transformOutsidePublish } from './check.mjs';
+import { npmLinksToHeldPackages, refusalProblems, runTransformCopy, shippedReadmes, transformOutsidePublish } from './check.mjs';
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 // Port 9 is the discard service: nothing answers there, so even a publish that
@@ -532,4 +532,22 @@ test('the gate runs the real transform on a copy and never touches the package i
   // The copy has no dist, so the transform's own blockers stop it, past the guard.
   assert.match(allowed.output, /\[prepare-publish\] @fixture\/ready must not be published/);
   assert.ok(manifestBytes(root, 'held').equals(before));
+});
+
+test('a README links to the npm page of a held package only as an error, and to its source freely', () => {
+  const held = new Map([['@domternal/extension-new', 'native qualification']]);
+  const readmes = [
+    { path: 'packages/core/README.md', text: 'See [x](https://www.npmjs.com/package/@domternal/extension-new).' },
+    { path: 'packages/image/README.md', text: 'See [x](https://github.com/domternal/domternal/tree/main/packages/extension-new).' },
+    { path: 'README.md', text: 'See [core](https://www.npmjs.com/package/@domternal/core).' },
+  ];
+  const problems = npmLinksToHeldPackages(readmes, held);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /packages\/core\/README\.md links to the npm page of @domternal\/extension-new/);
+  assert.deepEqual(npmLinksToHeldPackages(readmes, new Map()), []);
+});
+
+test('no shipped README of this repository links to the npm page of a held package', () => {
+  const held = parseReadiness(readFileSync(READINESS_PATH, 'utf8'));
+  assert.deepEqual(npmLinksToHeldPackages(shippedReadmes(), held), []);
 });

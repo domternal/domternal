@@ -135,6 +135,39 @@ export function refusalProblems(entry, held, run) {
   ];
 }
 
+/**
+ * README links to the npm page of a package that is held back. Package READMEs
+ * ship in their tarballs, so a released package would link to a page npm
+ * answers with a 404 until the held package ships; link the source instead.
+ */
+export function npmLinksToHeldPackages(readmes, held) {
+  const problems = [];
+  for (const { path, text } of readmes) {
+    for (const name of held.keys()) {
+      if (text.includes(`npmjs.com/package/${name}`)) {
+        problems.push(
+          `${path} links to the npm page of ${name}, which is not released yet: link its source directory ` +
+            `(https://github.com/domternal/domternal/tree/main/packages/${name.replace('@domternal/', '')}) instead`
+        );
+      }
+    }
+  }
+  return problems;
+}
+
+/** The root README and every package README, as they ship. */
+export function shippedReadmes(root = repoRoot) {
+  const readmes = [];
+  const add = (path) => {
+    if (existsSync(join(root, path))) readmes.push({ path, text: readFileSync(join(root, path), 'utf8') });
+  };
+  add('README.md');
+  for (const entry of readdirSync(join(root, 'packages'), { withFileTypes: true })) {
+    if (entry.isDirectory()) add(join('packages', entry.name, 'README.md'));
+  }
+  return readmes;
+}
+
 function main() {
   let held;
   try {
@@ -150,7 +183,11 @@ function main() {
 
   const packages = workspacePackages();
   const manifests = packages.map(({ manifest }) => manifest);
-  const failures = [...readinessProblems(held, manifests), ...transformOutsidePublish(manifests)];
+  const failures = [
+    ...readinessProblems(held, manifests),
+    ...transformOutsidePublish(manifests),
+    ...npmLinksToHeldPackages(shippedReadmes(), held),
+  ];
 
   const publishable = discoverPublishablePackages();
   for (const entry of publishable) {
