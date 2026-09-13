@@ -45,7 +45,10 @@ export class MarkdownParseState {
     return this.top().type;
   }
 
-  /** Whether the node being built can take a child of this type next. */
+  /**
+   * @experimental Whether the node being built can take a child of this type next, for a
+   * token handler that places a block only where the schema allows it.
+   */
   canAppend(type: NodeType): boolean {
     const { type: parent, content } = this.top();
     const next = parent.contentMatch.matchFragment(Fragment.from(content))?.matchType(type);

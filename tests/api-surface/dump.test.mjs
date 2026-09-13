@@ -640,3 +640,8 @@ test('the committed PasteCleanup snapshot marks the resolver ownership protocol 
   assert.match(docAbove(main, 'type ClipboardResolverDiagnosticCode =') ?? '', /open/);
   assert.match(main, /The list is open[^*]*\*\/\s*readonly reason:/);
 });
+
+test('a member added to an exported class after 1.2 says whether it is settled', () => {
+  const text = readFileSync(join(repoRoot, 'packages/extension-markdown/dist/index.d.ts'), 'utf8');
+  assert.match(docAbove(text, 'canAppend(type: NodeType): boolean;') ?? '', /@experimental/);
+});
