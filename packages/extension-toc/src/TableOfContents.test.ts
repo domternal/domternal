@@ -592,20 +592,34 @@ describe('TableOfContents - initial-load hash navigation', () => {
   });
 
   it('cancels the pending hash-scroll rAF when the editor is destroyed before it fires', async () => {
-    history.replaceState(null, '', '#preset');
-    const host = document.createElement('div');
-    document.body.appendChild(host);
-    editor = new Editor({
-      element: host,
-      extensions: baseExtensions,
-      content: '<h1 id="preset">Will be torn down</h1>',
-    });
-    // Run only the macrotasks (timeouts) so the rAF is scheduled.
-    // Destroy BEFORE the next animation frame can fire.
-    await new Promise((r) => setTimeout(() => setTimeout(r, 0), 0));
-    editor.destroy();
-    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
-    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+    // Fake timers decide the order of the timeout, the destroy and the frame. With real
+    // timers a busy machine could run the frame before the destroy and fail the test.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame'] });
+    const frame = vi.spyOn(globalThis, 'requestAnimationFrame');
+    const cancel = vi.spyOn(globalThis, 'cancelAnimationFrame');
+    try {
+      history.replaceState(null, '', '#preset');
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      editor = new Editor({
+        element: host,
+        extensions: baseExtensions,
+        content: '<h1 id="preset">Will be torn down</h1>',
+      });
+      // The initial-load timeout schedules the hash-scroll frame, which has not run yet.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(frame).toHaveBeenCalledOnce();
+      expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+      editor.destroy();
+      expect(cancel).toHaveBeenCalledWith(frame.mock.results[0]?.value);
+      // Several frames later the cancelled scroll still has not run.
+      await vi.advanceTimersByTimeAsync(100);
+      expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+    } finally {
+      frame.mockRestore();
+      cancel.mockRestore();
+      vi.useRealTimers();
+    }
   });
 });
 
