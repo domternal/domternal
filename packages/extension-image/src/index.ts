@@ -12,3 +12,4 @@ export {
   type ImagePlacement,
 } from './Image.js';
 export { imageUploadPluginKey } from './imageUploadPlugin.js';
+export { imageMessages } from './messages.js';

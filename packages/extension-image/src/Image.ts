@@ -6,12 +6,13 @@
  * renderHTML, the `setImage` command, and the input rule (defense in depth).
  */
 
-import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert, copyThemeClass } from '@domternal/core';
-import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
+import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages } from '@domternal/core';
+import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
 import type { Node as PmNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
+import { imageMessages } from './messages.js';
 import { imageUploadPlugin } from './imageUploadPlugin.js';
 
 /** Float values for image text wrapping. */
@@ -167,18 +168,24 @@ export interface ImageOptions {
 }
 
 /** Bubble-menu placement controls; exactly one set is offered, see `placement`. */
-const IMAGE_FLOAT_ITEMS: ToolbarItem[] = [
-  { type: 'button', name: 'imageFloatNone', command: 'setImageFloat', commandArgs: ['none'], icon: 'textIndent', label: 'Inline', group: 'image-float', priority: 100, isActive: { name: 'image', attributes: { float: 'none' } }, toolbar: false, bubbleMenu: 'image' },
-  { type: 'button', name: 'imageFloatLeft', command: 'setImageFloat', commandArgs: ['left'], icon: 'textAlignLeft', label: 'Float left', group: 'image-float', priority: 90, isActive: { name: 'image', attributes: { float: 'left' } }, toolbar: false, bubbleMenu: 'image' },
-  { type: 'button', name: 'imageFloatCenter', command: 'setImageFloat', commandArgs: ['center'], icon: 'textAlignCenter', label: 'Center', group: 'image-float', priority: 80, isActive: { name: 'image', attributes: { float: 'center' } }, toolbar: false, bubbleMenu: 'image' },
-  { type: 'button', name: 'imageFloatRight', command: 'setImageFloat', commandArgs: ['right'], icon: 'textAlignRight', label: 'Float right', group: 'image-float', priority: 70, isActive: { name: 'image', attributes: { float: 'right' } }, toolbar: false, bubbleMenu: 'image' },
-];
+const imageFloatItems = (i18n?: I18nService): ToolbarItem[] => {
+  const group = localizeMessage(i18n, imageMessages.floatGroup);
+  return [
+  { type: 'button', name: 'imageFloatNone', command: 'setImageFloat', commandArgs: ['none'], icon: 'textIndent', ...localizedLabel(i18n, imageMessages.floatNone), group: 'image-float', groupLabel: group.text, groupLabelLanguage: group.language, priority: 100, isActive: { name: 'image', attributes: { float: 'none' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageFloatLeft', command: 'setImageFloat', commandArgs: ['left'], icon: 'textAlignLeft', ...localizedLabel(i18n, imageMessages.floatLeft), group: 'image-float', groupLabel: group.text, groupLabelLanguage: group.language, priority: 90, isActive: { name: 'image', attributes: { float: 'left' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageFloatCenter', command: 'setImageFloat', commandArgs: ['center'], icon: 'textAlignCenter', ...localizedLabel(i18n, imageMessages.floatCenter), group: 'image-float', groupLabel: group.text, groupLabelLanguage: group.language, priority: 80, isActive: { name: 'image', attributes: { float: 'center' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageFloatRight', command: 'setImageFloat', commandArgs: ['right'], icon: 'textAlignRight', ...localizedLabel(i18n, imageMessages.floatRight), group: 'image-float', groupLabel: group.text, groupLabelLanguage: group.language, priority: 70, isActive: { name: 'image', attributes: { float: 'right' } }, toolbar: false, bubbleMenu: 'image' },
+  ];
+};
 
-const IMAGE_ALIGN_ITEMS: ToolbarItem[] = [
-  { type: 'button', name: 'imageAlignLeft', command: 'setImageAlign', commandArgs: ['left'], icon: 'textAlignLeft', label: 'Align left', group: 'image-align', priority: 90, isActive: { name: 'image', attributes: { align: 'left' } }, toolbar: false, bubbleMenu: 'image' },
-  { type: 'button', name: 'imageAlignCenter', command: 'setImageAlign', commandArgs: ['center'], icon: 'textAlignCenter', label: 'Align center', group: 'image-align', priority: 80, isActive: { name: 'image', attributes: { align: 'center' } }, toolbar: false, bubbleMenu: 'image' },
-  { type: 'button', name: 'imageAlignRight', command: 'setImageAlign', commandArgs: ['right'], icon: 'textAlignRight', label: 'Align right', group: 'image-align', priority: 70, isActive: { name: 'image', attributes: { align: 'right' } }, toolbar: false, bubbleMenu: 'image' },
-];
+const imageAlignItems = (i18n?: I18nService): ToolbarItem[] => {
+  const group = localizeMessage(i18n, imageMessages.alignGroup);
+  return [
+  { type: 'button', name: 'imageAlignLeft', command: 'setImageAlign', commandArgs: ['left'], icon: 'textAlignLeft', ...localizedLabel(i18n, imageMessages.alignLeft), group: 'image-align', groupLabel: group.text, groupLabelLanguage: group.language, priority: 90, isActive: { name: 'image', attributes: { align: 'left' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageAlignCenter', command: 'setImageAlign', commandArgs: ['center'], icon: 'textAlignCenter', ...localizedLabel(i18n, imageMessages.alignCenter), group: 'image-align', groupLabel: group.text, groupLabelLanguage: group.language, priority: 80, isActive: { name: 'image', attributes: { align: 'center' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageAlignRight', command: 'setImageAlign', commandArgs: ['right'], icon: 'textAlignRight', ...localizedLabel(i18n, imageMessages.alignRight), group: 'image-align', groupLabel: group.text, groupLabelLanguage: group.language, priority: 70, isActive: { name: 'image', attributes: { align: 'right' } }, toolbar: false, bubbleMenu: 'image' },
+  ];
+};
 
 export const Image = Node.create<ImageOptions>({
   name: 'image',
@@ -381,6 +388,9 @@ export const Image = Node.create<ImageOptions>({
   },
 
   addToolbarItems(): ToolbarItem[] {
+    const i18n = this.editor?.i18n;
+    const group = localizeMessage(i18n, coreMessages.groupInsert);
+    const actionsGroup = localizeMessage(i18n, imageMessages.actionsGroup);
     return [
       // Main toolbar insert button
       {
@@ -389,8 +399,9 @@ export const Image = Node.create<ImageOptions>({
         command: 'setImage',
         commandArgs: [{ src: '' }],
         icon: 'image',
-        label: 'Insert Image',
+        ...localizedLabel(i18n, imageMessages.insertToolbar),
         group: 'insert',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 150,
         emitEvent: 'insertImage',
       },
@@ -400,13 +411,13 @@ export const Image = Node.create<ImageOptions>({
       // author to choose between two things that look the same until the
       // text beside the picture is long enough to tell them apart.
       ...((this.options.placement ?? (this.editor?.preset === 'notion' ? 'align' : 'float')) === 'align'
-        ? IMAGE_ALIGN_ITEMS
-        : IMAGE_FLOAT_ITEMS),
+        ? imageAlignItems(i18n)
+        : imageFloatItems(i18n)),
       // Bubble menu only: edit alt text. Highlights as active when the selected
       // image already has a non-empty alt (resolveActive passes the real editor).
       {
         type: 'button', name: 'editImage', command: 'setImage', commandArgs: [{ src: '' }],
-        icon: 'textAa', label: 'Edit alt text', group: 'image-actions', priority: 60,
+        icon: 'textAa', ...localizedLabel(i18n, imageMessages.editAlt), group: 'image-actions', groupLabel: actionsGroup.text, groupLabelLanguage: actionsGroup.language, priority: 60,
         toolbar: false, bubbleMenu: 'image', emitEvent: 'editImage',
         isActiveFn: (editor) => {
           // A selected image is a NodeSelection, so read its node directly. The
@@ -419,20 +430,24 @@ export const Image = Node.create<ImageOptions>({
         },
       },
       // Bubble menu only: delete
-      { type: 'button', name: 'deleteImage', command: 'deleteImage', icon: 'trash', label: 'Delete', group: 'image-actions', priority: 50, toolbar: false, bubbleMenu: 'image' },
+      { type: 'button', name: 'deleteImage', command: 'deleteImage', icon: 'trash', ...localizedLabel(i18n, imageMessages.delete), group: 'image-actions', groupLabel: actionsGroup.text, groupLabelLanguage: actionsGroup.language, priority: 50, toolbar: false, bubbleMenu: 'image' },
     ];
   },
 
   addFloatingMenuItems(): FloatingMenuItem[] {
+    const i18n = this.editor?.i18n;
+    const description = localizeMessage(i18n, imageMessages.description);
+    const group = localizeMessage(i18n, coreMessages.groupMedia);
     return [
       {
         name: 'image',
-        label: 'Image',
-        description: 'Upload or embed with a link',
+        ...localizedLabel(i18n, imageMessages.insert),
+        description: description.text, descriptionLanguage: description.language,
         icon: 'image',
         group: 'Media',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 200,
-        keywords: ['image', 'picture', 'photo', 'img'],
+        keywords: [...(i18n?.getSearchAliases(imageMessages.insert) ?? ['image', 'picture', 'photo', 'img'])],
         // Open the image URL popover. Matches the toolbar's `emitEvent` flow:
         // subscribers listen for `insertImage` to mount the popover UI.
         command: (editor) => {
@@ -670,32 +685,24 @@ export const Image = Node.create<ImageOptions>({
 
       const urlInput = document.createElement('input');
       urlInput.type = 'url';
-      urlInput.placeholder = 'Image URL...';
       urlInput.className = 'dm-image-popover-input';
-      urlInput.setAttribute('aria-label', 'Image URL');
 
       const altInput = document.createElement('input');
       altInput.type = 'text';
-      altInput.placeholder = 'Alt text (optional)...';
       // Own class (shares styling with the URL input via the theme) so selectors
       // targeting `.dm-image-popover-input` stay unambiguous to the URL field.
       altInput.className = 'dm-image-popover-alt-input';
-      altInput.setAttribute('aria-label', 'Image alt text');
       // Shown only in the edit menu (clicking an existing image), not on insert.
       altInput.hidden = true;
 
       const applyBtn = document.createElement('button');
       applyBtn.type = 'button';
       applyBtn.className = 'dm-image-popover-btn dm-image-popover-apply';
-      applyBtn.title = 'Insert image';
-      applyBtn.setAttribute('aria-label', 'Insert image');
       applyBtn.innerHTML = defaultIcons['check'] ?? '';
 
       const browseBtn = document.createElement('button');
       browseBtn.type = 'button';
       browseBtn.className = 'dm-image-popover-btn dm-image-popover-browse';
-      browseBtn.title = 'Browse files';
-      browseBtn.setAttribute('aria-label', 'Browse files');
       browseBtn.innerHTML = defaultIcons['image'] ?? '';
 
       const fields = document.createElement('div');
@@ -713,6 +720,27 @@ export const Image = Node.create<ImageOptions>({
       // (e.g. its alt text) instead of inserting a new image.
       let editingPos: number | null = null;
 
+      const refreshLabels = (): void => {
+        const url = editor.i18n.resolve(imageMessages.urlLabel);
+        const alt = editor.i18n.resolve(imageMessages.altLabel);
+        const apply = editingPos !== null
+          ? editor.i18n.resolve(imageMessages.applyAlt)
+          : editor.i18n.resolve(imageMessages.applyInsert);
+        const browse = editor.i18n.resolve(imageMessages.browse);
+        urlInput.placeholder = editor.i18n.t(imageMessages.urlPlaceholder);
+        urlInput.setAttribute('aria-label', url.text);
+        urlInput.lang = url.language;
+        altInput.placeholder = editor.i18n.t(imageMessages.altPlaceholder);
+        altInput.setAttribute('aria-label', alt.text);
+        altInput.lang = alt.language;
+        applyBtn.title = apply.text;
+        applyBtn.setAttribute('aria-label', apply.text);
+        applyBtn.lang = apply.language;
+        browseBtn.title = browse.text;
+        browseBtn.setAttribute('aria-label', browse.text);
+        browseBtn.lang = browse.language;
+      };
+
       const showPopover = (anchorElement?: HTMLElement, prefill?: { alt: string }): void => {
         toggleAnchor = anchorElement ?? null;
         const editing = prefill !== undefined;
@@ -723,8 +751,7 @@ export const Image = Node.create<ImageOptions>({
         urlInput.hidden = editing;
         browseBtn.hidden = editing;
         altInput.hidden = !editing;
-        applyBtn.title = editing ? 'Save alt text' : 'Insert image';
-        applyBtn.setAttribute('aria-label', editing ? 'Save alt text' : 'Insert image');
+        refreshLabels();
         el.setAttribute('data-show', '');
         isOpen = true;
         storage['isOpen'] = true;
@@ -962,6 +989,8 @@ export const Image = Node.create<ImageOptions>({
           },
         },
         view() {
+          refreshLabels();
+          const unsubscribeI18n = editor.i18n.subscribe(refreshLabels);
           // Append popover to body (escape overflow:hidden on .dm-editor)
           document.body.appendChild(el);
 
@@ -984,6 +1013,7 @@ export const Image = Node.create<ImageOptions>({
 
           return {
             destroy() {
+              unsubscribeI18n();
               hidePopover();
               urlInput.removeEventListener('keydown', onInputKeydown);
               altInput.removeEventListener('keydown', onInputKeydown);
