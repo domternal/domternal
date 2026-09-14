@@ -90,6 +90,9 @@ export const DomternalBubbleMenu = defineComponent({
       // Read activeVersion to establish reactive dependency
       void activeVersion.value;
       const t = trailing.value;
+      const i18n = editorRef.value?.i18n;
+      const colorLabel = i18n?.resolve(coreMessages.notionColorLabel);
+      const moreLabel = i18n?.resolve(coreMessages.moreOptions);
 
       const children: VNode[] = [];
 
@@ -149,8 +152,9 @@ export const DomternalBubbleMenu = defineComponent({
             ref: colorBtnRef,
             type: 'button',
             class: ['dm-toolbar-button', 'dm-ncp-trigger', t.hasAnyColor && 'dm-toolbar-button--active'],
-            title: 'Text and background color',
-            'aria-label': 'Text and background color',
+            title: colorLabel?.text,
+            'aria-label': colorLabel?.text,
+            lang: colorLabel?.language,
             'aria-haspopup': 'dialog',
             onMousedown: (e: MouseEvent) => { e.preventDefault(); },
             onClick: () => { if (colorBtnRef.value) openColorPicker(colorBtnRef.value); },
@@ -178,9 +182,10 @@ export const DomternalBubbleMenu = defineComponent({
             class: 'dm-toolbar-button',
             disabled: t.blockMenuButtonDisabled,
             title: t.blockMenuButtonDisabled
-              ? 'Block actions (select within a single block)'
-              : 'More options',
-            'aria-label': 'More options',
+              ? i18n?.t(coreMessages.blockActionsSelectionHint)
+              : moreLabel?.text,
+            'aria-label': moreLabel?.text,
+            lang: moreLabel?.language,
             'aria-haspopup': 'menu',
             innerHTML: getCachedIcon('dotsThree'),
             onMousedown: (e: MouseEvent) => { e.preventDefault(); },

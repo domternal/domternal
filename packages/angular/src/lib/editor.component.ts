@@ -25,7 +25,7 @@ import {
   BaseKeymap,
   History,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, EditorPreset, JSONContent, TransactionEventProps, FocusEventProps } from '@domternal/core';
+import type { Content, AnyExtension, FocusPosition, EditorPreset, I18nOptions, JSONContent, TransactionEventProps, FocusEventProps } from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
 
@@ -63,6 +63,8 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
    * behavior, replacing the hand-written class. Create-time only.
    */
   readonly preset = input<EditorPreset | undefined>(undefined);
+  /** Replace UI translations without recreating the editor or changing its form value. */
+  readonly i18n = input<I18nOptions | undefined>(undefined);
   readonly autofocus = input<FocusPosition>(false);
   readonly outputFormat = input<'html' | 'json'>('html');
 
@@ -90,6 +92,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
 
   // === Editor instance ===
   private _editor: Editor | null = null;
+  private _hadI18nInput = false;
 
   get editor(): Editor | null {
     return this._editor;
@@ -105,6 +108,15 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   constructor() {
     afterNextRender(() => {
       this.createEditor();
+    });
+
+    effect(() => {
+      const i18n = this.i18n();
+      if (!this._editor || this._editor.isDestroyed) return;
+      untracked(() => {
+        if (i18n !== undefined || this._hadI18nInput) this._editor?.i18n.set(i18n ?? {});
+        this._hadI18nInput = i18n !== undefined;
+      });
     });
 
     // React to editable input changes
@@ -209,6 +221,8 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       ? DEFAULT_EXTENSIONS
       : DEFAULT_EXTENSIONS.filter((extension) => extension.name !== 'history');
     const preset = this.preset();
+    const i18n = this.i18n();
+    this._hadI18nInput = i18n !== undefined;
     this._editor = new Editor({
       element: this.editorRef().nativeElement,
       extensions: [...defaults, ...this.extensions()],
@@ -216,6 +230,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       editable: this.editable(),
       autofocus: this.autofocus(),
       ...(preset ? { preset } : {}),
+      ...(i18n !== undefined ? { i18n } : {}),
     });
 
     this._isEditable.set(this.editable());

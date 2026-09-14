@@ -105,6 +105,8 @@ export function DomternalBubbleMenu({
   const showColor = trailing.showColorPickerButton && !trailing.isNodeSelection;
   const showBlock = trailing.showBlockMenuButton && !trailing.isNodeSelection;
   const menuLabel = editor?.i18n.resolve(coreMessages.bubbleMenuLabel);
+  const colorLabel = editor?.i18n.resolve(coreMessages.notionColorLabel);
+  const moreLabel = editor?.i18n.resolve(coreMessages.moreOptions);
 
   return (
     <div ref={menuRef} className="dm-bubble-menu" role="toolbar" aria-label={menuLabel?.text} lang={menuLabel?.language}>
@@ -158,8 +160,9 @@ export function DomternalBubbleMenu({
             ref={colorBtnRef}
             type="button"
             className={`dm-toolbar-button dm-ncp-trigger${trailing.hasAnyColor ? ' dm-toolbar-button--active' : ''}`}
-            title="Text and background color"
-            aria-label="Text and background color"
+            title={colorLabel?.text}
+            aria-label={colorLabel?.text}
+            lang={colorLabel?.language}
             aria-haspopup="dialog"
             onMouseDown={(e) => { e.preventDefault(); }}
             onClick={() => { if (colorBtnRef.current) openColorPicker(colorBtnRef.current); }}
@@ -186,9 +189,10 @@ export function DomternalBubbleMenu({
             className="dm-toolbar-button"
             disabled={trailing.blockMenuButtonDisabled}
             title={trailing.blockMenuButtonDisabled
-              ? 'Block actions (select within a single block)'
-              : 'More options'}
-            aria-label="More options"
+              ? editor?.i18n.t(coreMessages.blockActionsSelectionHint)
+              : moreLabel?.text}
+            aria-label={moreLabel?.text}
+            lang={moreLabel?.language}
             aria-haspopup="menu"
             dangerouslySetInnerHTML={innerHtml(getCachedHtml('dotsThree'))}
             onMouseDown={(e) => { e.preventDefault(); }}

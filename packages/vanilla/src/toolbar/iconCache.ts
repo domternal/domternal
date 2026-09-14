@@ -1,5 +1,6 @@
 import { defaultIcons } from '@domternal/core';
 import type { IconSet, ToolbarButton, ToolbarDropdown } from '@domternal/core';
+import { escapePresentationText } from '../shared/presentation.js';
 
 export const DROPDOWN_CARET =
   '<svg class="dm-dropdown-caret" width="10" height="10" viewBox="0 0 10 10">' +
@@ -57,7 +58,7 @@ export function createIconCache(initialIcons: IconSet | undefined): IconCache {
     const key = `tl:${label}:${isIcon ? '1' : '0'}`;
     let cached = cache.get(key);
     if (cached === undefined) {
-      const content = isIcon ? resolveSvg(label) : label;
+      const content = isIcon ? resolveSvg(label) : escapePresentationText(label);
       cached = `<span class="dm-toolbar-trigger-label">${content}</span>${DROPDOWN_CARET}`;
       cache.set(key, cached);
     }
@@ -86,11 +87,11 @@ export function createIconCache(initialIcons: IconSet | undefined): IconCache {
     let cached = cache.get(key);
     if (cached === undefined) {
       if (mode === 'text') {
-        cached = label;
+        cached = escapePresentationText(label);
       } else if (mode === 'icon') {
         cached = resolveSvg(iconName);
       } else {
-        cached = resolveSvg(iconName) + ' ' + label;
+        cached = resolveSvg(iconName) + ' ' + escapePresentationText(label);
       }
       cache.set(key, cached);
     }

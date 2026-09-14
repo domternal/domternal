@@ -11,6 +11,7 @@ import type {
   AnyExtension,
   FocusPosition,
   EditorPreset,
+  I18nOptions,
   JSONContent,
   TransactionEventProps,
   FocusEventProps,
@@ -44,6 +45,8 @@ export interface DomternalEditorOptions {
    * behavior, replacing the hand-written class. Create-time only.
    */
   preset?: EditorPreset;
+  /** Initial UI translations. Use editor.i18n.set() for live replacement. */
+  i18n?: I18nOptions;
   /** Where to autofocus on mount. @default false */
   autofocus?: FocusPosition;
   /**
@@ -159,6 +162,7 @@ export class DomternalEditor extends EventTarget {
       editable: options.editable ?? true,
       autofocus: options.autofocus ?? false,
       ...(options.preset ? { preset: options.preset } : {}),
+      ...(options.i18n !== undefined ? { i18n: options.i18n } : {}),
     });
 
     this.#wireEditorEvents();

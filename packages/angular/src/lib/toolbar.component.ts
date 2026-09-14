@@ -1,4 +1,5 @@
 import type { OnDestroy } from '@angular/core';
+import { escapePresentationText } from './presentation.js';
 import {
   Component,
   ChangeDetectionStrategy,
@@ -18,6 +19,7 @@ import {
   defaultIcons,
   positionFloatingOnce,
   refocusEditorAfterCommand,
+  coreMessages,
 } from '@domternal/core';
 import type {
   ToolbarItem,
@@ -40,7 +42,8 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
     'class': 'dm-toolbar',
     'role': 'toolbar',
     'data-dm-editor-ui': '',
-    '[attr.aria-label]': '"Editor formatting"',
+    '[attr.aria-label]': 'toolbarLabel()',
+    '[attr.lang]': 'uiLanguage()',
     '(keydown)': 'onKeydown($event)',
   },
   template: `
@@ -48,7 +51,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
       @if (gi > 0) {
         <div class="dm-toolbar-separator" role="separator"></div>
       }
-      <div class="dm-toolbar-group" role="group" [attr.aria-label]="group.name || 'Tools'">
+      <div class="dm-toolbar-group" role="group" [attr.aria-label]="group.label ?? (group.name || toolsLabel())" [attr.lang]="group.labelLanguage ?? null">
         @for (item of group.items; track item.name) {
           @if (item.type === 'button') {
             <button
@@ -58,6 +61,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
               [attr.aria-pressed]="isActive(item.name)"
               [attr.aria-expanded]="getAriaExpanded(asButton(item))"
               [attr.aria-label]="asButton(item).label"
+              [attr.lang]="asButton(item).labelLanguage ?? null"
               [title]="getTooltip(asButton(item))"
               [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
               [disabled]="isDisabled(item.name)"
@@ -76,15 +80,22 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                 [attr.aria-expanded]="openDropdown() === asDropdown(item).name"
                 [attr.aria-haspopup]="'true'"
                 [attr.aria-label]="asDropdown(item).label"
+                [attr.lang]="asDropdown(item).labelLanguage ?? null"
                 [title]="asDropdown(item).label"
                 [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
                 [disabled]="isDisabled(asDropdown(item).name)"
                 [attr.data-dropdown]="asDropdown(item).name"
-                [innerHTML]="getDropdownTriggerHtml(asDropdown(item))"
                 (mousedown)="$event.preventDefault()"
                 (click)="onDropdownToggle(asDropdown(item))"
                 (focus)="onButtonFocus(item.name)"
-              ></button>
+              >
+                @if (getDropdownTriggerText(asDropdown(item)); as text) {
+                  <span class="dm-toolbar-trigger-label">{{ text }}</span>
+                  <svg class="dm-dropdown-caret" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                } @else {
+                  <span [innerHTML]="getDropdownTriggerHtml(asDropdown(item))"></span>
+                }
+              </button>
               @if (openDropdown() === asDropdown(item).name) {
                 @if (asDropdown(item).layout === 'grid') {
                   <div class="dm-toolbar-dropdown-panel dm-color-palette" role="menu"
@@ -98,6 +109,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                           role="menuitem"
                           [attr.tabindex]="-1"
                           [attr.aria-label]="sub.label"
+                          [attr.lang]="sub.labelLanguage ?? null"
                           [title]="getTooltip(sub)"
                           [style.background-color]="sub.color"
                           (mousedown)="$event.preventDefault()"
@@ -110,12 +122,12 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                           role="menuitem"
                           [attr.tabindex]="-1"
                           [attr.aria-label]="sub.label"
+                          [attr.lang]="sub.labelLanguage ?? null"
                           [title]="getTooltip(sub)"
-                          [innerHTML]="getCachedItemContent(sub.icon, sub.label)"
                           [attr.tabindex]="-1"
                           (mousedown)="$event.preventDefault()"
                           (click)="onDropdownItemClick(sub)"
-                        ></button>
+                        ><span [innerHTML]="getCachedIcon(sub.icon)"></span> {{ sub.label }}</button>
                       }
                     }
                   </div>
@@ -130,12 +142,15 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                         role="menuitem"
                         [attr.tabindex]="-1"
                         [attr.aria-label]="sub.label"
+                        [attr.lang]="sub.labelLanguage ?? null"
                         [title]="getTooltip(sub)"
                         [attr.style]="sub.style ?? null"
-                        [innerHTML]="getCachedItemContent(sub.icon, sub.label, asDropdown(item).displayMode)"
                         (mousedown)="$event.preventDefault()"
                         (click)="onDropdownItemClick(sub, $event)"
-                      ></button>
+                      >
+                        @if (asDropdown(item).displayMode !== 'text') { <span [innerHTML]="getCachedIcon(sub.icon)"></span> }
+                        @if (asDropdown(item).displayMode !== 'icon') { {{ sub.label }} }
+                      </button>
                     }
                   </div>
                 }
@@ -253,6 +268,35 @@ export class DomternalToolbarComponent implements OnDestroy {
     return this.getCachedTriggerIcon(icon);
   }
 
+  toolbarLabel(): string {
+    this.activeVersion();
+    return this.editor().i18n.t(coreMessages.toolbarLabel);
+  }
+
+  toolsLabel(): string {
+    this.activeVersion();
+    return this.editor().i18n.t(coreMessages.toolsGroup);
+  }
+
+  uiLanguage(): string {
+    this.activeVersion();
+    return this.editor().i18n.resolve(coreMessages.toolbarLabel).language;
+  }
+
+  getDropdownTriggerText(dropdown: ToolbarDropdown): string | null {
+    this.activeVersion();
+    if (!dropdown.dynamicLabel || dropdown.layout === 'grid') return null;
+    const activeItem = dropdown.items.find((item) => this.controller?.activeMap.get(item.name));
+    if (activeItem) return activeItem.label;
+    if (dropdown.computedStyleProperty) {
+      const computed = dropdown.computedStyleProperty === 'font-family'
+        ? this.getInlineStyleAtCursor(dropdown.computedStyleProperty)?.split(',')[0]?.replace(/['"]+/g, '').trim()
+        : this.getComputedStyleAtCursor(dropdown.computedStyleProperty);
+      if (computed) return computed;
+    }
+    return dropdown.dynamicLabelFallback ?? null;
+  }
+
   /**
    * Returns 'true' when an emitEvent button's panel is open, null otherwise.
    * Maps to [attr.aria-expanded] - null removes the attribute entirely.
@@ -293,10 +337,10 @@ export class DomternalToolbarComponent implements OnDestroy {
   }
 
   getCachedTriggerLabel(label: string, isIcon?: boolean): SafeHtml {
-    const key = `tl:${label}`;
+    const key = `tl:${String(isIcon)}:${label}`;
     let cached = this.htmlCache.get(key);
     if (!cached) {
-      const content = isIcon ? this.resolveIconSvg(label) : label;
+      const content = isIcon ? this.resolveIconSvg(label) : escapePresentationText(label);
       cached = this.sanitizer.bypassSecurityTrustHtml(
         `<span class="dm-toolbar-trigger-label">${content}</span>` + this.dropdownCaret,
       );
@@ -322,11 +366,11 @@ export class DomternalToolbarComponent implements OnDestroy {
     if (!cached) {
       let html: string;
       if (mode === 'text') {
-        html = label;
+        html = escapePresentationText(label);
       } else if (mode === 'icon') {
         html = this.resolveIconSvg(iconName);
       } else {
-        html = this.resolveIconSvg(iconName) + ' ' + label;
+        html = this.resolveIconSvg(iconName) + ' ' + escapePresentationText(label);
       }
       cached = this.sanitizer.bypassSecurityTrustHtml(html);
       this.htmlCache.set(key, cached);
@@ -592,7 +636,7 @@ export class DomternalToolbarComponent implements OnDestroy {
 
     // Only update groups if they actually changed (initial build or rebuild)
     const controllerGroups = this.controller.groups;
-    if (this.groups().length !== controllerGroups.length) {
+    if (this.groups() !== controllerGroups) {
       this.groups.set(controllerGroups);
     }
 
