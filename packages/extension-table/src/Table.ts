@@ -5,11 +5,14 @@
 
 import {
   Node,
+  localizedLabel,
+  localizeMessage,
+  coreMessages,
   splitListForInsert,
   Gapcursor,
   warnOnDuplicateProseMirrorCopy,
 } from '@domternal/core';
-import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
+import type { CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
 import type { Node as PMNode } from '@domternal/pm/model';
@@ -35,6 +38,7 @@ import {
   isInTable,
 } from '@domternal/pm/tables';
 
+import { tableMessages } from './messages.js';
 import { TableView } from './TableView.js';
 import { createTable } from './helpers/createTable.js';
 import { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCellsSelected.js';
@@ -126,7 +130,8 @@ export interface TableOptions {
         cellMinWidth: number,
         view: EditorView,
         defaultCellMinWidth?: number,
-        constrainToContainer?: boolean
+        constrainToContainer?: boolean,
+        i18n?: I18nService
       ) => NodeView)
     | null;
 }
@@ -167,6 +172,7 @@ export const Table = Node.create<TableOptions>({
 
   addNodeView() {
     const ViewClass = this.options.View;
+    const i18n = this.editor?.i18n;
     const cellMinWidth = this.options.cellMinWidth;
     const defaultCellMinWidth = this.options.defaultCellMinWidth;
     const constrainToContainer = this.options.constrainToContainer;
@@ -181,7 +187,8 @@ export const Table = Node.create<TableOptions>({
         cellMinWidth,
         view,
         defaultCellMinWidth,
-        constrainToContainer
+        constrainToContainer,
+        i18n
       );
   },
 
@@ -426,29 +433,36 @@ export const Table = Node.create<TableOptions>({
   },
 
   addToolbarItems(): ToolbarItem[] {
+    const i18n = this.editor?.i18n;
+    const group = localizeMessage(i18n, coreMessages.groupInsert);
     return [
       {
         type: 'button',
         name: 'table',
         command: 'insertTable',
         icon: 'table',
-        label: 'Insert Table',
+        ...localizedLabel(i18n, tableMessages.insertToolbar),
         group: 'insert',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 140,
       },
     ];
   },
 
   addFloatingMenuItems(): FloatingMenuItem[] {
+    const i18n = this.editor?.i18n;
+    const description = localizeMessage(i18n, tableMessages.description);
+    const group = localizeMessage(i18n, coreMessages.groupMedia);
     return [
       {
         name: 'table',
-        label: 'Table',
-        description: 'Insert a simple table',
+        ...localizedLabel(i18n, tableMessages.insert),
+        description: description.text, descriptionLanguage: description.language,
         icon: 'table',
         group: 'Media',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 190,
-        keywords: ['table', 'grid', 'rows', 'columns'],
+        keywords: [...(i18n?.getSearchAliases(tableMessages.insert) ?? ['table', 'grid', 'rows', 'columns'])],
         command: 'insertTable',
       },
     ];

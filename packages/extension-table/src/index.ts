@@ -16,3 +16,5 @@ export { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCel
 
 // Re-export useful types from prosemirror-tables
 export { CellSelection, TableMap } from '@domternal/pm/tables';
+
+export { tableMessages } from './messages.js';
