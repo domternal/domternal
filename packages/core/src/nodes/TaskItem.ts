@@ -119,8 +119,9 @@ export const TaskItem = Node.create<TaskItemOptions>({
 
   addNodeView() {
     const options = this.options;
+    const i18n = this.editor?.i18n;
     return (node, view, getPos) =>
-      new TaskItemNodeView({ options, node, view, getPos });
+      new TaskItemNodeView({ options, node, view, getPos, i18n });
   },
 
   addCommands() {

@@ -12,12 +12,16 @@
 import type { Node as PMNode, NodeType } from '@domternal/pm/model';
 import type { EditorView, NodeView, ViewMutationRecord } from '@domternal/pm/view';
 import type { TaskItemOptions } from './TaskItem.js';
+import type { I18nService } from '../i18n/index.js';
+import { coreMessages } from '../messages/core.js';
+import { localizeMessage } from '../utils/localizeMessage.js';
 
 interface TaskItemNodeViewArgs {
   options: TaskItemOptions;
   node: PMNode;
   view: EditorView;
   getPos: () => number | undefined;
+  i18n?: I18nService | undefined;
 }
 
 export class TaskItemNodeView implements NodeView {
@@ -29,8 +33,9 @@ export class TaskItemNodeView implements NodeView {
   private readonly nodeType: NodeType;
   private readonly getPos: () => number | undefined;
   private node: PMNode;
+  private readonly unsubscribeI18n: (() => void) | undefined;
 
-  constructor({ options, node, view, getPos }: TaskItemNodeViewArgs) {
+  constructor({ options, node, view, getPos, i18n }: TaskItemNodeViewArgs) {
     this.view = view;
     this.nodeType = node.type;
     this.node = node;
@@ -54,7 +59,13 @@ export class TaskItemNodeView implements NodeView {
     this.input.type = 'checkbox';
     this.input.checked = !!node.attrs['checked'];
     this.input.disabled = !view.editable;
-    this.input.setAttribute('aria-label', 'Task status');
+    const updateLabel = (): void => {
+      const message = localizeMessage(i18n, coreMessages.taskStatus);
+      this.input.setAttribute('aria-label', message.text);
+      this.input.lang = message.language;
+    };
+    updateLabel();
+    this.unsubscribeI18n = i18n?.subscribe(updateLabel);
 
     this.label.appendChild(this.input);
     this.dom.appendChild(this.label);
@@ -108,6 +119,7 @@ export class TaskItemNodeView implements NodeView {
   }
 
   destroy(): void {
+    this.unsubscribeI18n?.();
     this.input.removeEventListener('change', this.handleChange);
   }
 }

@@ -1,96 +1,12 @@
 import { defineMessage, type MessageDefinition, type MessageId } from '../i18n/index.js';
 
-declare module '@domternal/core' {
-  interface MessageParameters {
-    'core.toolbar.italic': undefined;
-    'core.toolbar.underline': undefined;
-    'core.toolbar.strike': undefined;
-    'core.toolbar.code': undefined;
-    'core.toolbar.subscript': undefined;
-    'core.toolbar.superscript': undefined;
-    'core.toolbar.link': undefined;
-    'core.toolbar.hardBreak': undefined;
-    'core.toolbar.blockquote': undefined;
-    'core.floating.quote': undefined;
-    'core.floating.quoteDescription': undefined;
-    'core.toolbar.horizontalRule': undefined;
-    'core.floating.divider': undefined;
-    'core.floating.dividerDescription': undefined;
-    'core.toolbar.bulletList': undefined;
-    'core.floating.bulletedList': undefined;
-    'core.floating.bulletedListDescription': undefined;
-    'core.toolbar.orderedList': undefined;
-    'core.floating.numberedList': undefined;
-    'core.floating.numberedListDescription': undefined;
-    'core.toolbar.taskList': undefined;
-    'core.floating.todoList': undefined;
-    'core.floating.todoListDescription': undefined;
-    'core.toolbar.codeBlock': undefined;
-    'core.floating.codeBlock': undefined;
-    'core.floating.codeBlockDescription': undefined;
-    'core.toolbar.heading': undefined;
-    'core.toolbar.normalText': undefined;
-    'core.floating.headingBigDescription': undefined;
-    'core.floating.headingMediumDescription': undefined;
-    'core.floating.headingSmallDescription': undefined;
-    'core.floating.headingDescription': undefined;
-    'core.toolbar.fontFamily': undefined;
-    'core.toolbar.fontSize': undefined;
-    'core.toolbar.fontSizeDefault': undefined;
-    'core.toolbar.lineHeight': undefined;
-    'core.toolbar.lineHeightDefault': undefined;
-    'core.toolbar.print': undefined;
-    'core.toolbar.textColor': undefined;
-    'core.toolbar.textColorDefault': undefined;
-    'core.toolbar.highlight': undefined;
-    'core.toolbar.noHighlight': undefined;
-    'core.toolbar.textAlignment': undefined;
-    'core.toolbar.alignLeft': undefined;
-    'core.toolbar.alignCenter': undefined;
-    'core.toolbar.alignRight': undefined;
-    'core.toolbar.justify': undefined;
-    'core.toolbar.invisibleCharacters': undefined;
-    'core.toolbar.clearFormatting': undefined;
-    'core.toolbar.undo': undefined;
-    'core.toolbar.redo': undefined;
-    'core.colorPicker.label': undefined;
-    'core.placeholder.default': undefined;
-    'core.linkPopover.urlPlaceholder': undefined;
-    'core.linkPopover.urlLabel': undefined;
-    'core.linkPopover.apply': undefined;
-    'core.linkPopover.remove': undefined;
-    'core.taskItem.status': undefined;
-    'core.group.format': undefined;
-    'core.group.blocks': undefined;
-    'core.group.lists': undefined;
-    'core.group.textStyle': undefined;
-    'core.group.alignment': undefined;
-    'core.group.history': undefined;
-    'core.group.document': undefined;
-    'core.group.utilities': undefined;
-    'core.group.utility': undefined;
-    'core.group.insert': undefined;
-    'core.group.basic': undefined;
-    'core.group.listInsert': undefined;
-    'core.heading.level': { level: number };
-  }
-  interface SearchableMessages {
-    'core.floating.quote': true;
-    'core.floating.divider': true;
-    'core.floating.bulletedList': true;
-    'core.floating.numberedList': true;
-    'core.floating.todoList': true;
-    'core.floating.codeBlock': true;
-    'core.heading.level': true;
-  }
-}
-
 function message<const Id extends MessageId>(
   id: Id,
   defaultValue: string,
-  description: string
+  description: string,
+  allowEmpty = false
 ): MessageDefinition<Id> {
-  return defineMessage({ id, defaultValue, description, owner: '@domternal/core' });
+  return defineMessage({ id, defaultValue, description, allowEmpty, owner: '@domternal/core' });
 }
 
 /** Core actions preserve identifiers independently of their displayed wording. */
@@ -114,7 +30,8 @@ export const coreActionMessages = {
   quoteDescription: message(
     'core.floating.quoteDescription',
     'Capture a quote',
-    'Description of quote insertion.'
+    'Description of quote insertion.',
+    true
   ),
   horizontalRule: message(
     'core.toolbar.horizontalRule',
@@ -131,7 +48,8 @@ export const coreActionMessages = {
   dividerDescription: message(
     'core.floating.dividerDescription',
     'Insert a horizontal rule',
-    'Description of divider insertion.'
+    'Description of divider insertion.',
+    true
   ),
   bulletList: message('core.toolbar.bulletList', 'Bullet List', 'Bullet list formatting action.'),
   bulletedList: defineMessage({
@@ -144,7 +62,8 @@ export const coreActionMessages = {
   bulletedListDescription: message(
     'core.floating.bulletedListDescription',
     'Create a simple bulleted list',
-    'Description of bulleted list insertion.'
+    'Description of bulleted list insertion.',
+    true
   ),
   orderedList: message(
     'core.toolbar.orderedList',
@@ -161,7 +80,8 @@ export const coreActionMessages = {
   numberedListDescription: message(
     'core.floating.numberedListDescription',
     'Create a numbered list',
-    'Description of numbered list insertion.'
+    'Description of numbered list insertion.',
+    true
   ),
   taskList: message('core.toolbar.taskList', 'Task List', 'Task list formatting action.'),
   todoList: defineMessage({
@@ -174,7 +94,8 @@ export const coreActionMessages = {
   todoListDescription: message(
     'core.floating.todoListDescription',
     'Track tasks with a checkbox list',
-    'Description of task list insertion.'
+    'Description of task list insertion.',
+    true
   ),
   codeBlock: message('core.toolbar.codeBlock', 'Code Block', 'Code block formatting action.'),
   insertCodeBlock: defineMessage({
@@ -187,29 +108,34 @@ export const coreActionMessages = {
   codeBlockDescription: message(
     'core.floating.codeBlockDescription',
     'Capture a code snippet',
-    'Description of code block insertion.'
+    'Description of code block insertion.',
+    true
   ),
   heading: message('core.toolbar.heading', 'Heading', 'Heading dropdown name.'),
   normalText: message('core.toolbar.normalText', 'Normal text', 'Paragraph formatting action.'),
   headingBigDescription: message(
     'core.floating.headingBigDescription',
     'Big section heading',
-    'Description of a level one heading.'
+    'Description of a level one heading.',
+    true
   ),
   headingMediumDescription: message(
     'core.floating.headingMediumDescription',
     'Medium section heading',
-    'Description of a level two heading.'
+    'Description of a level two heading.',
+    true
   ),
   headingSmallDescription: message(
     'core.floating.headingSmallDescription',
     'Small section heading',
-    'Description of a level three heading.'
+    'Description of a level three heading.',
+    true
   ),
   headingDescription: message(
     'core.floating.headingDescription',
     'Section heading',
-    'Description of another heading level.'
+    'Description of another heading level.',
+    true
   ),
   fontFamily: message('core.toolbar.fontFamily', 'Font Family', 'Font family dropdown name.'),
   fontSize: message('core.toolbar.fontSize', 'Font Size', 'Font size dropdown name.'),
@@ -258,12 +184,14 @@ export const coreActionMessages = {
   placeholderDefault: message(
     'core.placeholder.default',
     'Write something …',
-    'Default empty textblock placeholder.'
+    'Default empty textblock placeholder.',
+    true
   ),
   linkUrlPlaceholder: message(
     'core.linkPopover.urlPlaceholder',
     'Enter URL...',
-    'URL input placeholder.'
+    'URL input placeholder.',
+    true
   ),
   linkUrlLabel: message('core.linkPopover.urlLabel', 'URL', 'Accessible name of the URL input.'),
   linkApply: message('core.linkPopover.apply', 'Apply link', 'Apply link action.'),

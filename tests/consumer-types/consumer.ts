@@ -4,7 +4,7 @@
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
-import { defineMessage } from '@domternal/core';
+import { coreMessages, defineMessage } from '@domternal/core';
 import type { CompleteMessages, Messages } from '@domternal/core';
 
 declare module '@domternal/core' {
@@ -28,6 +28,28 @@ import '@domternal/extension-table';
 import '@domternal/extension-toc';
 
 declare const editor: Editor;
+
+// Every built-in definition must retain its public parameter augmentation in dist.
+type PublishedCoreMessages = CompleteMessages<typeof coreMessages>;
+const builtinTranslations: Messages = {
+  'core.toolbar.italic': 'Kursiv',
+  'core.group.insert': 'Einfügen',
+  'core.group.media': 'Medien',
+  'core.heading.level': ({ level }) => `Überschrift ${String(level)}`,
+};
+editor.i18n.set({
+  messages: builtinTranslations,
+  searchAliases: { 'core.floating.quote': ['Zitat'], 'core.heading.level': ['Überschrift'] },
+});
+editor.i18n.t(coreMessages.italic);
+editor.i18n.t(coreMessages.groupInsert);
+editor.i18n.t(coreMessages.headingLevel, { level: 2 });
+// @ts-expect-error Built-in dynamic parameters remain checked after declaration bundling.
+editor.i18n.t(coreMessages.headingLevel, { level: 'two' });
+// @ts-expect-error Dynamic built-in messages require their parameters.
+editor.i18n.t(coreMessages.headingLevel);
+// @ts-expect-error Only declared searchable messages accept aliases.
+editor.i18n.set({ searchAliases: { 'core.group.insert': ['Einfügen'] } });
 
 const itemCountMessage = defineMessage({
   id: 'app.itemCount',

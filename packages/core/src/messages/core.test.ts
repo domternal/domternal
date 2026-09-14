@@ -20,6 +20,20 @@ function create(): Editor {
 }
 
 describe('core action messages', () => {
+  it('allows empty optional descriptions while retaining required action names', () => {
+    const editor = create();
+    editor.i18n.set({
+      locale: 'hr',
+      messages: { 'core.floating.quote': '', 'core.floating.quoteDescription': '' },
+    });
+    expect(editor.floatingMenuItems.find((item) => item.name === 'blockquote')).toMatchObject({
+      label: 'Quote',
+      labelLanguage: 'en',
+      description: '',
+      descriptionLanguage: 'hr',
+    });
+  });
+
   it('refreshes nested actions and grouping without changing identifiers or document state', () => {
     const editor = create();
     const state = editor.state;

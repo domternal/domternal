@@ -44,6 +44,28 @@ declare module '@domternal/core' {
     'app.itemCount': true;
   }
 }
+// Every built-in definition must retain its public parameter augmentation in dist.
+type PublishedCoreMessages = core.CompleteMessages<typeof core.coreMessages>;
+const builtinTranslations: core.Messages = {
+  'core.toolbar.italic': 'Kursiv',
+  'core.group.insert': 'Einfügen',
+  'core.group.media': 'Medien',
+  'core.heading.level': ({ level }) => `Überschrift ${String(level)}`,
+};
+editor.i18n.set({
+  messages: builtinTranslations,
+  searchAliases: { 'core.floating.quote': ['Zitat'], 'core.heading.level': ['Überschrift'] },
+});
+editor.i18n.t(core.coreMessages.italic);
+editor.i18n.t(core.coreMessages.groupInsert);
+editor.i18n.t(core.coreMessages.headingLevel, { level: 2 });
+// @ts-expect-error Built-in dynamic parameters remain checked after declaration bundling.
+editor.i18n.t(core.coreMessages.headingLevel, { level: 'two' });
+// @ts-expect-error Dynamic built-in messages require their parameters.
+editor.i18n.t(core.coreMessages.headingLevel);
+// @ts-expect-error Only declared searchable messages accept aliases.
+editor.i18n.set({ searchAliases: { 'core.group.insert': ['Einfügen'] } });
+
 const itemCountMessage = core.defineMessage({
   id: 'app.itemCount',
   defaultValue: ({ count }, context) => `${context.number(count)} items`,
