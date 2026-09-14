@@ -22,13 +22,13 @@ ClipboardResolverRequest @experimental
 DEFAULT_CLIPBOARD_ASSET_LIMITS
 DEFAULT_PASTE_HTML_LIMITS
 default(PasteCleanup)
-getPasteAffectedReferences
+getPasteAffectedReferences @experimental
 MAX_CLIPBOARD_ASSET_LIMITS
 normalizePasteHTML
 NormalizePasteHTMLOptions
 NormalizePasteHTMLResult
-PasteAffectedRange
-PasteAffectedReferences
+PasteAffectedRange @experimental
+PasteAffectedReferences @experimental
 PasteCleanup
 pasteCleanupMessages
 PasteCleanupOptions

@@ -5,12 +5,16 @@ import { AddMarkStep, RemoveMarkStep } from '@domternal/pm/transform';
 import type { EditorView } from '@domternal/pm/view';
 import type { PasteDiagnostic, PasteFormatting, PasteSource } from './html/types.js';
 
+/** @experimental One changed region of an accepted paste, in the installed document. */
 export interface PasteAffectedRange {
   readonly from: number;
   readonly to: number;
 }
 
-/** Short-lived transaction references, not exact source-diagnostic or comment anchors. */
+/**
+ * @experimental Short-lived transaction references, not exact source-diagnostic or comment
+ * anchors. The receipt API is new in this release and may change in a minor release.
+ */
 export interface PasteAffectedReferences {
   readonly referenceId: string;
   readonly precision: 'operation';
@@ -35,6 +39,7 @@ export interface PasteOperationResult {
    */
   readonly diagnostics: readonly PasteDiagnostic[];
   readonly diagnosticsTruncated: boolean;
+  /** @experimental The operation's receipt references, whose shape may change in a minor release. */
   readonly references: PasteAffectedReferences;
 }
 
@@ -242,7 +247,11 @@ export const receiptStateField: StateField<ReceiptState> = {
   },
 };
 
-/** Read only the installed view state. Speculative state.apply results are never receipts. */
+/**
+ * @experimental The current receipt references of an accepted paste operation, read from the
+ * installed view state only: speculative state.apply results are never receipts. The receipt
+ * API may change in a minor release.
+ */
 export function getPasteAffectedReferences(view: EditorView, id: string): PasteAffectedReferences | undefined {
   if (view.isDestroyed) return undefined;
   const state = pasteCleanupKey.getState(view.state);

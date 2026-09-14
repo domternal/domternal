@@ -625,13 +625,17 @@ test('the built Core declarations keep the doc comments an editor shows on hover
   }
 });
 
-test('the committed PasteCleanup snapshot marks the resolver ownership protocol experimental, and its code lists are documented as open', () => {
+test('the committed PasteCleanup snapshot marks the resolver ownership protocol and the receipts experimental, and its code lists are documented as open', () => {
   const lines = readFileSync(join(here, 'snapshots/extension-paste-cleanup.txt'), 'utf8').trimEnd().split('\n');
   const resolver = lines.filter((line) => /^(ClipboardResolver|ClipboardCreatedResource|ClipboardAssetRecoveryReport|ClipboardResolvedImageAssetOptions)/.test(line));
   assert.ok(resolver.length >= 12);
   assert.deepEqual(resolver.filter((line) => !line.endsWith(' @experimental')), []);
-  // Receipts, normalization and the embedded mode stay stable.
-  for (const name of ['getPasteAffectedReferences', 'PasteOperationResult', 'normalizePasteHTML', 'ClipboardEmbeddedImageAssetOptions']) {
+  // The receipts are new in the release that first ships the package.
+  for (const name of ['getPasteAffectedReferences', 'PasteAffectedReferences', 'PasteAffectedRange']) {
+    assert.ok(lines.includes(`${name} @experimental`), name);
+  }
+  // The operation result, normalization and the embedded mode stay stable.
+  for (const name of ['PasteOperationResult', 'normalizePasteHTML', 'ClipboardEmbeddedImageAssetOptions']) {
     assert.ok(lines.includes(name), name);
   }
   const html = readFileSync(join(repoRoot, 'packages/extension-paste-cleanup/dist/html/index.d.ts'), 'utf8');
@@ -639,6 +643,8 @@ test('the committed PasteCleanup snapshot marks the resolver ownership protocol 
   const main = readFileSync(join(repoRoot, 'packages/extension-paste-cleanup/dist/index.d.ts'), 'utf8');
   assert.match(docAbove(main, 'type ClipboardResolverDiagnosticCode =') ?? '', /open/);
   assert.match(main, /The list is open[^*]*\*\/\s*readonly reason:/);
+  // The operation result stays stable, but the receipt it carries is experimental.
+  assert.match(main, /@experimental The operation's receipt references[^/]*\/\s*readonly references: PasteAffectedReferences;/);
 });
 
 test('a member added to an exported class after 1.2 says whether it is settled', () => {

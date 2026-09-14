@@ -173,6 +173,10 @@ The store retains the most recent 16 accepted operations and at most 32 regions
 per operation. A missing or destroyed receipt returns `undefined`. References are
 ephemeral and must not be persisted or used to reapply formatting to edited content.
 
+The receipt references are experimental and may change in a minor release:
+`getPasteAffectedReferences`, `PasteAffectedReferences`, `PasteAffectedRange` and
+the `references` field of `PasteOperationResult` carry `@experimental`.
+
 ## Standalone HTML entry
 
 ```ts
