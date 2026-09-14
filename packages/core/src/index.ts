@@ -8,6 +8,8 @@ export const VERSION = '1.1.1';
 export * from './i18n/index.js';
 export type { MessageParameters, SearchableMessages } from './i18n/types.js';
 export { coreMessages } from './messages/core.js';
+export { resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation } from './utils/pickerLabels.js';
+export type { PickerLabel, EmojiPresentationItem } from './utils/pickerLabels.js';
 export { localizeMessage, localizedLabel } from './utils/localizeMessage.js';
 
 // === Type exports ===

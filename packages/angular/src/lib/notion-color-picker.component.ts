@@ -12,6 +12,7 @@ import {
   ViewEncapsulation,
   input,
   signal,
+  computed,
   effect,
   inject,
   NgZone,
@@ -19,8 +20,8 @@ import {
   untracked,
 } from '@angular/core';
 
-import type { Editor } from '@domternal/core';
-import { positionFloating } from '@domternal/core';
+import type { Editor, PickerLabel } from '@domternal/core';
+import { coreMessages, resolveColorName, resolveColorSwatch, positionFloating } from '@domternal/core';
 
 interface NotionColorPickerStorage {
   isOpen: boolean;
@@ -35,22 +36,6 @@ function paletteFromExtensionOptions(options: unknown): string[] {
   return [...palette];
 }
 
-/**
- * Display labels for the named-token palette. Used in tooltips / aria labels;
- * unknown tokens fall back to a title-cased version of the raw key.
- */
-const TOKEN_LABELS: Record<string, string> = {
-  gray: 'Gray',
-  brown: 'Brown',
-  orange: 'Orange',
-  yellow: 'Yellow',
-  green: 'Green',
-  blue: 'Blue',
-  purple: 'Purple',
-  pink: 'Pink',
-  red: 'Red',
-};
-
 @Component({
   selector: 'domternal-notion-color-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,12 +47,13 @@ const TOKEN_LABELS: Record<string, string> = {
         data-show
         data-dm-editor-ui
         role="dialog"
-        aria-label="Text and background color"
+        [attr.aria-label]="labels().panel.text"
+        [attr.lang]="labels().panel.language"
         aria-modal="false"
         (keydown)="onPanelKeydown($event)"
       >
         <div class="dm-ncp-section">
-          <div class="dm-ncp-label">Text color</div>
+          <div class="dm-ncp-label" [attr.lang]="labels().text.language">{{ labels().text.text }}</div>
           <div class="dm-ncp-grid">
             <button
               type="button"
@@ -75,8 +61,9 @@ const TOKEN_LABELS: Record<string, string> = {
               [class.dm-ncp-active]="currentTextToken() === null"
               [attr.aria-pressed]="currentTextToken() === null"
               data-color="null"
-              title="Default text color"
-              aria-label="Default text color"
+              [title]="labels().defaultText.text"
+              [attr.lang]="labels().defaultText.language"
+              [attr.aria-label]="labels().defaultText.text"
               (mousedown)="$event.preventDefault()"
               (click)="applyText(null)"
             ></button>
@@ -88,7 +75,8 @@ const TOKEN_LABELS: Record<string, string> = {
                 [attr.aria-pressed]="currentTextToken() === t"
                 [attr.data-color]="t"
                 [title]="tokenLabel(t)"
-                [attr.aria-label]="tokenLabel(t) + ' text'"
+                [attr.aria-label]="swatchLabel(t, 'text').text"
+                [attr.lang]="swatchLabel(t, 'text').language"
                 (mousedown)="$event.preventDefault()"
                 (click)="applyText(t)"
               ></button>
@@ -97,7 +85,7 @@ const TOKEN_LABELS: Record<string, string> = {
         </div>
 
         <div class="dm-ncp-section">
-          <div class="dm-ncp-label">Background color</div>
+          <div class="dm-ncp-label" [attr.lang]="labels().background.language">{{ labels().background.text }}</div>
           <div class="dm-ncp-grid">
             <button
               type="button"
@@ -105,8 +93,9 @@ const TOKEN_LABELS: Record<string, string> = {
               [class.dm-ncp-active]="currentBgToken() === null"
               [attr.aria-pressed]="currentBgToken() === null"
               data-color="null"
-              title="Default background"
-              aria-label="Default background"
+              [title]="labels().defaultBackground.text"
+              [attr.lang]="labels().defaultBackground.language"
+              [attr.aria-label]="labels().defaultBackground.text"
               (mousedown)="$event.preventDefault()"
               (click)="applyBg(null)"
             ></button>
@@ -117,8 +106,9 @@ const TOKEN_LABELS: Record<string, string> = {
                 [class.dm-ncp-active]="currentBgToken() === t"
                 [attr.aria-pressed]="currentBgToken() === t"
                 [attr.data-color]="t"
-                [title]="tokenLabel(t) + ' background'"
-                [attr.aria-label]="tokenLabel(t) + ' background'"
+                [title]="swatchLabel(t, 'bg').text"
+                [attr.lang]="swatchLabel(t, 'bg').language"
+                [attr.aria-label]="swatchLabel(t, 'bg').text"
                 (mousedown)="$event.preventDefault()"
                 (click)="applyBg(t)"
               ></button>
@@ -139,6 +129,18 @@ const TOKEN_LABELS: Record<string, string> = {
 export class DomternalNotionColorPickerComponent implements OnDestroy {
   readonly editor = input.required<Editor>();
 
+  private readonly localeRevision = signal(0);
+  readonly labels = computed(() => {
+    this.localeRevision();
+    const i18n = this.editor().i18n;
+    return {
+      panel: i18n.resolve(coreMessages.notionColorLabel),
+      text: i18n.resolve(coreMessages.colorText),
+      background: i18n.resolve(coreMessages.colorBackground),
+      defaultText: resolveColorSwatch(i18n, null, 'text'),
+      defaultBackground: resolveColorSwatch(i18n, null, 'bg'),
+    };
+  });
   readonly isOpen = signal(false);
   readonly currentTextToken = signal<string | null>(null);
   readonly currentBgToken = signal<string | null>(null);
@@ -160,8 +162,11 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
   private cleanupFloating: (() => void) | null = null;
 
   constructor() {
-    effect(() => {
+    effect((onCleanup) => {
       const editor = this.editor();
+      onCleanup(editor.i18n.subscribe(() => {
+        this.ngZone.run(() => { this.localeRevision.update((value) => value + 1); });
+      }));
       untracked(() => {
         this.setupEventListener(editor);
       });
@@ -173,7 +178,13 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
   }
 
   tokenLabel(token: string): string {
-    return TOKEN_LABELS[token] ?? token.charAt(0).toUpperCase() + token.slice(1);
+    this.localeRevision();
+    return resolveColorName(this.editor().i18n, token).text;
+  }
+
+  swatchLabel(token: string, variant: 'text' | 'bg'): PickerLabel {
+    this.localeRevision();
+    return resolveColorSwatch(this.editor().i18n, token, variant);
   }
 
   applyText(token: string | null): void {

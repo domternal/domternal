@@ -1,8 +1,40 @@
 import { defineMessage } from '../i18n/index.js';
+import { corePickerMessages } from './pickers.js';
 import { coreActionMessages } from './actions.js';
 
 declare module '@domternal/core' {
   interface MessageParameters {
+    'core.colorPicker.text': undefined;
+    'core.colorPicker.background': undefined;
+    'core.colorPicker.defaultText': undefined;
+    'core.colorPicker.defaultBackground': undefined;
+    'core.emojiPicker.label': undefined;
+    'core.emojiPicker.searchPlaceholder': undefined;
+    'core.emojiPicker.searchLabel': undefined;
+    'core.emojiPicker.empty': undefined;
+    'core.emojiPicker.frequentlyUsed': undefined;
+    'core.emojiPicker.categories': undefined;
+    'core.colorPicker.gray': undefined;
+    'core.colorPicker.brown': undefined;
+    'core.colorPicker.orange': undefined;
+    'core.colorPicker.yellow': undefined;
+    'core.colorPicker.green': undefined;
+    'core.colorPicker.blue': undefined;
+    'core.colorPicker.purple': undefined;
+    'core.colorPicker.pink': undefined;
+    'core.colorPicker.red': undefined;
+    'core.emojiPicker.category.smileysEmotion': undefined;
+    'core.emojiPicker.category.peopleBody': undefined;
+    'core.emojiPicker.category.animalsNature': undefined;
+    'core.emojiPicker.category.foodDrink': undefined;
+    'core.emojiPicker.category.travelPlaces': undefined;
+    'core.emojiPicker.category.activities': undefined;
+    'core.emojiPicker.category.objects': undefined;
+    'core.emojiPicker.category.symbols': undefined;
+    'core.emojiPicker.category.flags': undefined;
+    'core.colorPicker.textSwatch': { color: string };
+    'core.colorPicker.backgroundSwatch': { color: string };
+    'core.emojiPicker.itemName': { name: string };
     'core.toolbar.italic': undefined;
     'core.toolbar.underline': undefined;
     'core.toolbar.strike': undefined;
@@ -99,6 +131,7 @@ declare module '@domternal/core' {
 /** English definitions stay with their owning package and contain no editor state. */
 export const coreMessages = {
   ...coreActionMessages,
+  ...corePickerMessages,
   groupMedia: defineMessage({
     id: 'core.group.media',
     defaultValue: 'Media',

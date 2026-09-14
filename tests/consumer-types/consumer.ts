@@ -4,7 +4,7 @@
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
-import { coreMessages, defineMessage } from '@domternal/core';
+import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation } from '@domternal/core';
 import type { CompleteMessages, Messages } from '@domternal/core';
 
 declare module '@domternal/core' {
@@ -50,6 +50,17 @@ editor.i18n.t(coreMessages.headingLevel, { level: 'two' });
 editor.i18n.t(coreMessages.headingLevel);
 // @ts-expect-error Only declared searchable messages accept aliases.
 editor.i18n.set({ searchAliases: { 'core.group.insert': ['Einfügen'] } });
+
+resolveColorName(editor.i18n, 'blue');
+resolveColorSwatch(editor.i18n, 'blue', 'bg');
+resolveEmojiCategory(editor.i18n, 'Objects');
+resolveEmojiLabel(editor.i18n, { name: 'smile', label: 'Custom', labelLanguage: 'en' });
+matchesEmojiPresentation(editor.i18n, { name: 'smile', searchAliases: ['happy'] }, 'happy');
+editor.i18n.t(coreMessages.emojiItemName, { name: 'smile' });
+// @ts-expect-error Emoji display lookup preserves its stable string identity contract.
+editor.i18n.t(coreMessages.emojiItemName, { name: 1 });
+// @ts-expect-error Swatch variants are a finite presentation choice.
+resolveColorSwatch(editor.i18n, 'blue', 'invalid');
 
 const itemCountMessage = defineMessage({
   id: 'app.itemCount',

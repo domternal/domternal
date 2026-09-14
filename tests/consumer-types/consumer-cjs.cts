@@ -66,6 +66,17 @@ editor.i18n.t(core.coreMessages.headingLevel);
 // @ts-expect-error Only declared searchable messages accept aliases.
 editor.i18n.set({ searchAliases: { 'core.group.insert': ['Einfügen'] } });
 
+core.resolveColorName(editor.i18n, 'blue');
+core.resolveColorSwatch(editor.i18n, 'blue', 'bg');
+core.resolveEmojiCategory(editor.i18n, 'Objects');
+core.resolveEmojiLabel(editor.i18n, { name: 'smile', label: 'Custom', labelLanguage: 'en' });
+core.matchesEmojiPresentation(editor.i18n, { name: 'smile', searchAliases: ['happy'] }, 'happy');
+editor.i18n.t(core.coreMessages.emojiItemName, { name: 'smile' });
+// @ts-expect-error Emoji display lookup preserves its stable string identity contract.
+editor.i18n.t(core.coreMessages.emojiItemName, { name: 1 });
+// @ts-expect-error Swatch variants are a finite presentation choice.
+core.resolveColorSwatch(editor.i18n, 'blue', 'invalid');
+
 const itemCountMessage = core.defineMessage({
   id: 'app.itemCount',
   defaultValue: ({ count }, context) => `${context.number(count)} items`,
