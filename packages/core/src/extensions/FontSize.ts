@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * FontSize Extension
  *
@@ -127,7 +130,7 @@ export const FontSize = Extension.create<FontSizeOptions>({
         name: 'unsetFontSize',
         command: 'unsetFontSize',
         icon: 'textSize',
-        label: '–',
+        ...localizedLabel(this.editor?.i18n, coreMessages.fontSizeDefault),
         priority: 0,
       });
     }
@@ -137,8 +140,9 @@ export const FontSize = Extension.create<FontSizeOptions>({
         type: 'dropdown',
         name: 'fontSize',
         icon: 'textSize',
-        label: 'Font Size',
+        ...localizedLabel(this.editor?.i18n, coreMessages.fontSize),
         group: 'textStyle',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupTextStyle),
         priority: 100,
         displayMode: 'text',
         dynamicLabel: true,

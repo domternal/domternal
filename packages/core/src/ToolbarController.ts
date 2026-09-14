@@ -42,6 +42,8 @@ export interface ToolbarControllerEditor {
  */
 export interface ToolbarGroup {
   name: string;
+  label?: string;
+  labelLanguage?: string;
   items: ToolbarItem[];
 }
 
@@ -353,7 +355,15 @@ export class ToolbarController {
         const pb = b.priority ?? 100;
         return pb - pa;
       });
-      groups.push({ name, items: groupItems });
+      const presentation = groupItems.find((item) => item.type !== 'separator' && item.groupLabel !== undefined);
+      groups.push({
+        name,
+        items: groupItems,
+        ...(presentation && presentation.type !== 'separator' && presentation.groupLabel !== undefined
+          ? { label: presentation.groupLabel } : {}),
+        ...(presentation && presentation.type !== 'separator' && presentation.groupLabelLanguage !== undefined
+          ? { labelLanguage: presentation.groupLabelLanguage } : {}),
+      });
     }
 
     return groups;

@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * History Extension
  *
@@ -61,9 +64,10 @@ export const History = Extension.create<HistoryOptions>({
         name: 'undo',
         command: 'undo',
         icon: 'arrowCounterClockwise',
-        label: 'Undo',
+        ...localizedLabel(this.editor?.i18n, coreMessages.undo),
         shortcut: 'Mod-Z',
         group: 'history',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupHistory),
         priority: 200,
       },
       {
@@ -71,9 +75,10 @@ export const History = Extension.create<HistoryOptions>({
         name: 'redo',
         command: 'redo',
         icon: 'arrowClockwise',
-        label: 'Redo',
+        ...localizedLabel(this.editor?.i18n, coreMessages.redo),
         shortcut: 'Mod-Shift-Z',
         group: 'history',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupHistory),
         priority: 190,
       },
     ];

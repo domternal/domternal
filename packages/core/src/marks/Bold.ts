@@ -1,3 +1,4 @@
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * Bold Mark
  *
@@ -117,6 +118,7 @@ export const Bold = Mark.create<BoldOptions>({
         ...localizedLabel(this.editor?.i18n, coreMessages.bold),
         shortcut: 'Mod-B',
         group: 'format',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupFormat),
         priority: 200,
       },
     ];

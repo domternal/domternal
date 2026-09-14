@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedDescription, localizedGroup, messageAliases } from '../messages/presentation.js';
 /**
  * OrderedList Node
  *
@@ -95,9 +98,10 @@ export const OrderedList = Node.create<OrderedListOptions>({
         command: 'toggleOrderedList',
         isActive: 'orderedList',
         icon: 'listNumbers',
-        label: 'Ordered List',
+        ...localizedLabel(this.editor?.i18n, coreMessages.orderedList),
         shortcut: 'Mod-Shift-7',
         group: 'lists',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupListsToolbar),
         priority: 190,
       },
     ];
@@ -107,12 +111,13 @@ export const OrderedList = Node.create<OrderedListOptions>({
     return [
       {
         name: 'ordered-list',
-        label: 'Numbered list',
-        description: 'Create a numbered list',
+        ...localizedLabel(this.editor?.i18n, coreMessages.numberedList),
+        ...localizedDescription(this.editor?.i18n, coreMessages.numberedListDescription),
         icon: 'listNumbers',
         group: 'Lists',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupLists),
         priority: 190,
-        keywords: ['ordered', 'numbered', 'list', 'ol', '1.'],
+        keywords: messageAliases(this.editor?.i18n, coreMessages.numberedList),
         shortcut: '1. ',
         command: 'turnIntoOrderedList',
         hideWhenInside: ['orderedList'],

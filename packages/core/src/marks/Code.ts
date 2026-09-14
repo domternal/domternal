@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * Code Mark
  *
@@ -91,9 +94,10 @@ export const Code = Mark.create<CodeOptions>({
         command: 'toggleCode',
         isActive: 'code',
         icon: 'code',
-        label: 'Code',
+        ...localizedLabel(this.editor?.i18n, coreMessages.code),
         shortcut: 'Mod-E',
         group: 'format',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupFormat),
         priority: 160,
       },
     ];

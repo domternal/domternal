@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * HardBreak Node
  *
@@ -67,9 +70,10 @@ export const HardBreak = Node.create<HardBreakOptions>({
         name: 'hardBreak',
         command: 'setHardBreak',
         icon: 'linkBreak',
-        label: 'Hard Break',
+        ...localizedLabel(this.editor?.i18n, coreMessages.hardBreak),
         shortcut: 'Shift-Enter',
         group: 'insert',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupInsert),
         priority: 50,
       },
     ];

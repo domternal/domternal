@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * Print Extension
  *
@@ -132,9 +135,10 @@ export const Print = Extension.create<PrintOptions, PrintStorage>({
         name: 'print',
         command: 'printDocument',
         icon: 'printer',
-        label: 'Print',
+        ...localizedLabel(this.editor?.i18n, coreMessages.print),
         shortcut: 'Mod-P',
         group: 'document',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupDocument),
         priority: 100,
         // Reading a document out to paper is not editing it, so the button
         // stays live in a read-only editor.

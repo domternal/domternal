@@ -71,6 +71,9 @@ export interface ToolbarButton {
 
   /** Group name for visual grouping (separators between groups) */
   group?: string;
+  /** Localized display name, preserving group identity and ordering. */
+  groupLabel?: string;
+  groupLabelLanguage?: string;
 
   /** Sort order within group (higher = first). @default 100 */
   priority?: number;
@@ -141,6 +144,9 @@ export interface ToolbarDropdown {
 
   /** Group name for visual grouping */
   group?: string;
+  /** Localized display name, preserving group identity and ordering. */
+  groupLabel?: string;
+  groupLabelLanguage?: string;
 
   /** Sort order within group (higher = first). @default 100 */
   priority?: number;

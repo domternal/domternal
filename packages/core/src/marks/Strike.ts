@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * Strike Mark
  *
@@ -91,9 +94,10 @@ export const Strike = Mark.create<StrikeOptions>({
         command: 'toggleStrike',
         isActive: 'strike',
         icon: 'textStrikethrough',
-        label: 'Strikethrough',
+        ...localizedLabel(this.editor?.i18n, coreMessages.strike),
         shortcut: 'Mod-Shift-S',
         group: 'format',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupFormat),
         priority: 170,
       },
     ];

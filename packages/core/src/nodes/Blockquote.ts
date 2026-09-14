@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedDescription, localizedGroup, messageAliases } from '../messages/presentation.js';
 /**
  * Blockquote Node
  *
@@ -81,9 +84,10 @@ export const Blockquote = Node.create<BlockquoteOptions>({
         command: 'toggleBlockquote',
         isActive: 'blockquote',
         icon: 'quotes',
-        label: 'Blockquote',
+        ...localizedLabel(this.editor?.i18n, coreMessages.blockquote),
         shortcut: 'Mod-Shift-B',
         group: 'blocks',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupBlocks),
         priority: 150,
       },
     ];
@@ -93,12 +97,13 @@ export const Blockquote = Node.create<BlockquoteOptions>({
     return [
       {
         name: 'blockquote',
-        label: 'Quote',
-        description: 'Capture a quote',
+        ...localizedLabel(this.editor?.i18n, coreMessages.quote),
+        ...localizedDescription(this.editor?.i18n, coreMessages.quoteDescription),
         icon: 'quotes',
         group: 'Basic',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupBasic),
         priority: 170,
-        keywords: ['quote', 'blockquote', 'citation'],
+        keywords: messageAliases(this.editor?.i18n, coreMessages.quote),
         shortcut: '> ',
         command: 'toggleBlockquote',
       },

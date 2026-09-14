@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * NotionColorPicker Extension
  *
@@ -101,9 +104,10 @@ export const NotionColorPicker = Extension.create<
         // set; the framework wrapper can repaint the underline to reflect
         // the current selection's color.
         icon: 'textAUnderline',
-        label: 'Text and background color',
+        ...localizedLabel(this.editor?.i18n, coreMessages.notionColorLabel),
         emitEvent: 'notionColorOpen',
         group: 'textStyle',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupTextStyle),
         priority: 250,
         // Bubble-menu-only: the legacy hex pickers (TextColor / Highlight)
         // stay in the main toolbar; this token-based picker is a Notion-mode

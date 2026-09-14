@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedDescription, localizedGroup, messageAliases } from '../messages/presentation.js';
 /**
  * TaskList Node
  *
@@ -99,9 +102,10 @@ export const TaskList = Node.create<TaskListOptions>({
         command: 'toggleTaskList',
         isActive: 'taskList',
         icon: 'listChecks',
-        label: 'Task List',
+        ...localizedLabel(this.editor?.i18n, coreMessages.taskList),
         shortcut: 'Mod-Shift-9',
         group: 'lists',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupListsToolbar),
         priority: 170,
       },
     ];
@@ -111,12 +115,13 @@ export const TaskList = Node.create<TaskListOptions>({
     return [
       {
         name: 'task-list',
-        label: 'To-do list',
-        description: 'Track tasks with a checkbox list',
+        ...localizedLabel(this.editor?.i18n, coreMessages.todoList),
+        ...localizedDescription(this.editor?.i18n, coreMessages.todoListDescription),
         icon: 'listChecks',
         group: 'Lists',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupLists),
         priority: 180,
-        keywords: ['todo', 'task', 'checkbox', 'check'],
+        keywords: messageAliases(this.editor?.i18n, coreMessages.todoList),
         shortcut: '[ ] ',
         command: 'turnIntoTaskList',
         hideWhenInside: ['taskList'],

@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedDescription, localizedGroup, messageAliases } from '../messages/presentation.js';
 /**
  * Heading Node
  *
@@ -183,7 +186,7 @@ export const Heading = Node.create<HeadingOptions>({
         commandArgs: [{ level }],
         isActive: { name: 'heading', attributes: { level } },
         icon: iconMap[level] ?? 'textH',
-        label: `Heading ${String(level)}`,
+        ...localizedLabel(this.editor?.i18n, coreMessages.headingLevel, { level }),
         shortcut: `Mod-Alt-${String(level)}`,
       }));
 
@@ -193,7 +196,7 @@ export const Heading = Node.create<HeadingOptions>({
       command: 'setParagraph',
       isActive: 'paragraph',
       icon: 'textT',
-      label: 'Normal text',
+      ...localizedLabel(this.editor?.i18n, coreMessages.normalText),
       shortcut: 'Mod-Alt-0',
     };
 
@@ -202,9 +205,10 @@ export const Heading = Node.create<HeadingOptions>({
         type: 'dropdown',
         name: 'heading',
         icon: 'textH',
-        label: 'Heading',
+        ...localizedLabel(this.editor?.i18n, coreMessages.heading),
         items: [paragraphItem, ...headingItems],
         group: 'blocks',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupBlocks),
         priority: 200,
         dynamicIcon: true,
       },
@@ -217,22 +221,25 @@ export const Heading = Node.create<HeadingOptions>({
       2: 'textHTwo',
       3: 'textHThree',
     };
-    const descriptionMap: Record<number, string> = {
-      1: 'Big section heading',
-      2: 'Medium section heading',
-      3: 'Small section heading',
+    const descriptionMap = {
+      1: localizedDescription(this.editor?.i18n, coreMessages.headingBigDescription),
+      2: localizedDescription(this.editor?.i18n, coreMessages.headingMediumDescription),
+      3: localizedDescription(this.editor?.i18n, coreMessages.headingSmallDescription),
     };
     // Only levels 1-3 in the quick-insert menu; deeper levels stay toolbar-only.
     return this.options.levels
       .filter((level) => level <= 3)
       .map((level): FloatingMenuItem => ({
         name: `heading-${String(level)}`,
-        label: `Heading ${String(level)}`,
-        description: descriptionMap[level] ?? 'Section heading',
+        ...localizedLabel(this.editor?.i18n, coreMessages.headingLevel, { level }),
+        ...(level === 1 || level === 2 || level === 3
+          ? descriptionMap[level]
+          : localizedDescription(this.editor?.i18n, coreMessages.headingDescription)),
         icon: iconMap[level] ?? 'textH',
         group: 'Basic',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupBasic),
         priority: 210 - level * 10,
-        keywords: ['heading', `h${String(level)}`, 'title'],
+        keywords: messageAliases(this.editor?.i18n, coreMessages.headingLevel, [`h${String(level)}`]),
         shortcut: '#'.repeat(level) + ' ',
         command: 'toggleHeading',
         commandArgs: [{ level }],
