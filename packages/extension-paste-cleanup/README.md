@@ -678,9 +678,18 @@ Generated inherited-style attributes share the input-length ceiling, preventing
 a long source value from multiplying across many text or hard-break leaves without
 a bound. Every generated mark and typography wrapper consumes the shared node and
 depth allowance before it is allocated.
-Plain/Markdown input has a conservative markup-token budget before downstream
-handlers can expand it. HTML/structure rejection inserts nothing; removed images,
-links and unsupported formatting are reported without discarding unrelated text.
+HTML/structure rejection inserts nothing; removed images, links and unsupported
+formatting are reported without discarding unrelated text.
+
+Plain text and Markdown have a conservative markup-token budget, checked before
+the Markdown, link and image handlers can expand them. Outside a code block,
+every line break and every `*`, `_`, `~`, `` ` ``, `[`, `]`, `<` and `>` counts as
+one token, a Windows line ending as two, and more than `maxNodes` tokens (30,000
+by default) reject the paste with `input-limit`. The plain-text flavor of a rich
+paste is counted as well, so a log, a CSV or spreadsheet export or another copy
+whose plain text runs past about 30,000 lines, or 15,000 with Windows line
+endings, is refused even when its HTML alone would fit. In a code block only the
+input length ceiling applies.
 The clipboard flavors the editor reads, `text/html` and `text/plain` (also as
 `Text`), are checked against the input ceiling before parsing, so one oversized
 flavor rejects the whole paste with `input-limit`. Flavors PasteCleanup never reads,
@@ -703,6 +712,22 @@ in bold, italic and a styled span reaches the output node limit first, at about
 3,700 words (4,300 in `adapt`). A larger input is rejected explicitly with `structure-limit` and
 nothing is inserted; the HTML is never truncated. These are not guaranteed
 capacities: real documents differ in structure and stylesheet size.
+
+## Trusted Types
+
+The normalizer parses HTML without the DOM, so cleanup itself needs no Trusted
+Types policy. To learn what the destination editor supports, PasteCleanup parses a
+few constant HTML probes, never clipboard content, with the editor's own parse
+rules, and assigns them to `innerHTML` without a policy of its own. On a page that
+enforces Trusted Types (`require-trusted-types-for 'script'`), a default policy
+that passes these probes leaves PasteCleanup unchanged. Without one, every probe
+fails and PasteCleanup fails closed. In Chromium and WebKit, which enforce the
+directive, tables are then refused with `destination-table-unsupported` and the
+`unsupported-content` reason, links lose their target with `link-removed` and
+keep their text, Office lists keep their literal markers with
+`office-list-unsupported`, and pasted formatting, headings and lists reach the
+document with a `destination-formatting-unconfirmed` warning, so the notice asks
+the user to review the paste. Nothing unsafe is inserted.
 
 ## Current verification limits
 

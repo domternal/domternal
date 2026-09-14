@@ -10,6 +10,29 @@ configurations. The standalone tooling tests under `native-office-capture/` and
 `paste-performance/` run through `node --test`, `native-office-capture/browser.config.mjs`
 and `paste-performance/runner.mjs`, as described in their READMEs.
 
+## Local release checks
+
+CI runs the unit suites and gates of `ci.yml` and three browser workflows:
+`paste-cleanup-e2e.yml` runs `pnpm test:e2e:paste-cleanup`, `i18n-e2e.yml` runs the
+`i18n*` specs and the ownership fixture, and `link-security-e2e.yml` runs the
+`link-security*` specs and the link security fixture. The suites
+below have no CI job, and no gate checks that anyone ran them. They stay local
+release checks: run each one on a build of the release commit before a release,
+keep its raw output in a log as the repository instructions describe, and record
+the result with the release verification.
+
+| Suite | Command |
+| --- | --- |
+| Root matrix: every `*.spec.ts` against the four demo applications and the tutorial fixtures, in Chromium | `pnpm test:e2e:matrix` |
+| The same specs in Chromium, Firefox and WebKit, of which CI runs only the `i18n*` and `link-security*` ones | `pnpm exec playwright test --config e2e/playwright.cross-browser.config.ts` |
+| List editing regressions of the four demo applications in three engines | `pnpm exec playwright test --config e2e/list-editing.config.ts` |
+| Legacy per-application suites under `apps/demo-*/e2e` | `pnpm test:e2e` |
+| Native Office capture tooling, as [its README](native-office-capture/README.md) describes | `node --test e2e/native-office-capture/capture.test.mjs e2e/native-office-capture/offline.test.mjs e2e/native-office-capture/preparation.test.mjs` and `pnpm exec playwright test --config e2e/native-office-capture/browser.config.mjs` |
+| Paste performance harness, as [its README](paste-performance/README.md) describes | `node --test e2e/paste-performance/fixtures.test.mjs e2e/paste-performance/large.test.mjs e2e/paste-performance/sampler.test.mjs` and `node e2e/paste-performance/runner.mjs --smoke --out <directory>` |
+
+The performance runner measures one machine; its full runs are evidence for a
+report, not a pass or fail check.
+
 ## Tutorial regression coverage
 
 The tutorial fixtures use the public Free ESM builds. Build the packages before
