@@ -5,6 +5,8 @@ import type { FloatingMenuItem } from '../types/FloatingMenu.js';
  */
 export interface FloatingMenuGroup {
   name: string;
+  label?: string;
+  labelLanguage?: string;
   items: FloatingMenuItem[];
 }
 
@@ -42,7 +44,14 @@ export function groupFloatingMenuItems(items: FloatingMenuItem[]): FloatingMenuG
   for (const name of order) {
     const list = (map.get(name) ?? []).slice();
     list.sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
-    groups.push({ name, items: list });
+    const presentation = list.find((item) => item.groupLabel !== undefined);
+    groups.push({
+      name,
+      items: list,
+      ...(presentation?.groupLabel !== undefined ? { label: presentation.groupLabel } : {}),
+      ...(presentation?.groupLabelLanguage !== undefined
+        ? { labelLanguage: presentation.groupLabelLanguage } : {}),
+    });
   }
   return groups;
 }

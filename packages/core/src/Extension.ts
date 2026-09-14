@@ -28,7 +28,34 @@ import type { ExtensionConfig, ExtensionConfigBase, ExtensionContext } from './t
 import type { SingleCommands } from './types/Commands.js';
 import type { EditorState } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
+import type { I18nService } from './i18n/index.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
+
+interface OptionProvenance {
+  readonly configuredKeys: readonly PropertyKey[];
+  readonly customDefaults: boolean;
+}
+
+const OPTION_PROVENANCE = Symbol('domternal.optionProvenance');
+
+interface ConfigWithProvenance {
+  readonly [OPTION_PROVENANCE]?: OptionProvenance;
+}
+
+const DEFAULT_OPTION_PROVENANCE: OptionProvenance = Object.freeze({
+  configuredKeys: Object.freeze([]),
+  customDefaults: false,
+});
+
+function withOptionProvenance<T extends object>(config: T, provenance: OptionProvenance): T {
+  Object.defineProperty(config, OPTION_PROVENANCE, {
+    value: Object.freeze({
+      configuredKeys: Object.freeze([...provenance.configuredKeys]),
+      customDefaults: provenance.customDefaults,
+    }),
+  });
+  return config;
+}
 
 /**
  * Merges extension config with parent binding support.
@@ -81,6 +108,7 @@ export interface ExtensionEditorInterface {
   readonly view: EditorView;
   readonly schema: unknown;
   readonly commands: SingleCommands;
+  readonly i18n?: I18nService;
 }
 
 /**
@@ -128,6 +156,8 @@ export class Extension<Options = unknown, Storage = unknown> {
    */
   readonly options: Options;
 
+  private readonly optionProvenance: OptionProvenance;
+
   /**
    * Extension storage (mutable state)
    * Accessible via editor.storage[extensionName]
@@ -166,6 +196,8 @@ export class Extension<Options = unknown, Storage = unknown> {
 
     this.config = config;
     this.name = config.name;
+    this.optionProvenance = (config as ConfigWithProvenance)[OPTION_PROVENANCE]
+      ?? DEFAULT_OPTION_PROVENANCE;
 
     // Initialize options using addOptions() with `this` context If addOptions is
     // not defined, default to empty object.
@@ -196,6 +228,39 @@ export class Extension<Options = unknown, Storage = unknown> {
     config: ExtensionConfig<O, S>
   ): Extension<O, S> {
     return new Extension(config);
+  }
+
+  /**
+   * Whether an option is owned by a caller rather than the original defaults.
+   * Explicit configure() values remain explicit even when equal to a default.
+   * An extend() override of addOptions owns its entire returned options object,
+   * including properties copied from this.parent(), without value comparisons.
+   */
+  isOptionExplicit(key: keyof Options): boolean {
+    const propertyKey = typeof key === 'number' ? String(key) : key;
+    return Object.prototype.hasOwnProperty.call(this.options, propertyKey)
+      && (this.optionProvenance.customDefaults
+        || this.optionProvenance.configuredKeys.includes(propertyKey));
+  }
+
+  /** Preserve shallow configure() ownership before options/storage initialize. */
+  protected withConfiguredOptionProvenance<T extends object>(config: T, options: unknown): T {
+    const supplied = Object(options) as object;
+    const keys = Reflect.ownKeys(supplied).filter((key) =>
+      Object.prototype.propertyIsEnumerable.call(supplied, key));
+    return withOptionProvenance(config, {
+      configuredKeys: [...new Set([...this.optionProvenance.configuredKeys, ...keys])],
+      customDefaults: this.optionProvenance.customDefaults,
+    });
+  }
+
+  /** A custom options factory owns the complete result, including parent copies. */
+  protected withExtendedOptionProvenance<T extends object>(config: T, extendedConfig: object): T {
+    const overridesDefaults = Object.prototype.propertyIsEnumerable.call(extendedConfig, 'addOptions');
+    return withOptionProvenance(config, {
+      configuredKeys: this.optionProvenance.configuredKeys,
+      customDefaults: overridesDefaults || this.optionProvenance.customDefaults,
+    });
   }
 
   /**
@@ -230,7 +295,7 @@ export class Extension<Options = unknown, Storage = unknown> {
       }),
     };
 
-    return new Extension(newConfig);
+    return new Extension(this.withConfiguredOptionProvenance(newConfig, options));
   }
 
   /**
@@ -286,6 +351,9 @@ export class Extension<Options = unknown, Storage = unknown> {
   ): Extension<ExtendedOptions, ExtendedStorage> {
     const newConfig = mergeConfigWithParentBinding(this.config, extendedConfig);
 
-    return new Extension(newConfig as ExtensionConfig<ExtendedOptions, ExtendedStorage>);
+    return new Extension(this.withExtendedOptionProvenance(
+      newConfig as ExtensionConfig<ExtendedOptions, ExtendedStorage>,
+      extendedConfig,
+    ));
   }
 }

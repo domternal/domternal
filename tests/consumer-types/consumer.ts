@@ -4,6 +4,17 @@
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
+import { defineMessage } from '@domternal/core';
+import type { CompleteMessages, Messages } from '@domternal/core';
+
+declare module '@domternal/core' {
+  interface MessageParameters {
+    'app.itemCount': { count: number };
+  }
+  interface SearchableMessages {
+    'app.itemCount': true;
+  }
+}
 
 // Bare imports load each extension's `declare module '@domternal/core'`
 // augmentation, without which their commands appear missing.
@@ -17,6 +28,26 @@ import '@domternal/extension-table';
 import '@domternal/extension-toc';
 
 declare const editor: Editor;
+
+const itemCountMessage = defineMessage({
+  id: 'app.itemCount',
+  defaultValue: ({ count }, context) => `${context.number(count)} items`,
+  description: 'A consumer-owned item count.',
+  owner: 'app',
+});
+const selectedMessages: CompleteMessages<{ itemCount: typeof itemCountMessage }> = {
+  'app.itemCount': ({ count }) => String(count),
+};
+const partialMessages: Messages = { 'core.toolbar.bold': 'Fett', ...selectedMessages };
+editor.i18n.set({ locale: 'de', messages: partialMessages, searchAliases: { 'app.itemCount': ['items'] } });
+editor.i18n.t(itemCountMessage, { count: 2 });
+editor.i18n.refresh();
+// @ts-expect-error Consumer message parameters remain checked in published declarations.
+editor.i18n.t(itemCountMessage, { count: 'two' });
+// @ts-expect-error Parameterized messages require their parameters.
+editor.i18n.t(itemCountMessage);
+// @ts-expect-error Unknown built-in IDs must not silently enter a partial catalog.
+editor.i18n.set({ messages: { 'core.toolbar.bodl': 'Fett' } });
 
 editor.commands.focus();
 editor.commands.focus('end');

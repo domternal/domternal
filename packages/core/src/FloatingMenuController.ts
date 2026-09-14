@@ -69,6 +69,7 @@ export class FloatingMenuController {
   private onChange: () => void;
   private override: FloatingMenuItemsOverride | undefined;
   private transactionHandler: (() => void) | null = null;
+  private unsubscribeI18n: (() => void) | null = null;
 
   private _groups: FloatingMenuGroup[] = [];
   private _flatItems: FloatingMenuItem[] = [];
@@ -219,14 +220,27 @@ export class FloatingMenuController {
 
   /** Subscribes to editor transactions for disabled-state tracking. */
   subscribe(): void {
+    if (this.transactionHandler) return;
     this.transactionHandler = () => {
       this.updateDisabledStates();
     };
     this.editor.on('transaction', this.transactionHandler);
+    // Older standalone controller adapters may not expose localization yet.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    this.unsubscribeI18n = this.editor.i18n?.subscribe(() => {
+      const focusedName = this.focusedItem()?.name;
+      const focusedIndex = this._focusedIndex;
+      this.rebuild();
+      const index = focusedName === undefined ? -1 : this.getFlatIndex(focusedName);
+      this._focusedIndex = index >= 0 ? index : Math.min(focusedIndex, this._flatItems.length - 1);
+      this.onChange();
+    }) ?? null;
   }
 
   /** Unsubscribes and clears internal state. */
   destroy(): void {
+    this.unsubscribeI18n?.();
+    this.unsubscribeI18n = null;
     if (this.transactionHandler) {
       this.editor.off('transaction', this.transactionHandler);
       this.transactionHandler = null;

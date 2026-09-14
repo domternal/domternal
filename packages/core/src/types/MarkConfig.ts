@@ -8,6 +8,7 @@
 import type { Mark as PMMark, DOMOutputSpec, MarkType } from '@domternal/pm/model';
 import type { EditorState } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
+import type { I18nService } from '../i18n/index.js';
 import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
 
@@ -16,6 +17,7 @@ import type { AttributeSpecs } from './AttributeSpec.js';
  * Includes schema with marks for MarkType getter
  */
 export interface MarkEditorContext {
+  readonly i18n?: I18nService;
   readonly state: EditorState;
   readonly view: EditorView;
   readonly schema: {

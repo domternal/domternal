@@ -36,6 +36,33 @@ import toc = require('@domternal/extension-toc');
 
 declare const editor: core.Editor;
 
+declare module '@domternal/core' {
+  interface MessageParameters {
+    'app.itemCount': { count: number };
+  }
+  interface SearchableMessages {
+    'app.itemCount': true;
+  }
+}
+const itemCountMessage = core.defineMessage({
+  id: 'app.itemCount',
+  defaultValue: ({ count }, context) => `${context.number(count)} items`,
+  description: 'A consumer-owned item count.',
+  owner: 'app',
+});
+const selectedMessages: core.CompleteMessages<{ itemCount: typeof itemCountMessage }> = {
+  'app.itemCount': ({ count }) => String(count),
+};
+const partialMessages: core.Messages = { 'core.toolbar.bold': 'Fett', ...selectedMessages };
+editor.i18n.set({ locale: 'de', messages: partialMessages, searchAliases: { 'app.itemCount': ['items'] } });
+editor.i18n.t(itemCountMessage, { count: 2 });
+// @ts-expect-error The CommonJS declaration graph must retain parameter types.
+editor.i18n.t(itemCountMessage, { count: 'two' });
+// @ts-expect-error A parameterized message cannot omit parameters.
+editor.i18n.t(itemCountMessage);
+// @ts-expect-error Unknown built-in IDs remain errors in CommonJS consumers.
+editor.i18n.set({ messages: { 'core.toolbar.bodl': 'Fett' } });
+
 /*
  * One command per package that augments `RawCommands`, which is every package
  * above except extension-block-controls: its augmentation carries extension

@@ -33,6 +33,7 @@ import { Extension, EXTENSION_BRAND } from './Extension.js';
 import type { Node } from './Node.js';
 import type { Mark } from './Mark.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
+import type { I18nService } from './i18n/index.js';
 
 /**
  * Error event props for safeCall
@@ -47,6 +48,7 @@ interface ErrorEventProps {
  * Forward declaration to avoid circular dependency
  */
 export interface ExtensionManagerEditor {
+  readonly i18n?: I18nService;
   readonly schema: Schema;
   emit?(event: 'error', props: ErrorEventProps): void;
 }
@@ -295,6 +297,12 @@ export class ExtensionManager {
   }
 
   // === Cache Invalidation ===
+
+  /** Refresh presentation without replacing plugins, commands, schema or node views. */
+  invalidateLocalizedItems(): void {
+    this._toolbarItems = null;
+    this._floatingMenuItems = null;
+  }
 
   /**
    * Clears all caches (plugins, commands)

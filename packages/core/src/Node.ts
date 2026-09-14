@@ -141,7 +141,7 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
       }),
     };
 
-    return new Node(newConfig);
+    return new Node(this.withConfiguredOptionProvenance(newConfig, options));
   }
 
   /**
@@ -178,7 +178,10 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
   ): Node<ExtendedOptions, ExtendedStorage> {
     const newConfig = mergeConfigWithParentBinding(this.config, extendedConfig);
 
-    return new Node(newConfig as NodeConfig<ExtendedOptions, ExtendedStorage>);
+    return new Node(this.withExtendedOptionProvenance(
+      newConfig as NodeConfig<ExtendedOptions, ExtendedStorage>,
+      extendedConfig,
+    ));
   }
 
   /**

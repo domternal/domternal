@@ -35,8 +35,14 @@ export interface FloatingMenuItem {
   /** Primary label shown to the user. */
   label: string;
 
+  /** Language of the resolved label, when known. */
+  labelLanguage?: string;
+
   /** Optional secondary line shown under the label. */
   description?: string;
+
+  /** Language of the resolved description, when known. */
+  descriptionLanguage?: string;
 
   /** Icon key resolved against the editor's IconSet. Optional. */
   icon?: string;
@@ -47,6 +53,12 @@ export interface FloatingMenuItem {
    * @default '' (no group heading)
    */
   group?: string;
+
+  /** Display text for the group; `group` remains its stable identity. */
+  groupLabel?: string;
+
+  /** Language of the resolved group label, when known. */
+  groupLabelLanguage?: string;
 
   /** Sort order within group (higher first). @default 100 */
   priority?: number;

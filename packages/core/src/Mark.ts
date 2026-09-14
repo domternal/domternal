@@ -155,7 +155,7 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
       }),
     };
 
-    return new Mark(newConfig);
+    return new Mark(this.withConfiguredOptionProvenance(newConfig, restOptions));
   }
 
   /**
@@ -192,7 +192,10 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
   ): Mark<ExtendedOptions, ExtendedStorage> {
     const newConfig = mergeConfigWithParentBinding(this.config, extendedConfig);
 
-    return new Mark(newConfig as MarkConfig<ExtendedOptions, ExtendedStorage>);
+    return new Mark(this.withExtendedOptionProvenance(
+      newConfig as MarkConfig<ExtendedOptions, ExtendedStorage>,
+      extendedConfig,
+    ));
   }
 
   /**

@@ -18,6 +18,8 @@ import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
+import { I18nService } from './i18n/index.js';
+import { coreMessages } from './messages/core.js';
 import {
   focus as focusCommand,
   blur as blurCommand,
@@ -79,6 +81,9 @@ interface EditorDomContext {
  * ```
  */
 export class Editor extends EventEmitter<EditorEvents> {
+  /** Per-editor UI translations. Changes never modify document content. */
+  readonly i18n: I18nService;
+
   /**
    * Editor configuration options
    */
@@ -185,6 +190,16 @@ export class Editor extends EventEmitter<EditorEvents> {
       ...options,
     };
 
+    this.i18n = new I18nService(options.i18n);
+    // Subscribe before extensions so their UI observes freshly resolved items.
+    this.i18n.subscribe(() => {
+      // Both fields are unset while beforeCreate hooks run.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      this._extensionManager?.invalidateLocalizedItems();
+      // A view update recomputes attributes/decorations without a transaction.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (this.view && !this._isDestroyed) this.view.setProps({});
+    });
     this.createEditor();
   }
 
@@ -738,6 +753,7 @@ export class Editor extends EventEmitter<EditorEvents> {
 
     // Destroy managers
     this._extensionManager.destroy();
+    this.i18n.destroy();
 
     // Clear all event listeners
     this.removeAllListeners();
@@ -844,7 +860,7 @@ export class Editor extends EventEmitter<EditorEvents> {
       attributes: () => ({
         role: 'textbox',
         'aria-multiline': 'true',
-        'aria-label': this.options.ariaLabel ?? 'Rich text editor',
+        'aria-label': this.options.ariaLabel ?? this.i18n.t(coreMessages.editorLabel),
         ...((this.options.editable ?? true) ? {} : { 'aria-readonly': 'true' }),
       }),
       ...(Object.keys(nodeViews).length > 0 ? { nodeViews } : {}),

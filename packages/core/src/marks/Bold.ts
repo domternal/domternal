@@ -20,6 +20,8 @@ import { Mark } from '../Mark.js';
 import { markInputRule, markInputRulePatterns } from '../helpers/markInputRule.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import type { CommandSpec } from '../types/Commands.js';
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
 
 /**
  * Options for the Bold mark
@@ -112,7 +114,7 @@ export const Bold = Mark.create<BoldOptions>({
         command: 'toggleBold',
         isActive: 'bold',
         icon: 'textB',
-        label: 'Bold',
+        ...localizedLabel(this.editor?.i18n, coreMessages.bold),
         shortcut: 'Mod-B',
         group: 'format',
         priority: 200,

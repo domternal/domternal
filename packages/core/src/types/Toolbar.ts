@@ -63,6 +63,9 @@ export interface ToolbarButton {
   /** Tooltip text and aria-label */
   label: string;
 
+  /** Language of the resolved label, when known. Independent of document language. */
+  labelLanguage?: string;
+
   /** Keyboard shortcut for display (e.g. "Mod-b") */
   shortcut?: string;
 
@@ -129,6 +132,9 @@ export interface ToolbarDropdown {
 
   /** Tooltip text and aria-label */
   label: string;
+
+  /** Language of the resolved label, when known. */
+  labelLanguage?: string;
 
   /** Buttons shown in the dropdown panel */
   items: ToolbarButton[];
