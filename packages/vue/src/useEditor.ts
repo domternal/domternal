@@ -8,7 +8,7 @@ import {
   BaseKeymap,
   History,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, EditorPreset, TransactionEventProps, FocusEventProps } from '@domternal/core';
+import type { Content, AnyExtension, FocusPosition, EditorPreset, TransactionEventProps, FocusEventProps, I18nOptions } from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
 
@@ -25,6 +25,8 @@ export interface UseEditorOptions {
   content?: Content;
   /** Whether the editor is editable. @default true */
   editable?: boolean;
+  /** UI translations and formatting settings. Replacements update the existing editor. */
+  i18n?: I18nOptions | undefined;
   /**
    * Editing experience preset. `'notion'` paints `dm-notion-mode` on the
    * `.dm-editor` wrapper and switches preset-aware extensions to their
@@ -112,6 +114,7 @@ export function useEditor(options: UseEditorOptions = {}): {
       editable,
       autofocus: focus,
       ...(options.preset ? { preset: options.preset } : {}),
+      ...(options.i18n !== undefined ? { i18n: options.i18n } : {}),
     });
 
     markRaw(ed);
@@ -179,6 +182,15 @@ export function useEditor(options: UseEditorOptions = {}): {
       if (ed && !ed.isDestroyed) {
         ed.setEditable(newEditable);
       }
+    },
+  );
+
+  // Replace supplied settings, including a single reset when they are removed.
+  watch(
+    () => options.i18n,
+    (settings) => {
+      const ed = editor.value;
+      if (ed && !ed.isDestroyed) ed.i18n.set(settings ?? {});
     },
   );
 

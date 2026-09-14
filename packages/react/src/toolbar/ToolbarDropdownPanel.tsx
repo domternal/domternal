@@ -6,14 +6,14 @@ import { useTooltip } from './useTooltip.js';
 export interface ToolbarDropdownPanelProps {
   dropdown: ToolbarDropdown;
   isActive: (name: string) => boolean;
-  getCachedItemContent: (icon: string, label: string, mode?: 'icon-text' | 'text' | 'icon') => string;
+  getCachedIcon: (icon: string) => string;
   onItemClick: (item: ToolbarButton, event: React.MouseEvent) => void;
 }
 
 export function ToolbarDropdownPanel({
   dropdown,
   isActive,
-  getCachedItemContent,
+  getCachedIcon,
   onItemClick,
 }: ToolbarDropdownPanelProps): ReactNode {
   // Before the grid early return: hooks cannot sit behind a branch.
@@ -35,6 +35,7 @@ export function ToolbarDropdownPanel({
               role="menuitem"
               tabIndex={-1}
               aria-label={sub.label}
+              lang={sub.labelLanguage}
               title={getTooltip(sub)}
               style={{ backgroundColor: sub.color }}
               onMouseDown={(e) => { e.preventDefault(); }}
@@ -48,11 +49,14 @@ export function ToolbarDropdownPanel({
               role="menuitem"
               tabIndex={-1}
               aria-label={sub.label}
+              lang={sub.labelLanguage}
               title={getTooltip(sub)}
-              dangerouslySetInnerHTML={innerHtml(getCachedItemContent(sub.icon, sub.label))}
               onMouseDown={(e) => { e.preventDefault(); }}
               onClick={(e) => { onItemClick(sub, e); }}
-            />
+            >
+              <span style={{ display: 'contents' }} aria-hidden="true" dangerouslySetInnerHTML={innerHtml(getCachedIcon(sub.icon))} />
+              {' '}{sub.label}
+            </button>
           ),
         )}
       </div>
@@ -73,12 +77,15 @@ export function ToolbarDropdownPanel({
           role="menuitem"
           tabIndex={-1}
           aria-label={sub.label}
+          lang={sub.labelLanguage}
           title={getTooltip(sub)}
           ref={(el: HTMLButtonElement | null) => { if (el && sub.style) el.setAttribute('style', sub.style); }}
-          dangerouslySetInnerHTML={innerHtml(getCachedItemContent(sub.icon, sub.label, dropdown.displayMode))}
           onMouseDown={(e) => { e.preventDefault(); }}
           onClick={(e) => { onItemClick(sub, e); }}
-        />
+        >
+          {dropdown.displayMode !== 'text' && <span style={{ display: 'contents' }} aria-hidden="true" dangerouslySetInnerHTML={innerHtml(getCachedIcon(sub.icon))} />}
+          {dropdown.displayMode !== 'icon' && <>{dropdown.displayMode !== 'text' && ' '}{sub.label}</>}
+        </button>
       ))}
     </div>
   );

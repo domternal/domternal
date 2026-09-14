@@ -33,6 +33,7 @@ export function ToolbarButton({
       aria-pressed={isActive}
       aria-expanded={ariaExpanded === 'true' ? true : undefined}
       aria-label={item.label}
+      lang={item.labelLanguage}
       title={tooltip}
       tabIndex={tabIndex}
       disabled={isDisabled}

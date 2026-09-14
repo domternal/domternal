@@ -1,6 +1,6 @@
 import { defineComponent, h, ref, watch } from 'vue';
 import type { Component, PropType } from 'vue';
-import type { AnyExtension, Content, FocusPosition, EditorPreset } from '@domternal/core';
+import type { AnyExtension, Content, FocusPosition, EditorPreset, I18nOptions } from '@domternal/core';
 import { useEditor, type UseEditorOptions } from './useEditor.js';
 import { provideEditor, useCurrentEditor } from './EditorContext.js';
 import { DomternalToolbar } from './toolbar/DomternalToolbar.js';
@@ -39,6 +39,7 @@ export const Domternal = defineComponent({
     extensions: { type: Array as PropType<AnyExtension[]>, default: undefined },
     content: { type: [String, Object] as PropType<Content>, default: '' },
     editable: { type: Boolean, default: true },
+    i18n: { type: Object as PropType<I18nOptions>, default: undefined },
     preset: { type: String as PropType<EditorPreset>, default: undefined },
     autofocus: { type: [Boolean, String, Number] as PropType<FocusPosition>, default: false },
     outputFormat: { type: String as PropType<'html' | 'json'>, default: 'html' },
@@ -55,6 +56,7 @@ export const Domternal = defineComponent({
       ...(props.extensions && { extensions: props.extensions }),
       content: props.content,
       editable: props.editable,
+      get i18n() { return props.i18n; },
       ...(props.preset && { preset: props.preset }),
       autofocus: props.autofocus,
       outputFormat: props.outputFormat,

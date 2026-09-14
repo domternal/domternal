@@ -1,6 +1,6 @@
 import { defineComponent, h, ref, watch } from 'vue';
 import type { PropType } from 'vue';
-import type { Content, AnyExtension, FocusPosition, EditorPreset, JSONContent, Editor } from '@domternal/core';
+import type { Content, AnyExtension, FocusPosition, EditorPreset, JSONContent, Editor, I18nOptions } from '@domternal/core';
 import { useEditor } from './useEditor.js';
 import { useEditorState } from './useEditorState.js';
 import { provideEditor } from './EditorContext.js';
@@ -9,6 +9,8 @@ export interface DomternalEditorProps {
   extensions?: AnyExtension[];
   content?: Content;
   editable?: boolean;
+  /** UI translations and formatting settings. Replacements update the existing editor. */
+  i18n?: I18nOptions;
   /** Editing experience preset; 'notion' paints dm-notion-mode on the wrapper. Create-time only. */
   preset?: EditorPreset;
   autofocus?: FocusPosition;
@@ -57,6 +59,7 @@ export const DomternalEditor = defineComponent({
     extensions: { type: Array as PropType<AnyExtension[]>, default: undefined },
     content: { type: [String, Object] as PropType<Content>, default: undefined },
     editable: { type: Boolean, default: true },
+    i18n: { type: Object as PropType<I18nOptions>, default: undefined },
     preset: { type: String as PropType<EditorPreset>, default: undefined },
     autofocus: { type: [Boolean, String, Number] as PropType<FocusPosition>, default: false },
     immediatelyRender: { type: Boolean, default: false },
@@ -78,6 +81,7 @@ export const DomternalEditor = defineComponent({
       ...(props.extensions && { extensions: props.extensions }),
       content: props.modelValue ?? props.content ?? '',
       editable: props.editable,
+      get i18n() { return props.i18n; },
       ...(props.preset && { preset: props.preset }),
       autofocus: props.autofocus,
       immediatelyRender: props.immediatelyRender,

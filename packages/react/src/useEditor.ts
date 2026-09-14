@@ -7,9 +7,10 @@ import {
   BaseKeymap,
   History,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, EditorPreset, TransactionEventProps, FocusEventProps } from '@domternal/core';
+import type { Content, AnyExtension, FocusPosition, EditorPreset, TransactionEventProps, FocusEventProps, I18nOptions } from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
+const EMPTY_EXTENSIONS: AnyExtension[] = [];
 
 export interface UseEditorOptions {
   /** Custom extensions to add to the editor. */
@@ -24,6 +25,8 @@ export interface UseEditorOptions {
   content?: Content;
   /** Whether the editor is editable. @default true */
   editable?: boolean;
+  /** UI translations and formatting settings. Replacements update the existing editor. */
+  i18n?: I18nOptions | undefined;
   /**
    * Editing experience preset. `'notion'` paints `dm-notion-mode` on the
    * `.dm-editor` wrapper and switches preset-aware extensions to their
@@ -80,10 +83,9 @@ export interface UseEditorOptions {
  * });
  * ```
  *
- * @example With deps for forced recreation
+ * @example Update UI translations without recreating the editor
  * ```tsx
- * const { editor, editorRef } = useEditor({ extensions, content }, [locale]);
- * // Editor is recreated when locale changes
+ * const { editor, editorRef } = useEditor({ extensions, content, i18n: { locale, messages } });
  * ```
  */
 export interface UseEditorResult {
@@ -93,7 +95,7 @@ export interface UseEditorResult {
 
 export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList): UseEditorResult {
   const {
-    extensions = [],
+    extensions = EMPTY_EXTENSIONS,
     history = true,
     content = '',
     editable = true,
@@ -105,6 +107,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
   const editorRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Editor | null>(null);
   const pendingContentRef = useRef<Content | null>(null);
+  const syncedI18nRef = useRef(options.i18n);
 
   // Store latest callbacks in refs to avoid stale closures
   const callbacksRef = useRef(options);
@@ -167,12 +170,14 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
       editable,
       autofocus: focus,
       ...(options.preset ? { preset: options.preset } : {}),
+      ...(options.i18n !== undefined ? { i18n: options.i18n } : {}),
     });
 
     wireEvents(ed);
     instanceRef.current = ed;
     extensionsRef.current = extensions;
     depsRef.current = deps;
+    syncedI18nRef.current = options.i18n;
     // The new editor carries the current prop value (directly, or as the
     // preserved snapshot of it on recreation): the content-sync effect must
     // not echo it back as a full-document replace.
@@ -262,6 +267,13 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
       instanceRef.current.setEditable(editable);
     }
   }, [editable]);
+
+  useEffect(() => {
+    const ed = instanceRef.current;
+    if (!ed || ed.isDestroyed || syncedI18nRef.current === options.i18n) return;
+    syncedI18nRef.current = options.i18n;
+    ed.i18n.set(options.i18n ?? {});
+  }, [options.i18n]);
 
   // Recreate editor when extensions change
   useEffect(() => {

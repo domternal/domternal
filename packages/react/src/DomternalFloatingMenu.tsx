@@ -2,8 +2,8 @@ import {
   Fragment,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  coreMessages,
   PluginKey,
   FloatingMenuController,
   createFloatingMenuPlugin,
@@ -74,6 +75,7 @@ export function DomternalFloatingMenu({
   const editor = editorProp ?? contextEditor;
 
   const menuRef = useRef<HTMLDivElement>(null);
+  const groupIdPrefix = useId();
   const pluginKeyRef = useRef(
     new PluginKey('reactFloatingMenu-' + (
       (globalThis as { crypto?: { randomUUID?: () => string } }).crypto?.randomUUID?.().slice(0, 8)
@@ -142,8 +144,14 @@ export function DomternalFloatingMenu({
     };
   }, [editor, useDefaultRender, items, forceRender]);
 
+  useEffect(() => {
+    if (useDefaultRender || !editor || editor.isDestroyed) return;
+    return editor.i18n.subscribe(forceRender);
+  }, [editor, useDefaultRender, forceRender]);
+
+  const menuLabel = editor?.i18n.resolve(coreMessages.floatingMenuLabel);
   const controller = controllerRef.current;
-  const groups = useMemo(() => controller?.groups ?? [], [controller]);
+  const groups = controller?.groups ?? [];
   const focusedIndex = controller?.focusedIndex ?? -1;
 
   // Imperative focus management: whenever focusedIndex changes and is in
@@ -211,10 +219,7 @@ export function DomternalFloatingMenu({
   }, [editor, onItemClick]);
 
   // Flatten once per render so child item renders can derive their flat index.
-  const flatNames = useMemo(
-    () => groups.flatMap((g) => g.items.map((i) => i.name)),
-    [groups],
-  );
+  const flatNames = groups.flatMap((g) => g.items.map((i) => i.name));
 
   if (!editor && !useDefaultRender) return null;
 
@@ -223,22 +228,23 @@ export function DomternalFloatingMenu({
       ref={menuRef}
       className="dm-floating-menu"
       role="menu"
-      aria-label="Insert block"
+      aria-label={menuLabel?.text}
+      lang={menuLabel?.language}
       data-dm-editor-ui=""
       onKeyDown={useDefaultRender ? onMenuKeyDown : undefined}
     >
       {useDefaultRender
         ? groups.map((group, gi) => (
           <Fragment key={group.name || `__group-${String(gi)}`}>
-            {group.name && (
-              <div className="dm-floating-menu-group-label" id={`dm-fm-g${String(gi)}`}>
-                {group.name}
+            {(group.label ?? group.name) && (
+              <div className="dm-floating-menu-group-label" lang={group.labelLanguage} id={`${groupIdPrefix}-dm-fm-g${String(gi)}`}>
+                {group.label ?? group.name}
               </div>
             )}
             <div
               className="dm-floating-menu-group"
               role="group"
-              {...(group.name && { 'aria-labelledby': `dm-fm-g${String(gi)}` })}
+              {...((group.label ?? group.name) && { 'aria-labelledby': `${groupIdPrefix}-dm-fm-g${String(gi)}` })}
             >
               {group.items.map((item) => {
                 const flatIndex = flatNames.indexOf(item.name);
@@ -311,11 +317,11 @@ function FloatingMenuItemButton({
       )}
       {item.description ? (
         <span className="dm-floating-menu-item-text">
-          <span className="dm-floating-menu-item-label">{item.label}</span>
-          <span className="dm-floating-menu-item-description">{item.description}</span>
+          <span className="dm-floating-menu-item-label" lang={item.labelLanguage}>{item.label}</span>
+          <span className="dm-floating-menu-item-description" lang={item.descriptionLanguage}>{item.description}</span>
         </span>
       ) : (
-        <span className="dm-floating-menu-item-label">{item.label}</span>
+        <span className="dm-floating-menu-item-label" lang={item.labelLanguage}>{item.label}</span>
       )}
       {item.shortcut && (
         <span className="dm-floating-menu-item-shortcut" aria-hidden="true">

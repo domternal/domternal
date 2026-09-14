@@ -77,7 +77,7 @@ describe('tutorial menu rendering contracts', () => {
       output.innerHTML = renderToStaticMarkup(element(ToolbarDropdownPanel, {
         dropdown: { ...dropdown, layout },
         isActive: () => false,
-        getCachedItemContent: (_icon: string, label: string) => label,
+        getCachedIcon: () => '',
         onItemClick: () => undefined,
       }));
       const buttons = Array.from(output.querySelectorAll('button'));

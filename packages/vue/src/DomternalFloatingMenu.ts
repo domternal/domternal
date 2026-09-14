@@ -10,6 +10,7 @@ import {
 } from 'vue';
 import type { PropType } from 'vue';
 import {
+  coreMessages,
   PluginKey,
   FloatingMenuController,
   createFloatingMenuPlugin,
@@ -64,10 +65,8 @@ export const DomternalFloatingMenu = defineComponent({
     // Prefer crypto.randomUUID for collision-free uniqueness (Math.random
     // across simultaneous mounts may collide; SSR can share the seed).
     const cryptoRef = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-    const pluginKey = new PluginKey(
-      'vueFloatingMenu-' +
-        (cryptoRef?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8)),
-    );
+    const instanceId = cryptoRef?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8);
+    const pluginKey = new PluginKey('vueFloatingMenu-' + instanceId);
 
     // Reactive controller state exposed to the render function.
     const controller = shallowRef<FloatingMenuController | null>(null);
@@ -76,6 +75,7 @@ export const DomternalFloatingMenu = defineComponent({
     const version = ref(0);
 
     let registered = false;
+    let unsubscribeI18n: (() => void) | undefined;
     let stopWatch: (() => void) | null = null;
     let currentEditor: Editor | null = null;
 
@@ -108,6 +108,8 @@ export const DomternalFloatingMenu = defineComponent({
         const ctl = new FloatingMenuController(editor, () => { version.value++; }, props.items);
         ctl.subscribe();
         controller.value = ctl;
+      } else {
+        unsubscribeI18n = editor.i18n.subscribe(() => { version.value++; });
       }
     };
 
@@ -132,7 +134,8 @@ export const DomternalFloatingMenu = defineComponent({
     // Imperatively focus the active menuitem when focusedIndex changes.
     watch(
       () => [controller.value?.focusedIndex ?? -1, version.value] as const,
-      ([focusedIndex]) => {
+      ([focusedIndex], previous) => {
+        if (focusedIndex === previous[0]) return;
         if (focusedIndex < 0 || !menuRef.value) return;
         void nextTick(() => {
           const target = menuRef.value?.querySelector<HTMLElement>(
@@ -145,6 +148,7 @@ export const DomternalFloatingMenu = defineComponent({
 
     onScopeDispose(() => {
       stopWatch?.();
+      unsubscribeI18n?.();
       controller.value?.destroy();
       controller.value = null;
       const editor = currentEditor ?? props.editor ?? contextEditor.value;
@@ -201,11 +205,13 @@ export const DomternalFloatingMenu = defineComponent({
     };
 
     return () => {
+      void version.value;
+      const menuLabel = (props.editor ?? contextEditor.value)?.i18n.resolve(coreMessages.floatingMenuLabel);
       // Custom slot: consumer owns rendering.
       if (slots['default']) {
         return h(
           'div',
-          { ref: menuRef, class: 'dm-floating-menu', 'data-dm-editor-ui': '' },
+          { ref: menuRef, class: 'dm-floating-menu', role: 'menu', 'aria-label': menuLabel?.text, lang: menuLabel?.language, 'data-dm-editor-ui': '' },
           slots['default'](),
         );
       }
@@ -226,22 +232,23 @@ export const DomternalFloatingMenu = defineComponent({
           ref: menuRef,
           class: 'dm-floating-menu',
           role: 'menu',
-          'aria-label': 'Insert block',
+          'aria-label': menuLabel?.text,
+          lang: menuLabel?.language,
           'data-dm-editor-ui': '',
           onKeydown: onMenuKeyDown,
         },
         groups.map((group, gi) => {
-          const groupId = `dm-fm-g${String(gi)}`;
+          const groupId = `dm-fm-${instanceId}-g${String(gi)}`;
           return h('div', { key: group.name || `__group-${String(gi)}`, class: 'dm-floating-menu-group-wrapper' }, [
-            group.name
-              ? h('div', { class: 'dm-floating-menu-group-label', id: groupId }, group.name)
+            (group.label ?? group.name)
+              ? h('div', { class: 'dm-floating-menu-group-label', id: groupId, lang: group.labelLanguage }, group.label ?? group.name)
               : null,
             h(
               'div',
               {
                 class: 'dm-floating-menu-group',
                 role: 'group',
-                ...(group.name ? { 'aria-labelledby': groupId } : {}),
+                ...((group.label ?? group.name) ? { 'aria-labelledby': groupId } : {}),
               },
               group.items.map((item) => {
                 const flatIndex = flatNames.indexOf(item.name);
@@ -274,10 +281,10 @@ export const DomternalFloatingMenu = defineComponent({
                       : null,
                     item.description
                       ? h('span', { class: 'dm-floating-menu-item-text' }, [
-                        h('span', { class: 'dm-floating-menu-item-label' }, item.label),
-                        h('span', { class: 'dm-floating-menu-item-description' }, item.description),
+                        h('span', { class: 'dm-floating-menu-item-label', lang: item.labelLanguage }, item.label),
+                        h('span', { class: 'dm-floating-menu-item-description', lang: item.descriptionLanguage }, item.description),
                       ])
-                      : h('span', { class: 'dm-floating-menu-item-label' }, item.label),
+                      : h('span', { class: 'dm-floating-menu-item-label', lang: item.labelLanguage }, item.label),
                     item.shortcut
                       ? h('span', { class: 'dm-floating-menu-item-shortcut', 'aria-hidden': 'true' }, item.shortcut)
                       : null,

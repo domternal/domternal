@@ -56,7 +56,7 @@ export function useToolbarController(
       if (!controller) return;
 
       const controllerGroups = controller.groups;
-      if (groups.value.length !== controllerGroups.length) {
+      if (groups.value !== controllerGroups) {
         groups.value = controllerGroups;
       }
       focusedIndex.value = controller.focusedIndex;

@@ -7,10 +7,10 @@ import type {
   ToolbarItem,
   ToolbarLayoutEntry,
 } from '@domternal/core';
-import { refocusEditorAfterCommand } from '@domternal/core';
+import { coreMessages, refocusEditorAfterCommand } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useToolbarController } from './useToolbarController.js';
-import { useToolbarIcons, DROPDOWN_CARET } from './useToolbarIcons.js';
+import { useToolbarIcons } from './useToolbarIcons.js';
 import { useTooltip } from './useTooltip.js';
 import { useKeyboardNav } from './useKeyboardNav.js';
 import { getComputedStyleAtCursor, getInlineStyleAtCursor } from './useComputedStyle.js';
@@ -53,7 +53,7 @@ export const DomternalToolbar = defineComponent({
       props.layout
     );
 
-    const { getCachedIcon, getCachedItemContent, getDropdownTriggerHtml } = useToolbarIcons(
+    const { getCachedIcon } = useToolbarIcons(
       props.icons
     );
 
@@ -114,6 +114,8 @@ export const DomternalToolbar = defineComponent({
     return () => {
       const editor = props.editor ?? contextEditor.value;
       if (!editor) return null;
+      const toolbarLabel = editor.i18n.resolve(coreMessages.toolbarLabel);
+      const toolsGroup = editor.i18n.resolve(coreMessages.toolsGroup);
 
       // Read activeVersion to establish reactive dependency
       void activeVersion.value;
@@ -124,7 +126,8 @@ export const DomternalToolbar = defineComponent({
           ref: toolbarRef,
           class: 'dm-toolbar',
           role: 'toolbar',
-          'aria-label': 'Editor formatting',
+          'aria-label': toolbarLabel.text,
+          lang: toolbarLabel.language,
           'data-dm-editor-ui': '',
           onKeydown: onKeyDown,
         },
@@ -133,7 +136,7 @@ export const DomternalToolbar = defineComponent({
             gi > 0 ? h('div', { class: 'dm-toolbar-separator', role: 'separator' }) : null,
             h(
               'div',
-              { class: 'dm-toolbar-group', role: 'group', 'aria-label': group.name || 'Tools' },
+              { class: 'dm-toolbar-group', role: 'group', 'aria-label': group.label ?? (group.name || toolsGroup.text), lang: group.labelLanguage ?? (group.name ? undefined : toolsGroup.language) },
               group.items.map((item: ToolbarItem) => {
                 if (item.type === 'button') {
                   const btn = item;
@@ -158,7 +161,7 @@ export const DomternalToolbar = defineComponent({
                     controllerRef.current?.activeMap.get(sub.name)
                   );
 
-                  let triggerHtml = getDropdownTriggerHtml(dd, activeItem);
+                  let computedLabel: string | undefined;
                   if (dd.dynamicLabel && !activeItem && dd.computedStyleProperty) {
                     let computed: string | null;
                     if (dd.computedStyleProperty === 'font-family') {
@@ -171,7 +174,7 @@ export const DomternalToolbar = defineComponent({
                       computed = getComputedStyleAtCursor(editor, dd.computedStyleProperty);
                     }
                     if (computed) {
-                      triggerHtml = `<span class="dm-toolbar-trigger-label">${computed}</span>${DROPDOWN_CARET}`;
+                      computedLabel = computed;
                     }
                   }
 
@@ -183,8 +186,9 @@ export const DomternalToolbar = defineComponent({
                     isDropdownActive: isDropdownActive(dd),
                     isDisabled: isDisabled(dd.name),
                     tabIndex: getFlatIndex(dd.name) === focusedIndex.value ? 0 : -1,
-                    triggerHtml,
-                    getCachedItemContent,
+                    ...(activeItem ? { activeItem } : {}),
+                    ...(computedLabel !== undefined ? { computedLabel } : {}),
+                    getCachedIcon,
                     onToggle: handleDropdownToggle,
                     onItemClick: onDropdownItemClick,
                     onFocus: onButtonFocus,

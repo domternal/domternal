@@ -28,6 +28,7 @@ export const ToolbarButton = defineComponent({
         'aria-pressed': props.isActive,
         'aria-expanded': props.ariaExpanded === 'true' ? true : undefined,
         'aria-label': props.item.label,
+        lang: props.item.labelLanguage,
         title: props.tooltip,
         onMousedown: (e: MouseEvent) => { e.preventDefault(); },
         onClick: (e: MouseEvent) => { emit('click', props.item, e); },
