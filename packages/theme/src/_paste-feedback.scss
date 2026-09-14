@@ -1,4 +1,13 @@
 .dm-paste-feedback {
+  // The notice follows the whole document, so in a long one it would sit far below a
+  // paste near the top. Sticky keeps it at the bottom of the visible part of the editor,
+  // in the page or an outer scroller, and it settles after the last line when the end of
+  // the document is in view. Its place in the DOM, the focus order and the live region
+  // stay as they are, and nothing scrolls.
+  position: sticky;
+  inset-block-end: 0.5rem;
+  // Above content and table controls, below the block handle and floating menus.
+  z-index: 20;
   box-sizing: border-box;
   max-inline-size: 100%;
   margin-block: 0.5rem;
@@ -47,6 +56,16 @@
     outline: 2px solid var(--dm-accent, #2563eb);
     outline-offset: 2px;
   }
+}
+
+// The view's mount wrapper clips with `overflow: hidden`, which also makes it a scroll
+// container, and a sticky notice would stick inside it rather than in the page. While a
+// notice shows, the wrapper clips with `clip`, which is no scroll container, and
+// `flow-root` keeps the formatting context `hidden` gave it, so floats and margins lay out
+// as before. Engines without `clip` keep `hidden` and the notice after the document.
+.dm-editor > div:has(> .ProseMirror):has(> .dm-paste-feedback:not([hidden])) {
+  display: flow-root;
+  overflow: clip;
 }
 
 @media print {

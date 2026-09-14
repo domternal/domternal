@@ -86,6 +86,17 @@ formatting adaptation alone stays quiet, including when its informational findin
 fill the diagnostic allowance. Load the normal `@domternal/theme` CSS
 for styling. The notice follows editor adoption and is removed on destruction.
 
+With the theme, the notice stays in view in a long document: it sticks to the
+bottom of the visible part of the editor, in the page or in an outer scroller,
+and settles after the last line once the end of the document is in view. It does
+not scroll the page or take focus, and its place in the DOM, the keyboard order
+and the accessibility tree stays the same. While a notice shows, the theme clips
+the element the view mounts in with `overflow: clip` instead of `hidden`, since a
+scroll container would hold a sticky notice in place; engines without `clip`
+show the notice after the document. An application that styles the notice itself
+needs `position: sticky` and no scroll container between the notice and the
+scroller.
+
 The routine clipboard envelope is removed without a diagnostic: `head`, `title`,
 `meta`, `link`, `base` and `style` elements and Office `xml` islands, with their
 content. Office paragraph marks (`o:p`), content controls (`w:*`) and smart tags

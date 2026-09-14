@@ -50,11 +50,13 @@ async function openFixture(page: Page, framework: string, options: {
   lifecycle?: 'veto' | 'throw-update' | 'destroy-before-observe' | 'nested-interception' | 'nested-empty-interception';
   feedback?: 'application';
   smallLimits?: boolean;
+  theme?: boolean;
 } = {}): Promise<void> {
   const query = new URLSearchParams({ framework });
   if (options.lifecycle !== undefined) query.set('lifecycle', options.lifecycle);
   if (options.feedback !== undefined) query.set('feedback', options.feedback);
   if (options.smallLimits === true) query.set('limits', 'small');
+  if (options.theme === true) query.set('theme', '1');
   await page.goto(`${BASE_URL}/?${query.toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
   await expect(page.locator('.ProseMirror')).toBeVisible();
@@ -435,6 +437,85 @@ test.describe('paste notice focus and announcements', () => {
       await expect(page.getByRole('status')).toHaveText('');
       await page.keyboard.type('Z');
       await expect(page.locator('.ProseMirror')).toHaveText('Before NewZ after');
+    });
+  }
+});
+
+test.describe('paste notice placement in a long document', () => {
+  interface Placement {
+    notice: { top: number; bottom: number };
+    firstLineTop: number;
+    lastLineBottom: number;
+    viewport: number;
+    scrollY: number;
+    editorFocused: boolean;
+    wrapper: { overflow: string; display: string };
+  }
+
+  const placement = (page: Page): Promise<Placement> => page.evaluate(() => {
+    const view = (window as unknown as ProbeWindow).__pasteCleanup.editor.view;
+    const notice = document.querySelector('.dm-paste-feedback');
+    const first = view.dom.firstElementChild;
+    const last = view.dom.lastElementChild;
+    const mount = view.dom.parentElement;
+    if (notice === null || first === null || last === null || mount === null) throw new Error('The notice and the document must render');
+    const box = notice.getBoundingClientRect();
+    const style = getComputedStyle(mount);
+    return {
+      notice: { top: box.top, bottom: box.bottom },
+      firstLineTop: first.getBoundingClientRect().top,
+      lastLineBottom: last.getBoundingClientRect().bottom,
+      viewport: window.innerHeight,
+      scrollY: window.scrollY,
+      editorFocused: document.activeElement === view.dom,
+      wrapper: { overflow: style.overflowY, display: style.display },
+    };
+  });
+
+  for (const framework of FRAMEWORKS) {
+    test(`${framework}: keeps the notice of a paste at the top of a long document in view, without scrolling or taking focus`, async ({ page, browserName }) => {
+      await openFixture(page, framework, { theme: true });
+      await page.evaluate(() => {
+        const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+        const lines = Array.from({ length: 80 }, (_, index) => `<p>Line ${String(index + 1)}</p>`).join('');
+        if (!probe.editor.setContent(lines, false)) throw new Error('Could not seed the editor');
+        probe.editor.commands.focus('start');
+        window.scrollTo(0, 0);
+        probe.clearObservations();
+      });
+      const idle = await placement(page);
+      expect(idle.wrapper).toEqual({ overflow: 'hidden', display: 'block' });
+
+      await paste(page, WARNING_HTML);
+      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      await expect(notice).toBeVisible();
+      await expect(page.getByRole('status')).toHaveText('Review the pasted content.');
+      const shown = await placement(page);
+      // The page stayed where the paste happened, and the notice is in the viewport with it.
+      expect(shown.scrollY).toBe(0);
+      expect(shown.firstLineTop).toBeGreaterThanOrEqual(0);
+      expect(shown.notice.top).toBeGreaterThanOrEqual(0);
+      expect(shown.notice.bottom).toBeLessThanOrEqual(shown.viewport);
+      expect(shown.notice.bottom).toBeLessThan(shown.lastLineBottom);
+      expect(shown.editorFocused).toBe(true);
+      // While the notice shows, the theme's mount wrapper clips without being a scroll container.
+      expect(shown.wrapper).toEqual({ overflow: 'clip', display: 'flow-root' });
+
+      // The keyboard order is the DOM order, unchanged: Tab leaves the editor for Dismiss.
+      // WebKit on macOS moves to buttons with Option+Tab, as Safari does by default.
+      await page.keyboard.press(browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab');
+      await expect(notice.getByRole('button', { name: 'Dismiss paste notice', exact: true })).toBeFocused();
+
+      // With the end of the document in view, the notice sits after the last line.
+      await page.evaluate(() => { window.scrollTo(0, document.documentElement.scrollHeight); });
+      const settled = await placement(page);
+      expect(settled.notice.top).toBeGreaterThanOrEqual(settled.lastLineBottom);
+      expect(settled.notice.bottom).toBeLessThanOrEqual(settled.viewport);
+
+      await page.keyboard.press('Escape');
+      await expect(notice).toBeHidden();
+      await expect.poll(async () => (await placement(page)).editorFocused).toBe(true);
+      expect((await placement(page)).wrapper).toEqual({ overflow: 'hidden', display: 'block' });
     });
   }
 });

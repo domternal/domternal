@@ -35,6 +35,8 @@ const lists = query.get('schema') !== 'no-lists';
 // A Link that stores only https: addresses, for the destination link probe.
 const httpsLinks = query.get('link-protocols') === 'https';
 const listMarkers = query.get('list-markers') === '1';
+// The theme with the frame every wrapper renders: the view mounts in a div inside .dm-editor.
+const themed = query.get('theme') === '1';
 // Core paste without PasteCleanup, for behavior applications see without the extension.
 const withoutPasteCleanup = query.get('paste-cleanup') === 'off';
 // ProseMirror's own paste placement, without SmartPaste's block routing.
@@ -50,7 +52,7 @@ const angularForm = query.get('angular-form') === '1';
 // The editor starts from such a document, since any earlier transaction would add the paragraph.
 const trailingNode = query.get('trailing-node') === 'on';
 const initialContent = trailingNode ? '<p>intro text</p><h2>Last</h2>' : '<p></p>';
-if (listMarkers) await import('@domternal/theme/css');
+if (listMarkers || themed) await import('@domternal/theme/css');
 // Test-only older/custom schema control: keep list structure but omit the marker attribute.
 const withoutMarker = extension => extension.extend({ addAttributes() {
   const attrs = { ...this.parent?.() }; delete attrs.listStyleType; return attrs;
@@ -507,9 +509,16 @@ const wrapperCallbacks = {
 
 if (framework === 'vanilla') {
   const { DomternalEditor } = await import('@domternal/vanilla');
-  const mount = document.querySelector('#fixture');
-  if (listMarkers) mount.classList.add('dm-editor');
-  mount.replaceChildren();
+  const fixture = document.querySelector('#fixture');
+  if (listMarkers) fixture.classList.add('dm-editor');
+  fixture.replaceChildren();
+  let mount = fixture;
+  if (themed) {
+    const frame = document.createElement('div');
+    frame.className = 'dm-editor';
+    mount = frame.appendChild(document.createElement('div'));
+    fixture.append(frame);
+  }
   wrapper = new DomternalEditor(mount, { extensions, content: initialContent, onCreate: capture, ...wrapperCallbacks });
 } else if (framework === 'react') {
   const { createElement: h } = await import('react');
