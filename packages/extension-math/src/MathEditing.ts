@@ -5,11 +5,12 @@
  * meta); the plugin opens the popover anchored to that node. Enter (or blur)
  * applies, Escape cancels, an empty value deletes the node.
  */
-import { Extension, positionFloating, copyThemeClass } from '@domternal/core';
+import { Extension, positionFloating, copyThemeClass, localizeMessage } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import type { MathRenderer } from './renderer.js';
 import { MATH_INLINE_NAME, MATH_BLOCK_NAME } from './shared.js';
+import { mathMessages } from './messages.js';
 
 /** Payload carried by the edit signal (a transaction meta). */
 export interface MathEditEvent {
@@ -42,6 +43,7 @@ export const MathEditing = Extension.create<MathEditingOptions>({
 
   addProseMirrorPlugins() {
     const renderer = this.options.renderer;
+    const i18n = this.editor?.i18n;
 
     const el = document.createElement('div');
     el.className = 'dm-math-popover';
@@ -51,10 +53,19 @@ export const MathEditing = Extension.create<MathEditingOptions>({
     textarea.className = 'dm-math-popover-input';
     textarea.rows = 2;
     textarea.spellcheck = false;
-    textarea.setAttribute('aria-label', 'LaTeX source');
 
     const preview = document.createElement('div');
     preview.className = 'dm-math-popover-preview';
+
+    const refreshLabels = (): void => {
+      const source = localizeMessage(i18n, mathMessages.source);
+      const placeholder = localizeMessage(i18n, mathMessages.preview);
+      textarea.setAttribute('aria-label', source.text);
+      textarea.lang = source.language;
+      preview.setAttribute('data-placeholder', placeholder.text);
+      if (!textarea.value) preview.lang = placeholder.language;
+      else preview.removeAttribute('lang');
+    };
 
     el.appendChild(textarea);
     el.appendChild(preview);
@@ -68,6 +79,7 @@ export const MathEditing = Extension.create<MathEditingOptions>({
 
     const renderPreview = (latex: string): void => {
       preview.classList.remove('dm-math-error');
+      refreshLabels();
       if (!latex) {
         preview.textContent = '';
         return;
@@ -180,6 +192,7 @@ export const MathEditing = Extension.create<MathEditingOptions>({
     };
 
     const onKeydown = (e: KeyboardEvent): void => {
+      if (e.isComposing) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         apply();
@@ -222,6 +235,8 @@ export const MathEditing = Extension.create<MathEditingOptions>({
         },
         view(editorView) {
           currentView = editorView;
+          refreshLabels();
+          const unsubscribeI18n = i18n?.subscribe(refreshLabels);
           document.body.appendChild(el);
           textarea.addEventListener('input', onInput);
           textarea.addEventListener('keydown', onKeydown);
@@ -243,6 +258,7 @@ export const MathEditing = Extension.create<MathEditingOptions>({
               }
             },
             destroy(): void {
+              unsubscribeI18n?.();
               close();
               textarea.removeEventListener('input', onInput);
               textarea.removeEventListener('keydown', onKeydown);

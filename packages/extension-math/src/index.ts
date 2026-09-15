@@ -18,3 +18,5 @@ export type { MathEditingOptions, MathEditEvent } from './MathEditing.js';
 
 export { createKatexRenderer } from './renderer.js';
 export type { MathRenderer, KatexLike, KatexRendererOptions } from './renderer.js';
+
+export { mathMessages } from './messages.js';
