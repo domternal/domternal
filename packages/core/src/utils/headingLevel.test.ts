@@ -67,6 +67,15 @@ describe('heading level rule', () => {
     expect(resolveHeadingLevel(value, [3, 2])).toBe(3);
   });
 
+  it('resolves every level of every configured set, and its decimal string, to the nearest level', () => {
+    for (const levels of levelSets) {
+      for (const level of LEVELS) {
+        expect(resolveHeadingLevel(level, levels)).toBe(nearestHeadingLevel(level, levels));
+        expect(resolveHeadingLevel(String(level), levels)).toBe(nearestHeadingLevel(level, levels));
+      }
+    }
+  });
+
   it('recognizes whole levels from 1 to 6 only', () => {
     expect(LEVELS.every(isHeadingLevel)).toBe(true);
     for (const value of [0, 7, 2.5, -1, '3', null, undefined, Number.NaN, true]) expect(isHeadingLevel(value)).toBe(false);
@@ -103,6 +112,15 @@ describe('configuredHeadingLevels with repeated levels', () => {
     expect(configuredHeadingLevels(option)).toEqual([3, 1, 2]);
     option.length = 0;
     expect(() => configuredHeadingLevels(option)).toThrow(ExtensionConfigurationError);
+  });
+
+  it('refuses an option changed in place to an invalid entry after it was read', () => {
+    const option: unknown[] = [1, 2];
+    expect(configuredHeadingLevels(option)).toEqual([1, 2]);
+    option[1] = 9;
+    expect(() => configuredHeadingLevels(option)).toThrow(ExtensionConfigurationError);
+    option[1] = 2;
+    expect(configuredHeadingLevels(option)).toEqual([1, 2]);
   });
 
   it('never changes the option it reads', () => {

@@ -623,10 +623,11 @@ export class Editor extends EventEmitter<EditorEvents> {
     // start tags, never in text that reads like one. Attribute values are
     // escaped as the HTML standard writes them, also in a headless editor on
     // linkedom.
-    // Output that holds no rgb() at all has nothing to rewrite, so the tag scan is skipped.
+    // Output that holds no rgb() at all has nothing to rewrite, so the tag scan is skipped,
+    // and so is the style lookup of a tag that holds none.
     const serialized = serializeChildren(div);
     const html = !serialized.includes('rgb') ? serialized : serialized.replace(START_TAG, (tag) =>
-      tag.replace(STYLE_ATTRIBUTE, (_match, name: string, style: string) =>
+      !tag.includes('rgb') ? tag : tag.replace(STYLE_ATTRIBUTE, (_match, name: string, style: string) =>
         `${name}${style.replace(RGB_COLOR, (color) => normalizeColor(color))}"`
       )
     );

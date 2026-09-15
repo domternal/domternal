@@ -157,34 +157,52 @@ function configuredProtocols(protocols: unknown): readonly string[] {
 }
 
 /**
- * The checks of rendered string hrefs, per `protocols` value and `allowRelative`: the wrappers
- * call getHTML on every update, which renders every link of the document again. Bounded, and
- * cleared when full, so a document of many distinct links cannot grow it without limit.
+ * The URL checks of string hrefs per Link policy, for rendering and for loading JSON content:
+ * the wrappers call getHTML on every update, which renders every link of the document again, a
+ * controlled editor sets the same content again after every change, and generateHTML builds a
+ * new schema, with a new copy of the default schemes, on every call. Keyed by what a check reads
+ * of a Link policy, its schemes and `allowRelative`, so equal policies share their checks.
+ * Bounded, and cleared when full, so a document of many distinct links cannot grow it without limit.
  */
-const renderedChecks = new WeakMap<object, Map<string, UrlCheck>>();
-const DEFAULT_PROTOCOLS_KEY = {};
-const RENDERED_CHECKS_LIMIT = 4096;
+const policyChecks = new Map<string, Map<string, UrlCheck>>();
+/** The shared checks of each checked scheme list, which is one array per `protocols` value, without and with relative links. */
+const protocolChecks = new WeakMap<object, readonly [Map<string, UrlCheck>, Map<string, UrlCheck>]>();
+const POLICY_CHECKS_LIMIT = 4096;
+const POLICIES_LIMIT = 64;
 
-/** The URL check of an href a Link renders, remembered for a string under the same policy options. */
-function renderedCheck(options: LinkOptions, href: unknown): UrlCheck {
-  const protocols: unknown = options.protocols;
-  if (typeof href !== 'string' || (protocols !== null && protocols !== undefined && typeof protocols !== 'object')) {
-    return checkUrl(href, linkPolicy(options));
+/** The URL check of an href under a Link policy, remembered for a string. */
+function policyCheck(policy: UrlPolicyOptions, href: unknown): UrlCheck {
+  const { protocols } = policy;
+  if (typeof href !== 'string' || typeof protocols !== 'object') return checkUrl(href, policy);
+  let byRelative = protocolChecks.get(protocols);
+  if (byRelative === undefined) {
+    // Scheme names hold no space, so the joined list names the schemes exactly.
+    const shared = (relative: boolean): Map<string, UrlCheck> => {
+      const key = `${relative ? '1' : '0'} ${protocols.join(' ')}`;
+      let checks = policyChecks.get(key);
+      if (checks === undefined) {
+        if (policyChecks.size >= POLICIES_LIMIT) policyChecks.clear();
+        checks = new Map();
+        policyChecks.set(key, checks);
+      }
+      return checks;
+    };
+    byRelative = [shared(false), shared(true)];
+    protocolChecks.set(protocols, byRelative);
   }
-  const key = protocols ?? DEFAULT_PROTOCOLS_KEY;
-  let checks = renderedChecks.get(key);
-  if (checks === undefined) {
-    checks = new Map();
-    renderedChecks.set(key, checks);
-  }
-  const entry = `${options.allowRelative === false ? '0' : '1'}${href}`;
-  let check = checks.get(entry);
+  const checks = byRelative[policy.allowRelative === true ? 1 : 0];
+  let check = checks.get(href);
   if (check === undefined) {
-    check = checkUrl(href, linkPolicy(options));
-    if (checks.size >= RENDERED_CHECKS_LIMIT) checks.clear();
-    checks.set(entry, check);
+    check = checkUrl(href, policy);
+    if (checks.size >= POLICY_CHECKS_LIMIT) checks.clear();
+    checks.set(href, check);
   }
   return check;
+}
+
+/** The URL check of an href a Link renders. */
+function renderedCheck(options: LinkOptions, href: unknown): UrlCheck {
+  return policyCheck(linkPolicy(options), href);
 }
 
 /** The URL policy of a Link configuration. */
@@ -281,9 +299,9 @@ export const Link = Mark.create<LinkOptions>({
     };
     registerAttributeNormalizer(validate, {
       code: 'unsupported-url',
-      codeFor: value => (checkUrl(value, policy).status === 'unsafe' ? 'unsafe-url' : 'unsupported-url'),
+      codeFor: value => (policyCheck(policy, value).status === 'unsafe' ? 'unsafe-url' : 'unsupported-url'),
       invalid,
-      unsupported: value => checkUrl(value, policy).status !== 'allowed',
+      unsupported: value => policyCheck(policy, value).status !== 'allowed',
       replacement: () => null,
       removesMark: true,
     });

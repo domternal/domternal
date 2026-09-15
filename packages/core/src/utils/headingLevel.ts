@@ -22,13 +22,17 @@ const configured = new WeakMap<readonly unknown[], { entries: readonly unknown[]
  * position, so the first stays the default. The option itself is never changed.
  */
 export function configuredHeadingLevels(levels: unknown): readonly number[] {
+  // Rendering asks once per heading. A list read before with the same entries was
+  // valid then and is valid now, so only a new or changed list is checked again.
+  const list = Array.isArray(levels) ? levels as readonly unknown[] : undefined;
+  const cached = list === undefined ? undefined : configured.get(list);
+  // An application may change its option list in place; the copy notices.
+  if (list !== undefined && cached?.entries.length === list.length
+    && cached.entries.every((entry, index) => entry === list[index])) return cached.levels;
   if (!Array.isArray(levels) || levels.length === 0 || ![...levels as unknown[]].every(isHeadingLevel)) {
     throw new ExtensionConfigurationError('Heading: levels must be a non-empty list of whole numbers from 1 to 6');
   }
   const option = levels as readonly number[];
-  const cached = configured.get(option);
-  // An application may change its option list in place; the copy notices.
-  if (cached?.entries.length === option.length && cached.entries.every((entry, index) => entry === option[index])) return cached.levels;
   const unique = Object.freeze([...new Set(option)]);
   configured.set(option, { entries: [...option], levels: unique });
   return unique;
@@ -154,6 +158,8 @@ const decimal = /^\s*[+-]?\d+(?:\.\d+)?\s*$/;
  * Any other value takes the first configured level, the default.
  */
 export function resolveHeadingLevel(value: unknown, levels: readonly number[]): number {
+  // A heading level in the list is the nearest level to itself.
+  if (isHeadingLevel(value) && levels.includes(value)) return value;
   const level = typeof value === 'string' && decimal.test(value) ? Number(value) : value;
   if (typeof level !== 'number' || !Number.isFinite(level)) return levels[0] ?? 1;
   return nearestHeadingLevel(Math.min(6, Math.max(1, Math.ceil(level))), levels);
