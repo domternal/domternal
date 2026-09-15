@@ -8,7 +8,8 @@ specs accordingly: other file names are still type-checked and linted, but the
 matrix never runs them. Focused suites use `.browser.ts` files with their own
 configurations. The standalone tooling tests under `native-office-capture/` and
 `paste-performance/` run through `node --test`, `native-office-capture/browser.config.mjs`
-and `paste-performance/runner.mjs`, as described in their READMEs.
+and `paste-performance/runner.mjs`, and `content-performance/runner.mjs` compares content
+loading and HTML output with the published 1.2.0, as described in their READMEs.
 
 ## Local release checks
 
@@ -29,8 +30,9 @@ the result with the release verification.
 | Legacy per-application suites under `apps/demo-*/e2e` | `pnpm test:e2e` |
 | Native Office capture tooling, as [its README](native-office-capture/README.md) describes | `node --test e2e/native-office-capture/capture.test.mjs e2e/native-office-capture/offline.test.mjs e2e/native-office-capture/preparation.test.mjs` and `pnpm exec playwright test --config e2e/native-office-capture/browser.config.mjs` |
 | Paste performance harness, as [its README](paste-performance/README.md) describes | `node --test e2e/paste-performance/fixtures.test.mjs e2e/paste-performance/large.test.mjs e2e/paste-performance/sampler.test.mjs` and `node e2e/paste-performance/runner.mjs --smoke --out <directory>` |
+| Content performance and output equivalence against the published 1.2.0, as [its README](content-performance/README.md) describes | `node e2e/content-performance/runner.mjs --out <directory> --rounds 1 --browsers chromium` |
 
-The performance runner measures one machine; its full runs are evidence for a
+The performance runners measure one machine; their full runs are evidence for a
 report, not a pass or fail check.
 
 ## Tutorial regression coverage
