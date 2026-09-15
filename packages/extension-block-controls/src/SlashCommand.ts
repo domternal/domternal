@@ -218,13 +218,14 @@ export function filterByCursorAncestors(
  *   3. Keyword match (preserving original keyword index for stable ranking)
  * Returns items in rank order, stable within the same rank.
  */
-export function filterSlashItems(items: FloatingMenuItem[], query: string): FloatingMenuItem[] {
+export function filterSlashItems(items: FloatingMenuItem[], query: string, locale?: string): FloatingMenuItem[] {
   if (query.length === 0) return items;
-  const q = query.toLowerCase();
+  const normalize = (value: string): string => value.toLocaleLowerCase(locale).normalize('NFD').replace(/\p{M}/gu, '');
+  const q = normalize(query);
 
   const ranked: { item: FloatingMenuItem; score: number }[] = [];
   for (const item of items) {
-    const label = item.label.toLowerCase();
+    const label = normalize(item.label);
     if (label.startsWith(q)) {
       ranked.push({ item, score: 0 });
       continue;
@@ -234,7 +235,7 @@ export function filterSlashItems(items: FloatingMenuItem[], query: string): Floa
       continue;
     }
     const keywords = item.keywords ?? [];
-    const kwIndex = keywords.findIndex((k) => k.toLowerCase().includes(q));
+    const kwIndex = keywords.findIndex((k) => normalize(k).includes(q));
     if (kwIndex !== -1) {
       ranked.push({ item, score: 2 + kwIndex * 0.01 });
     }
@@ -351,94 +352,103 @@ export function createSlashCommandPlugin(
 
       // Fire the open-time dismiss only on the false->true transition.
       let wasActive = false;
+      let renderedLocaleRevision = editor.i18n.getSnapshot().revision;
+
+      const update = (view: EditorView): void => {
+        const state = pluginKey.getState(view.state);
+        if (!state) return;
+        renderedLocaleRevision = editor.i18n.getSnapshot().revision;
+
+        // On activation, broadcast dismiss to close other overlays;
+        // `suppressDismissHandler` keeps our own listener from self-dismissing.
+        //
+        // Flip `wasActive = true` BEFORE dispatching: the synchronous
+        // dispatch re-enters this `update` (e.g. BlockHandle's
+        // `onDismissOverlays` dispatches its own transaction). If `wasActive`
+        // were still false the re-entry would fire a second
+        // `dm:dismiss-overlays` whose nested `finally` clears
+        // `suppressDismissHandler`, letting our listener tear down the popup
+        // we just created (and a null `clientRect()` then paints it unpositioned).
+        const becameActive = state.active && !wasActive;
+        wasActive = state.active;
+        if (becameActive) {
+          suppressDismissHandler = true;
+          try {
+            editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+          } finally {
+            suppressDismissHandler = false;
+          }
+        }
+
+        if (state.active && state.range) {
+          const items = FloatingMenuController.resolveItems(editor, itemsOverride);
+          const contextual = filterByCursorAncestors(items, editor);
+          const filtered = filterSlashItems(contextual, state.query, editor.i18n.getSnapshot().formattingLocale);
+
+          const command = (item: FloatingMenuItem): void => {
+            const current = pluginKey.getState(view.state);
+            if (!current?.range) return;
+
+            // Delete the `/query` range first so the item's command runs on
+            // a clean cursor. Close popup state in the same tr to avoid a flash.
+            const tr = view.state.tr;
+            tr.delete(current.range.from, current.range.to);
+            tr.setMeta(pluginKey, 'dismiss');
+            view.dispatch(tr);
+
+            // Execute on a fresh transaction (reads latest state). No focus()
+            // call: items that open a popover need it to claim focus, and
+            // simple inserts already leave focus in the editor.
+            FloatingMenuController.executeItem(editor, item);
+          };
+
+          const clientRect = (): DOMRect | null => {
+            const current = pluginKey.getState(view.state);
+            if (!current?.range) return null;
+            try {
+              const coords = view.coordsAtPos(current.range.from);
+              return new DOMRect(
+                coords.left,
+                coords.top,
+                0,
+                coords.bottom - coords.top,
+              );
+            } catch {
+              return null;
+            }
+          };
+
+          const props: SlashCommandProps = {
+            editor,
+            query: state.query,
+            range: state.range,
+            items: filtered,
+            command,
+            clientRect,
+            element: view.dom,
+          };
+
+          if (!renderer) {
+            renderer = render();
+            renderer.onStart(props);
+          } else {
+            renderer.onUpdate(props);
+          }
+        } else if (renderer) {
+          renderer.onExit();
+          renderer = null;
+        }
+      };
+      const unsubscribeI18n = editor.i18n.subscribe(() => {
+        // Core may already repaint this plugin before other locale listeners.
+        if (renderedLocaleRevision !== editor.i18n.getSnapshot().revision) update(editor.view);
+      });
 
       return {
-        update(view: EditorView) {
-          const state = pluginKey.getState(view.state);
-          if (!state) return;
-
-          // On activation, broadcast dismiss to close other overlays;
-          // `suppressDismissHandler` keeps our own listener from self-dismissing.
-          //
-          // Flip `wasActive = true` BEFORE dispatching: the synchronous
-          // dispatch re-enters this `update` (e.g. BlockHandle's
-          // `onDismissOverlays` dispatches its own transaction). If `wasActive`
-          // were still false the re-entry would fire a second
-          // `dm:dismiss-overlays` whose nested `finally` clears
-          // `suppressDismissHandler`, letting our listener tear down the popup
-          // we just created (and a null `clientRect()` then paints it unpositioned).
-          const becameActive = state.active && !wasActive;
-          wasActive = state.active;
-          if (becameActive) {
-            suppressDismissHandler = true;
-            try {
-              editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
-            } finally {
-              suppressDismissHandler = false;
-            }
-          }
-
-          if (state.active && state.range) {
-            const items = FloatingMenuController.resolveItems(editor, itemsOverride);
-            const contextual = filterByCursorAncestors(items, editor);
-            const filtered = filterSlashItems(contextual, state.query);
-
-            const command = (item: FloatingMenuItem): void => {
-              const current = pluginKey.getState(view.state);
-              if (!current?.range) return;
-
-              // Delete the `/query` range first so the item's command runs on
-              // a clean cursor. Close popup state in the same tr to avoid a flash.
-              const tr = view.state.tr;
-              tr.delete(current.range.from, current.range.to);
-              tr.setMeta(pluginKey, 'dismiss');
-              view.dispatch(tr);
-
-              // Execute on a fresh transaction (reads latest state). No focus()
-              // call: items that open a popover need it to claim focus, and
-              // simple inserts already leave focus in the editor.
-              FloatingMenuController.executeItem(editor, item);
-            };
-
-            const clientRect = (): DOMRect | null => {
-              const current = pluginKey.getState(view.state);
-              if (!current?.range) return null;
-              try {
-                const coords = view.coordsAtPos(current.range.from);
-                return new DOMRect(
-                  coords.left,
-                  coords.top,
-                  0,
-                  coords.bottom - coords.top,
-                );
-              } catch {
-                return null;
-              }
-            };
-
-            const props: SlashCommandProps = {
-              editor,
-              query: state.query,
-              range: state.range,
-              items: filtered,
-              command,
-              clientRect,
-              element: view.dom,
-            };
-
-            if (!renderer) {
-              renderer = render();
-              renderer.onStart(props);
-            } else {
-              renderer.onUpdate(props);
-            }
-          } else if (renderer) {
-            renderer.onExit();
-            renderer = null;
-          }
-        },
+        update,
 
         destroy() {
+          unsubscribeI18n();
           editorEl?.removeEventListener('dm:dismiss-overlays', dismissHandler);
           if (renderer) {
             try {
