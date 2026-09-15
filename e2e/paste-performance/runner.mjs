@@ -19,14 +19,16 @@ const root = resolve(here, '../..');
 const require = createRequire(join(root, 'package.json'));
 const { values } = parseArgs({ options: {
   out: { type: 'string' }, smoke: { type: 'boolean' }, headed: { type: 'boolean' }, browser: { type: 'string' }, 'reference-id': { type: 'string' },
-  large: { type: 'boolean' },
+  large: { type: 'boolean' }, 'image-assets': { type: 'boolean' },
 } });
 assert.ok([22, 24].includes(Number(process.versions.node.split('.')[0])), 'This protocol records supported Node 22 or 24 runs');
 const browsers = values.browser ? [values.browser] : PROTOCOL.browsers;
 assert.ok(browsers.every(name => PROTOCOL.browsers.includes(name)), 'Unknown browser');
 assert.ok(values.smoke || browsers.length === 3, 'Partial browser runs require --smoke');
 assert.ok(values.smoke || /^[a-z0-9][a-z0-9._-]{0,63}$/u.test(values['reference-id'] ?? ''), 'A full run requires --reference-id with a nonpersonal machine label');
-const protocol = values.large ? { ...LARGE_PROTOCOL, ...(values.smoke ? LARGE_SMOKE : {}) } : { ...PROTOCOL, ...(values.smoke ? SMOKE : {}) };
+assert.ok(!values.large || !values['image-assets'], 'The imageAssets variant belongs to the paired protocol');
+const protocol = values.large ? { ...LARGE_PROTOCOL, ...(values.smoke ? LARGE_SMOKE : {}) }
+  : { ...PROTOCOL, ...(values.smoke ? SMOKE : {}), imageAssets: values['image-assets'] === true };
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const packageRequire = createRequire(join(root, 'packages/core/package.json'));
 const toolRequire = createRequire(packageRequire.resolve('tsup'));
@@ -219,7 +221,7 @@ try {
     dirty: execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).length > 0,
     lockSha256: sha256(await readFile(join(root, 'pnpm-lock.yaml'))) };
   const alias = {};
-  for (const name of ['core', 'vanilla', 'extension-table', 'extension-block-controls', 'extension-paste-cleanup', 'pm']) {
+  for (const name of ['core', 'vanilla', 'extension-table', 'extension-block-controls', 'extension-image', 'extension-paste-cleanup', 'pm']) {
     const directory = join(root, 'packages', name);
     const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
     for (const [subpath, value] of Object.entries(manifest.exports)) {
@@ -303,7 +305,8 @@ try {
           page.on('pageerror', () => violations.push('Browser page error'));
           await checked(page.goto(origin));
           await checked(page.waitForFunction(() => window.__pastePerformance?.ready === true));
-          const preparation = await checked(page.evaluate(({ id, formatting }) => window.__pastePerformance.prepare(id, formatting), { id: fixture.id, formatting }));
+          const preparation = await checked(page.evaluate(({ id, formatting, imageAssets }) => window.__pastePerformance.prepare(id, formatting, imageAssets),
+            { id: fixture.id, formatting, imageAssets: protocol.imageAssets }));
           caseReport.rounds.push({ round, preparation });
           for (const phase of ['first-paste', 'warmup', 'measured']) {
             const count = phase === 'first-paste' ? 1 : phase === 'warmup' ? protocol.warmupBlocks : protocol.measuredBlocks;

@@ -5,6 +5,7 @@ import {
 import { DomternalEditor } from '@domternal/vanilla';
 import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
 import { SmartPaste } from '@domternal/extension-block-controls';
+import { Image } from '@domternal/extension-image';
 import { PasteCleanup } from '@domternal/extension-paste-cleanup';
 import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
 import { undoDepth, redoDepth } from '@domternal/pm/history';
@@ -15,6 +16,9 @@ import { generateLarge } from './large.mjs';
 const extensions = [Bold, Italic, Underline, Strike, TextStyle, TextColor, Highlight,
   FontFamily, FontSize, TextAlign, LineHeight, Heading, BulletList, OrderedList, ListItem,
   Blockquote, Table, TableRow, TableCell, TableHeader, SmartPaste];
+// The imageAssets variant adds the destination its embedded mode prepares local images for to
+// both routes, so the paired difference stays the cost of Cleanup with its asset coordinator.
+const imageExtensions = [...extensions, Image.configure({ allowBase64: true })];
 const host = document.querySelector('#editor');
 let configuration;
 let large;
@@ -53,7 +57,7 @@ async function operation(route) {
   // Every operation gets a separate frame opportunity, outside both clocks.
   await new Promise(resolve => requestAnimationFrame(resolve));
   checkActive();
-  const { fixture, formatting, normalizedHTML } = configuration;
+  const { fixture, formatting, normalizedHTML, imageAssets } = configuration;
   let normalizationCount = 0;
   let terminalCount = 0;
   let normalized;
@@ -61,8 +65,8 @@ async function operation(route) {
   let wrapper;
   try {
     wrapper = new DomternalEditor(host, {
-      content: '<p></p>', extensions: [...extensions, ...(route === 'on-raw' ? [PasteCleanup.configure({
-        formatting, feedback: 'default',
+      content: '<p></p>', extensions: [...(imageAssets ? imageExtensions : extensions), ...(route === 'on-raw' ? [PasteCleanup.configure({
+        formatting, feedback: 'default', ...(imageAssets && { imageAssets: { mode: 'embedded' } }),
         onResult(result) { normalizationCount++; normalized = result; },
         onPasteResult(result) { terminalCount++; terminal = result; },
       })] : [])],
@@ -199,8 +203,9 @@ async function largeOperation() {
 
 window.__pastePerformance = Object.freeze({
   ready: true,
-  async prepare(id, formatting) {
+  async prepare(id, formatting, imageAssets = false) {
     if (!['preserve', 'adapt'].includes(formatting)) throw new Error('Invalid formatting policy');
+    if (typeof imageAssets !== 'boolean') throw new Error('Invalid imageAssets variant');
     if (!Array.from(document.styleSheets).some(sheet => sheet.href?.endsWith('/domternal-theme.css') && sheet.cssRules.length > 0)) throw new Error('Public theme stylesheet did not load');
     const fixture = fixtureById(id);
     cancelled = false;
@@ -208,11 +213,11 @@ window.__pastePerformance = Object.freeze({
     const normalized = normalizePasteHTML(fixture.html, { formatting });
     const preparationNormalizationMs = performance.now() - start;
     if (normalized.status !== 'cleaned') throw new Error('Fixture normalization was rejected');
-    configuration = { fixture, formatting, normalizedHTML: normalized.html };
-    return { fixture: id, formatting, normalizedSha256: await sha256(normalized.html),
+    configuration = { fixture, formatting, normalizedHTML: normalized.html, imageAssets };
+    return { fixture: id, formatting, imageAssets, normalizedSha256: await sha256(normalized.html),
       normalizedUtf8Bytes: new TextEncoder().encode(normalized.html).length,
       preparationNormalizationMs, diagnostics: diagnostics(normalized),
-      extensionNames: extensions.map(extension => extension.name),
+      extensionNames: (imageAssets ? imageExtensions : extensions).map(extension => extension.name),
       schemaDefaults: ['doc', 'paragraph', 'text', 'baseKeymap', 'history'],
       environment: { userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency,
         deviceMemory: navigator.deviceMemory ?? null, visibilityState: document.visibilityState,

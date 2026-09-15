@@ -95,7 +95,13 @@ node e2e/paste-performance/runner.mjs --reference-id local-macos-arm64 --out /pr
 ```
 
 `--browser chromium` is allowed only with `--smoke`. `--headed` is an explicit
-configuration change and is recorded. Every full fixture/policy/engine series has
+configuration change and is recorded. `--image-assets` runs the same paired
+protocol with `imageAssets: { mode: 'embedded' }` on the enabled route, and adds
+`Image.configure({ allowBase64: true })`, the destination that mode needs, to both
+routes, so the paired difference stays the cost of Cleanup with its clipboard
+asset coordinator. The report records the variant as `configuration.imageAssets`.
+The fixtures hold no images, so this measures the coordinator's cost on an ordinary
+rich paste, not image preparation. Every full fixture/policy/engine series has
 300 measured blocks and 600 individual pairs per comparison. First-paste blocks
 and warmups remain in the raw artifact but do not enter steady-state percentiles.
 The preparatory standalone normalization time is reported separately; the
