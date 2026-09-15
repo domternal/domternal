@@ -17,6 +17,7 @@ import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import type { NodeType } from '@domternal/pm/model';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
+import type { I18nService } from '@domternal/core';
 
 // ─── Public Types ────────────────────────────────────────────────────────────
 
@@ -26,6 +27,8 @@ export interface MentionItem {
   id: string;
   /** Display text (e.g., "John Doe", "feature-request"). */
   label: string;
+  /** Optional language of the source label. This is not serialized into the mention. */
+  labelLanguage?: string;
   /** Allow extra data (avatar URL, email, role, etc.). */
   [key: string]: unknown;
 }
@@ -64,6 +67,10 @@ export interface MentionTrigger {
 
 /** Props passed to suggestion renderer callbacks. */
 export interface MentionSuggestionProps {
+  /** Editor-local UI translation service. Omitted by legacy standalone integrations. */
+  i18n?: I18nService;
+  /** Changes when UI translations refresh, without re-fetching mention items. */
+  localeRevision?: number;
   /** Current query string (text after trigger char). */
   query: string;
   /** Document range of the trigger + query (for replacement). */
@@ -82,7 +89,7 @@ export interface MentionSuggestionProps {
 export interface MentionSuggestionRenderer {
   /** Called when suggestion is first activated. */
   onStart: (props: MentionSuggestionProps) => void;
-  /** Called when query or items change. */
+  /** Called when query, items or UI translations change. */
   onUpdate: (props: MentionSuggestionProps) => void;
   /** Called when suggestion is deactivated. */
   onExit: () => void;
@@ -95,6 +102,8 @@ export interface MentionSuggestionRenderer {
 interface SuggestionPluginOptions {
   trigger: MentionTrigger;
   nodeType: NodeType | null;
+  /** Editor-local UI translation service for built-in and custom renderers. */
+  i18n?: I18nService;
 }
 
 interface SuggestionState {
@@ -190,7 +199,7 @@ function findMentionQuery(
 export function createMentionSuggestionPlugin(
   options: SuggestionPluginOptions,
 ): Plugin {
-  const { trigger, nodeType } = options;
+  const { trigger, nodeType, i18n } = options;
   const triggerChar = trigger.char;
   const minQueryLength = trigger.minQueryLength ?? 0;
   const allowSpaces = trigger.allowSpaces ?? false;
@@ -202,6 +211,9 @@ export function createMentionSuggestionPlugin(
   const key = getPluginKey(trigger.name);
   let renderer: MentionSuggestionRenderer | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let renderedProps: MentionSuggestionProps | null = null;
+  let renderedLocaleRevision = i18n?.getSnapshot().revision;
+  let requestId = 0;
 
   const debounceMs = trigger.debounce ?? 0;
   const decorationClass = trigger.decorationClass ?? 'mention-suggestion';
@@ -216,11 +228,14 @@ export function createMentionSuggestionPlugin(
   }
 
   function notifyRenderer(props: MentionSuggestionProps): void {
+    renderedLocaleRevision = i18n?.getSnapshot().revision;
+    const current = { ...props, ...(i18n ? { i18n, localeRevision: i18n.getSnapshot().revision } : {}) };
+    renderedProps = current;
     if (!renderer && getRender) {
       renderer = getRender();
-      renderer.onStart(props);
+      renderer.onStart(current);
     } else if (renderer) {
-      renderer.onUpdate(props);
+      renderer.onUpdate(current);
     }
   }
 
@@ -266,17 +281,36 @@ export function createMentionSuggestionPlugin(
       },
     },
 
-    view() {
+    view(editorView) {
+      let previousState = editorView.state;
+      const refreshLocale = (): void => {
+        if (renderedLocaleRevision === i18n?.getSnapshot().revision) return;
+        renderedLocaleRevision = i18n?.getSnapshot().revision;
+        const state = key.getState(editorView.state);
+        if (renderer && renderedProps && state?.active && state.range) {
+          notifyRenderer({ ...renderedProps, query: state.query, range: state.range });
+        }
+      };
+      const unsubscribeI18n = i18n?.subscribe(refreshLocale);
       return {
         update(view: EditorView) {
+          // Core repaints the same state for locale changes. Reuse the resolved
+          // suggestions so translations cannot start another request or debounce.
+          if (view.state === previousState) {
+            refreshLocale();
+            return;
+          }
+          previousState = view.state;
           const pluginState = key.getState(view.state);
           if (!pluginState) return;
 
           if (pluginState.active && pluginState.range) {
             // Check shouldShow - if it returns false, treat as inactive
             if (shouldShow && !shouldShow({ state: view.state, view })) {
+              cleanup();
+              requestId += 1;
+              renderedProps = null;
               if (renderer) {
-                cleanup();
                 renderer.onExit();
                 renderer = null;
               }
@@ -319,12 +353,14 @@ export function createMentionSuggestionPlugin(
               const cur = key.getState(view.state);
               if (!cur?.active || !cur.range) return;
 
-              const result = getItems({ query: cur.query, trigger });
+              const fetchId = ++requestId;
+              const query = cur.query;
+              const result = getItems({ query, trigger });
 
               if (result instanceof Promise) {
                 void result.then((items) => {
                   const latest = key.getState(view.state);
-                  if (!latest?.active || !latest.range) return;
+                  if (fetchId !== requestId || !latest?.active || !latest.range || latest.query !== query) return;
                   notifyRenderer({ query: latest.query, range: latest.range, items, command, clientRect, element: view.dom });
                 }).catch(() => {
                   // Swallow - suggestion stays active with no items
@@ -343,14 +379,19 @@ export function createMentionSuggestionPlugin(
               // Immediate: call items() now
               fetchAndRender();
             }
-          } else if (renderer) {
+          } else {
             cleanup();
-            renderer.onExit();
+            requestId += 1;
+            renderedProps = null;
+            renderer?.onExit();
             renderer = null;
           }
         },
 
         destroy() {
+          unsubscribeI18n?.();
+          requestId += 1;
+          renderedProps = null;
           cleanup();
           if (renderer) {
             renderer.onExit();
@@ -366,6 +407,7 @@ export function createMentionSuggestionPlugin(
       // handleKeyDown and would otherwise intercept Enter/ArrowUp/ArrowDown).
       handleDOMEvents: {
         keydown(view: EditorView, event: KeyboardEvent): boolean {
+          if (event.isComposing) return false;
           const state = key.getState(view.state);
           if (!state?.active) return false;
 

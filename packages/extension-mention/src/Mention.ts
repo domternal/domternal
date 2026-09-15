@@ -351,6 +351,7 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
       createMentionSuggestionPlugin({
         trigger,
         nodeType: this.nodeType,
+        ...(this.editor?.i18n ? { i18n: this.editor.i18n } : {}),
       }),
     );
   },

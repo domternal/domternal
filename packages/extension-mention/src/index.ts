@@ -16,3 +16,5 @@ export { createMentionSuggestionRenderer } from './mentionSuggestionRenderer.js'
 
 // Default export for convenience
 export { Mention as default } from './Mention.js';
+
+export { mentionMessages } from './messages.js';
