@@ -1,0 +1,5949 @@
+{
+  "kind": "domternal-paste-performance",
+  "protocol": "domternal-paste-overhead-v1",
+  "mode": "reference-machine",
+  "performanceClaim": false,
+  "nativeClipboardCaptured": false,
+  "sourceFixtures": "synthetic",
+  "referenceId": "local-macos-arm64",
+  "configuration": {
+    "id": "domternal-paste-overhead-v1",
+    "browsers": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
+    "formatting": [
+      "preserve",
+      "adapt"
+    ],
+    "rounds": 3,
+    "warmupBlocks": 20,
+    "measuredBlocks": 100,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "deviceScaleFactor": 1,
+    "blockTimeoutMs": 60000,
+    "runTimeoutMs": 2700000,
+    "imageAssets": true
+  },
+  "browsers": [
+    {
+      "name": "chromium",
+      "version": "145.0.7632.6"
+    },
+    {
+      "name": "firefox",
+      "version": "146.0.1"
+    },
+    {
+      "name": "webkit",
+      "version": "26.0"
+    }
+  ],
+  "cases": [
+    {
+      "browser": "chromium",
+      "fixture": "rich-20k",
+      "formatting": "preserve",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "0ef9020db088ddc6025125f8c173de793446305424acda267fe2a853df7e8f9f",
+            "normalizedUtf8Bytes": 24948,
+            "preparationNormalizationMs": 22,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820669354.5
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "0ef9020db088ddc6025125f8c173de793446305424acda267fe2a853df7e8f9f",
+            "normalizedUtf8Bytes": 24948,
+            "preparationNormalizationMs": 22.200000047683716,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820694065.2
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "0ef9020db088ddc6025125f8c173de793446305424acda267fe2a853df7e8f9f",
+            "normalizedUtf8Bytes": 24948,
+            "preparationNormalizationMs": 21.899999976158142,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820718744.5
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.600000023841858,
+              "p50": 11.399999976158142,
+              "p95": 15.00000011920929,
+              "max": 33.39999997615814
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5,
+              "p50": 11.549999952316284,
+              "p95": 13.650000095367432,
+              "max": 22.550000071525574
+            },
+            "onMs": {
+              "count": 600,
+              "min": 19.799999952316284,
+              "p50": 23.5,
+              "p95": 27.399999976158142,
+              "max": 45.60000002384186
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.899999976158142,
+              "p50": 12.100000023841858,
+              "p95": 13.100000023841858,
+              "max": 26.699999928474426
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.600000023841858,
+              "p50": 11.400000095367432,
+              "p95": 15.099999904632568,
+              "max": 33.39999997615814
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.050000011920929,
+              "p50": 11.549999952316284,
+              "p95": 13.699999988079071,
+              "max": 22.600000083446503
+            },
+            "onMs": {
+              "count": 600,
+              "min": 19.899999976158142,
+              "p50": 23.5,
+              "p95": 27.5,
+              "max": 45.60000002384186
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.899999976158142,
+              "p50": 12.100000023841858,
+              "p95": 13.100000023841858,
+              "max": 26.699999928474426
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -6.099999904632568,
+              "p50": 10.5,
+              "p95": 14.399999976158142,
+              "max": 32.10000002384186
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.5500000715255737,
+              "p50": 10.350000023841858,
+              "p95": 13.049999952316284,
+              "max": 21.049999952316284
+            },
+            "onMs": {
+              "count": 600,
+              "min": 19.800000071525574,
+              "p50": 23.299999952316284,
+              "p95": 27.399999976158142,
+              "max": 45.39999997615814
+            },
+            "offMs": {
+              "count": 600,
+              "min": 11.300000071525574,
+              "p50": 12.800000071525574,
+              "p95": 14,
+              "max": 26.399999976158142
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -6.099999904632568,
+              "p50": 10.5,
+              "p95": 14.399999976158142,
+              "max": 32.200000047683716
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.5500000715255737,
+              "p50": 10.350000083446503,
+              "p95": 13.000000059604645,
+              "max": 21.099999964237213
+            },
+            "onMs": {
+              "count": 600,
+              "min": 19.899999976158142,
+              "p50": 23.299999952316284,
+              "p95": 27.5,
+              "max": 45.5
+            },
+            "offMs": {
+              "count": 600,
+              "min": 11.300000071525574,
+              "p50": 12.899999976158142,
+              "p95": 14.099999904632568,
+              "max": 26.399999976158142
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3.5999999046325684,
+          "p50": 8.399999976158142,
+          "p95": 9.200000047683716,
+          "max": 20.600000023841858
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "chromium",
+      "fixture": "rich-20k",
+      "formatting": "adapt",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "28a09f2775ce3f131c3989f9d0e2508a56af8c731cae8b7f16de0bbdc64acf97",
+            "normalizedUtf8Bytes": 17550,
+            "preparationNormalizationMs": 22.299999952316284,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820743489.1
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "28a09f2775ce3f131c3989f9d0e2508a56af8c731cae8b7f16de0bbdc64acf97",
+            "normalizedUtf8Bytes": 17550,
+            "preparationNormalizationMs": 21.899999976158142,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820767086.5
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "28a09f2775ce3f131c3989f9d0e2508a56af8c731cae8b7f16de0bbdc64acf97",
+            "normalizedUtf8Bytes": 17550,
+            "preparationNormalizationMs": 21.800000071525574,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820790884
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -1.5999999046325684,
+              "p50": 10,
+              "p95": 13.800000071525574,
+              "max": 30.300000071525574
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.250000059604645,
+              "p50": 9.700000047683716,
+              "p95": 12.600000023841858,
+              "max": 19.65000009536743
+            },
+            "onMs": {
+              "count": 600,
+              "min": 18.299999952316284,
+              "p50": 22.199999928474426,
+              "p95": 26.5,
+              "max": 42.700000047683716
+            },
+            "offMs": {
+              "count": 600,
+              "min": 11.100000023841858,
+              "p50": 12.200000047683716,
+              "p95": 13.399999976158142,
+              "max": 21.699999928474426
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -1.6999999284744263,
+              "p50": 10,
+              "p95": 13.899999976158142,
+              "max": 30.300000071525574
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.200000047683716,
+              "p50": 9.799999952316284,
+              "p95": 12.600000023841858,
+              "max": 19.65000009536743
+            },
+            "onMs": {
+              "count": 600,
+              "min": 18.299999952316284,
+              "p50": 22.200000047683716,
+              "p95": 26.5,
+              "max": 42.700000047683716
+            },
+            "offMs": {
+              "count": 600,
+              "min": 11.100000023841858,
+              "p50": 12.200000047683716,
+              "p95": 13.399999976158142,
+              "max": 21.799999952316284
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -9.399999976158142,
+              "p50": 10.199999928474426,
+              "p95": 14.300000071525574,
+              "max": 23.50000011920929
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0.9500000476837158,
+              "p50": 10.350000023841858,
+              "p95": 12.650000035762787,
+              "max": 18.100000023841858
+            },
+            "onMs": {
+              "count": 600,
+              "min": 18.799999952316284,
+              "p50": 22,
+              "p95": 26.5,
+              "max": 36.90000009536743
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.5,
+              "p50": 11.899999976158142,
+              "p95": 13.100000023841858,
+              "max": 28.899999976158142
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -9.400000095367432,
+              "p50": 10.200000047683716,
+              "p95": 14.399999976158142,
+              "max": 23.600000023841858
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0.9499999284744263,
+              "p50": 10.350000023841858,
+              "p95": 12.699999988079071,
+              "max": 18.149999976158142
+            },
+            "onMs": {
+              "count": 600,
+              "min": 18.799999952316284,
+              "p50": 22,
+              "p95": 26.5,
+              "max": 37
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.5,
+              "p50": 11.899999976158142,
+              "p95": 13.100000023841858,
+              "max": 29
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3.700000047683716,
+          "p50": 8.299999952316284,
+          "p95": 9,
+          "max": 10.700000047683716
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "chromium",
+      "fixture": "word-20k",
+      "formatting": "preserve",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "05b25e4c6830a4851b203a661a1c71f77965c733b16df31a316ffa688b6a0512",
+            "normalizedUtf8Bytes": 35008,
+            "preparationNormalizationMs": 20,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820814671.2
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "05b25e4c6830a4851b203a661a1c71f77965c733b16df31a316ffa688b6a0512",
+            "normalizedUtf8Bytes": 35008,
+            "preparationNormalizationMs": 19.899999976158142,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820827446.5
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "05b25e4c6830a4851b203a661a1c71f77965c733b16df31a316ffa688b6a0512",
+            "normalizedUtf8Bytes": 35008,
+            "preparationNormalizationMs": 19.300000071525574,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820840256
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 6.4999998807907104,
+              "p50": 8.899999976158142,
+              "p95": 13.100000023841858,
+              "max": 19.100000023841858
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 7.400000035762787,
+              "p50": 9.25,
+              "p95": 12.20000010728836,
+              "max": 16.30000001192093
+            },
+            "onMs": {
+              "count": 600,
+              "min": 10.899999976158142,
+              "p50": 12.100000023841858,
+              "p95": 16.5,
+              "max": 23
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.5999999046325684,
+              "p50": 3.1999999284744263,
+              "p95": 3.600000023841858,
+              "max": 5.700000047683716
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 6.4999998807907104,
+              "p50": 8.900000095367432,
+              "p95": 13.100000023841858,
+              "max": 19.100000023841858
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 7.449999928474426,
+              "p50": 9.300000011920929,
+              "p95": 12.250000059604645,
+              "max": 16.30000001192093
+            },
+            "onMs": {
+              "count": 600,
+              "min": 10.899999976158142,
+              "p50": 12.100000023841858,
+              "p95": 16.600000023841858,
+              "max": 23
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.5999999046325684,
+              "p50": 3.1999999284744263,
+              "p95": 3.600000023841858,
+              "max": 5.700000047683716
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3.700000047683716,
+              "p50": 7.300000071525574,
+              "p95": 10.899999976158142,
+              "max": 17.50000011920929
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.449999988079071,
+              "p50": 7.800000071525574,
+              "p95": 10.349999904632568,
+              "max": 13.300000071525574
+            },
+            "onMs": {
+              "count": 600,
+              "min": 11,
+              "p50": 12.100000023841858,
+              "p95": 16.100000023841858,
+              "max": 22.300000071525574
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.200000047683716,
+              "p50": 4.800000071525574,
+              "p95": 6.5,
+              "max": 11.100000023841858
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3.700000047683716,
+              "p50": 7.300000071525574,
+              "p95": 10.900000095367432,
+              "max": 17.600000023841858
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.449999988079071,
+              "p50": 7.800000071525574,
+              "p95": 10.399999916553497,
+              "max": 13.350000023841858
+            },
+            "onMs": {
+              "count": 600,
+              "min": 11,
+              "p50": 12.199999928474426,
+              "p95": 16.200000047683716,
+              "max": 22.399999976158142
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.200000047683716,
+              "p50": 4.800000071525574,
+              "p95": 6.5,
+              "max": 11.200000047683716
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3,
+          "p50": 4.299999952316284,
+          "p95": 6.200000047683716,
+          "max": 11.100000023841858
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "chromium",
+      "fixture": "word-20k",
+      "formatting": "adapt",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "baebc369d825a7280d25f3b8aa7aa5d11deb65d5f22596c3955293527026acaa",
+            "normalizedUtf8Bytes": 10944,
+            "preparationNormalizationMs": 19.399999976158142,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820853098.4
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "baebc369d825a7280d25f3b8aa7aa5d11deb65d5f22596c3955293527026acaa",
+            "normalizedUtf8Bytes": 10944,
+            "preparationNormalizationMs": 17.399999976158142,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820863038.3
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "baebc369d825a7280d25f3b8aa7aa5d11deb65d5f22596c3955293527026acaa",
+            "normalizedUtf8Bytes": 10944,
+            "preparationNormalizationMs": 18.5,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820872898.8
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2.799999952316284,
+              "p50": 4.800000071525574,
+              "p95": 7.800000071525574,
+              "max": 16.899999976158142
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.3999999165534973,
+              "p50": 4.800000011920929,
+              "p95": 7.699999988079071,
+              "max": 12.300000011920929
+            },
+            "onMs": {
+              "count": 600,
+              "min": 7.199999928474426,
+              "p50": 8,
+              "p95": 11,
+              "max": 21
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.6999999284744263,
+              "p50": 3.200000047683716,
+              "p95": 3.6999999284744263,
+              "max": 5.199999928474426
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2.799999952316284,
+              "p50": 4.800000071525574,
+              "p95": 7.800000071525574,
+              "max": 16.899999976158142
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.4499999284744263,
+              "p50": 4.800000011920929,
+              "p95": 7.75,
+              "max": 12.300000011920929
+            },
+            "onMs": {
+              "count": 600,
+              "min": 7.199999928474426,
+              "p50": 8.099999904632568,
+              "p95": 11,
+              "max": 21.100000023841858
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.6999999284744263,
+              "p50": 3.200000047683716,
+              "p95": 3.6999999284744263,
+              "max": 5.199999928474426
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3.3000000715255737,
+              "p50": 5.399999976158142,
+              "p95": 8.49999988079071,
+              "max": 18.5
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 4.25,
+              "p50": 5.350000023841858,
+              "p95": 8.149999976158142,
+              "max": 11.950000047683716
+            },
+            "onMs": {
+              "count": 600,
+              "min": 7.200000047683716,
+              "p50": 8.100000023841858,
+              "p95": 11.399999976158142,
+              "max": 21
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.200000047683716,
+              "p50": 2.600000023841858,
+              "p95": 3.1999999284744263,
+              "max": 8.699999928474426
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3.3000000715255737,
+              "p50": 5.399999976158142,
+              "p95": 8.5,
+              "max": 18.5
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 4.300000011920929,
+              "p50": 5.399999976158142,
+              "p95": 8.199999988079071,
+              "max": 11.950000047683716
+            },
+            "onMs": {
+              "count": 600,
+              "min": 7.300000071525574,
+              "p50": 8.100000023841858,
+              "p95": 11.400000095367432,
+              "max": 21
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.200000047683716,
+              "p50": 2.6999999284744263,
+              "p95": 3.1999999284744263,
+              "max": 8.699999928474426
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.3000000715255737,
+          "p50": 2.899999976158142,
+          "p95": 4.700000047683716,
+          "max": 5.700000047683716
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "chromium",
+      "fixture": "office-lists-20k",
+      "formatting": "preserve",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "b9d525cf07f6bf5a13588c79cef59466d721353d943f72f66d28a67f9bc5e3a9",
+            "normalizedUtf8Bytes": 12075,
+            "preparationNormalizationMs": 19.800000071525574,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820882633.1
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "b9d525cf07f6bf5a13588c79cef59466d721353d943f72f66d28a67f9bc5e3a9",
+            "normalizedUtf8Bytes": 12075,
+            "preparationNormalizationMs": 20.600000023841858,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820893963.5
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "b9d525cf07f6bf5a13588c79cef59466d721353d943f72f66d28a67f9bc5e3a9",
+            "normalizedUtf8Bytes": 12075,
+            "preparationNormalizationMs": 18.700000047683716,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820905424
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4.9999998807907104,
+              "p50": 7.300000071525574,
+              "p95": 9.799999952316284,
+              "max": 16.100000023841858
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.799999952316284,
+              "p50": 7.400000035762787,
+              "p95": 9.849999964237213,
+              "max": 12
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.799999952316284,
+              "p50": 10.799999952316284,
+              "p95": 13.600000023841858,
+              "max": 19.5
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.899999976158142,
+              "p50": 3.399999976158142,
+              "p95": 4.5,
+              "max": 9
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4.9999998807907104,
+              "p50": 7.300000071525574,
+              "p95": 9.799999952316284,
+              "max": 16.200000047683716
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.799999952316284,
+              "p50": 7.449999988079071,
+              "p95": 9.850000023841858,
+              "max": 12.050000011920929
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.899999976158142,
+              "p50": 10.800000071525574,
+              "p95": 13.600000023841858,
+              "max": 19.600000023841858
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.899999976158142,
+              "p50": 3.399999976158142,
+              "p95": 4.5,
+              "max": 9
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2,
+              "p50": 6.799999952316284,
+              "p95": 10.299999952316284,
+              "max": 19.5
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.349999904632568,
+              "p50": 6.950000047683716,
+              "p95": 9.349999964237213,
+              "max": 14.849999964237213
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.799999952316284,
+              "p50": 10.799999952316284,
+              "p95": 14.200000047683716,
+              "max": 23.5
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.5,
+              "p50": 3.9000000953674316,
+              "p95": 5.199999928474426,
+              "max": 10.299999952316284
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2.0999999046325684,
+              "p50": 6.800000071525574,
+              "p95": 10.300000071525574,
+              "max": 19.5
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.349999904632568,
+              "p50": 7,
+              "p95": 9.399999976158142,
+              "max": 14.899999976158142
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.799999952316284,
+              "p50": 10.800000071525574,
+              "p95": 14.299999952316284,
+              "max": 23.5
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.5,
+              "p50": 4,
+              "p95": 5.199999928474426,
+              "max": 10.299999952316284
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.5999999046325684,
+          "p50": 3.700000047683716,
+          "p95": 5.200000047683716,
+          "max": 9.5
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "chromium",
+      "fixture": "office-lists-20k",
+      "formatting": "adapt",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "23da60e977a404ae7229331a3c1b6c16c85f80112ce14e575c58282a18003b6d",
+            "normalizedUtf8Bytes": 10850,
+            "preparationNormalizationMs": 19.5,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 35
+              },
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820916881.9
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "23da60e977a404ae7229331a3c1b6c16c85f80112ce14e575c58282a18003b6d",
+            "normalizedUtf8Bytes": 10850,
+            "preparationNormalizationMs": 19.700000047683716,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 35
+              },
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820927923.1
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "23da60e977a404ae7229331a3c1b6c16c85f80112ce14e575c58282a18003b6d",
+            "normalizedUtf8Bytes": 10850,
+            "preparationNormalizationMs": 18.600000023841858,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 35
+              },
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+              "hardwareConcurrency": 10,
+              "deviceMemory": 8,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820939080.7
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.5999999046325684,
+              "p50": 6.900000095367432,
+              "p95": 9.799999952316284,
+              "max": 17.40000009536743
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.399999916553497,
+              "p50": 7.049999952316284,
+              "p95": 9.25,
+              "max": 14.600000023841858
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.599999904632568,
+              "p50": 10.399999976158142,
+              "p95": 13.399999976158142,
+              "max": 21.90000009536743
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.899999976158142,
+              "p50": 3.399999976158142,
+              "p95": 4.800000071525574,
+              "max": 9.600000023841858
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.6999999284744263,
+              "p50": 6.900000095367432,
+              "p95": 9.799999952316284,
+              "max": 17.300000071525574
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.399999916553497,
+              "p50": 7.050000011920929,
+              "p95": 9.25,
+              "max": 14.550000011920929
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.599999904632568,
+              "p50": 10.399999976158142,
+              "p95": 13.399999976158142,
+              "max": 21.90000009536743
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.899999976158142,
+              "p50": 3.399999976158142,
+              "p95": 4.800000071525574,
+              "max": 9.600000023841858
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 0.09999990463256836,
+              "p50": 6.699999928474426,
+              "p95": 10,
+              "max": 17.299999952316284
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 4.949999988079071,
+              "p50": 6.750000059604645,
+              "p95": 9.650000035762787,
+              "max": 13.899999976158142
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.5,
+              "p50": 10.399999976158142,
+              "p95": 13.700000047683716,
+              "max": 21.5
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.299999952316284,
+              "p50": 3.600000023841858,
+              "p95": 4.700000047683716,
+              "max": 10.300000071525574
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 0.10000002384185791,
+              "p50": 6.700000047683716,
+              "p95": 10,
+              "max": 17.299999952316284
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 4.950000047683716,
+              "p50": 6.799999952316284,
+              "p95": 9.699999928474426,
+              "max": 13.899999976158142
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.5,
+              "p50": 10.399999976158142,
+              "p95": 13.800000071525574,
+              "max": 21.5
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.299999952316284,
+              "p50": 3.600000023841858,
+              "p95": 4.700000047683716,
+              "max": 10.399999976158142
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.5999999046325684,
+          "p50": 3.799999952316284,
+          "p95": 5.299999952316284,
+          "max": 9.900000095367432
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "rich-20k",
+      "formatting": "preserve",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "0ef9020db088ddc6025125f8c173de793446305424acda267fe2a853df7e8f9f",
+            "normalizedUtf8Bytes": 24948,
+            "preparationNormalizationMs": 30,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790820951322
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "0ef9020db088ddc6025125f8c173de793446305424acda267fe2a853df7e8f9f",
+            "normalizedUtf8Bytes": 24948,
+            "preparationNormalizationMs": 29,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821000223
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "0ef9020db088ddc6025125f8c173de793446305424acda267fe2a853df7e8f9f",
+            "normalizedUtf8Bytes": 24948,
+            "preparationNormalizationMs": 30,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821048259
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -1,
+              "p50": 19,
+              "p95": 31,
+              "max": 549
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 8,
+              "p50": 18.5,
+              "p95": 32,
+              "max": 291.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 32,
+              "p50": 39,
+              "p95": 52,
+              "max": 569
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 20,
+              "p95": 26,
+              "max": 40
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 0,
+              "p50": 19,
+              "p95": 31,
+              "max": 549
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 8.5,
+              "p50": 18.5,
+              "p95": 31.5,
+              "max": 292
+            },
+            "onMs": {
+              "count": 600,
+              "min": 32,
+              "p50": 39,
+              "p95": 52,
+              "max": 569
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 20,
+              "p95": 26,
+              "max": 40
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -595,
+              "p50": 18,
+              "p95": 33,
+              "max": 617
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -287.5,
+              "p50": 18,
+              "p95": 34,
+              "max": 325
+            },
+            "onMs": {
+              "count": 600,
+              "min": 32,
+              "p50": 39,
+              "p95": 54,
+              "max": 639
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 21,
+              "p95": 27,
+              "max": 640
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -595,
+              "p50": 18,
+              "p95": 33,
+              "max": 617
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -287.5,
+              "p50": 18,
+              "p95": 34.5,
+              "max": 325
+            },
+            "onMs": {
+              "count": 600,
+              "min": 32,
+              "p50": 39,
+              "p95": 54,
+              "max": 639
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 21,
+              "p95": 27,
+              "max": 640
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 5,
+          "p50": 7,
+          "p95": 13,
+          "max": 396
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "rich-20k",
+      "formatting": "adapt",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "28a09f2775ce3f131c3989f9d0e2508a56af8c731cae8b7f16de0bbdc64acf97",
+            "normalizedUtf8Bytes": 17550,
+            "preparationNormalizationMs": 30,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821096153
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "28a09f2775ce3f131c3989f9d0e2508a56af8c731cae8b7f16de0bbdc64acf97",
+            "normalizedUtf8Bytes": 17550,
+            "preparationNormalizationMs": 30,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821144581
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "28a09f2775ce3f131c3989f9d0e2508a56af8c731cae8b7f16de0bbdc64acf97",
+            "normalizedUtf8Bytes": 17550,
+            "preparationNormalizationMs": 30,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821192229
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -437,
+              "p50": 17,
+              "p95": 28,
+              "max": 644
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -208.5,
+              "p50": 16.5,
+              "p95": 26.5,
+              "max": 333.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 30,
+              "p50": 38,
+              "p95": 53,
+              "max": 664
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 21,
+              "p95": 29,
+              "max": 482
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -437,
+              "p50": 17,
+              "p95": 29,
+              "max": 644
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -208.5,
+              "p50": 16.5,
+              "p95": 27,
+              "max": 333.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 30,
+              "p50": 38,
+              "p95": 53,
+              "max": 664
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 21,
+              "p95": 29,
+              "max": 482
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -492,
+              "p50": 18,
+              "p95": 27,
+              "max": 623
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -237.5,
+              "p50": 17,
+              "p95": 25.5,
+              "max": 321
+            },
+            "onMs": {
+              "count": 600,
+              "min": 30,
+              "p50": 38,
+              "p95": 49,
+              "max": 643
+            },
+            "offMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 20,
+              "p95": 28,
+              "max": 541
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -491,
+              "p50": 18,
+              "p95": 27,
+              "max": 623
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -237,
+              "p50": 17,
+              "p95": 25.5,
+              "max": 321
+            },
+            "onMs": {
+              "count": 600,
+              "min": 30,
+              "p50": 38,
+              "p95": 49,
+              "max": 643
+            },
+            "offMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 20,
+              "p95": 28,
+              "max": 541
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 5,
+          "p50": 7,
+          "p95": 16,
+          "max": 941
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "word-20k",
+      "formatting": "preserve",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "05b25e4c6830a4851b203a661a1c71f77965c733b16df31a316ffa688b6a0512",
+            "normalizedUtf8Bytes": 35008,
+            "preparationNormalizationMs": 25,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821242931
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "05b25e4c6830a4851b203a661a1c71f77965c733b16df31a316ffa688b6a0512",
+            "normalizedUtf8Bytes": 35008,
+            "preparationNormalizationMs": 32,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821266949
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "05b25e4c6830a4851b203a661a1c71f77965c733b16df31a316ffa688b6a0512",
+            "normalizedUtf8Bytes": 35008,
+            "preparationNormalizationMs": 27,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821290648
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 17,
+              "p95": 25,
+              "max": 198
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 9.5,
+              "p50": 17.5,
+              "p95": 26.5,
+              "max": 110.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 22,
+              "p95": 31,
+              "max": 204
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 5,
+              "p95": 9,
+              "max": 18
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 17,
+              "p95": 25,
+              "max": 198
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 9.5,
+              "p50": 17.5,
+              "p95": 26.5,
+              "max": 110.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 22,
+              "p95": 31,
+              "max": 204
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 5,
+              "p95": 9,
+              "max": 18
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2,
+              "p50": 14,
+              "p95": 22,
+              "max": 262
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 7.5,
+              "p50": 14.5,
+              "p95": 22,
+              "max": 137
+            },
+            "onMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 22,
+              "p95": 30,
+              "max": 269
+            },
+            "offMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 8,
+              "p95": 12,
+              "max": 18
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 14,
+              "p95": 22,
+              "max": 262
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 8,
+              "p50": 14.5,
+              "p95": 22,
+              "max": 136.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 22,
+              "p95": 30,
+              "max": 269
+            },
+            "offMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 8,
+              "p95": 12,
+              "max": 18
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 4,
+          "p50": 6,
+          "p95": 12,
+          "max": 203
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "word-20k",
+      "formatting": "adapt",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "baebc369d825a7280d25f3b8aa7aa5d11deb65d5f22596c3955293527026acaa",
+            "normalizedUtf8Bytes": 10944,
+            "preparationNormalizationMs": 22,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821314232
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "baebc369d825a7280d25f3b8aa7aa5d11deb65d5f22596c3955293527026acaa",
+            "normalizedUtf8Bytes": 10944,
+            "preparationNormalizationMs": 24,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821331914
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "baebc369d825a7280d25f3b8aa7aa5d11deb65d5f22596c3955293527026acaa",
+            "normalizedUtf8Bytes": 10944,
+            "preparationNormalizationMs": 23,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821349278
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 0,
+              "p50": 9,
+              "p95": 17,
+              "max": 212
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 4,
+              "p50": 10.5,
+              "p95": 17,
+              "max": 116
+            },
+            "onMs": {
+              "count": 600,
+              "min": 12,
+              "p50": 14,
+              "p95": 23,
+              "max": 217
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 5,
+              "p95": 8,
+              "max": 13
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1,
+              "p50": 9,
+              "p95": 17,
+              "max": 212
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 4,
+              "p50": 10.5,
+              "p95": 17,
+              "max": 116
+            },
+            "onMs": {
+              "count": 600,
+              "min": 12,
+              "p50": 14,
+              "p95": 23,
+              "max": 217
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 5,
+              "p95": 8,
+              "max": 13
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2,
+              "p50": 10,
+              "p95": 18,
+              "max": 175
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5,
+              "p50": 12,
+              "p95": 16.5,
+              "max": 92
+            },
+            "onMs": {
+              "count": 600,
+              "min": 12,
+              "p50": 14,
+              "p95": 22,
+              "max": 180
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 4,
+              "p95": 5,
+              "max": 12
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2,
+              "p50": 10,
+              "p95": 18,
+              "max": 175
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.5,
+              "p50": 12,
+              "p95": 16.5,
+              "max": 92.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 12,
+              "p50": 14,
+              "p95": 22,
+              "max": 180
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 4,
+              "p95": 6,
+              "max": 12
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3,
+          "p50": 5,
+          "p95": 11,
+          "max": 162
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "office-lists-20k",
+      "formatting": "preserve",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "b9d525cf07f6bf5a13588c79cef59466d721353d943f72f66d28a67f9bc5e3a9",
+            "normalizedUtf8Bytes": 12075,
+            "preparationNormalizationMs": 24,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821366702
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "b9d525cf07f6bf5a13588c79cef59466d721353d943f72f66d28a67f9bc5e3a9",
+            "normalizedUtf8Bytes": 12075,
+            "preparationNormalizationMs": 23,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821387741
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "b9d525cf07f6bf5a13588c79cef59466d721353d943f72f66d28a67f9bc5e3a9",
+            "normalizedUtf8Bytes": 12075,
+            "preparationNormalizationMs": 24,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821408809
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -86,
+              "p50": 14,
+              "p95": 21,
+              "max": 184
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -32.5,
+              "p50": 15,
+              "p95": 20.5,
+              "max": 98.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 19,
+              "p95": 26,
+              "max": 189
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 10,
+              "max": 105
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -87,
+              "p50": 14,
+              "p95": 21,
+              "max": 185
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -33,
+              "p50": 15,
+              "p95": 20.5,
+              "max": 99
+            },
+            "onMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 19,
+              "p95": 26,
+              "max": 190
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 10,
+              "max": 106
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 12,
+              "p95": 20,
+              "max": 270
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 7,
+              "p50": 13.5,
+              "p95": 21,
+              "max": 146
+            },
+            "onMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 19,
+              "p95": 27,
+              "max": 276
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 7,
+              "p95": 11,
+              "max": 18
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 12,
+              "p95": 20,
+              "max": 269
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 7,
+              "p50": 13.5,
+              "p95": 21,
+              "max": 145.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 19,
+              "p95": 27,
+              "max": 276
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 7,
+              "p95": 11,
+              "max": 18
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3,
+          "p50": 5,
+          "p95": 10,
+          "max": 42
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "firefox",
+      "fixture": "office-lists-20k",
+      "formatting": "adapt",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "23da60e977a404ae7229331a3c1b6c16c85f80112ce14e575c58282a18003b6d",
+            "normalizedUtf8Bytes": 10850,
+            "preparationNormalizationMs": 25,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 35
+              },
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821429735
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "23da60e977a404ae7229331a3c1b6c16c85f80112ce14e575c58282a18003b6d",
+            "normalizedUtf8Bytes": 10850,
+            "preparationNormalizationMs": 25,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 35
+              },
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821450100
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "23da60e977a404ae7229331a3c1b6c16c85f80112ce14e575c58282a18003b6d",
+            "normalizedUtf8Bytes": 10850,
+            "preparationNormalizationMs": 25,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 35
+              },
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0",
+              "hardwareConcurrency": 10,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821470345
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -156,
+              "p50": 13,
+              "p95": 21,
+              "max": 204
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -70,
+              "p50": 14.5,
+              "p95": 20.5,
+              "max": 111
+            },
+            "onMs": {
+              "count": 600,
+              "min": 15,
+              "p50": 18,
+              "p95": 26,
+              "max": 209
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 9,
+              "max": 183
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -156,
+              "p50": 13,
+              "p95": 21,
+              "max": 205
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -70,
+              "p50": 14.5,
+              "p95": 21,
+              "max": 111.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 18,
+              "p95": 26,
+              "max": 210
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 9,
+              "max": 183
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1,
+              "p50": 12,
+              "p95": 20,
+              "max": 167
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 7,
+              "p50": 13.5,
+              "p95": 19.5,
+              "max": 91.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 18,
+              "p95": 26,
+              "max": 173
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 6,
+              "p95": 8,
+              "max": 17
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1,
+              "p50": 12,
+              "p95": 20,
+              "max": 167
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 7,
+              "p50": 13.5,
+              "p95": 19.5,
+              "max": 91.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 18,
+              "p95": 27,
+              "max": 173
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 6,
+              "p95": 8,
+              "max": 17
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3,
+          "p50": 5,
+          "p95": 10,
+          "max": 96
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "webkit",
+      "fixture": "rich-20k",
+      "formatting": "preserve",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "0ef9020db088ddc6025125f8c173de793446305424acda267fe2a853df7e8f9f",
+            "normalizedUtf8Bytes": 24948,
+            "preparationNormalizationMs": 25,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821491110.0002
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "0ef9020db088ddc6025125f8c173de793446305424acda267fe2a853df7e8f9f",
+            "normalizedUtf8Bytes": 24948,
+            "preparationNormalizationMs": 26,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821537056
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "0ef9020db088ddc6025125f8c173de793446305424acda267fe2a853df7e8f9f",
+            "normalizedUtf8Bytes": 24948,
+            "preparationNormalizationMs": 26,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821583283
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 10,
+              "p95": 12.999999999996362,
+              "max": 16
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 7.499999999996362,
+              "p50": 10,
+              "p95": 12,
+              "max": 14.500000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 27,
+              "p50": 31,
+              "p95": 33,
+              "max": 36
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 20.000000000003638,
+              "p95": 22,
+              "max": 25
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 10,
+              "p95": 12.999999999996362,
+              "max": 16
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 6.999999999996362,
+              "p50": 10.000000000001819,
+              "p95": 12,
+              "max": 14.500000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 27,
+              "p50": 31,
+              "p95": 33,
+              "max": 36
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 20.000000000003638,
+              "p95": 22.000000000003638,
+              "max": 25
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 9,
+              "p95": 11.999999999996362,
+              "max": 17
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 6.000000000003638,
+              "p50": 9,
+              "p95": 11,
+              "max": 15.000000000003638
+            },
+            "onMs": {
+              "count": 600,
+              "min": 26.999999999996362,
+              "p50": 31,
+              "p95": 33,
+              "max": 38
+            },
+            "offMs": {
+              "count": 600,
+              "min": 19,
+              "p50": 21.999999999996362,
+              "p95": 24,
+              "max": 26
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 9,
+              "p95": 12,
+              "max": 17
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.500000000003638,
+              "p50": 9,
+              "p95": 11,
+              "max": 15.000000000003638
+            },
+            "onMs": {
+              "count": 600,
+              "min": 26.999999999996362,
+              "p50": 31,
+              "p95": 33,
+              "max": 38
+            },
+            "offMs": {
+              "count": 600,
+              "min": 19,
+              "p50": 21.999999999996362,
+              "p95": 24,
+              "max": 26.999999999992724
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.999999999992724,
+          "p50": 4,
+          "p95": 5,
+          "max": 6
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "webkit",
+      "fixture": "rich-20k",
+      "formatting": "adapt",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "28a09f2775ce3f131c3989f9d0e2508a56af8c731cae8b7f16de0bbdc64acf97",
+            "normalizedUtf8Bytes": 17550,
+            "preparationNormalizationMs": 29,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821629509
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "28a09f2775ce3f131c3989f9d0e2508a56af8c731cae8b7f16de0bbdc64acf97",
+            "normalizedUtf8Bytes": 17550,
+            "preparationNormalizationMs": 27.000000000000014,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821675295
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "rich-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "28a09f2775ce3f131c3989f9d0e2508a56af8c731cae8b7f16de0bbdc64acf97",
+            "normalizedUtf8Bytes": 17550,
+            "preparationNormalizationMs": 26,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821719638
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 7.999999999996362,
+              "p95": 10,
+              "max": 14
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.499999999998181,
+              "p50": 7.500000000001819,
+              "p95": 9.000000000003638,
+              "max": 11.500000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 25,
+              "p50": 29,
+              "p95": 31,
+              "max": 35
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 21,
+              "p95": 23,
+              "max": 24.000000000007276
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 7.999999999998181,
+              "p95": 10,
+              "max": 14
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.499999999998181,
+              "p50": 7.500000000007276,
+              "p95": 9.499999999998181,
+              "max": 11.500000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 25,
+              "p50": 29,
+              "p95": 31,
+              "max": 35
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 21,
+              "p95": 23,
+              "max": 24.000000000007276
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4.999999999985448,
+              "p50": 8,
+              "p95": 11,
+              "max": 14
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.999999999989086,
+              "p50": 8.499999999998181,
+              "p95": 10.000000000001819,
+              "max": 12
+            },
+            "onMs": {
+              "count": 600,
+              "min": 25,
+              "p50": 28.000000000007276,
+              "p95": 31,
+              "max": 34
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 20,
+              "p95": 22,
+              "max": 24
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4.999999999985448,
+              "p50": 8.000000000003638,
+              "p95": 11,
+              "max": 14
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.999999999998181,
+              "p50": 8.499999999998181,
+              "p95": 10.499999999996362,
+              "max": 12
+            },
+            "onMs": {
+              "count": 600,
+              "min": 25,
+              "p50": 29,
+              "p95": 31,
+              "max": 34
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 20,
+              "p95": 22,
+              "max": 24
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.999999999992724,
+          "p50": 4,
+          "p95": 5,
+          "max": 6
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "webkit",
+      "fixture": "word-20k",
+      "formatting": "preserve",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "05b25e4c6830a4851b203a661a1c71f77965c733b16df31a316ffa688b6a0512",
+            "normalizedUtf8Bytes": 35008,
+            "preparationNormalizationMs": 25.000000000000014,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821764007
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "05b25e4c6830a4851b203a661a1c71f77965c733b16df31a316ffa688b6a0512",
+            "normalizedUtf8Bytes": 35008,
+            "preparationNormalizationMs": 25.000000000000014,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821788910
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "05b25e4c6830a4851b203a661a1c71f77965c733b16df31a316ffa688b6a0512",
+            "normalizedUtf8Bytes": 35008,
+            "preparationNormalizationMs": 25,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821814027
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.999999999998181,
+              "p50": 10.999999999998181,
+              "p95": 12.000000000003638,
+              "max": 22
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 6.4999999999990905,
+              "p50": 10.5,
+              "p95": 12,
+              "max": 16.49999999999818
+            },
+            "onMs": {
+              "count": 600,
+              "min": 14.999999999996362,
+              "p50": 16,
+              "p95": 18,
+              "max": 27
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999996362,
+              "p50": 6,
+              "p95": 7,
+              "max": 16
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.999999999998181,
+              "p50": 10.99999999999909,
+              "p95": 13,
+              "max": 22
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 6.4999999999990905,
+              "p50": 10.5,
+              "p95": 12,
+              "max": 16.49999999999818
+            },
+            "onMs": {
+              "count": 600,
+              "min": 14.999999999996362,
+              "p50": 16,
+              "p95": 18,
+              "max": 27
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999996362,
+              "p50": 6,
+              "p95": 7,
+              "max": 16
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -3,
+              "p50": 8,
+              "p95": 10,
+              "max": 18.00000000000182
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1.999999999998181,
+              "p50": 8,
+              "p95": 9.49999999999909,
+              "max": 13.50000000000091
+            },
+            "onMs": {
+              "count": 600,
+              "min": 14.999999999996362,
+              "p50": 16,
+              "p95": 18,
+              "max": 27.00000000000182
+            },
+            "offMs": {
+              "count": 600,
+              "min": 6.9999999999990905,
+              "p50": 8,
+              "p95": 9.000000000001819,
+              "max": 18.000000000003638
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -3,
+              "p50": 8,
+              "p95": 10,
+              "max": 18.00000000000182
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1.999999999998181,
+              "p50": 8,
+              "p95": 9.499999999999545,
+              "max": 13.50000000000091
+            },
+            "onMs": {
+              "count": 600,
+              "min": 14.999999999996362,
+              "p50": 16,
+              "p95": 18,
+              "max": 27.00000000000182
+            },
+            "offMs": {
+              "count": 600,
+              "min": 6.9999999999990905,
+              "p50": 8,
+              "p95": 9.000000000001819,
+              "max": 18.000000000003638
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.999999999998181,
+          "p50": 4,
+          "p95": 5,
+          "max": 5.000000000001819
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "webkit",
+      "fixture": "word-20k",
+      "formatting": "adapt",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "baebc369d825a7280d25f3b8aa7aa5d11deb65d5f22596c3955293527026acaa",
+            "normalizedUtf8Bytes": 10944,
+            "preparationNormalizationMs": 22,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821839138
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "baebc369d825a7280d25f3b8aa7aa5d11deb65d5f22596c3955293527026acaa",
+            "normalizedUtf8Bytes": 10944,
+            "preparationNormalizationMs": 21,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821859691
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "word-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "baebc369d825a7280d25f3b8aa7aa5d11deb65d5f22596c3955293527026acaa",
+            "normalizedUtf8Bytes": 10944,
+            "preparationNormalizationMs": 21,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 100
+              },
+              "truncated": true
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821879822
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 6.000000000001819,
+              "max": 9.000000000001819
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.9999999999995453,
+              "p50": 5.499999999996362,
+              "p95": 6.000000000000455,
+              "max": 7
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 10,
+              "p95": 11.000000000001819,
+              "max": 14.000000000001819
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.999999999998181,
+              "p50": 5,
+              "p95": 6,
+              "max": 7
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 6.000000000001819,
+              "max": 9.000000000001819
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.9999999999995453,
+              "p50": 5.499999999998181,
+              "p95": 6.000000000001819,
+              "max": 7
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 10.000000000001819,
+              "p95": 11.000000000001819,
+              "max": 14.000000000001819
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.999999999998181,
+              "p50": 5,
+              "p95": 6,
+              "max": 7
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3.999999999998181,
+              "p50": 6,
+              "p95": 7.0000000000009095,
+              "max": 9.00000000000091
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 4.4999999999990905,
+              "p50": 5.999999999998181,
+              "p95": 6.500000000001819,
+              "max": 7.500000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 10,
+              "p95": 11.000000000001819,
+              "max": 13.00000000000091
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.999999999996362,
+              "p50": 5,
+              "p95": 5.000000000001819,
+              "max": 6.000000000001819
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3.999999999998181,
+              "p50": 6,
+              "p95": 7.0000000000009095,
+              "max": 9.00000000000091
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 4.4999999999990905,
+              "p50": 5.999999999998181,
+              "p95": 6.999999999998181,
+              "max": 7.500000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 10.000000000001819,
+              "p95": 11.000000000001819,
+              "max": 13.00000000000091
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.999999999996362,
+              "p50": 5,
+              "p95": 5.000000000003638,
+              "max": 6.000000000001819
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 1.999999999996362,
+          "p50": 3,
+          "p95": 3.9999999999990905,
+          "max": 4.000000000001819
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "webkit",
+      "fixture": "office-lists-20k",
+      "formatting": "preserve",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "b9d525cf07f6bf5a13588c79cef59466d721353d943f72f66d28a67f9bc5e3a9",
+            "normalizedUtf8Bytes": 12075,
+            "preparationNormalizationMs": 25.000000000000014,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821900077.0002
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "b9d525cf07f6bf5a13588c79cef59466d721353d943f72f66d28a67f9bc5e3a9",
+            "normalizedUtf8Bytes": 12075,
+            "preparationNormalizationMs": 24,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821924288
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "preserve",
+            "imageAssets": true,
+            "normalizedSha256": "b9d525cf07f6bf5a13588c79cef59466d721353d943f72f66d28a67f9bc5e3a9",
+            "normalizedUtf8Bytes": 12075,
+            "preparationNormalizationMs": 26,
+            "diagnostics": {
+              "codes": {},
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821948585
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4.000000000001819,
+              "p50": 10,
+              "p95": 11.000000000003638,
+              "max": 16.00000000000182
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 6.999999999998181,
+              "p50": 10,
+              "p95": 11,
+              "max": 13.000000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13.999999999996362,
+              "p50": 16,
+              "p95": 17,
+              "max": 22
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999996362,
+              "p50": 6,
+              "p95": 6.000000000001819,
+              "max": 11
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4.000000000001819,
+              "p50": 10,
+              "p95": 11.000000000003638,
+              "max": 16.00000000000182
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 6.999999999998181,
+              "p50": 10,
+              "p95": 11,
+              "max": 13.000000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13.999999999996362,
+              "p50": 16,
+              "p95": 17,
+              "max": 22
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999996362,
+              "p50": 6,
+              "p95": 6.000000000001819,
+              "max": 11
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 8.999999999998181,
+              "p95": 10,
+              "max": 12
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.4999999999990905,
+              "p50": 8.5,
+              "p95": 9.5,
+              "max": 10.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13.999999999996362,
+              "p50": 16,
+              "p95": 17,
+              "max": 19
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5.999999999998181,
+              "p50": 7,
+              "p95": 8,
+              "max": 13
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 8.99999999999909,
+              "p95": 10,
+              "max": 12
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.4999999999990905,
+              "p50": 8.5,
+              "p95": 9.5,
+              "max": 10.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13.999999999996362,
+              "p50": 16,
+              "p95": 17,
+              "max": 19
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5.999999999998181,
+              "p50": 7,
+              "p95": 8,
+              "max": 13
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.999999999996362,
+          "p50": 4,
+          "p95": 5,
+          "max": 5.000000000003638
+        }
+      },
+      "observedPairedP95Under50ms": true
+    },
+    {
+      "browser": "webkit",
+      "fixture": "office-lists-20k",
+      "formatting": "adapt",
+      "rounds": [
+        {
+          "round": 0,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "23da60e977a404ae7229331a3c1b6c16c85f80112ce14e575c58282a18003b6d",
+            "normalizedUtf8Bytes": 10850,
+            "preparationNormalizationMs": 24,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 35
+              },
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821972790
+            }
+          }
+        },
+        {
+          "round": 1,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "23da60e977a404ae7229331a3c1b6c16c85f80112ce14e575c58282a18003b6d",
+            "normalizedUtf8Bytes": 10850,
+            "preparationNormalizationMs": 27,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 35
+              },
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790821996932
+            }
+          }
+        },
+        {
+          "round": 2,
+          "preparation": {
+            "fixture": "office-lists-20k",
+            "formatting": "adapt",
+            "imageAssets": true,
+            "normalizedSha256": "23da60e977a404ae7229331a3c1b6c16c85f80112ce14e575c58282a18003b6d",
+            "normalizedUtf8Bytes": 10850,
+            "preparationNormalizationMs": 25,
+            "diagnostics": {
+              "codes": {
+                "formatting-adapted": 35
+              },
+              "truncated": false
+            },
+            "extensionNames": [
+              "bold",
+              "italic",
+              "underline",
+              "strike",
+              "textStyle",
+              "textColor",
+              "highlight",
+              "fontFamily",
+              "fontSize",
+              "textAlign",
+              "lineHeight",
+              "heading",
+              "bulletList",
+              "orderedList",
+              "listItem",
+              "blockquote",
+              "table",
+              "tableRow",
+              "tableCell",
+              "tableHeader",
+              "smartPaste",
+              "image"
+            ],
+            "schemaDefaults": [
+              "doc",
+              "paragraph",
+              "text",
+              "baseKeymap",
+              "history"
+            ],
+            "environment": {
+              "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+              "hardwareConcurrency": 8,
+              "deviceMemory": null,
+              "visibilityState": "visible",
+              "viewport": {
+                "width": 1280,
+                "height": 800
+              },
+              "devicePixelRatio": 1,
+              "timeOrigin": 1790822020990
+            }
+          }
+        }
+      ],
+      "complete": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4.000000000007276,
+              "p50": 9.999999999996362,
+              "p95": 11,
+              "max": 15
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 6.5000000000009095,
+              "p50": 9.5,
+              "p95": 10.999999999998181,
+              "max": 12.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13,
+              "p50": 15,
+              "p95": 17,
+              "max": 20
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999996362,
+              "p50": 6,
+              "p95": 6.000000000001819,
+              "max": 10
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4.000000000007276,
+              "p50": 9.999999999998181,
+              "p95": 11,
+              "max": 15.000000000001819
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 6.5000000000009095,
+              "p50": 9.5,
+              "p95": 10.999999999996362,
+              "max": 13.00000000000091
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13.999999999996362,
+              "p50": 15,
+              "p95": 17,
+              "max": 21.00000000000182
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999996362,
+              "p50": 6,
+              "p95": 6.000000000001819,
+              "max": 10
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 8.000000000003638,
+              "p95": 10.00000000000091,
+              "max": 14.00000000000091
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.5,
+              "p50": 8.5,
+              "p95": 9.500000000001819,
+              "max": 11.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13.999999999996362,
+              "p50": 15,
+              "p95": 17,
+              "max": 20
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5.999999999996362,
+              "p50": 7,
+              "p95": 8,
+              "max": 11
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 8.999999999996362,
+              "p95": 10.00000000000091,
+              "max": 14.00000000000091
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 5.5,
+              "p50": 8.5,
+              "p95": 9.500000000001819,
+              "max": 11.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13.999999999996362,
+              "p50": 15,
+              "p95": 17,
+              "max": 20
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5.999999999996362,
+              "p50": 7,
+              "p95": 8,
+              "max": 11
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.999999999996362,
+          "p50": 4,
+          "p95": 5,
+          "max": 5.000000000003638
+        }
+      },
+      "observedPairedP95Under50ms": true
+    }
+  ],
+  "failures": [],
+  "cleanupFailures": [],
+  "startedAt": "2026-10-01T02:11:08.507Z",
+  "headless": true,
+  "timing": {
+    "primary": "individual ABBA on-raw minus off-raw synchronous dispatch latency (syncMs)",
+    "control": "individual ACCA on-raw minus off-normalized synchronous dispatch latency (syncMs)",
+    "secondary": "both comparisons repeated for settledMs: dispatch through one fixed microtask continuation",
+    "includes": "syncMs includes dispatch only; settledMs additionally includes receipt and default feedback DOM updates",
+    "theme": "existing public domternal-theme.css, with layout or paint excluded unless dispatch itself forces them",
+    "separation": "one animation frame opportunity outside timing before every operation",
+    "excludes": "OS clipboard, editor construction/reset, validation, hashing, startup, next paint, asynchronous assets"
+  },
+  "machine": {
+    "os": "darwin",
+    "release": "25.5.0",
+    "arch": "arm64",
+    "cpu": "Apple M1 Max",
+    "logicalCPUs": 10,
+    "totalMemoryBytes": 68719476736,
+    "initialLoadAverage": [
+      6.76171875,
+      8.9736328125,
+      9.91064453125
+    ],
+    "node": "v24.13.0",
+    "playwright": "1.58.2"
+  },
+  "repository": {
+    "commit": "daa1ce1b42798d9526ef7b49c8dd34daeddb8931",
+    "dirty": true,
+    "lockSha256": "ac3e3b40de67356b257b03f1154b8a0479472accec417756a7b94c28b5db007f"
+  },
+  "fixtures": [
+    {
+      "id": "rich-20k",
+      "utf8Bytes": 20628,
+      "utf16Units": 20628,
+      "groups": 54,
+      "sha256": "bad91f74279fd2716f8d781d6d8b310a5eb0a30f811a9e420fefd91e460f9686",
+      "expected": {
+        "counts": {
+          "heading": 54,
+          "paragraph": 216,
+          "blockquote": 54,
+          "table": 54,
+          "tableRow": 54,
+          "tableCell": 108
+        }
+      }
+    },
+    {
+      "id": "word-20k",
+      "utf8Bytes": 20608,
+      "utf16Units": 20608,
+      "groups": 64,
+      "sha256": "a4ca1ebe8dc27871e9d6898fe755b7a9b4605e0b20ed15076d7ca3a6a2551f84",
+      "expected": {
+        "counts": {
+          "paragraph": 64
+        }
+      }
+    },
+    {
+      "id": "office-lists-20k",
+      "utf8Bytes": 20929,
+      "utf16Units": 20859,
+      "groups": 35,
+      "sha256": "bb1e0503fcd7dde5af99677efc2886a5c133f9b999eb70284f1dc0fc8821fe2f",
+      "expected": {
+        "counts": {
+          "paragraph": 140,
+          "orderedList": 70,
+          "bulletList": 35,
+          "listItem": 140
+        }
+      }
+    }
+  ],
+  "sourceHashes": {
+    "e2e/paste-performance/entry.mjs": "5a5639563371b32d50f0b68f665c965cdb18f0c111d624083c74890846f5e024",
+    "e2e/paste-performance/fixtures.mjs": "4d2633e24d025d69a397c745426c4ab2e15ad3e6883d4d416c2dd534e6ef9e8f",
+    "e2e/paste-performance/large.mjs": "8c23693974b2a0a56fa42276b1a992188808a60951100dc1f22c8b9b749cffdc",
+    "e2e/paste-performance/sampler.mjs": "dfadbf7722a7bdfaead6814c0f41c41509a465fe49bfbcf2fd9986c8f5d16c01",
+    "node_modules/.pnpm/@floating-ui+core@1.7.4/node_modules/@floating-ui/core/dist/floating-ui.core.mjs": "d94d2ed31b3a42e4fe50647aa1c7697ff416f7f5face8ff5575f06fac9e55aa8",
+    "node_modules/.pnpm/@floating-ui+dom@1.7.5/node_modules/@floating-ui/dom/dist/floating-ui.dom.mjs": "e4c64845dde188836675d7abe1a16cc9953a9231fbceece854cbebe565070457",
+    "node_modules/.pnpm/@floating-ui+utils@0.2.10/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs": "6a91556ea29f5b3c3a5ea66e59d7b258d1887704e7b1250b9d01a0c1413a9738",
+    "node_modules/.pnpm/@floating-ui+utils@0.2.10/node_modules/@floating-ui/utils/dist/floating-ui.utils.mjs": "da29fb657914a8502c54de945c22da3f3cf06fb50652b4e8f9533deddefdac69",
+    "node_modules/.pnpm/@floating-ui+utils@0.2.12/node_modules/@floating-ui/utils/dist/floating-ui.utils.mjs": "f53b3ea1eec15af77ca9def295b8f40f6d65706acfc5aaac4801ca3ca21ef7bd",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/decode-codepoint.js": "5d8ee93923d609724c69c8c356147176af5226585d4f343c87a5eec6590ebca9",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/decode.js": "8af227bae5682a686bf9e9a6547af8c388274f41cb857ff39592fe74fc848d25",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/escape.js": "50528d67b2fb87687f0658cfab58eb640ebbcd7e3bcfe8e5e2863e8293ae65b7",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/generated/decode-data-html.js": "b035b71d6969983297e39df1a06d760f2a8000a0f98444c4fe845fe1155da451",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/generated/decode-data-xml.js": "e28599f48fddd869435e44e6ae8644e70a610450d97562e33c869c056e3b129f",
+    "node_modules/.pnpm/linkifyjs@4.3.2/node_modules/linkifyjs/dist/linkify.mjs": "82cffad69cad85abcb2eaeeadd059e0681dced380f3ac48e8006fd1bde0a3cb0",
+    "node_modules/.pnpm/orderedmap@2.1.1/node_modules/orderedmap/dist/index.js": "c7cbbd34481992a8cf81dfa8951567ad5a586ab3f69511c92bedbe2241fb8969",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/doctype.js": "855d8cd764782cdc73003a9847d03ed261c5158f6a6901e563ccd4d3b92c8b16",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/error-codes.js": "b38ae5ac4f2a31ce2e1cfeca35cf7b89cc66736cd5be068cc433a3ccaca78be2",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/foreign-content.js": "129a84a9d04b6050b6896de45a70e1ee468434e19bdd6486e3aef3405d137cac",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/html.js": "e6cf93f387be70ddcd4f2bec67fbeb53161094f6306d834de461ec888a9dab76",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/token.js": "52dac9efba3a637771818d633a5cf1df30c7913d05ff23235150c88319ea035a",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/unicode.js": "69a0a52be895d2bcf88850beead4a098c5305c0b5669d1e8a0fe26f621ea25c6",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/index.js": "b825162aced2e79be8d68d45efb1f89ec34ed4189467195a071a0d7b694a19d4",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/parser/formatting-element-list.js": "a6e04b000b228a0bf7eba4e5462b343ec1e13dbfbe40bce913ade646bbde4461",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/parser/index.js": "23eb8e0f6b45abc36132c08f067899e0e615acbe9069762ba7780a66db78e65d",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/parser/open-element-stack.js": "fe4b609a572c9aa06fbd45ac53632b3ad565168903f4126a6f98d5a9d1f42999",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/serializer/index.js": "bb11a62d05d463bf756814d89227ea889733d3808fe7ebe27cb4f607ed85a4c7",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/tokenizer/index.js": "738969a05c4e7d3c0ce566225e742d730d248db82972a84e517828cd97bc3bb4",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/tokenizer/preprocessor.js": "12199175a31eb461dcecefa10ce2536c69ab92cdd2a1f67da3ea20b214599ac1",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/tree-adapters/default.js": "14b6408b0abb1c041e645644f977db34da280239be8a59a2eb3c9e282e89b7c4",
+    "node_modules/.pnpm/prosemirror-commands@1.7.2/node_modules/prosemirror-commands/dist/index.js": "ca2ed0b9cf4a9223696f8164c75097170bfc6b4ea5d976a9118e23bf42ca9442",
+    "node_modules/.pnpm/prosemirror-dropcursor@1.8.3/node_modules/prosemirror-dropcursor/dist/index.js": "7888c7c3c8a5faba07579d41fe02ff015cb9cb37bd64921e62e41b9f88ab113c",
+    "node_modules/.pnpm/prosemirror-gapcursor@1.4.1/node_modules/prosemirror-gapcursor/dist/index.js": "83b7d6b40d61ba222126a6500bd9e388218d00ea6138624987394437ca738096",
+    "node_modules/.pnpm/prosemirror-history@1.5.0/node_modules/prosemirror-history/dist/index.js": "73059476d431736eb4addbf964ce5333306a79eef2d8528ff42a9dde7478eb09",
+    "node_modules/.pnpm/prosemirror-inputrules@1.5.1/node_modules/prosemirror-inputrules/dist/index.js": "7a139d0fc8af39393d4ace29c2f60da7f22b1f707250cdb08ba757c9909b41a6",
+    "node_modules/.pnpm/prosemirror-keymap@1.2.3/node_modules/prosemirror-keymap/dist/index.js": "1ee13745be8bedc70790226aaf0b97cb24db71770f42d9dca9bf3583fde9d031",
+    "node_modules/.pnpm/prosemirror-model@1.25.11/node_modules/prosemirror-model/dist/index.js": "17e3009cbc68bbd99a2f7cbce18ba638e6a16eca82cacd62ada13c3f99de86c8",
+    "node_modules/.pnpm/prosemirror-schema-list@1.5.1/node_modules/prosemirror-schema-list/dist/index.js": "7ccc0e35842ac1b15db66861d68bbef724b27f46c0c50d99354d5cec4f8b54fc",
+    "node_modules/.pnpm/prosemirror-state@1.4.4/node_modules/prosemirror-state/dist/index.js": "d4bd4e98520abd0bb0150436d84a3832d856aa59636ea23a59409d35929730a3",
+    "node_modules/.pnpm/prosemirror-tables@1.8.5/node_modules/prosemirror-tables/dist/index.js": "86226413762b2b8d88356f83e691a770d7b1d1c3b8de7e2de6bf25d785593cdf",
+    "node_modules/.pnpm/prosemirror-transform@1.12.0/node_modules/prosemirror-transform/dist/index.js": "aa514b22a523f5aa9730a6bcd345b9da8b55daa0ec28f5faed2a41be1d98be3b",
+    "node_modules/.pnpm/prosemirror-view@1.42.2/node_modules/prosemirror-view/dist/index.js": "9ba1587d5a67b7d7e82d26cafbfd79761abaacf8b0e01ad72c26ab743ece01e7",
+    "node_modules/.pnpm/rope-sequence@1.3.4/node_modules/rope-sequence/dist/index.js": "ffe69b2d14402b9048f5df072d1bc95515d4c7f0fdfc9b99749cf6734f2360a2",
+    "node_modules/.pnpm/w3c-keyname@2.2.8/node_modules/w3c-keyname/index.js": "b649dec4f01c7c5eb05be4641b5b698c6938231ee50b38e17a2f0f822ca3df2e",
+    "packages/core/dist/clipboard.js": "16cab80a5965a195c37cf46d72bd5646d77f7a26b362c8a1aa851e0de8625ce0",
+    "packages/core/dist/index.js": "c27fb6b8aac091f209950012beb3a9242d44a584234927677ec3a9fffc7b6b7f",
+    "packages/extension-block-controls/dist/index.js": "86503780a7eee1fa5219389b3bb3f840640af9794705ea647694b4a40dc2a0ba",
+    "packages/extension-image/dist/index.js": "ad424ffad3a123f1be88c3e2c4d4421c6b850f919bd86ff45c13b395329b5851",
+    "packages/extension-paste-cleanup/dist/html/index.js": "ee3fdea799e8f81c3f10e64e1e68e4f0ab035dfd5f2f9cd0307edb310de09c0d",
+    "packages/extension-paste-cleanup/dist/index.js": "7eb4a03ce8c0bf1792e27311134006cdf73c87db7ae451ac7925525f96a4d10c",
+    "packages/extension-table/dist/index.js": "82aa1406b19828eded788e1aa2a6d05c791ee755750e03df53e73da42bbdc3be",
+    "packages/pm/src/commands.js": "61a03f64adcb31f88db8ab9dceb0ce4fa239e8e725edd308d6f2ca94e1de82cc",
+    "packages/pm/src/dropcursor.js": "1a464ef3384b22874e7b65018fe0fc05ee3f8adbd1c0199396c172694552e7d2",
+    "packages/pm/src/gapcursor.js": "093150714823146fe085332a615c3ed54e290f21c0f0d70b2d4df7b3476775dc",
+    "packages/pm/src/history.js": "b3ac1bcb6dae1e6307e77ab6eb70412606cbba296c86f51b856f8a4275a5433e",
+    "packages/pm/src/inputrules.js": "f41d91b2db1112fcc673a6862fe68cadcbdd0a66ed16b47ac74a0a6da8932bb4",
+    "packages/pm/src/keymap.js": "8218396f3bd9e5724bc2fb6592a1da7d2254fd1d4459f0117ef8d27084e15fd4",
+    "packages/pm/src/model.js": "478e59ac0830a0f6360236632d0d589fb0211183aa1ab82292fbca529c0cce35",
+    "packages/pm/src/schema-list.js": "1e174cdac977fd33e44469939c0a0dc32e49bae37f68e7fd6c11fdef8c3b02b0",
+    "packages/pm/src/state.js": "e689cc8cd8a102d31c9d3a7b0db0028594202093c4aca25982b425e8ae744556",
+    "packages/pm/src/tables.js": "cedbe9237d7fd9bf04a39837057c73f8645cf3ad70ff81666175cdc5862b6e2d",
+    "packages/pm/src/transform.js": "3e94295f73335c9122308a858445d2348949842579ac2bacd30728ab46fe75a7",
+    "packages/pm/src/view.js": "1b4ed9deaba72d4bc8495bf46db690dbf91040da0cb2401db10bad162732c0e2",
+    "packages/vanilla/dist/index.js": "e69741e88c6f404ead334d3d0c8c2be787bb86d70125dbe8bf363bb8effbd5c0",
+    "e2e/paste-performance/runner.mjs": "3c5f3bedc7658929f0065b1aa1fd043f12ba9fb27227ecd7659bb6f9305d1bd6",
+    "e2e/paste-performance/README.md": "6dcdaf595852978ac299760a7d38360cd11df1da0f299dc5278e6885cb209d79",
+    "e2e/paste-performance/fixtures.test.mjs": "297b788b37190f675fc5878676111c96656a7dee8119971863ef831ac50ac352",
+    "e2e/paste-performance/sampler.test.mjs": "39b2ce99aeb971c16af096149de66d744868ad5b80e0917d73c802d64a52b740",
+    "e2e/paste-performance/limits.mjs": "e01ad201dce437eff0a2879124e4da0673cf278588d82925828a5d18e87da894",
+    "e2e/paste-performance/large.test.mjs": "d9dccef62a8a0855f1b1230019e261475f4318c398ee98c73ff48fce70eb1287",
+    "packages/theme/dist/domternal-theme.css": "2a59fc4cdebff847a41eab0bf9a627ba2e1534bc899b68845ac93eecc16c1da9"
+  },
+  "bundleSha256": "11545c05a9ffe9e98a06526bc7efa1449a66c97183c67627ed8b9ae400fe30d2",
+  "rawSamples": "samples.jsonl",
+  "htmlSha256": "a4e626ab120afb02d2bfe953604564fa8ab8ca28d0fbdf2fe2490f8db7cf1c16",
+  "completed": 6534,
+  "expected": 6534,
+  "elapsedSeconds": 1376.341,
+  "complete": true
+}

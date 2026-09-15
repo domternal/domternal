@@ -728,6 +728,18 @@ in bold, italic and a styled span reaches the output node limit first, at about
 nothing is inserted; the HTML is never truncated. These are not guaranteed
 capacities: real documents differ in structure and stylesheet size.
 
+Cleanup runs synchronously inside the paste event. A paired measurement of
+synthetic 20 KiB rich, Word and Office list pastes on one machine, recorded under
+`e2e/paste-performance/results/2026-10-01-macos-arm64.md`, found a 95th percentile
+of 4 to 9 ms added per paste in Chromium and WebKit and 11 to 31 ms in Firefox.
+With `imageAssets` the median grows by about 2 to 9 ms, because the asset
+coordinator currently normalizes a paste without images twice. Firefox can also run
+its cycle collector, which frees unreachable DOM objects, synchronously inside a
+paste; that paste then takes several hundred milliseconds longer (up to 873 ms in
+that measurement, with about 0.7 percent of pastes taking 100 ms or more). Pastes
+without PasteCleanup show the same stalls: it is the engine's work, and a page
+cannot postpone it. These figures are measurements, not latency bounds.
+
 ## Trusted Types
 
 The normalizer parses HTML without the DOM, so cleanup itself needs no Trusted
