@@ -4,7 +4,7 @@
  * <details> and `<div data-type="details">` for compatibility.
  */
 
-import { Node, findParentNode, findChildren, defaultBlockAt, liftCurrentListItem, isInListItemLabel } from '@domternal/core';
+import { Node, findParentNode, findChildren, defaultBlockAt, liftCurrentListItem, isInListItemLabel, localizeMessage, localizedLabel, coreMessages } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
 import type { ViewMutationRecord } from '@domternal/pm/view';
@@ -13,6 +13,7 @@ import { findClosestVisibleNode } from './helpers/findClosestVisibleNode.js';
 import { setGapCursor } from './helpers/setGapCursor.js';
 import { DetailsSummary } from './DetailsSummary.js';
 import { DetailsContent } from './DetailsContent.js';
+import { detailsMessages } from './messages.js';
 
 // Monotonic source of unique ids so each toggle button can point aria-controls
 // at its own content region.
@@ -116,7 +117,13 @@ export const Details = Node.create<DetailsOptions>({
 
       const toggle = document.createElement('button');
       toggle.type = 'button';
-      toggle.setAttribute('aria-label', 'Toggle details');
+      const refreshLabel = (): void => {
+        const copy = localizeMessage(editor?.i18n, detailsMessages.toggle);
+        toggle.setAttribute('aria-label', copy.text);
+        toggle.lang = copy.language;
+      };
+      refreshLabel();
+      const unsubscribeI18n = editor?.i18n?.subscribe(refreshLabel);
       toggle.setAttribute('aria-expanded', String(Boolean(node.attrs['open'])));
       toggle.setAttribute('aria-controls', contentId);
       toggle.addEventListener('mousedown', (e) => { e.preventDefault(); });
@@ -177,6 +184,7 @@ export const Details = Node.create<DetailsOptions>({
       return {
         dom,
         contentDOM: content,
+        destroy() { unsubscribeI18n?.(); },
         ignoreMutation(mutation: ViewMutationRecord) {
           if (mutation.type === 'selection') {
             return false;
@@ -200,6 +208,8 @@ export const Details = Node.create<DetailsOptions>({
   },
 
   addToolbarItems(): ToolbarItem[] {
+    const i18n = this.editor?.i18n;
+    const group = localizeMessage(i18n, coreMessages.groupInsert);
     return [
       {
         type: 'button',
@@ -207,23 +217,28 @@ export const Details = Node.create<DetailsOptions>({
         command: 'toggleDetails',
         isActive: 'details',
         icon: 'caretCircleRight',
-        label: 'Toggle Details',
+        ...localizedLabel(i18n, detailsMessages.toolbar),
         group: 'insert',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 100,
       },
     ];
   },
 
   addFloatingMenuItems(): FloatingMenuItem[] {
+    const i18n = this.editor?.i18n;
+    const group = localizeMessage(i18n, coreMessages.groupAdvanced);
+    const description = localizeMessage(i18n, detailsMessages.description);
     return [
       {
         name: 'details',
-        label: 'Toggle block',
-        description: 'Collapsible content area',
+        ...localizedLabel(i18n, detailsMessages.insert),
+        description: description.text, descriptionLanguage: description.language,
         icon: 'caretCircleRight',
         group: 'Advanced',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 100,
-        keywords: ['toggle', 'collapse', 'details', 'accordion'],
+        keywords: [...(i18n?.getSearchAliases(detailsMessages.insert) ?? detailsMessages.insert.technicalAliases ?? [])],
         command: 'toggleDetails',
       },
     ];
