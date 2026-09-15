@@ -84,6 +84,17 @@ describe('changedTableHoldsUnsupportedSpan', () => {
     expect(changedTableHoldsUnsupportedSpan(nestedBefore, nestedAfter)).toBe(true);
   });
 
+  it('finds a changed table that unchecked content holds where the schema allows none', () => {
+    const { schema } = mount();
+    // Node creation does not check content, so a crafted or older document can hold this.
+    const hidden = (): PMNode => nodeType(schema, 'doc').create(null, [
+      nodeType(schema, 'paragraph').create(null, [schema.text('lead'), table(schema, { colspan: 1e6 })]),
+    ]);
+    expect(changedTableHoldsUnsupportedSpan(hidden(), hidden())).toBe(true);
+    const fine = (): PMNode => nodeType(schema, 'doc').create(null, [nodeType(schema, 'paragraph').create(null, schema.text('lead'))]);
+    expect(changedTableHoldsUnsupportedSpan(fine(), fine())).toBe(false);
+  });
+
   it('ignores a table that did not change', () => {
     const { schema } = mount();
     const bad = table(schema, { colspan: -1 });

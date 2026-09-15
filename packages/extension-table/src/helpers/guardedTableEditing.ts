@@ -85,9 +85,32 @@ function someChangedDescendant(previous: PMNode, current: PMNode, found: (node: 
   return false;
 }
 
+// Nodes are shared between document versions too, so each node's subtree is judged once.
+const subtreesHoldingUnsupportedSpans = new WeakMap<PMNode, boolean>();
+
+/**
+ * Whether the node, or any node inside it, is a table that holds a span loading would replace.
+ * Every node is looked at, also where the schema allows no table, since unchecked content can
+ * hold one there.
+ */
+function subtreeHoldsUnsupportedSpan(node: PMNode): boolean {
+  if (node.childCount === 0) return false;
+  let holds = subtreesHoldingUnsupportedSpans.get(node);
+  if (holds === undefined) {
+    holds = node.type.spec['tableRole'] === 'table' && tableHoldsUnsupportedSpan(node);
+    for (let index = 0; !holds && index < node.childCount; index++) holds = subtreeHoldsUnsupportedSpan(node.child(index));
+    subtreesHoldingUnsupportedSpans.set(node, holds);
+  }
+  return holds;
+}
+
 /** Whether a table that changed between the documents holds a span loading would replace. */
 export function changedTableHoldsUnsupportedSpan(previous: PMNode, current: PMNode): boolean {
   if (previous === current) return false;
+  // A document that holds no such table anywhere holds none among the tables that changed.
+  // New content shares no node with the document before, so the walk below would compare
+  // every node; the cached check settles the common case first.
+  if (!subtreeHoldsUnsupportedSpan(current)) return false;
   return someChangedDescendant(previous, current, node => node.type.spec['tableRole'] === 'table' && tableHoldsUnsupportedSpan(node));
 }
 
