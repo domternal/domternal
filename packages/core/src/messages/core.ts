@@ -107,6 +107,7 @@ declare module '@domternal/core' {
     'core.group.listInsert': undefined;
     'core.heading.level': { level: number };
     'core.group.media': undefined;
+    'core.group.advanced': undefined;
     'core.editor.label': undefined;
     'core.toolbar.bold': undefined;
     'core.toolbar.label': undefined;
@@ -132,6 +133,12 @@ declare module '@domternal/core' {
 export const coreMessages = {
   ...coreActionMessages,
   ...corePickerMessages,
+  groupAdvanced: defineMessage({
+    id: 'core.group.advanced',
+    defaultValue: 'Advanced',
+    owner: '@domternal/core',
+    description: 'Advanced insertion group name.',
+  }),
   groupMedia: defineMessage({
     id: 'core.group.media',
     defaultValue: 'Media',

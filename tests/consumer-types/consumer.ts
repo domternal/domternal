@@ -4,7 +4,7 @@
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
-import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation } from '@domternal/core';
+import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation } from '@domternal/core';
 import type { CompleteMessages, Messages } from '@domternal/core';
 
 declare module '@domternal/core' {
@@ -35,6 +35,7 @@ const builtinTranslations: Messages = {
   'core.toolbar.italic': 'Kursiv',
   'core.group.insert': 'Einfügen',
   'core.group.media': 'Medien',
+  'core.group.advanced': 'Erweitert',
   'core.heading.level': ({ level }) => `Überschrift ${String(level)}`,
 };
 editor.i18n.set({
@@ -61,6 +62,8 @@ editor.i18n.t(coreMessages.emojiItemName, { name: 'smile' });
 editor.i18n.t(coreMessages.emojiItemName, { name: 1 });
 // @ts-expect-error Swatch variants are a finite presentation choice.
 resolveColorSwatch(editor.i18n, 'blue', 'invalid');
+
+observeI18nPresentation(editor.i18n, () => document.body, () => undefined)();
 
 const itemCountMessage = defineMessage({
   id: 'app.itemCount',

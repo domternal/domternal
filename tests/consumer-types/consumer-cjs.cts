@@ -50,6 +50,7 @@ const builtinTranslations: core.Messages = {
   'core.toolbar.italic': 'Kursiv',
   'core.group.insert': 'Einfügen',
   'core.group.media': 'Medien',
+  'core.group.advanced': 'Erweitert',
   'core.heading.level': ({ level }) => `Überschrift ${String(level)}`,
 };
 editor.i18n.set({
@@ -76,6 +77,8 @@ editor.i18n.t(core.coreMessages.emojiItemName, { name: 'smile' });
 editor.i18n.t(core.coreMessages.emojiItemName, { name: 1 });
 // @ts-expect-error Swatch variants are a finite presentation choice.
 core.resolveColorSwatch(editor.i18n, 'blue', 'invalid');
+
+core.observeI18nPresentation(editor.i18n, () => document.body, () => undefined)();
 
 const itemCountMessage = core.defineMessage({
   id: 'app.itemCount',
