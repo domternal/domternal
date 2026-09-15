@@ -1,5 +1,6 @@
 import { Fragment, useCallback, type ReactNode } from 'react';
 import type { Editor } from '@domternal/core';
+import { coreMessages, localizeMessage, resolveEmojiCategory, resolveEmojiLabel } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useEmojiPicker, type EmojiPickerItem } from './useEmojiPicker.js';
 
@@ -17,10 +18,6 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 function categoryIcon(cat: string): string {
   return CATEGORY_ICONS[cat] ?? cat.charAt(0);
-}
-
-function formatName(name: string): string {
-  return name.replace(/_/g, ' ');
 }
 
 export interface DomternalEmojiPickerProps {
@@ -99,14 +96,22 @@ export function DomternalEmojiPicker({
 
   if (!isOpen) return <div ref={pickerRef} className="dm-emoji-picker-host" />;
 
+  const i18n = editor?.i18n;
+  const label = localizeMessage(i18n, coreMessages.emojiPickerLabel);
+  const searchLabel = localizeMessage(i18n, coreMessages.emojiSearchLabel);
+  const searchPlaceholder = localizeMessage(i18n, coreMessages.emojiSearchPlaceholder);
+  const categoriesLabel = localizeMessage(i18n, coreMessages.emojiCategories);
+  const emptyLabel = localizeMessage(i18n, coreMessages.emojiEmpty);
+  const frequentLabel = localizeMessage(i18n, coreMessages.emojiFrequentlyUsed);
   return (
     <div ref={pickerRef} className="dm-emoji-picker-host">
-      <div className="dm-emoji-picker">
+      <div className="dm-emoji-picker" role="dialog" aria-label={label.text} lang={label.language}>
         <div className="dm-emoji-picker-search">
           <input
             type="text"
-            placeholder="Search emoji..."
-            aria-label="Search emoji"
+            placeholder={searchPlaceholder.text}
+            aria-label={searchLabel.text}
+            lang={searchLabel.language}
             value={searchQuery}
             onChange={onSearch}
             onKeyDown={(e) => {
@@ -115,7 +120,7 @@ export function DomternalEmojiPicker({
           />
         </div>
 
-        <div className="dm-emoji-picker-tabs" role="tablist">
+        <div className="dm-emoji-picker-tabs" role="tablist" aria-label={categoriesLabel.text} lang={categoriesLabel.language}>
           {categoryNames.map((cat) => (
             <button
               key={cat}
@@ -123,8 +128,9 @@ export function DomternalEmojiPicker({
               className={`dm-emoji-picker-tab${activeCategory === cat ? ' dm-emoji-picker-tab--active' : ''}`}
               role="tab"
               aria-selected={activeCategory === cat}
-              title={cat}
-              aria-label={cat}
+              title={resolveEmojiCategory(i18n, cat).text}
+              lang={resolveEmojiCategory(i18n, cat).language}
+              aria-label={resolveEmojiCategory(i18n, cat).text}
               onMouseDown={(e) => {
                 e.preventDefault();
               }}
@@ -146,9 +152,11 @@ export function DomternalEmojiPicker({
                     key={item.name}
                     type="button"
                     className="dm-emoji-swatch"
+                    data-emoji-name={item.name}
                     tabIndex={-1}
-                    title={formatName(item.name)}
-                    aria-label={formatName(item.name)}
+                    title={resolveEmojiLabel(i18n, item).text}
+                    lang={resolveEmojiLabel(i18n, item).language}
+                    aria-label={resolveEmojiLabel(i18n, item).text}
                     onMouseDown={(e) => {
                       e.preventDefault();
                     }}
@@ -160,22 +168,24 @@ export function DomternalEmojiPicker({
                   </button>
                 ))
               ) : (
-                <div className="dm-emoji-picker-empty">No emoji found</div>
+                <div className="dm-emoji-picker-empty" lang={emptyLabel.language}>{emptyLabel.text}</div>
               )}
             </>
           ) : (
             <>
               {frequentlyUsed.length > 0 && (
                 <>
-                  <div className="dm-emoji-picker-category-label">Frequently Used</div>
+                  <div className="dm-emoji-picker-category-label" lang={frequentLabel.language}>{frequentLabel.text}</div>
                   {frequentlyUsed.map((item) => (
                     <button
                       key={item.name}
                       type="button"
                       className="dm-emoji-swatch"
+                    data-emoji-name={item.name}
                       tabIndex={-1}
-                      title={formatName(item.name)}
-                      aria-label={formatName(item.name)}
+                      title={resolveEmojiLabel(i18n, item).text}
+                    lang={resolveEmojiLabel(i18n, item).language}
+                      aria-label={resolveEmojiLabel(i18n, item).text}
                       onMouseDown={(e) => {
                         e.preventDefault();
                       }}
@@ -190,17 +200,19 @@ export function DomternalEmojiPicker({
               )}
               {categoryNames.map((cat) => (
                 <Fragment key={cat}>
-                  <div className="dm-emoji-picker-category-label" data-category={cat}>
-                    {cat}
+                  <div className="dm-emoji-picker-category-label" data-category={cat} lang={resolveEmojiCategory(i18n, cat).language}>
+                    {resolveEmojiCategory(i18n, cat).text}
                   </div>
                   {(categories.get(cat) ?? []).map((item) => (
                     <button
                       key={item.name}
                       type="button"
                       className="dm-emoji-swatch"
+                    data-emoji-name={item.name}
                       tabIndex={-1}
-                      title={formatName(item.name)}
-                      aria-label={formatName(item.name)}
+                      title={resolveEmojiLabel(i18n, item).text}
+                    lang={resolveEmojiLabel(i18n, item).language}
+                      aria-label={resolveEmojiLabel(i18n, item).text}
                       onMouseDown={(e) => {
                         e.preventDefault();
                       }}

@@ -1,9 +1,9 @@
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { computed, nextTick, onScopeDispose, ref, watch } from 'vue';
 import type { ComputedRef, Ref, ShallowRef } from 'vue';
-import { positionFloatingOnce } from '@domternal/core';
-import type { Editor } from '@domternal/core';
+import { positionFloatingOnce, observeI18nPresentation, matchesEmojiPresentation, resolveEmojiCategory } from '@domternal/core';
+import type { Editor, EmojiPresentationItem } from '@domternal/core';
 
-export interface EmojiPickerItem {
+export interface EmojiPickerItem extends EmojiPresentationItem {
   emoji: string;
   name: string;
   group: string;
@@ -16,6 +16,8 @@ export interface EmojiPickerItem {
 const SCROLL_SETTLE_MS = 50;
 
 export interface UseEmojiPickerResult {
+  /** Revision for presentation subscribers, deferred during active interactions. */
+  localeRevision: Ref<number>;
   isOpen: Ref<boolean>;
   searchQuery: Ref<string>;
   activeCategory: Ref<string>;
@@ -32,6 +34,7 @@ export interface UseEmojiPickerResult {
 }
 
 export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiPickerItem[]): UseEmojiPickerResult {
+  const localeRevision = ref(0);
   const isOpen = ref(false);
   const searchQuery = ref('');
   const activeCategory = ref('');
@@ -41,6 +44,22 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
   let cleanupFloating: (() => void) | null = null;
   let clickOutsideHandler: ((e: Event) => void) | null = null;
   let keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+
+  watch(editor, (current, _previous, onCleanup) => {
+    if (current) onCleanup(observeI18nPresentation(current.i18n, () => pickerRef.value, () => {
+      const previous = document.activeElement;
+      const hadSwatchFocus = previous instanceof HTMLElement && pickerRef.value?.contains(previous)
+        && previous.classList.contains('dm-emoji-swatch');
+      localeRevision.value++;
+      if (hadSwatchFocus) void nextTick(() => {
+        const root = pickerRef.value;
+        if (!root?.isConnected || document.activeElement === previous) return;
+        const replacement = Array.from(root.querySelectorAll<HTMLElement>('.dm-emoji-swatch'))
+          .find((element) => element.dataset['emojiName'] === previous.dataset['emojiName']);
+        (replacement ?? root.querySelector<HTMLInputElement>('input'))?.focus({ preventScroll: true });
+      });
+    }));
+  }, { immediate: true });
 
   const categories = computed(() => {
     const map = new Map<string, EmojiPickerItem[]>();
@@ -55,14 +74,21 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
   const categoryNames = computed(() => [...categories.value.keys()]);
 
   const filteredEmojis = computed(() => {
+    void localeRevision.value;
     const query = searchQuery.value.toLowerCase();
     if (!query) return [];
     const storage = getEmojiStorage(editor.value);
     const searchFn = storage?.['searchEmoji'] as ((q: string) => EmojiPickerItem[]) | undefined;
-    if (searchFn) return searchFn(query);
-    return emojis.filter(
+    const matches = searchFn ? searchFn(query) : emojis.filter(
       (item) => item.name.includes(query) || item.group.toLowerCase().includes(query),
     );
+    const displayMatches = emojis.filter((item) => matchesEmojiPresentation(editor.value?.i18n, item, query)
+      || resolveEmojiCategory(editor.value?.i18n, item.group).text.toLowerCase().includes(query));
+    const result = new Map(matches.map((item) => [item.name, item]));
+    for (const item of displayMatches) {
+      if (!result.has(item.name)) result.set(item.name, item);
+    }
+    return [...result.values()];
   });
 
   const frequentlyUsed = computed(() => {
@@ -231,6 +257,7 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
   }
 
   return {
+    localeRevision,
     isOpen,
     searchQuery,
     activeCategory,

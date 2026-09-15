@@ -22,7 +22,9 @@
  */
 import type { SuggestionProps, SuggestionRenderer } from './suggestionPlugin.js';
 import type { EmojiItem } from './emojis.js';
-import { positionFloatingOnce } from '@domternal/core';
+import { positionFloatingOnce, localizeMessage, resolveEmojiLabel } from '@domternal/core';
+
+import { emojiMessages } from './messages.js';
 
 const MAX_ITEMS = 10;
 
@@ -39,7 +41,36 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
     let container: HTMLDivElement | null = null;
     let currentProps: SuggestionProps | null = null;
     let selectedIndex = 0;
+    let unsubscribeI18n: (() => void) | undefined;
+    let boundI18n: SuggestionProps['i18n'];
     let cleanupFloating: (() => void) | null = null;
+
+    function updateLabels(): void {
+      if (!container || !currentProps) return;
+      const label = localizeMessage(currentProps.i18n, emojiMessages.suggestionLabel);
+      container.setAttribute('aria-label', label.text); container.lang = label.language;
+      const empty = container.querySelector<HTMLElement>('.dm-emoji-suggestion-empty');
+      if (empty) {
+        const emptyLabel = localizeMessage(currentProps.i18n, emojiMessages.suggestionEmpty);
+        empty.textContent = emptyLabel.text; empty.lang = emptyLabel.language;
+      }
+      const names = container.querySelectorAll<HTMLElement>('.dm-emoji-suggestion-name');
+      names.forEach((element, index) => {
+        const item = currentProps?.items[index];
+        if (!item) return;
+        const itemLabel = resolveEmojiLabel(currentProps?.i18n, item);
+        element.textContent = itemLabel.text;
+        if (itemLabel.language) element.lang = itemLabel.language;
+        else element.removeAttribute('lang');
+      });
+    }
+
+    function bindI18n(): void {
+      if (boundI18n === currentProps?.i18n) return;
+      unsubscribeI18n?.();
+      boundI18n = currentProps?.i18n;
+      unsubscribeI18n = boundI18n?.subscribe(updateLabels);
+    }
 
     function render(): void {
       if (!container || !currentProps) return;
@@ -52,7 +83,8 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
       if (visible.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'dm-emoji-suggestion-empty';
-        empty.textContent = 'No emoji found';
+        const label = localizeMessage(currentProps.i18n, emojiMessages.suggestionEmpty);
+        empty.textContent = label.text; empty.lang = label.language;
         container.appendChild(empty);
         return;
       }
@@ -72,7 +104,9 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'dm-emoji-suggestion-name';
-        nameSpan.textContent = item.name.replace(/_/g, ' ');
+        const label = resolveEmojiLabel(currentProps?.i18n, item);
+        nameSpan.textContent = label.text;
+        if (label.language) nameSpan.lang = label.language;
 
         btn.appendChild(emojiSpan);
         btn.appendChild(nameSpan);
@@ -147,7 +181,8 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
         container = document.createElement('div');
         container.className = 'dm-emoji-suggestion';
         container.setAttribute('role', 'listbox');
-        container.setAttribute('aria-label', 'Emoji suggestions');
+        updateLabels();
+        bindI18n();
 
         // Append inside .dm-editor (which has position:relative) so the
         // dropdown scrolls with the editor content via CSS - zero jitter
@@ -162,12 +197,20 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
 
       onUpdate(props: SuggestionProps): void {
         currentProps = props;
+        bindI18n();
+        if (props.updateReason === 'locale') {
+          updateLabels();
+          return;
+        }
         selectedIndex = 0;
         render();
         updatePosition();
       },
 
       onExit(): void {
+        unsubscribeI18n?.();
+        unsubscribeI18n = undefined;
+        boundI18n = undefined;
         cleanupFloating?.();
         cleanupFloating = null;
         container?.remove();

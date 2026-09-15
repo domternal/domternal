@@ -20,6 +20,7 @@ declare module '@domternal/core' {
 // augmentation, without which their commands appear missing.
 import '@domternal/extension-details';
 import '@domternal/extension-emoji';
+import { emojiMessages } from '@domternal/extension-emoji';
 import '@domternal/extension-image';
 import '@domternal/extension-markdown';
 import '@domternal/extension-math';
@@ -64,6 +65,9 @@ editor.i18n.t(coreMessages.emojiItemName, { name: 1 });
 resolveColorSwatch(editor.i18n, 'blue', 'invalid');
 
 observeI18nPresentation(editor.i18n, () => document.body, () => undefined)();
+
+editor.i18n.t(emojiMessages.suggestionEmpty);
+editor.i18n.set({ messages: { 'emoji.insert': 'Insert emoji', 'emoji.suggestion.label': 'Suggestions' } });
 
 const itemCountMessage = defineMessage({
   id: 'app.itemCount',

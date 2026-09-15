@@ -13,10 +13,10 @@ import {
   untracked,
 } from '@angular/core';
 
-import type { Editor } from '@domternal/core';
-import { positionFloatingOnce } from '@domternal/core';
+import type { Editor, EmojiPresentationItem, PickerLabel } from '@domternal/core';
+import { positionFloatingOnce, coreMessages, observeI18nPresentation, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation } from '@domternal/core';
 
-export interface EmojiPickerItem {
+export interface EmojiPickerItem extends EmojiPresentationItem {
   emoji: string;
   name: string;
   group: string;
@@ -41,20 +41,21 @@ const CATEGORY_ICONS: Record<string, string> = {
   host: { class: 'dm-emoji-picker-host' },
   template: `
     @if (isOpen()) {
-      <div class="dm-emoji-picker">
+      <div class="dm-emoji-picker" role="dialog" [attr.aria-label]="labels().panel.text" [attr.lang]="labels().panel.language">
         <div class="dm-emoji-picker-search">
           <input
             #searchInput
             type="text"
-            placeholder="Search emoji..."
+            [placeholder]="labels().searchPlaceholder.text"
             [value]="searchQuery()"
             (input)="onSearch($event)"
-            aria-label="Search emoji"
+            [attr.aria-label]="labels().search.text"
+            [attr.lang]="labels().search.language"
             (keydown.escape)="close()"
           />
         </div>
 
-        <div class="dm-emoji-picker-tabs" role="tablist">
+        <div class="dm-emoji-picker-tabs" role="tablist" [attr.aria-label]="labels().categories.text" [attr.lang]="labels().categories.language">
           @for (cat of categoryNames(); track cat) {
             <button
               type="button"
@@ -62,8 +63,9 @@ const CATEGORY_ICONS: Record<string, string> = {
               [class.dm-emoji-picker-tab--active]="activeCategory() === cat"
               role="tab"
               [attr.aria-selected]="activeCategory() === cat"
-              [title]="cat"
-              [attr.aria-label]="cat"
+              [title]="categoryLabel(cat).text"
+              [attr.lang]="categoryLabel(cat).language"
+              [attr.aria-label]="categoryLabel(cat).text"
               (mousedown)="$event.preventDefault()"
               (click)="scrollToCategory(cat)"
             >
@@ -83,27 +85,31 @@ const CATEGORY_ICONS: Record<string, string> = {
               <button
                 type="button"
                 class="dm-emoji-swatch"
+                [attr.data-emoji-name]="item.name"
                 [attr.tabindex]="-1"
-                [title]="formatName(item.name)"
-                [attr.aria-label]="formatName(item.name)"
+                [title]="itemLabel(item).text"
+                [attr.lang]="itemLabel(item).language"
+                [attr.aria-label]="itemLabel(item).text"
                 (mousedown)="$event.preventDefault()"
                 (click)="selectEmoji(item)"
               >
                 {{ item.emoji }}
               </button>
             } @empty {
-              <div class="dm-emoji-picker-empty">No emoji found</div>
+              <div class="dm-emoji-picker-empty" [attr.lang]="labels().empty.language">{{ labels().empty.text }}</div>
             }
           } @else {
             @if (frequentlyUsed().length) {
-              <div class="dm-emoji-picker-category-label">Frequently Used</div>
+              <div class="dm-emoji-picker-category-label" [attr.lang]="labels().frequent.language">{{ labels().frequent.text }}</div>
               @for (item of frequentlyUsed(); track item.name) {
                 <button
                   type="button"
                   class="dm-emoji-swatch"
+                [attr.data-emoji-name]="item.name"
                   [attr.tabindex]="-1"
-                  [title]="formatName(item.name)"
-                  [attr.aria-label]="formatName(item.name)"
+                  [title]="itemLabel(item).text"
+                [attr.lang]="itemLabel(item).language"
+                  [attr.aria-label]="itemLabel(item).text"
                   (mousedown)="$event.preventDefault()"
                   (click)="selectEmoji(item)"
                 >
@@ -112,14 +118,16 @@ const CATEGORY_ICONS: Record<string, string> = {
               }
             }
             @for (cat of categoryNames(); track cat) {
-              <div class="dm-emoji-picker-category-label" [attr.data-category]="cat">{{ cat }}</div>
+              <div class="dm-emoji-picker-category-label" [attr.data-category]="cat" [attr.lang]="categoryLabel(cat).language">{{ categoryLabel(cat).text }}</div>
               @for (item of getCategory(cat); track item.name) {
                 <button
                   type="button"
                   class="dm-emoji-swatch"
+                [attr.data-emoji-name]="item.name"
                   [attr.tabindex]="-1"
-                  [title]="formatName(item.name)"
-                  [attr.aria-label]="formatName(item.name)"
+                  [title]="itemLabel(item).text"
+                [attr.lang]="itemLabel(item).language"
+                  [attr.aria-label]="itemLabel(item).text"
                   (mousedown)="$event.preventDefault()"
                   (click)="selectEmoji(item)"
                 >
@@ -137,6 +145,19 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   readonly editor = input.required<Editor>();
   readonly emojis = input.required<EmojiPickerItem[]>();
 
+  private readonly localeRevision = signal(0);
+  readonly labels = computed(() => {
+    this.localeRevision();
+    const i18n = this.editor().i18n;
+    return {
+      panel: i18n.resolve(coreMessages.emojiPickerLabel),
+      search: i18n.resolve(coreMessages.emojiSearchLabel),
+      searchPlaceholder: i18n.resolve(coreMessages.emojiSearchPlaceholder),
+      categories: i18n.resolve(coreMessages.emojiCategories),
+      empty: i18n.resolve(coreMessages.emojiEmpty),
+      frequent: i18n.resolve(coreMessages.emojiFrequentlyUsed),
+    };
+  });
   readonly isOpen = signal(false);
   readonly searchQuery = signal('');
   readonly activeCategory = signal('');
@@ -148,6 +169,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
   private eventHandler: ((...args: unknown[]) => void) | null = null;
   private cleanupFloating: (() => void) | null = null;
+  private localeFocusFrame: number | null = null;
 
   readonly categories = computed(() => {
     const map = new Map<string, EmojiPickerItem[]>();
@@ -165,16 +187,21 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   readonly categoryNames = computed(() => [...this.categories().keys()]);
 
   readonly filteredEmojis = computed(() => {
+    this.localeRevision();
     const query = this.searchQuery().toLowerCase();
     if (!query) return [];
     const storage = this.getEmojiStorage();
     const searchFn = storage?.['searchEmoji'] as ((q: string) => EmojiPickerItem[]) | undefined;
-    if (searchFn) {
-      return searchFn(query);
-    }
-    return this.emojis().filter(
+    const matches = searchFn ? searchFn(query) : this.emojis().filter(
       (item) => item.name.includes(query) || item.group.toLowerCase().includes(query)
     );
+    const displayMatches = this.emojis().filter((item) => matchesEmojiPresentation(this.editor().i18n, item, query)
+      || resolveEmojiCategory(this.editor().i18n, item.group).text.toLowerCase().includes(query));
+    const result = new Map(matches.map((item) => [item.name, item]));
+    for (const item of displayMatches) {
+      if (!result.has(item.name)) result.set(item.name, item);
+    }
+    return [...result.values()];
   });
 
   readonly frequentlyUsed = computed(() => {
@@ -195,8 +222,30 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   });
 
   constructor() {
-    effect(() => {
+    effect((onCleanup) => {
       const editor = this.editor();
+      const unsubscribe = observeI18nPresentation(editor.i18n, () => this.elRef.nativeElement, () => {
+        const previous = document.activeElement;
+        const hadSwatchFocus = previous instanceof HTMLElement && this.elRef.nativeElement.contains(previous)
+          && previous.classList.contains('dm-emoji-swatch');
+        this.ngZone.run(() => { this.localeRevision.update((value) => value + 1); });
+        if (hadSwatchFocus) {
+          if (this.localeFocusFrame !== null) cancelAnimationFrame(this.localeFocusFrame);
+          this.localeFocusFrame = requestAnimationFrame(() => {
+            this.localeFocusFrame = null;
+            const root = this.elRef.nativeElement;
+            if (!root.isConnected || !this.isOpen() || document.activeElement === previous) return;
+            const replacement = Array.from(root.querySelectorAll<HTMLElement>('.dm-emoji-swatch'))
+              .find((element) => element.dataset['emojiName'] === previous.dataset['emojiName']);
+            (replacement ?? root.querySelector<HTMLInputElement>('input'))?.focus({ preventScroll: true });
+          });
+        }
+      });
+      onCleanup(() => {
+        unsubscribe();
+        if (this.localeFocusFrame !== null) cancelAnimationFrame(this.localeFocusFrame);
+        this.localeFocusFrame = null;
+      });
       untracked(() => {
         this.setupEventListener(editor);
       });
@@ -204,6 +253,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.localeFocusFrame !== null) cancelAnimationFrame(this.localeFocusFrame);
     this.cleanup();
   }
 
@@ -215,8 +265,19 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     return CATEGORY_ICONS[cat] ?? cat.charAt(0);
   }
 
+  categoryLabel(category: string): PickerLabel {
+    this.localeRevision();
+    return resolveEmojiCategory(this.editor().i18n, category);
+  }
+
+  itemLabel(item: EmojiPickerItem): PickerLabel {
+    this.localeRevision();
+    return resolveEmojiLabel(this.editor().i18n, item);
+  }
+
   formatName(name: string): string {
-    return name.replace(/_/g, ' ');
+    this.localeRevision();
+    return resolveEmojiLabel(this.editor().i18n, { name }).text;
   }
 
   onSearch(event: Event): void {

@@ -80,6 +80,9 @@ core.resolveColorSwatch(editor.i18n, 'blue', 'invalid');
 
 core.observeI18nPresentation(editor.i18n, () => document.body, () => undefined)();
 
+editor.i18n.t(emoji.emojiMessages.suggestionEmpty);
+editor.i18n.set({ messages: { 'emoji.insert': 'Insert emoji', 'emoji.suggestion.label': 'Suggestions' } });
+
 const itemCountMessage = core.defineMessage({
   id: 'app.itemCount',
   defaultValue: ({ count }, context) => `${context.number(count)} items`,
