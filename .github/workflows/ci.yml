@@ -105,6 +105,9 @@ jobs:
         # to external npm consumers.
         run: pnpm test:types-consumer
 
+      - name: Localization catalog and UI literals
+        run: pnpm test:i18n
+
       - name: API surface snapshot
         # Fails if any package's public export list drifts from the
         # committed snapshot. Forces intentional review of add/remove/

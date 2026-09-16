@@ -1,0 +1,11 @@
+{
+  "@domternal/core": "core.",
+  "@domternal/extension-block-controls": "blockControls.",
+  "@domternal/extension-details": "details.",
+  "@domternal/extension-emoji": "emoji.",
+  "@domternal/extension-image": "image.",
+  "@domternal/extension-math": "math.",
+  "@domternal/extension-mention": "mention.",
+  "@domternal/extension-table": "table.",
+  "@domternal/extension-toc": "toc."
+}

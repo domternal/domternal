@@ -38,7 +38,9 @@
     "test:pm-ranges:unit": "node --test tests/pm-ranges/check.test.mjs",
     "test:pm-ranges": "node --test tests/pm-ranges/check.test.mjs && node tests/pm-ranges/check.mjs",
     "test:frozen-contract": "node --test tests/frozen-contract/check.test.mjs && node tests/frozen-contract/check.mjs",
-    "test:externals": "node --test tests/externals/check.test.mjs && node tests/externals/check.mjs"
+    "test:externals": "node --test tests/externals/check.test.mjs && node tests/externals/check.mjs",
+    "test:i18n": "node --test tests/i18n/check.test.mjs && node tests/i18n/check.mjs",
+    "i18n:update": "node tests/i18n/check.mjs --update"
   },
   "repository": {
     "type": "git",

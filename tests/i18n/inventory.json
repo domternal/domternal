@@ -1,0 +1,3865 @@
+{
+  "schemaVersion": 1,
+  "messages": [
+    {
+      "id": "blockControls.color.background",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Background.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Background"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.color.backgroundSwatch",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Accessible name for a block background color swatch.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ color }) => `Background: ${color}`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "{\n    color: string;\n}",
+        "fields": [
+          {
+            "name": "color",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.color.clearBackground",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: No background.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "No background"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.color.clearText",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Default text color.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Default text color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.color.text",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Text color.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Text color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.color.textSwatch",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Accessible name for a block text color swatch.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ color }) => `Text color: ${color}`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "{\n    color: string;\n}",
+        "fields": [
+          {
+            "name": "color",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.context.colors",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Colors.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Colors"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.context.copyLink",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Copy link.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Copy link"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.context.delete",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Delete.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Delete"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.context.duplicate",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Duplicate.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Duplicate"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.context.label",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Block options.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Block options"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.context.turnInto",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Turn into.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Turn into"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.handle.add",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Add block below.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Add block below"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.handle.drag",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Drag to reorder, click for options.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Drag to reorder, click for options"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.slash.noMatches",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: No matches.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "No matches"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.turnInto.bulletList",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Bullet list.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Bullet list"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.turnInto.codeBlock",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Code block.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Code block"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.turnInto.heading",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Heading conversion action with its level.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ level }, context) => `Heading ${context.number(level)}`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "{\n    level: number;\n}",
+        "fields": [
+          {
+            "name": "level",
+            "type": "number",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.turnInto.orderedList",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Ordered list.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Ordered list"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.turnInto.paragraph",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Paragraph.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Paragraph"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.turnInto.quote",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: Quote.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Quote"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "blockControls.turnInto.taskList",
+      "owner": "@domternal/extension-block-controls",
+      "description": "Block controls UI: To-do list.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "To-do list"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-block-controls/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.bubbleMenu.blockActionsSelectionHint",
+      "owner": "@domternal/core",
+      "description": "Explains why block actions require a selection within one block.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Block actions (select within a single block)"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.bubbleMenu.label",
+      "owner": "@domternal/core",
+      "description": "Accessible name of the selection formatting menu.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Text formatting"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.bubbleMenu.moreOptions",
+      "owner": "@domternal/core",
+      "description": "Accessible name for additional block actions.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "More options"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.background",
+      "owner": "@domternal/core",
+      "description": "Heading of background color swatches.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Background color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.backgroundSwatch",
+      "owner": "@domternal/core",
+      "description": "Accessible name of a background color swatch.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ color }) => `${color} background`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "{\n    color: string;\n}",
+        "fields": [
+          {
+            "name": "color",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.blue",
+      "owner": "@domternal/core",
+      "description": "Name of the blue color token.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Blue"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.brown",
+      "owner": "@domternal/core",
+      "description": "Name of the brown color token.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Brown"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.defaultBackground",
+      "owner": "@domternal/core",
+      "description": "Reset background color action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Default background"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.defaultText",
+      "owner": "@domternal/core",
+      "description": "Reset text color action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Default text color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.gray",
+      "owner": "@domternal/core",
+      "description": "Name of the gray color token.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Gray"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.green",
+      "owner": "@domternal/core",
+      "description": "Name of the green color token.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Green"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.label",
+      "owner": "@domternal/core",
+      "description": "Accessible name of the text and background color picker.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Text and background color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.orange",
+      "owner": "@domternal/core",
+      "description": "Name of the orange color token.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Orange"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.pink",
+      "owner": "@domternal/core",
+      "description": "Name of the pink color token.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Pink"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.purple",
+      "owner": "@domternal/core",
+      "description": "Name of the purple color token.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Purple"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.red",
+      "owner": "@domternal/core",
+      "description": "Name of the red color token.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Red"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.text",
+      "owner": "@domternal/core",
+      "description": "Heading of text color swatches.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Text color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.textSwatch",
+      "owner": "@domternal/core",
+      "description": "Accessible name of a text color swatch.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ color }) => `${color} text`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "{\n    color: string;\n}",
+        "fields": [
+          {
+            "name": "color",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.colorPicker.yellow",
+      "owner": "@domternal/core",
+      "description": "Name of the yellow color token.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Yellow"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.editor.label",
+      "owner": "@domternal/core",
+      "description": "Default accessible name for the editable document.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Rich text editor"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.categories",
+      "owner": "@domternal/core",
+      "description": "Accessible name of emoji category tabs.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Emoji categories"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.category.activities",
+      "owner": "@domternal/core",
+      "description": "Display name of the Activities emoji category.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Activities"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.category.animalsNature",
+      "owner": "@domternal/core",
+      "description": "Display name of the Animals & Nature emoji category.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Animals & Nature"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.category.flags",
+      "owner": "@domternal/core",
+      "description": "Display name of the Flags emoji category.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Flags"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.category.foodDrink",
+      "owner": "@domternal/core",
+      "description": "Display name of the Food & Drink emoji category.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Food & Drink"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.category.objects",
+      "owner": "@domternal/core",
+      "description": "Display name of the Objects emoji category.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Objects"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.category.peopleBody",
+      "owner": "@domternal/core",
+      "description": "Display name of the People & Body emoji category.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "People & Body"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.category.smileysEmotion",
+      "owner": "@domternal/core",
+      "description": "Display name of the Smileys & Emotion emoji category.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Smileys & Emotion"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.category.symbols",
+      "owner": "@domternal/core",
+      "description": "Display name of the Symbols emoji category.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Symbols"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.category.travelPlaces",
+      "owner": "@domternal/core",
+      "description": "Display name of the Travel & Places emoji category.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Travel & Places"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.empty",
+      "owner": "@domternal/core",
+      "description": "Empty emoji search results.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "No emoji found"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.frequentlyUsed",
+      "owner": "@domternal/core",
+      "description": "Heading of frequently used emoji.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Frequently Used"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.itemName",
+      "owner": "@domternal/core",
+      "description": "Display name resolved from a stable emoji identity.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ name }) => name.replace(/_/g, ' ')"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "{\n    name: string;\n}",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.label",
+      "owner": "@domternal/core",
+      "description": "Accessible name of the emoji picker.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Emoji picker"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.searchLabel",
+      "owner": "@domternal/core",
+      "description": "Accessible name of emoji search.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Search emoji"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.emojiPicker.searchPlaceholder",
+      "owner": "@domternal/core",
+      "description": "Placeholder in emoji search.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Search emoji..."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/pickers.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.bulletedList",
+      "owner": "@domternal/core",
+      "description": "Bulleted list insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Bulleted list"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "bullet",
+        "list",
+        "unordered",
+        "ul"
+      ],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "core.floating.bulletedListDescription",
+      "owner": "@domternal/core",
+      "description": "Description of bulleted list insertion.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Create a simple bulleted list"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.codeBlock",
+      "owner": "@domternal/core",
+      "description": "Code block insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Code block"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "code",
+        "snippet",
+        "pre"
+      ],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "core.floating.codeBlockDescription",
+      "owner": "@domternal/core",
+      "description": "Description of code block insertion.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Capture a code snippet"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.divider",
+      "owner": "@domternal/core",
+      "description": "Divider insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Divider"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "divider",
+        "hr",
+        "line",
+        "separator",
+        "horizontal rule"
+      ],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "core.floating.dividerDescription",
+      "owner": "@domternal/core",
+      "description": "Description of divider insertion.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Insert a horizontal rule"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.headingBigDescription",
+      "owner": "@domternal/core",
+      "description": "Description of a level one heading.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Big section heading"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.headingDescription",
+      "owner": "@domternal/core",
+      "description": "Description of another heading level.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Section heading"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.headingMediumDescription",
+      "owner": "@domternal/core",
+      "description": "Description of a level two heading.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Medium section heading"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.headingSmallDescription",
+      "owner": "@domternal/core",
+      "description": "Description of a level three heading.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Small section heading"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.numberedList",
+      "owner": "@domternal/core",
+      "description": "Numbered list insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Numbered list"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "ordered",
+        "numbered",
+        "list",
+        "ol",
+        "1."
+      ],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "core.floating.numberedListDescription",
+      "owner": "@domternal/core",
+      "description": "Description of numbered list insertion.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Create a numbered list"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.quote",
+      "owner": "@domternal/core",
+      "description": "Quote insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Quote"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "quote",
+        "blockquote",
+        "citation"
+      ],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "core.floating.quoteDescription",
+      "owner": "@domternal/core",
+      "description": "Description of quote insertion.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Capture a quote"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floating.todoList",
+      "owner": "@domternal/core",
+      "description": "Task list insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "To-do list"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "todo",
+        "task",
+        "checkbox",
+        "check"
+      ],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "core.floating.todoListDescription",
+      "owner": "@domternal/core",
+      "description": "Description of task list insertion.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Track tasks with a checkbox list"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.floatingMenu.label",
+      "owner": "@domternal/core",
+      "description": "Accessible name of the block insertion menu.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Insert block"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.advanced",
+      "owner": "@domternal/core",
+      "description": "Advanced insertion group name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Advanced"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.alignment",
+      "owner": "@domternal/core",
+      "description": "Display name of the alignment toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "alignment"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.basic",
+      "owner": "@domternal/core",
+      "description": "Basic insertion group name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Basic"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.blocks",
+      "owner": "@domternal/core",
+      "description": "Display name of the blocks toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "blocks"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.document",
+      "owner": "@domternal/core",
+      "description": "Display name of the document toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "document"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.format",
+      "owner": "@domternal/core",
+      "description": "Display name of the format toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "format"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.history",
+      "owner": "@domternal/core",
+      "description": "Display name of the history toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "history"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.insert",
+      "owner": "@domternal/core",
+      "description": "Display name of the insert toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "insert"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.listInsert",
+      "owner": "@domternal/core",
+      "description": "List insertion group name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Lists"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.lists",
+      "owner": "@domternal/core",
+      "description": "Display name of the lists toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "lists"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.media",
+      "owner": "@domternal/core",
+      "description": "Media insertion group name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Media"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.textStyle",
+      "owner": "@domternal/core",
+      "description": "Display name of the textStyle toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "textStyle"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.utilities",
+      "owner": "@domternal/core",
+      "description": "Display name of the utilities toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "utilities"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.group.utility",
+      "owner": "@domternal/core",
+      "description": "Display name of the utility toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "utility"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.heading.level",
+      "owner": "@domternal/core",
+      "description": "Heading insertion or formatting action with its numeric level.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ level }) => `Heading ${String(level)}`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "heading",
+        "title"
+      ],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "{\n    level: number;\n}",
+        "fields": [
+          {
+            "name": "level",
+            "type": "number",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": true
+    },
+    {
+      "id": "core.linkPopover.apply",
+      "owner": "@domternal/core",
+      "description": "Apply link action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Apply link"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.linkPopover.remove",
+      "owner": "@domternal/core",
+      "description": "Remove link action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Remove link"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.linkPopover.urlLabel",
+      "owner": "@domternal/core",
+      "description": "Accessible name of the URL input.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "URL"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.linkPopover.urlPlaceholder",
+      "owner": "@domternal/core",
+      "description": "URL input placeholder.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Enter URL..."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.placeholder.default",
+      "owner": "@domternal/core",
+      "description": "Default empty textblock placeholder.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Write something …"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.taskItem.status",
+      "owner": "@domternal/core",
+      "description": "Accessible name of a task checkbox.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Task status"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.alignCenter",
+      "owner": "@domternal/core",
+      "description": "Center text alignment action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align Center"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.alignLeft",
+      "owner": "@domternal/core",
+      "description": "Left text alignment action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align Left"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.alignRight",
+      "owner": "@domternal/core",
+      "description": "Right text alignment action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align Right"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.blockquote",
+      "owner": "@domternal/core",
+      "description": "Blockquote formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Blockquote"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.bold",
+      "owner": "@domternal/core",
+      "description": "Accessible name and tooltip for the bold formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Bold"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "bold"
+      ],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "core.toolbar.bulletList",
+      "owner": "@domternal/core",
+      "description": "Bullet list formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Bullet List"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.clearFormatting",
+      "owner": "@domternal/core",
+      "description": "Clear formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Clear Formatting"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.code",
+      "owner": "@domternal/core",
+      "description": "Inline code formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Code"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.codeBlock",
+      "owner": "@domternal/core",
+      "description": "Code block formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Code Block"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.fontFamily",
+      "owner": "@domternal/core",
+      "description": "Font family dropdown name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Font Family"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.fontSize",
+      "owner": "@domternal/core",
+      "description": "Font size dropdown name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Font Size"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.fontSizeDefault",
+      "owner": "@domternal/core",
+      "description": "Default font size option.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "–"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.hardBreak",
+      "owner": "@domternal/core",
+      "description": "Hard break insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Hard Break"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.heading",
+      "owner": "@domternal/core",
+      "description": "Heading dropdown name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Heading"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.highlight",
+      "owner": "@domternal/core",
+      "description": "Highlight formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Highlight"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.horizontalRule",
+      "owner": "@domternal/core",
+      "description": "Horizontal rule insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Horizontal Rule"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.invisibleCharacters",
+      "owner": "@domternal/core",
+      "description": "Show invisible characters action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Invisible Characters"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.italic",
+      "owner": "@domternal/core",
+      "description": "Italic formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Italic"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.justify",
+      "owner": "@domternal/core",
+      "description": "Justified text alignment action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Justify"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.label",
+      "owner": "@domternal/core",
+      "description": "Accessible name of the editor toolbar.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Editor formatting"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.lineHeight",
+      "owner": "@domternal/core",
+      "description": "Line height dropdown name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Line Height"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.lineHeightDefault",
+      "owner": "@domternal/core",
+      "description": "Default line height option.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Default"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.link",
+      "owner": "@domternal/core",
+      "description": "Link formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Link"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.noHighlight",
+      "owner": "@domternal/core",
+      "description": "Remove highlighting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "No highlight"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.normalText",
+      "owner": "@domternal/core",
+      "description": "Paragraph formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Normal text"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.orderedList",
+      "owner": "@domternal/core",
+      "description": "Ordered list formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Ordered List"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.print",
+      "owner": "@domternal/core",
+      "description": "Print document action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Print"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.redo",
+      "owner": "@domternal/core",
+      "description": "Redo action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Redo"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.strike",
+      "owner": "@domternal/core",
+      "description": "Strikethrough formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Strikethrough"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.subscript",
+      "owner": "@domternal/core",
+      "description": "Subscript formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Subscript"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.superscript",
+      "owner": "@domternal/core",
+      "description": "Superscript formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Superscript"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.taskList",
+      "owner": "@domternal/core",
+      "description": "Task list formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Task List"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.textAlignment",
+      "owner": "@domternal/core",
+      "description": "Text alignment dropdown name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Text Alignment"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.textColor",
+      "owner": "@domternal/core",
+      "description": "Text color dropdown name.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Text Color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.textColorDefault",
+      "owner": "@domternal/core",
+      "description": "Default text color option.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Default"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.toolsGroup",
+      "owner": "@domternal/core",
+      "description": "Accessible fallback name for an unnamed toolbar group.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Tools"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/core.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.underline",
+      "owner": "@domternal/core",
+      "description": "Underline formatting action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Underline"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.toolbar.undo",
+      "owner": "@domternal/core",
+      "description": "Undo action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Undo"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/actions.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "details.insert.description",
+      "owner": "@domternal/extension-details",
+      "description": "Description of the details insertion action.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Collapsible content area"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-details/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "details.insert.label",
+      "owner": "@domternal/extension-details",
+      "description": "Details block insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Toggle block"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "toggle",
+        "collapse",
+        "details",
+        "accordion"
+      ],
+      "source": "packages/extension-details/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "details.toggle.label",
+      "owner": "@domternal/extension-details",
+      "description": "Accessible name of the button that expands or collapses details.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Toggle details"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-details/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "details.toolbar.toggle",
+      "owner": "@domternal/extension-details",
+      "description": "Toolbar action that wraps or unwraps a details block.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Toggle Details"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-details/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "emoji.insert",
+      "owner": "@domternal/extension-emoji",
+      "description": "Toolbar action that opens the emoji picker.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Insert Emoji"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-emoji/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "emoji.suggestion.empty",
+      "owner": "@domternal/extension-emoji",
+      "description": "Empty emoji autocomplete results.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "No emoji found"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-emoji/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "emoji.suggestion.label",
+      "owner": "@domternal/extension-emoji",
+      "description": "Accessible name of emoji autocomplete results.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Emoji suggestions"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-emoji/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.action.delete",
+      "owner": "@domternal/extension-image",
+      "description": "Delete the selected image.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Delete"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.action.editAlt",
+      "owner": "@domternal/extension-image",
+      "description": "Action to edit image alternative text.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Edit alt text"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.align.center",
+      "owner": "@domternal/extension-image",
+      "description": "Center an image without wrapping text.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align center"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.align.left",
+      "owner": "@domternal/extension-image",
+      "description": "Align an image to the left without wrapping text.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align left"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.align.right",
+      "owner": "@domternal/extension-image",
+      "description": "Align an image to the right without wrapping text.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align right"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.float.center",
+      "owner": "@domternal/extension-image",
+      "description": "Center a floating image.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Center"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.float.left",
+      "owner": "@domternal/extension-image",
+      "description": "Place the image on the left with wrapping text.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Float left"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.float.none",
+      "owner": "@domternal/extension-image",
+      "description": "Image placement without text wrapping.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Inline"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.float.right",
+      "owner": "@domternal/extension-image",
+      "description": "Place the image on the right with wrapping text.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Float right"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.group.actions",
+      "owner": "@domternal/extension-image",
+      "description": "Image actions toolbar group label.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "image-actions"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.group.align",
+      "owner": "@domternal/extension-image",
+      "description": "Image alignment toolbar group label.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "image-align"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.group.float",
+      "owner": "@domternal/extension-image",
+      "description": "Image float toolbar group label.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "image-float"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.insert.description",
+      "owner": "@domternal/extension-image",
+      "description": "Image insertion menu description.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Upload or embed with a link"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.insert.label",
+      "owner": "@domternal/extension-image",
+      "description": "Image insertion menu label.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Image"
+      },
+      "searchAliases": [
+        "picture",
+        "photo"
+      ],
+      "technicalAliases": [
+        "image",
+        "img"
+      ],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "image.popover.altLabel",
+      "owner": "@domternal/extension-image",
+      "description": "Accessible name of the image alternative text input.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Image alt text"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.popover.altPlaceholder",
+      "owner": "@domternal/extension-image",
+      "description": "Placeholder for image alternative text.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Alt text (optional)..."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.popover.browse",
+      "owner": "@domternal/extension-image",
+      "description": "Browse local image files action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Browse files"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.popover.insert",
+      "owner": "@domternal/extension-image",
+      "description": "Apply image insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Insert image"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.popover.saveAlt",
+      "owner": "@domternal/extension-image",
+      "description": "Save image alternative text action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Save alt text"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.popover.urlLabel",
+      "owner": "@domternal/extension-image",
+      "description": "Accessible name of the image URL input.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Image URL"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.popover.urlPlaceholder",
+      "owner": "@domternal/extension-image",
+      "description": "Placeholder for the image URL input.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Image URL..."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "image.toolbar.insert",
+      "owner": "@domternal/extension-image",
+      "description": "Main toolbar image insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Insert Image"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "math.block.description",
+      "owner": "@domternal/extension-math",
+      "description": "Description of the block equation insertion action.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Insert a block LaTeX formula"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-math/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "math.block.label",
+      "owner": "@domternal/extension-math",
+      "description": "Insert a block equation.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Equation"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "math",
+        "latex",
+        "equation",
+        "formula",
+        "block",
+        "display"
+      ],
+      "source": "packages/extension-math/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "math.empty",
+      "owner": "@domternal/extension-math",
+      "description": "Placeholder inside a new equation with no LaTeX source.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "New equation"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-math/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "math.inline.description",
+      "owner": "@domternal/extension-math",
+      "description": "Description of the inline equation insertion action.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Insert an inline LaTeX formula"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-math/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "math.inline.label",
+      "owner": "@domternal/extension-math",
+      "description": "Insert an inline equation.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Inline equation"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "math",
+        "latex",
+        "equation",
+        "formula",
+        "inline"
+      ],
+      "source": "packages/extension-math/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "math.preview.placeholder",
+      "owner": "@domternal/extension-math",
+      "description": "Placeholder in the empty equation preview.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Preview"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-math/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "math.source.label",
+      "owner": "@domternal/extension-math",
+      "description": "Accessible name of the LaTeX source input.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "LaTeX source"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-math/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "mention.suggestions.empty",
+      "owner": "@domternal/extension-mention",
+      "description": "Empty state when a mention query returns no items.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "No results"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-mention/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "mention.suggestions.label",
+      "owner": "@domternal/extension-mention",
+      "description": "Accessible name of the mention suggestions menu.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Mention suggestions"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-mention/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.alignBottom",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Align bottom.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align bottom"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.alignCenter",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Align center.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align center"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.alignLeft",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Align left.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align left"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.alignment",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Cell alignment.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Cell alignment"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.alignMiddle",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Align middle.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align middle"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.alignRight",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Align right.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align right"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.alignTop",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Align top.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Align top"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.backgroundColor",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Cell background color.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Cell background color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.color",
+      "owner": "@domternal/extension-table",
+      "description": "Accessible name for a cell color swatch, using its CSS color value by default.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ color }) => color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "{\n    color: string;\n}",
+        "fields": [
+          {
+            "name": "color",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.defaultColor",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Default color.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Default color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.cell.defaultColorText",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Default.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Default"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.column.delete",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Delete Column.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Delete Column"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.column.insertLeft",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Insert Column Left.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Insert Column Left"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.column.insertRight",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Insert Column Right.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Insert Column Right"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.controls.alignment",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Alignment.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Alignment"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.controls.cellColor",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Cell color.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Cell color"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.controls.cellFormatting",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Cell formatting.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Cell formatting"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.controls.cellOptions",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Cell options.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Cell options"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.controls.columnOptions",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Column options.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Column options"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.controls.mergeCells",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Merge cells.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Merge cells"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.controls.rowOptions",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Row options.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Row options"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.controls.splitCell",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Split cell.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Split cell"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.controls.toggleHeader",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Toggle header cell.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Toggle header cell"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.insert.description",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Insert a simple table.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Insert a simple table"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.insert.label",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Table.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Table"
+      },
+      "searchAliases": [
+        "grid",
+        "rows",
+        "columns"
+      ],
+      "technicalAliases": [
+        "table"
+      ],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "table.row.delete",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Delete Row.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Delete Row"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.row.insertAbove",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Insert Row Above.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Insert Row Above"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.row.insertBelow",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Insert Row Below.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Insert Row Below"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "table.toolbar.insert",
+      "owner": "@domternal/extension-table",
+      "description": "Table UI: Insert Table.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Insert Table"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-table/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "toc.block.empty",
+      "owner": "@domternal/extension-toc",
+      "description": "Placeholder inside a table of contents with no headings.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "Add headings to create a table of contents."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-toc/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "toc.heading.fallback",
+      "owner": "@domternal/extension-toc",
+      "description": "UI fallback for a heading whose user-authored text is empty.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ level }, context) => `Heading level ${context.number(level)}`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-toc/src/messages.ts",
+      "parameters": {
+        "type": "{\n    level: number;\n}",
+        "fields": [
+          {
+            "name": "level",
+            "type": "number",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "toc.heading.label",
+      "owner": "@domternal/extension-toc",
+      "description": "Accessible outline tick name containing the user-authored heading text and level.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ label, level }, context) => `${label} (heading ${context.number(level)})`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-toc/src/messages.ts",
+      "parameters": {
+        "type": "{\n    label: string;\n    level: number;\n}",
+        "fields": [
+          {
+            "name": "label",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "level",
+            "type": "number",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "toc.insert.description",
+      "owner": "@domternal/extension-toc",
+      "description": "Description of the table of contents insertion action.",
+      "allowEmpty": true,
+      "default": {
+        "kind": "text",
+        "value": "List of headings on this page"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-toc/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "toc.insert.label",
+      "owner": "@domternal/extension-toc",
+      "description": "Table of contents insertion action.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Table of contents"
+      },
+      "searchAliases": [],
+      "technicalAliases": [
+        "toc",
+        "outline",
+        "contents"
+      ],
+      "source": "packages/extension-toc/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": true
+    },
+    {
+      "id": "toc.outline.label",
+      "owner": "@domternal/extension-toc",
+      "description": "Accessible name of the floating document outline.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Document outline"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-toc/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    }
+  ]
+}
