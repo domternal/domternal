@@ -40,6 +40,8 @@ describe('table UI localization', () => {
     element(container, kind === 'row' ? '.dm-table-row-handle' : '.dm-table-col-handle').click();
     const menu = element(document, '.dm-table-controls-dropdown');
     const button = element(menu, 'button');
+    const label = element(button, 'span:last-child');
+    const labelText = label.firstChild;
     button.focus();
     const view = tableViewMap.get(container);
     const state = editor.state;
@@ -51,6 +53,8 @@ describe('table UI localization', () => {
     } });
     expect(element(document, '.dm-table-controls-dropdown')).toBe(menu);
     expect(element(menu, 'button')).toBe(button);
+    expect(label.firstChild).toBe(labelText);
+    expect(labelText?.isConnected).toBe(true);
     expect(button.textContent).toBe(kind === 'row' ? '<b>Redak iznad</b>' : '<b>Stupac lijevo</b>');
     expect(button.lang).toBe('hr');
     expect(menu.querySelector('b')).toBeNull();
