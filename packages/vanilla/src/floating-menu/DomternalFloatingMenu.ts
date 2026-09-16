@@ -118,7 +118,6 @@ export class DomternalFloatingMenu extends EventTarget {
     // Host setup
     this.host.classList.add('dm-floating-menu');
     this.host.setAttribute('role', 'menu');
-    this.host.setAttribute('aria-label', 'Insert block');
     this.host.setAttribute('data-dm-editor-ui', '');
     const updateChrome = (): void => {
       const message = this.#editor.i18n.resolve(coreMessages.floatingMenuLabel);

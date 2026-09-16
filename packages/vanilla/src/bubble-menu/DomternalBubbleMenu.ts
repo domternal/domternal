@@ -200,7 +200,6 @@ export class DomternalBubbleMenu extends EventTarget {
     // Host setup
     this.host.classList.add('dm-bubble-menu');
     this.host.setAttribute('role', 'toolbar');
-    this.host.setAttribute('aria-label', 'Text formatting');
 
     this.#init();
   }

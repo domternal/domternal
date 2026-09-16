@@ -8,6 +8,7 @@
  */
 import { positionFloatingOnce } from './utils/positionFloating.js';
 import { createAdoptablePluginView } from './utils/createAdoptablePluginView.js';
+import { coreMessages } from './messages/core.js';
 import type { Editor } from './Editor.js';
 import type { FloatingMenuItemsOverride } from './types/FloatingMenu.js';
 import { Plugin, PluginKey } from '@domternal/pm/state';
@@ -218,8 +219,21 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
   // choices, unlike `toolbar` (a persistent set of controls).
   if (!element.getAttribute('role')) {
     element.setAttribute('role', 'menu');
-    element.setAttribute('aria-label', 'Insert block');
   }
+  let ownsLabel = !element.hasAttribute('aria-label') && !element.hasAttribute('aria-labelledby');
+  let managedLabel: string | null = null;
+  const updateLabel = (): void => {
+    if (!ownsLabel) return;
+    if (element.getAttribute('aria-label') !== managedLabel || element.hasAttribute('aria-labelledby')) {
+      ownsLabel = false;
+      return;
+    }
+    const message = editor.i18n.resolve(coreMessages.floatingMenuLabel);
+    element.setAttribute('aria-label', message.text);
+    element.lang = message.language;
+    managedLabel = message.text;
+  };
+  updateLabel();
 
   let cleanupFloating: (() => void) | null = null;
   let editorEl: Element | null = null;
@@ -315,6 +329,8 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
     },
 
     view: (view) => createAdoptablePluginView(editor, view, (editorView) => {
+      updateLabel();
+      const unsubscribeI18n = ownsLabel ? editor.i18n.subscribe(updateLabel) : undefined;
       // Move the menu into `.dm-editor` so `position:absolute` resolves against
       // the scrollable editor container (zero jitter on scroll).
       editorEl = editorView.dom.closest('.dm-editor');
@@ -376,6 +392,7 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
         },
 
         destroy: () => {
+          unsubscribeI18n?.();
           hideMenu();
           editor.off('focus', onFocus);
           editor.off('blur', onBlur);

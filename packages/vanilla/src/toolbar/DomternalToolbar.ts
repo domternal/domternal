@@ -141,7 +141,6 @@ export class DomternalToolbar extends EventTarget {
     // Host setup
     this.host.classList.add('dm-toolbar');
     this.host.setAttribute('role', 'toolbar');
-    this.host.setAttribute('aria-label', 'Editor formatting');
     this.host.setAttribute('data-dm-editor-ui', '');
 
     // Controller
