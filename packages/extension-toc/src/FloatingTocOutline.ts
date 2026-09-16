@@ -3,14 +3,15 @@
  * fire only on heading-affecting changes. State machine: hidden / collapsed
  * (ticks only) / expanded (hover or focus-within reveals the full card).
  */
-import { Extension, createAdoptablePluginView } from '@domternal/core';
-import type { Editor } from '@domternal/core';
+import { Extension, createAdoptablePluginView, localizeMessage } from '@domternal/core';
+import type { Editor, I18nService } from '@domternal/core';
 import type { EditorView } from '@domternal/pm/view';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { navigateToc, resolveTocTrackingOptions } from './helpers/tocTracking.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
-import { getHeadingLabel, setActiveMarker } from './helpers/outlineDom.js';
+import { getHeadingLabel, getHeadingCopy, setActiveMarker } from './helpers/outlineDom.js';
 import type { TocStorage, HeadingEntry } from './types.js';
+import { tocMessages } from './messages.js';
 
 export const floatingTocOutlinePluginKey = new PluginKey('floatingTocOutline');
 
@@ -161,8 +162,6 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     tick.className = TICK_CLASS;
     tick.dataset['level'] = String(entry.level);
     tick.dataset[ANCHOR_DATASET_KEY] = entry.id;
-    const label = getHeadingLabel(entry);
-    tick.setAttribute('aria-label', `${label} (heading ${String(entry.level)})`);
     ticks.appendChild(tick);
   }
 
@@ -182,9 +181,31 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     row.className = ROW_CLASS;
     row.dataset['level'] = String(entry.level);
     row.dataset[ANCHOR_DATASET_KEY] = entry.id;
-    row.textContent = getHeadingLabel(entry);
     card.appendChild(row);
   }
+}
+
+/** Patch presentation without replacing focused or pressed navigation targets. */
+function refreshOutlineLabels(nav: HTMLElement, content: HeadingEntry[], i18n?: I18nService): void {
+  const outline = localizeMessage(i18n, tocMessages.outline);
+  nav.setAttribute('aria-label', outline.text);
+  nav.lang = outline.language;
+  const ticks = nav.querySelectorAll<HTMLElement>(`.${TICK_CLASS}`);
+  const rows = nav.querySelectorAll<HTMLElement>(`.${ROW_CLASS}`);
+  content.forEach((entry, index) => {
+    const tick = ticks[index];
+    if (tick) {
+      const copy = localizeMessage(i18n, tocMessages.headingLabel, { label: getHeadingLabel(entry, i18n), level: entry.level });
+      tick.setAttribute('aria-label', copy.text);
+      tick.lang = copy.language;
+    }
+    const row = rows[index];
+    if (row) {
+      const copy = getHeadingCopy(entry, i18n);
+      row.textContent = copy.text;
+      row.lang = copy.language;
+    }
+  });
 }
 
 /**
@@ -244,7 +265,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           const host = hostResolver(editorView);
           const nav = document.createElement('nav');
           nav.className = OUTLINE_CLASS;
-          nav.setAttribute('aria-label', 'Document outline');
+          nav.setAttribute('data-dm-editor-ui', '');
           nav.dataset['anchor'] = options.anchor;
 
           // Editor mode wraps the nav in a shell spanning the host's
@@ -593,14 +614,19 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           // ── Storage subscription ─────────────────────────────────
           let unsubscribe: (() => void) | null = null;
           let renderedContent: HeadingEntry[] | null = null;
+          const refreshLabels = (): void => {
+            refreshOutlineLabels(nav, storage?.content ?? [], editor?.i18n);
+            recomputeMidTop();
+          };
+          const unsubscribeI18n = editor?.i18n.subscribe(refreshLabels);
           const onStorageUpdate = (): void => {
             if (!storage) return;
             if (renderedContent !== storage.content) {
               renderedContent = storage.content;
               renderOutlineContent(nav, storage.content);
               applyState();
-              recomputeMidTop();
             }
+            refreshLabels();
             applyActiveMarker(nav, storage.activeId);
           };
 
@@ -611,6 +637,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           } else {
             // No TableOfContents loaded - render nothing, hide outline.
             nav.dataset['state'] = 'hidden';
+            refreshLabels();
           }
 
           // Re-evaluate visibility on viewport changes.
@@ -634,6 +661,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               scrollCloseTarget.removeEventListener('scroll', onWindowScroll);
               containerResizeObserver?.disconnect();
               unsubscribe?.();
+              unsubscribeI18n?.();
               bottomObserver?.disconnect();
               bottomSentinel?.remove();
               (shell ?? nav).remove();
