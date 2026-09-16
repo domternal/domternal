@@ -96,12 +96,14 @@ for (const target of demoTargets) {
     await openDemo(page, target);
     await selectTextPrefix(page, '.dm-editor .ProseMirror', 12);
     const bold = page.locator('.dm-toolbar [aria-label="Bold"]');
+    await expect(bold).toHaveAttribute('data-dm-command', 'toggleBold');
     const box = await bold.boundingBox();
     if (!box) throw new Error('The bold control has no box.');
     await remember(page, '.dm-toolbar [aria-label="Bold"]');
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
     await setMessages(page, { 'core.toolbar.bold': 'Fett' });
+    await expect(page.locator('.dm-toolbar [aria-label="Fett"]')).toHaveAttribute('data-dm-command', 'toggleBold');
     expect(await page.evaluate(() => {
       const probe = (window as unknown as ProbeWindow).__I18N_PROBE__!;
       const current = document.querySelector('.dm-toolbar [aria-label="Fett"]');
@@ -119,9 +121,11 @@ for (const target of demoTargets) {
     await selectTextPrefix(page, '.dm-editor .ProseMirror', 12);
     const bubble = page.locator('.dm-bubble-menu');
     await expect(bubble).toHaveAttribute('data-show', '');
+    await expect(bubble.getByRole('button', { name: 'Bold', exact: true })).toHaveAttribute('data-dm-command', 'toggleBold');
     await remember(page, '.dm-bubble-menu [aria-label="Bold"]');
     await setMessages(page, { 'core.toolbar.bold': 'Fett', 'core.bubbleMenu.label': 'Textformatierung' });
     await expect(bubble).toHaveAttribute('aria-label', 'Textformatierung');
+    await expect(bubble.getByRole('button', { name: 'Fett', exact: true })).toHaveAttribute('data-dm-command', 'toggleBold');
     await expect(bubble).toHaveAttribute('data-show', '');
     expect(await page.evaluate(() => {
       const win = window as unknown as ProbeWindow;

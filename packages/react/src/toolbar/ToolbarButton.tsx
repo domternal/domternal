@@ -33,6 +33,7 @@ export function ToolbarButton({
       aria-pressed={isActive}
       aria-expanded={ariaExpanded === 'true' ? true : undefined}
       aria-label={item.label}
+      data-dm-command={typeof item.command === 'string' ? item.command : undefined}
       lang={item.labelLanguage}
       title={tooltip}
       tabIndex={tabIndex}

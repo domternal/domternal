@@ -61,6 +61,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
               [attr.aria-pressed]="isActive(item.name)"
               [attr.aria-expanded]="getAriaExpanded(asButton(item))"
               [attr.aria-label]="asButton(item).label"
+              [attr.data-dm-command]="commandName(asButton(item))"
               [attr.lang]="asButton(item).labelLanguage ?? null"
               [title]="getTooltip(asButton(item))"
               [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
@@ -376,6 +377,10 @@ export class DomternalToolbarComponent implements OnDestroy {
       this.htmlCache.set(key, cached);
     }
     return cached;
+  }
+
+  protected commandName(item: ToolbarButton): string | null {
+    return typeof item.command === 'string' ? item.command : null;
   }
 
   asButton(item: ToolbarItem): ToolbarButton {

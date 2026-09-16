@@ -365,6 +365,7 @@ export class DomternalToolbar extends EventTarget {
     btn.className = 'dm-toolbar-button';
     btn.innerHTML = this.#iconCache.getIcon(item.icon);
     btn.setAttribute('aria-label', item.label);
+    if (typeof item.command === 'string') btn.setAttribute('data-dm-command', item.command);
     btn.title = getTooltip(item);
     if (item.style) btn.setAttribute('style', item.style);
 
@@ -450,6 +451,8 @@ export class DomternalToolbar extends EventTarget {
     const btn = this.#buttonEls.get(item.name);
     if (!btn) return;
     btn.setAttribute('aria-label', item.label);
+    if (typeof item.command === 'string') btn.setAttribute('data-dm-command', item.command);
+    else btn.removeAttribute('data-dm-command');
     btn.title = getTooltip(item);
     setPresentationLanguage(btn, item.labelLanguage);
     const isActive = this.#controller.activeMap.get(item.name) ?? false;

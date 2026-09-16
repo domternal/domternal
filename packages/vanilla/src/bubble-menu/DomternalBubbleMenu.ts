@@ -589,6 +589,7 @@ export class DomternalBubbleMenu extends EventTarget {
     if (isActive) btn.classList.add('dm-toolbar-button--active');
     btn.disabled = isDisabled;
     btn.setAttribute('aria-label', item.label);
+    if (typeof item.command === 'string') btn.setAttribute('data-dm-command', item.command);
     setPresentationLanguage(btn, item.labelLanguage);
     btn.setAttribute('aria-pressed', String(isActive));
     btn.title = item.label;
@@ -732,6 +733,8 @@ export class DomternalBubbleMenu extends EventTarget {
 
   #updateButton(item: ToolbarButton, btn: HTMLButtonElement): void {
     btn.setAttribute('aria-label', item.label);
+    if (typeof item.command === 'string') btn.setAttribute('data-dm-command', item.command);
+    else btn.removeAttribute('data-dm-command');
     btn.title = item.label;
     setPresentationLanguage(btn, item.labelLanguage);
     const isActive = this.#activeMap.get(item.name) ?? false;

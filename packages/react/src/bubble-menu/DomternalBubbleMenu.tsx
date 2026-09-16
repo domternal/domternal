@@ -143,6 +143,7 @@ export function DomternalBubbleMenu({
             disabled={isItemDisabled(btn)}
             title={btn.label}
             aria-label={btn.label}
+            data-dm-command={typeof btn.command === 'string' ? btn.command : undefined}
             lang={btn.labelLanguage}
             aria-pressed={active}
             dangerouslySetInnerHTML={innerHtml(getCachedHtml(btn.icon))}

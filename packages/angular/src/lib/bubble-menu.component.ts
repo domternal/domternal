@@ -92,6 +92,7 @@ import type {
             [disabled]="isItemDisabled(asButton(item))"
             [title]="asButton(item).label"
             [attr.aria-label]="asButton(item).label"
+            [attr.data-dm-command]="commandName(asButton(item))"
             [attr.lang]="asButton(item).labelLanguage ?? null"
             [innerHTML]="getCachedIcon(asButton(item).icon)"
             (mousedown)="$event.preventDefault()"
@@ -533,6 +534,10 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   // === Dropdown helpers (shared shape with toolbar.component.ts) ===
+
+  protected commandName(item: ToolbarButton): string | null {
+    return typeof item.command === 'string' ? item.command : null;
+  }
 
   asButton(item: BubbleMenuItem): ToolbarButton {
     return item as ToolbarButton;

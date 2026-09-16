@@ -127,6 +127,7 @@ export const DomternalBubbleMenu = defineComponent({
           class: ['dm-toolbar-button', active && 'dm-toolbar-button--active'],
           disabled: isItemDisabled(btn),
           'aria-label': btn.label,
+          'data-dm-command': typeof btn.command === 'string' ? btn.command : undefined,
           lang: btn.labelLanguage,
           'aria-pressed': active,
           title: btn.label,
