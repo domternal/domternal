@@ -11,5 +11,6 @@ MathEditingOptions
 mathEditPluginKey
 MathInline
 MathInlineOptions
+mathMessages
 MathOptions
 MathRenderer

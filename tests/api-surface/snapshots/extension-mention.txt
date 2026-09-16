@@ -4,6 +4,7 @@ default(Mention)
 dismissMentionSuggestion
 Mention
 MentionItem
+mentionMessages
 MentionOptions
 MentionStorage
 MentionSuggestionProps

@@ -4,6 +4,7 @@ createSuggestionPlugin
 default(Emoji)
 Emoji
 EmojiItem
+emojiMessages
 EmojiOptions
 emojis
 EmojiStorage

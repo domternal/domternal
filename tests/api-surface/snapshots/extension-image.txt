@@ -1,6 +1,7 @@
 Image
 ImageAlign
 ImageFloat
+imageMessages
 ImageOptions
 ImagePlacement
 imageUploadPluginKey

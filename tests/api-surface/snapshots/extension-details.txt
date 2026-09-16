@@ -1,6 +1,7 @@
 Details
 DetailsContent
 DetailsContentOptions
+detailsMessages
 DetailsOptions
 DetailsSummary
 DetailsSummaryOptions

@@ -100,6 +100,7 @@ EditorEvents
 EditorInstance
 EditorOptions
 EditorPreset
+EmojiPresentationItem
 EventEmitter
 Extension
 ExtensionConfig
@@ -230,6 +231,7 @@ markInputRulePatterns
 MarkParseRule
 MarkRange
 MarkRenderHTMLProps
+matchesEmojiPresentation
 MessageArguments
 MessageDefinition
 MessageId
@@ -247,11 +249,13 @@ NodeViewContext
 NotionColorPicker
 NotionColorPickerOptions
 NotionColorPickerStorage
+observeI18nPresentation
 OrderedList
 OrderedListOptions
 outdentBlockFromListItem
 Paragraph
 ParagraphOptions
+PickerLabel
 Placeholder
 PlaceholderOptions
 placeholderPluginKey
@@ -271,8 +275,12 @@ resetAttributes
 resolveBubbleMenuItems
 ResolveBubbleMenuItemsOptions
 resolveBubbleNames
+resolveColorName
+resolveColorSwatch
 ResolvedMessage
 ResolvedPosShape
+resolveEmojiCategory
+resolveEmojiLabel
 SearchableMessageId
 SearchableMessages
 SearchAliases
