@@ -232,7 +232,11 @@ profile.
   by URL is expected to be removed with `image-removed`, its alt text staying in
   its place. Its default schema has no LineHeight, so preserve is expected to
   report the line spacing Google Docs writes on every paragraph as
-  `destination-formatting-unconfirmed`; adapt removes it.
+  `destination-formatting-unconfirmed`, which shows the notice; adapt removes it.
+- Google Docs may write a `br` between blocks, after a table or for an empty
+  paragraph. The editor makes one paragraph of line breaks from each run of
+  them: the checker ignores empty blocks a scenario does not name, and reports
+  two empty paragraphs that arrive as one in `gdocs-empty-paragraphs`.
 - The specification assumes the list shape Google Docs is known to write: each
   marker as `list-style-type` on its `li`, and a nested list placed directly in
   its parent list. The checker reads that nesting. A cleanup that does not take

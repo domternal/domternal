@@ -21,7 +21,8 @@
     "url": "http://127.0.0.1:5895/?framework=vanilla&formatting=preserve&list-markers=1",
     "adapt": "The same address with formatting=adapt. A scenario with an editorQuery adds it to both addresses.",
     "images": "No allowRemoteImages and no imageAssets: an image that Google Docs serves by URL is removed with image-removed and its alt text stays in its place; a data image within the bounds would be kept, which is a finding",
-    "lineHeight": "The default schema has no LineHeight: in preserve, the line spacing Google Docs writes on every paragraph is reported as destination-formatting-unconfirmed; adapt removes it"
+    "lineHeight": "The default schema has no LineHeight: in preserve, the line spacing Google Docs writes on every paragraph is reported as destination-formatting-unconfirmed, and that warning shows the notice; adapt removes the spacing as an informational finding. A quiet scenario allows the warning in preserve, so its notice stays hidden only in adapt or when no pasted paragraph carries line spacing",
+    "lineBreaks": "Google Docs may write a br between blocks, after a table or for an empty paragraph. The editor makes one paragraph of line breaks from each run of them; the check ignores empty blocks a scenario does not name, and gdocs-empty-paragraphs reports a run that arrives as fewer empty paragraphs"
   },
   "conventions": [
     "This is an offline edited English regression specification. Block IDs and v1 document names remain stable. No native recapture was performed; baseline application instructions describe the shape being modeled.",
@@ -1264,7 +1265,7 @@
       "title": "gdocs-v1-large",
       "export": "gdocs-v1-large.docx",
       "generated": "node e2e/native-office-capture/content/large-source.mjs > /private/tmp/large-v1.html",
-      "docs": "Open /private/tmp/large-v1.html in the browser being captured, Select All, Copy, and paste it into the new document with Cmd+V so Google Docs keeps headings, lists and tables. Copy only from the Google document.",
+      "docs": "Open /private/tmp/large-v1.html in a browser tab, Select All, Copy, and paste it into the new document with Cmd+V so Google Docs keeps headings, lists and tables. Every capture copies only from the Google document.",
       "blocks": [
         {
           "id": "G",
@@ -1374,7 +1375,7 @@
         "GB10"
       ],
       "expected": {
-        "preserve": "GB10: strikethrough struck through, the first 2 subscript, the second 2 superscript, Georgia in Georgia 14 pt, red in #ff0000 and highlighted highlighted. The full schema has Subscript, Superscript and LineHeight. Google Docs may give the sub and superscript a relative font size, which is reported as unsupported-formatting; record it.",
+        "preserve": "GB10: strikethrough struck through, the first 2 subscript, the second 2 superscript, Georgia in Georgia 14 pt, red in #ff0000 and highlighted highlighted. The full schema has Subscript, Superscript and LineHeight, so the line spacing raises no finding. Google Docs may size the subscript and superscript relative to their run, for example 0.6em; cleanup resolves that to an absolute size, 6.6pt in an 11 pt run, which stays as a text style without a finding. Record the shape and every finding.",
         "adapt": "Strike, subscript and superscript stay; font, size, color and highlight are removed as informational formatting-adapted findings."
       },
       "outcome": {
@@ -1473,7 +1474,7 @@
         "GB22"
       ],
       "expected": {
-        "preserve": "GB21 without its first line indentation (unsupported-formatting), two empty paragraphs, then GB22. Record whether Google Docs copies the empty paragraphs as paragraphs or as line breaks; line breaks can arrive as fewer empty blocks.",
+        "preserve": "GB21 without its first line indentation (unsupported-formatting), two empty paragraphs, then GB22. Google Docs may copy each empty paragraph as a br between the paragraphs; the editor then keeps both line breaks in one paragraph, which the check reports as GB22b: expected an empty paragraph. Record which shape the capture holds.",
         "adapt": "The same blocks and findings without text styles."
       },
       "outcome": {
@@ -2231,8 +2232,8 @@
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "547ec6e11efff247c186984ee0853262a1950fef",
-    "originalSpecificationSha256": "c47512129e9771c6f1685267d641a03d9be1ecbf0977af68038381862dea3c20",
+    "originalSpecificationBlob": "871bedd2d3f3e24c7dd168818f14b22c1722af5a",
+    "originalSpecificationSha256": "d9f9c193b30a63518216c6995434b5b7b29cc7aa893002e3d19a6bb7a30dd6bd",
     "originalKind": "domternal-native-capture-content",
     "originalStatus": "prepared-not-captured",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",
