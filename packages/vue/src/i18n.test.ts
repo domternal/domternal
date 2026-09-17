@@ -126,7 +126,7 @@ describe('Vue i18n integration', () => {
       h(DomternalBubbleMenu, { editor, items: ['caller-button', 'caller-dropdown'] }), h(DomternalFloatingMenu, { editor })] });
     await update(() => { app?.mount(container); });
     await update(() => {
-      for (const trigger of container.querySelectorAll<HTMLButtonElement>('[data-dropdown="caller-dropdown"]')) trigger.click();
+      for (const trigger of Array.from(container.querySelectorAll<HTMLButtonElement>('[data-dropdown="caller-dropdown"]'))) trigger.click();
     });
     await update(() => { editor.i18n.set({ locale: 'hr', messages: {
       'core.toolbar.label': 'Alati', 'core.bubbleMenu.label': 'Oblikovanje', 'core.floatingMenu.label': 'Umetanje',
@@ -136,9 +136,9 @@ describe('Vue i18n integration', () => {
       '.dm-floating-menu-item-label', '.dm-floating-menu-item-description']) {
       const labels = container.querySelectorAll(selector);
       expect(labels.length, selector).toBeGreaterThan(0);
-      for (const label of labels) expect(label.getAttribute('lang'), selector).toBe('');
+      for (const label of Array.from(labels)) expect(label.getAttribute('lang'), selector).toBe('');
     }
-    for (const label of container.querySelectorAll('[aria-label="Known child"]')) expect(label.getAttribute('lang')).toBe('en');
+    for (const label of Array.from(container.querySelectorAll('[aria-label="Known child"]'))) expect(label.getAttribute('lang')).toBe('en');
     expect(container.querySelector('[data-dropdown="dynamic-caller"]')?.getAttribute('lang')).toBe('fr');
     expect(container.querySelector('[data-dropdown="dynamic-caller"] .dm-toolbar-trigger-label')?.textContent).toBe('Active caller');
     expect(container.querySelector('[data-dropdown="dynamic-caller"] .dm-toolbar-trigger-label')?.getAttribute('lang')).toBe('');

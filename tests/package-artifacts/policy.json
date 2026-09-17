@@ -14,7 +14,12 @@
     "breach is always a deliberate edit. @domternal/theme went 83000 to 95000 on",
     "2026-08-20, measured at 86185 packed: the paper layer gained the palette",
     "re-emission, the header-group promotion, the image clamp and the reservation",
-    "hook, and _content.scss gained the list marker cycle."
+    "hook, and _content.scss gained the list marker cycle.",
+    "2026-09-19: typed i18n catalogs, locale services and retained live UI add",
+    "production code, declarations and deliberate source maps. Measured packed",
+    "bytes: core 800641, image 66930, math 36005, mention 47305, table 128044,",
+    "toc 96777. Their ceilings now follow the documented ten percent headroom",
+    "rounded up to 1000 bytes. File allowlists and export checks are unchanged."
   ],
   "@domternal/angular": {
     "maxPackedBytes": 77000,
@@ -26,7 +31,7 @@
     ]
   },
   "@domternal/core": {
-    "maxPackedBytes": 767000,
+    "maxPackedBytes": 881000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
@@ -51,7 +56,7 @@
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-image": {
-    "maxPackedBytes": 66000,
+    "maxPackedBytes": 74000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
@@ -61,22 +66,22 @@
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-math": {
-    "maxPackedBytes": 34000,
+    "maxPackedBytes": 40000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-mention": {
-    "maxPackedBytes": 42000,
+    "maxPackedBytes": 53000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-table": {
-    "maxPackedBytes": 122000,
+    "maxPackedBytes": 141000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-toc": {
-    "maxPackedBytes": 95000,
+    "maxPackedBytes": 107000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
