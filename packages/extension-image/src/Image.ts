@@ -720,25 +720,36 @@ export const Image = Node.create<ImageOptions>({
       // (e.g. its alt text) instead of inserting a new image.
       let editingPos: number | null = null;
 
+      let refreshingLabels = false;
       const refreshLabels = (): void => {
-        const url = editor.i18n.resolve(imageMessages.urlLabel);
-        const alt = editor.i18n.resolve(imageMessages.altLabel);
-        const apply = editingPos !== null
-          ? editor.i18n.resolve(imageMessages.applyAlt)
-          : editor.i18n.resolve(imageMessages.applyInsert);
-        const browse = editor.i18n.resolve(imageMessages.browse);
-        urlInput.placeholder = editor.i18n.t(imageMessages.urlPlaceholder);
-        urlInput.setAttribute('aria-label', url.text);
-        urlInput.lang = url.language;
-        altInput.placeholder = editor.i18n.t(imageMessages.altPlaceholder);
-        altInput.setAttribute('aria-label', alt.text);
-        altInput.lang = alt.language;
-        applyBtn.title = apply.text;
-        applyBtn.setAttribute('aria-label', apply.text);
-        applyBtn.lang = apply.language;
-        browseBtn.title = browse.text;
-        browseBtn.setAttribute('aria-label', browse.text);
-        browseBtn.lang = browse.language;
+        if (refreshingLabels) return;
+        refreshingLabels = true;
+        try {
+          let revision: number;
+          do {
+            revision = editor.i18n.getSnapshot().revision;
+            const url = editor.i18n.resolve(imageMessages.urlLabel);
+            const alt = editor.i18n.resolve(imageMessages.altLabel);
+            const apply = editingPos !== null
+              ? editor.i18n.resolve(imageMessages.applyAlt)
+              : editor.i18n.resolve(imageMessages.applyInsert);
+            const browse = editor.i18n.resolve(imageMessages.browse);
+            urlInput.placeholder = editor.i18n.t(imageMessages.urlPlaceholder);
+            urlInput.setAttribute('aria-label', url.text);
+            urlInput.lang = url.language;
+            altInput.placeholder = editor.i18n.t(imageMessages.altPlaceholder);
+            altInput.setAttribute('aria-label', alt.text);
+            altInput.lang = alt.language;
+            applyBtn.title = apply.text;
+            applyBtn.setAttribute('aria-label', apply.text);
+            applyBtn.lang = apply.language;
+            browseBtn.title = browse.text;
+            browseBtn.setAttribute('aria-label', browse.text);
+            browseBtn.lang = browse.language;
+          } while (revision !== editor.i18n.getSnapshot().revision);
+        } finally {
+          refreshingLabels = false;
+        }
       };
 
       const showPopover = (anchorElement?: HTMLElement, prefill?: { alt: string }): void => {

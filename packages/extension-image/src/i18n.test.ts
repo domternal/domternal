@@ -24,6 +24,44 @@ afterEach(() => {
 });
 
 describe('image UI localization', () => {
+  it.each(['image.popover.urlLabel', 'image.popover.urlPlaceholder'] as const)(
+    'settles a reentrant %s resolver on the latest locale without changing the open draft',
+    triggerId => {
+      const editor = createEditor();
+      emit(editor, 'insertImage', editor.view.dom);
+      const input = document.querySelector<HTMLInputElement>('.dm-image-popover-input');
+      if (!input) throw new Error('Expected an open image URL input.');
+      input.value = '/unfinished-image.png';
+      input.focus();
+      input.setSelectionRange(2, 8);
+      const state = editor.state;
+      const transaction = vi.fn();
+      editor.on('transaction', transaction);
+      let changed = false;
+      editor.i18n.set({ locale: 'hr', resolve: id => {
+        if (id !== triggerId || changed) return undefined;
+        changed = true;
+        editor.i18n.set({ locale: 'de', messages: {
+          'image.popover.urlLabel': 'Bildadresse',
+          'image.popover.urlPlaceholder': 'Bildadresse eingeben',
+          'image.popover.insert': 'Einfügen',
+        } });
+        return 'Stale Croatian wording';
+      } });
+      expect(changed).toBe(true);
+      expect(input.getAttribute('aria-label')).toBe('Bildadresse');
+      expect(input.placeholder).toBe('Bildadresse eingeben');
+      expect(input.lang).toBe('de');
+      expect(document.querySelector('.dm-image-popover-apply')?.getAttribute('aria-label')).toBe('Einfügen');
+      expect(document.querySelector('.dm-image-popover-input')).toBe(input);
+      expect(input.value).toBe('/unfinished-image.png');
+      expect([input.selectionStart, input.selectionEnd]).toEqual([2, 8]);
+      expect(document.activeElement).toBe(input);
+      expect(editor.state).toBe(state);
+      expect(transaction).not.toHaveBeenCalled();
+    },
+  );
+
   it('localizes actions and search aliases while keeping stable command values', () => {
     const editor = createEditor();
     const original = editor.toolbarItems.find(item => item.name === 'imageFloatLeft');
