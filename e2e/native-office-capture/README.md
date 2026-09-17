@@ -199,8 +199,9 @@ node --test e2e/native-office-capture/preparation.test.mjs
 
 These checks cover the specifications' consistency, the pinned large source and
 generated images, the semantic checker on authored editor results, on HTML from
-the public normalizer and on the synthetic dry run of every scenario, and the
-refusal of an unreviewed skeleton. They use authored inputs, not captures.
+the public normalizer and on the synthetic dry run of every scenario, the Google
+Docs dry run fixture, and the refusal of an unreviewed skeleton. They use
+authored inputs, not captures.
 
 ## Google Docs capture preparation
 
@@ -239,6 +240,21 @@ Check that the checker can express every scenario under both policies:
 ```sh
 node e2e/native-office-capture/semantics.mjs --dry-run e2e/native-office-capture/content/google-docs-v1.json
 ```
+
+[`fixtures/google-docs-dry-run-v1`](./fixtures/google-docs-dry-run-v1) runs the
+procedure once without Google Docs: authored HTML in the Google Docs shape for
+`gdocs-mixed-document`, a capture bundle from a Node synthetic event and a
+manifest with reviewed preserve and adapt oracles. The offline verifier accepts
+it, and the checker replays its bundle:
+
+```sh
+node e2e/native-office-capture/offline.mjs e2e/native-office-capture/fixtures/google-docs-dry-run-v1
+node e2e/native-office-capture/semantics.mjs e2e/native-office-capture/content/google-docs-v1.json gdocs-mixed-document e2e/native-office-capture/fixtures/google-docs-dry-run-v1/capture.json preserve
+```
+
+The last command reports the three list markers that the authored shape loses,
+`GM04`, `GM05` and `GM06`, and nothing else. It is an authored approximation of
+the Google Docs clipboard, not a capture.
 
 ## Bundle contract and limits
 

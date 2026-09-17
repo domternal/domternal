@@ -17,9 +17,9 @@ Matrix version: `free-paste-evidence-v2`. Recorded on 2026-09-28 for the
 unreleased paste cleanup work; it replaces `free-paste-evidence-v1` of 2026-09-27.
 Version 2 adds the quiet routine envelope, same-page own copy recognition, Word
 list profiles from level definitions, per-item list fallback, the large paste
-measurement and the prepared Word for Mac capture scenarios. The prepared Google Docs scenarios were
-added on 2026-10-01 without changing any evidence level. This is an evidence inventory, not a fidelity
-score or a release approval. The [package contract](../../packages/extension-paste-cleanup/README.md)
+measurement and the prepared Word for Mac capture scenarios. The prepared Google Docs scenarios and
+their synthetic dry run fixture were added on 2026-10-01 without changing any evidence level. This is
+an evidence inventory, not a fidelity score or a release approval. The [package contract](../../packages/extension-paste-cleanup/README.md)
 defines current behavior and its limits.
 
 ## Evidence levels
@@ -87,13 +87,16 @@ outcome. This increment does not retry native automation.
 | Fixture | Origin | Expected result | Qualification |
 | --- | --- | --- | --- |
 | `synthetic-office-evidence-v1` | Independently authored HTML, a Node synthetic event and an arbitrary four-byte File. No Office application or OS clipboard. | Preserve/adapt retain `Alpha` in bold, `Beta` in italic and the image alt text; unresolved `cid:2` is removed with `image-removed`. | False. The file is evidence for byte checks, not a raster or a proved image binding. |
+| `synthetic-google-docs-dry-run-v1` | Authored HTML in the Google Docs clipboard shape for `gdocs-mixed-document`, a Node synthetic event and a custom flavor whose bytes the capture omits. No Google Docs session or OS clipboard. | Preserve/adapt keep the heading, marks, link, nested lists, the merged cell and the alt text of the URL image, which is removed with `image-removed`; the list markers written on each `li` are lost with `unsupported-formatting`, as the oracle records. | False. A dry run of the procedure, not a capture of Google Docs. |
 
 The [manifest](./fixtures/synthetic-v1/manifest.json) pins the exact source and
 capture SHA-256 values and an explicitly reviewed output for both policies. The
 capture timestamp is an authored deterministic fixture value, not a native event
 timestamp. Exact wrapper serialization was reviewed against the public
 normalizer; the oracle is never derived from that normalizer during a test.
-The fixture is MIT-licensed synthetic content without customer data.
+The fixture is MIT-licensed synthetic content without customer data. The Google
+Docs dry run manifest pins its oracles the same way; they record the current
+cleanup of the authored shape, including its list marker loss, not a target.
 
 ## Admission of future evidence
 

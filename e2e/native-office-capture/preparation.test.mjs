@@ -282,6 +282,24 @@ test('the HTML model reads Google Docs list nesting, cell spans, links, text sty
     { count: 3, withAlt: 1, schemes: { https: 1, data: 1, none: 1 } });
 });
 
+test('the Google Docs dry run fixture passes the offline verifier, and its replay shows only the authored list marker loss', async () => {
+  const directory = join(here, 'fixtures/google-docs-dry-run-v1');
+  const report = await verifyCaptureFixture(directory);
+  assert.equal(report.integrity.origin, 'synthetic'); assert.equal(report.integrity.claimedEventKind, 'synthetic-event');
+  assert.equal(report.integrity.qualification, false); assert.equal(report.integrity.fileCount, 0);
+  assert.deepEqual(report.replay.outcomes.map(outcome => [outcome.formatting, outcome.source, outcome.diagnostics.includes('image-removed')]),
+    [['preserve', 'google-docs', true], ['adapt', 'google-docs', true]]);
+  const bundle = JSON.parse(await readFile(join(directory, 'capture.json'), 'utf8'));
+  assert.deepEqual(bundle.payload.omittedFormats, ['application/x-vnd.google-docs-document-slice-clip+wrapped']);
+  for (const formatting of ['preserve', 'adapt']) {
+    const replay = checkScenario(docs, 'gdocs-mixed-document', bundle, { formatting });
+    assert.deepEqual(replay.problems, ['GM04: list marker is null, expected disc', 'GM05: list marker is null, expected circle', 'GM06: list marker is null, expected decimal']);
+    assert.deepEqual(replay.capture.images, { count: 1, withAlt: 1, schemes: { https: 1 } });
+  }
+  assert.match(checkScenario(docs, 'gdocs-mixed-one-image', bundle).problems.join('\n'), /capture: recorded scenario is gdocs-mixed-document/u);
+  assert.throws(() => checkScenario(docs, 'gdocs-mixed-document', { ...bundle, status: 'incomplete' }), /incomplete/u);
+});
+
 test('the printed specification lists every text an operator enters', () => {
   const printed = printSpecification(docs);
   for (const document of docs.documents) assert.ok(printed.includes(`# ${document.title} (export ${document.export})`));
