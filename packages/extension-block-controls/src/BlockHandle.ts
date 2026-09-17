@@ -873,8 +873,10 @@ export function createBlockHandlePlugin(
   plusBtn.innerHTML = defaultIcons['plus'] ?? '';
 
   const refreshLabels = (): void => {
+    const revision = editor.i18n.getSnapshot().revision;
     const drag = editor.i18n.resolve(blockControlsMessages.dragHandle);
     const add = editor.i18n.resolve(blockControlsMessages.addBlock);
+    if (revision !== editor.i18n.getSnapshot().revision) { refreshLabels(); return; }
     dragBtn.setAttribute('aria-label', drag.text);
     dragBtn.lang = drag.language;
     plusBtn.setAttribute('aria-label', add.text);

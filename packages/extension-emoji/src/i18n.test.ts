@@ -38,6 +38,57 @@ afterEach(() => {
 });
 
 describe('emoji localization', () => {
+  it('uses the newest locale when the first result label changes configuration during opening', () => {
+    const getItems = vi.fn(() => items);
+    const editor = new Editor({ extensions: [Document, Paragraph, Text,
+      Emoji.configure({ emojis: items, suggestion: { items: getItems, render: createEmojiSuggestionRenderer() } }),
+    ] });
+    editors.push(editor);
+    let changed = false;
+    editor.i18n.set({ locale: 'hr', resolve: id => {
+      if (id !== 'core.emojiPicker.itemName' || changed) return undefined;
+      changed = true;
+      editor.i18n.set({ locale: 'de', messages: { 'core.emojiPicker.itemName': ({ name }) => name === 'sun' ? 'Sonne' : name } });
+      return 'Stale Croatian wording';
+    } });
+    editor.view.dispatch(editor.state.tr.insertText(':s', 1));
+    expect(changed).toBe(true);
+    expect(document.querySelector('.dm-emoji-suggestion-name')?.textContent).toBe('Sonne');
+    expect(getItems).toHaveBeenCalledOnce();
+  });
+
+  it.each(['emoji.suggestion.label', 'core.emojiPicker.itemName'] as const)(
+    'settles reentrant %s wording without rerunning the query provider', triggerId => {
+      const renderer = createEmojiSuggestionRenderer()();
+      const getItems = vi.fn(() => items);
+      const editor = new Editor({ extensions: [Document, Paragraph, Text,
+        Emoji.configure({ emojis: items, suggestion: { items: getItems, render: () => renderer } }),
+      ] });
+      editors.push(editor);
+      editor.view.dispatch(editor.state.tr.insertText(':s', 1));
+      const menu = document.querySelector<HTMLElement>('.dm-emoji-suggestion');
+      const row = menu?.querySelector<HTMLElement>('.dm-emoji-suggestion-item');
+      const state = editor.state;
+      getItems.mockClear();
+      let changed = false;
+      editor.i18n.set({ locale: 'hr', resolve: id => {
+        if (id !== triggerId || changed) return undefined;
+        changed = true;
+        editor.i18n.set({ locale: 'de', messages: {
+          'emoji.suggestion.label': 'Emoji Vorschläge', 'core.emojiPicker.itemName': ({ name }) => name === 'sun' ? 'Sonne' : name,
+        } });
+        return 'Stale Croatian wording';
+      } });
+      expect(changed).toBe(true);
+      expect(menu?.getAttribute('aria-label')).toBe('Emoji Vorschläge');
+      expect(menu?.lang).toBe('de');
+      expect(row?.querySelector('.dm-emoji-suggestion-name')?.textContent).toBe('Sonne');
+      expect(menu?.querySelector('.dm-emoji-suggestion-item')).toBe(row);
+      expect(getItems).not.toHaveBeenCalled();
+      expect(editor.state).toBe(state);
+    },
+  );
+
   it('preserves active autocomplete identity and does not rerun a custom query provider', () => {
     const renderer = createEmojiSuggestionRenderer()();
     const getItems = vi.fn(() => items);
@@ -54,6 +105,7 @@ describe('emoji localization', () => {
     renderer.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
     const selected = document.querySelector<HTMLElement>('.dm-emoji-suggestion-item--selected');
     const first = document.querySelector<HTMLElement>('.dm-emoji-suggestion-item');
+    const originalText = first?.querySelector('.dm-emoji-suggestion-name')?.firstChild;
     const state = editor.state;
     getItems.mockClear();
     const transaction = vi.fn();
@@ -73,8 +125,10 @@ describe('emoji localization', () => {
     expect(document.querySelector('.dm-emoji-suggestion-item--selected')).toBe(selected);
     expect(document.querySelector('.dm-emoji-suggestion-item')).toBe(first);
     expect(first?.querySelector('.dm-emoji-suggestion-name')?.textContent).toBe('<b>Sunce</b>');
+    expect(first?.querySelector('.dm-emoji-suggestion-name')?.firstChild).toBe(originalText);
     expect(first?.querySelector('b')).toBeNull();
     expect(selected?.querySelector('.dm-emoji-suggestion-name')?.textContent).toBe('Custom star');
+    expect(selected?.querySelector('.dm-emoji-suggestion-name')?.getAttribute('lang')).toBe('');
     expect(document.querySelector('.dm-emoji-suggestion')?.getAttribute('aria-label')).toBe(
       'Emoji prijedlozi'
     );

@@ -31,6 +31,23 @@ afterEach(() => {
 });
 
 describe('table UI localization', () => {
+  it('settles a reentrant handle translation on the current revision', () => {
+    const editor = createEditor();
+    const handle = element(editor.view.dom, '.dm-table-cell-handle');
+    const state = editor.state;
+    let changed = false;
+    editor.i18n.set({ locale: 'hr', resolve: id => {
+      if (id !== 'table.controls.cellOptions' || changed) return undefined;
+      changed = true;
+      editor.i18n.set({ locale: 'de', messages: { 'table.controls.cellOptions': 'Zellenoptionen' } });
+      return 'Stale Croatian wording';
+    } });
+    expect(changed).toBe(true);
+    expect(handle.getAttribute('aria-label')).toBe('Zellenoptionen');
+    expect(handle.lang).toBe('de');
+    expect(editor.state).toBe(state);
+  });
+
   it.each(['row', 'column'] as const)('patches an open %s menu without replacing focused buttons or the document', (kind) => {
     const editor = createEditor();
     const container = element(editor.view.dom, '.dm-table-container');

@@ -22,6 +22,26 @@ afterEach(() => {
 });
 
 describe('details UI localization', () => {
+  it('keeps a reentrant toggle translation on the newest locale without changing content', () => {
+    const editor = createEditor();
+    const toggle = editor.view.dom.querySelector<HTMLButtonElement>('[data-type="details"] button');
+    if (!toggle) throw new Error('Expected details toggle.');
+    toggle.focus();
+    const state = editor.state;
+    let changed = false;
+    editor.i18n.set({ locale: 'hr', resolve: id => {
+      if (id !== 'details.toggle.label' || changed) return undefined;
+      changed = true;
+      editor.i18n.set({ locale: 'de', messages: { 'details.toggle.label': 'Details öffnen' } });
+      return 'Stale Croatian wording';
+    } });
+    expect(changed).toBe(true);
+    expect(toggle.getAttribute('aria-label')).toBe('Details öffnen');
+    expect(toggle.lang).toBe('de');
+    expect(document.activeElement).toBe(toggle);
+    expect(editor.state).toBe(state);
+  });
+
   it('updates toggle accessibility in place while preserving open state, focus and semantic content', () => {
     const editor = createEditor();
     const node = editor.view.dom.querySelector<HTMLElement>('[data-type="details"]');

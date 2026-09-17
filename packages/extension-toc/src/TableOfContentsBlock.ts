@@ -10,7 +10,7 @@ import type { NodeViewConstructor } from '@domternal/pm/view';
 import { TextSelection } from '@domternal/pm/state';
 import { navigateToc } from './helpers/tocTracking.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
-import { getHeadingCopy, setActiveMarker } from './helpers/outlineDom.js';
+import { getHeadingCopy, setActiveMarker, setLabelText } from './helpers/outlineDom.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 import { tocMessages } from './messages.js';
 
@@ -121,22 +121,33 @@ function makeNodeViewConstructor(
 
     const storage = editor.storage['toc'] as TocStorage | undefined;
 
+    let refreshingLabels = false;
     const refreshLabels = (): void => {
-      const empty = dom.querySelector<HTMLElement>(`.${EMPTY_CLASS}`);
-      if (empty) {
-        const copy = localizeEmptyState
-          ? editor.i18n.resolve(tocMessages.empty)
-          : { text: options.emptyStateText, language: '' };
-        empty.textContent = copy.text;
-        empty.lang = copy.language;
-      }
-      const entries = new Map((storage?.content ?? []).map(entry => [entry.id, entry]));
-      for (const link of Array.from(dom.querySelectorAll<HTMLElement>(`.${LINK_CLASS}`))) {
-        const entry = entries.get(link.dataset[ANCHOR_DATASET_KEY] ?? '');
-        if (!entry) continue;
-        const copy = getHeadingCopy(entry, editor.i18n);
-        link.textContent = copy.text;
-        link.lang = copy.language;
+      if (refreshingLabels) return;
+      refreshingLabels = true;
+      try {
+        let revision: number;
+        do {
+          revision = editor.i18n.getSnapshot().revision;
+          const empty = dom.querySelector<HTMLElement>(`.${EMPTY_CLASS}`);
+          if (empty) {
+            const copy = localizeEmptyState
+              ? editor.i18n.resolve(tocMessages.empty)
+              : { text: options.emptyStateText, language: '' };
+            setLabelText(empty, copy.text);
+            empty.lang = copy.language;
+          }
+          const entries = new Map((storage?.content ?? []).map(entry => [entry.id, entry]));
+          for (const link of Array.from(dom.querySelectorAll<HTMLElement>(`.${LINK_CLASS}`))) {
+            const entry = entries.get(link.dataset[ANCHOR_DATASET_KEY] ?? '');
+            if (!entry) continue;
+            const copy = getHeadingCopy(entry, editor.i18n);
+            setLabelText(link, copy.text);
+            link.lang = copy.language;
+          }
+        } while (revision !== editor.i18n.getSnapshot().revision);
+      } finally {
+        refreshingLabels = false;
       }
     };
     const unsubscribeI18n = editor.i18n.subscribe(refreshLabels);

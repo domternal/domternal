@@ -241,7 +241,10 @@ export class TableView implements NodeView {
   private bindLabel(element: HTMLElement, resolve: () => ResolvedMessage, textElement?: HTMLElement, aria = true): void {
     const text = textElement?.appendChild(textElement.ownerDocument.createTextNode(''));
     const update = (): void => {
+      const revision = this.i18n?.getSnapshot().revision;
       const message = resolve();
+      if (this.localizedElements.get(element) !== update) return;
+      if (revision !== this.i18n?.getSnapshot().revision) { update(); return; }
       if (aria) element.setAttribute('aria-label', message.text);
       element.lang = message.language;
       if (text && text.data !== message.text) text.data = message.text;

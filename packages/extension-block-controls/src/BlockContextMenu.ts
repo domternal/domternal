@@ -19,6 +19,7 @@ import {
   turnIntoBlock,
 } from './helpers/blockOperations.js';
 import { turnIntoWrapper, type WrapperCommand } from './helpers/turnIntoWrapper.js';
+import { setLabelText } from './helpers/setLabelText.js';
 
 /**
  * Subset of `uniqueID` options we read. Avoids importing `UniqueIDOptions`
@@ -301,20 +302,25 @@ export function createBlockContextMenuPlugin(
   let labelUpdates: (() => void)[] = [];
   const bindLabel = (element: HTMLElement, label: Label, textElement?: HTMLElement, aria = true): void => {
     const update = (): void => {
+      const revision = editor.i18n.getSnapshot().revision;
       const copy = typeof label === 'string' ? { text: label } : label();
+      if (!labelUpdates.includes(update)) return;
+      if (revision !== editor.i18n.getSnapshot().revision) { update(); return; }
       if (aria) element.setAttribute('aria-label', copy.text);
-      if (copy.language) element.lang = copy.language;
-      else element.removeAttribute('lang');
-      if (textElement) textElement.textContent = copy.text;
+      element.lang = copy.language ?? '';
+      if (textElement) setLabelText(textElement, copy.text);
     };
     labelUpdates.push(update);
     update();
   };
   const refreshLabels = (): void => {
+    const revision = editor.i18n.getSnapshot().revision;
     const label = editor.i18n.resolve(blockControlsMessages.contextMenu);
+    const items = collectContributedItems();
+    if (revision !== editor.i18n.getSnapshot().revision) { refreshLabels(); return; }
     root.setAttribute('aria-label', label.text);
     root.lang = label.language;
-    contributedItems = collectContributedItems();
+    contributedItems = items;
     for (const update of labelUpdates) update();
   };
   const targetLabel = (target: TurnIntoTarget): Copy => {

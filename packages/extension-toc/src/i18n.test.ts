@@ -37,6 +37,52 @@ afterEach(() => {
 });
 
 describe('table of contents UI localization', () => {
+  it.each(['toc.outline.label', 'toc.heading.fallback'] as const)(
+    'keeps reentrant %s copy current in the existing outline and block', async triggerId => {
+      const { editor, host } = await createEditor('<h1 id="empty"></h1><div data-type="table-of-contents"></div>');
+      const nav = required(host, '.dm-toc-outline');
+      const row = required(nav, '.dm-toc-outline-row');
+      const link = required(host, '.dm-toc-block-link');
+      row.focus();
+      const state = editor.state;
+      let changed = false;
+      editor.i18n.set({ locale: 'hr', resolve: id => {
+        if (id !== triggerId || changed) return undefined;
+        changed = true;
+        editor.i18n.set({ locale: 'de', messages: {
+          'toc.outline.label': 'Dokumentübersicht', 'toc.heading.fallback': 'Überschrift',
+        } });
+        return 'Stale Croatian wording';
+      } });
+      expect(changed).toBe(true);
+      expect(nav.getAttribute('aria-label')).toBe('Dokumentübersicht');
+      expect(nav.lang).toBe('de');
+      expect(row.textContent).toBe('Überschrift');
+      expect(link.textContent).toBe('Überschrift');
+      expect(row.lang).toBe('de');
+      expect(link.lang).toBe('de');
+      expect(document.activeElement).toBe(row);
+      expect(editor.state).toBe(state);
+    },
+  );
+
+  it('settles reentrant empty-state copy without adding document content', async () => {
+    const { editor, host } = await createEditor('<div data-type="table-of-contents"></div>');
+    const empty = required(host, '.dm-toc-block-empty');
+    const state = editor.state;
+    let changed = false;
+    editor.i18n.set({ locale: 'hr', resolve: id => {
+      if (id !== 'toc.block.empty' || changed) return undefined;
+      changed = true;
+      editor.i18n.set({ locale: 'de', messages: { 'toc.block.empty': 'Überschriften hinzufügen' } });
+      return 'Stale Croatian wording';
+    } });
+    expect(changed).toBe(true);
+    expect(empty.textContent).toBe('Überschriften hinzufügen');
+    expect(empty.lang).toBe('de');
+    expect(editor.state).toBe(state);
+  });
+
   it('patches a focused expanded outline and inline block in place without translating authored headings', async () => {
     const { editor, host } = await createEditor('<h1 id="first">Mon titre</h1><h2 id="second"></h2><div data-type="table-of-contents"></div>');
     const nav = required(host, '.dm-toc-outline');

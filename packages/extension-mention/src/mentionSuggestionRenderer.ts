@@ -46,7 +46,22 @@ export function createMentionSuggestionRenderer(): () => MentionSuggestionRender
     let renderedLocaleRevision: number | undefined;
     let buttons: HTMLButtonElement[] = [];
 
+    let rendering = false;
     function render(): void {
+      if (rendering) return;
+      rendering = true;
+      try {
+        let revision: number | undefined;
+        do {
+          revision = currentProps?.i18n?.getSnapshot().revision;
+          renderItems();
+        } while (revision !== currentProps?.i18n?.getSnapshot().revision);
+      } finally {
+        rendering = false;
+      }
+    }
+
+    function renderItems(): void {
       if (!container || !currentProps) return;
 
       const { items, i18n } = currentProps;

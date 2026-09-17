@@ -9,7 +9,7 @@ import type { EditorView } from '@domternal/pm/view';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { navigateToc, resolveTocTrackingOptions } from './helpers/tocTracking.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
-import { getHeadingLabel, getHeadingCopy, setActiveMarker } from './helpers/outlineDom.js';
+import { getHeadingLabel, getHeadingCopy, setActiveMarker, setLabelText } from './helpers/outlineDom.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 import { tocMessages } from './messages.js';
 
@@ -187,22 +187,28 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
 
 /** Patch presentation without replacing focused or pressed navigation targets. */
 function refreshOutlineLabels(nav: HTMLElement, content: HeadingEntry[], i18n?: I18nService): void {
+  const revision = i18n?.getSnapshot().revision;
   const outline = localizeMessage(i18n, tocMessages.outline);
+  const labels = content.map(entry => ({
+    tick: localizeMessage(i18n, tocMessages.headingLabel, { label: getHeadingLabel(entry, i18n), level: entry.level }),
+    row: getHeadingCopy(entry, i18n),
+  }));
+  if (revision !== i18n?.getSnapshot().revision) { refreshOutlineLabels(nav, content, i18n); return; }
   nav.setAttribute('aria-label', outline.text);
   nav.lang = outline.language;
   const ticks = nav.querySelectorAll<HTMLElement>(`.${TICK_CLASS}`);
   const rows = nav.querySelectorAll<HTMLElement>(`.${ROW_CLASS}`);
-  content.forEach((entry, index) => {
+  labels.forEach((label, index) => {
     const tick = ticks[index];
     if (tick) {
-      const copy = localizeMessage(i18n, tocMessages.headingLabel, { label: getHeadingLabel(entry, i18n), level: entry.level });
+      const copy = label.tick;
       tick.setAttribute('aria-label', copy.text);
       tick.lang = copy.language;
     }
     const row = rows[index];
     if (row) {
-      const copy = getHeadingCopy(entry, i18n);
-      row.textContent = copy.text;
+      const copy = label.row;
+      setLabelText(row, copy.text);
       row.lang = copy.language;
     }
   });

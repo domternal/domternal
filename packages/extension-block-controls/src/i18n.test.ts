@@ -42,6 +42,37 @@ afterEach(() => {
 });
 
 describe('block controls UI localization', () => {
+  it.each(['blockControls.handle.drag', 'blockControls.context.label', 'blockControls.context.delete'] as const)(
+    'settles reentrant %s labels in existing controls', triggerId => {
+      const editor = createEditor([BlockHandle, BlockContextMenu]);
+      const host = hostOf(editor);
+      const menu = openContextMenu(editor);
+      const button = required(menu, '[aria-label="Delete"]');
+      const drag = required(host, '.dm-block-handle-drag');
+      button.focus();
+      const state = editor.state;
+      let changed = false;
+      editor.i18n.set({ locale: 'hr', resolve: id => {
+        if (id !== triggerId || changed) return undefined;
+        changed = true;
+        editor.i18n.set({ locale: 'de', messages: {
+          'blockControls.context.label': 'Blockoptionen', 'blockControls.context.delete': 'Löschen',
+          'blockControls.handle.drag': 'Block ziehen',
+        } });
+        return 'Stale Croatian wording';
+      } });
+      expect(changed).toBe(true);
+      expect(menu.getAttribute('aria-label')).toBe('Blockoptionen');
+      expect(menu.lang).toBe('de');
+      expect(button.getAttribute('aria-label')).toBe('Löschen');
+      expect(button.lang).toBe('de');
+      expect(drag.getAttribute('aria-label')).toBe('Block ziehen');
+      expect(drag.lang).toBe('de');
+      expect(document.activeElement).toBe(button);
+      expect(editor.state).toBe(state);
+    },
+  );
+
   it('patches an open context menu and handles without changing focus, pointer targets or editor state', () => {
     const editor = createEditor([BlockHandle, BlockContextMenu, BlockColor]);
     const host = hostOf(editor);
@@ -89,9 +120,15 @@ describe('block controls UI localization', () => {
       ? BlockContextMenu.configure({ turnIntoTargets: targets })
       : BlockContextMenu.extend({ addOptions() { return { turnIntoTargets: targets }; } });
     const editor = createEditor([extension]);
-    editor.i18n.set({ locale: 'hr', messages: { 'blockControls.turnInto.heading': ({ level }) => `Naslov ${String(level)}` } });
+    editor.i18n.set({ locale: 'hr', messages: {
+      'blockControls.context.label': 'Opcije bloka',
+      'blockControls.turnInto.heading': ({ level }) => `Naslov ${String(level)}`,
+    } });
     const menu = openContextMenu(editor);
-    expect(menu.querySelector('[aria-label="Heading 1"]')).not.toBeNull();
+    expect(menu.lang).toBe('hr');
+    const target = menu.querySelector('[aria-label="Heading 1"]');
+    expect(target).not.toBeNull();
+    expect(target?.getAttribute('lang')).toBe('');
     expect(menu.querySelector('[aria-label="Naslov 1"]')).toBeNull();
   });
 
@@ -142,6 +179,37 @@ describe('block controls UI localization', () => {
 });
 
 describe('slash UI localization', () => {
+  it('keeps unknown custom item and group languages outside the translated menu language', () => {
+    let language: string | undefined = 'en';
+    const contributor = Extension.create({
+      name: 'customSlashLanguage',
+      addFloatingMenuItems() {
+        return [{
+          name: 'custom-insert', label: 'Custom action', description: 'Custom description',
+          group: 'Custom', groupLabel: 'Custom group', command: vi.fn<() => void>(),
+          ...(language ? { labelLanguage: language, descriptionLanguage: language, groupLabelLanguage: language } : {}),
+        }];
+      },
+    });
+    const editor = createEditor([contributor, SlashCommand], '<p></p>');
+    editor.view.dispatch(editor.state.tr.insertText('/'));
+    const root = required(hostOf(editor), '.dm-slash-command-menu');
+    const button = required(root, '[aria-label="Custom action"]');
+    const group = required(root, '[aria-label="Custom group"]');
+    expect(button.lang).toBe('en');
+    expect(group.lang).toBe('en');
+    const state = editor.state;
+    language = undefined;
+    editor.i18n.set({ locale: 'hr', messages: { 'core.floatingMenu.label': 'Umetni blok' } });
+    expect(root.lang).toBe('hr');
+    expect(required(root, '[aria-label="Custom action"]')).toBe(button);
+    expect(button.getAttribute('lang')).toBe('');
+    expect(group.getAttribute('lang')).toBe('');
+    expect(required(button, '.dm-slash-command-item-label').getAttribute('lang')).toBe('');
+    expect(required(button, '.dm-slash-command-item-description').getAttribute('lang')).toBe('');
+    expect(editor.state).toBe(state);
+  });
+
   function createSlashEditor(command = vi.fn()): Editor {
     const contributor = Extension.create({
       name: 'localizedSlashContribution',
@@ -159,6 +227,30 @@ describe('slash UI localization', () => {
     });
     return createEditor([contributor, SlashCommand], '<p></p>');
   }
+
+  it.each(['core.floatingMenu.label', 'blockControls.slash.noMatches'] as const)(
+    'settles reentrant %s copy in an open slash result', triggerId => {
+      const editor = createSlashEditor();
+      editor.view.dispatch(editor.state.tr.insertText('/'));
+      editor.view.dispatch(editor.state.tr.insertText('zzzz'));
+      const root = required(hostOf(editor), '.dm-slash-command-menu');
+      const state = editor.state;
+      let changed = false;
+      editor.i18n.set({ locale: 'hr', resolve: id => {
+        if (id !== triggerId || changed) return undefined;
+        changed = true;
+        editor.i18n.set({ locale: 'de', messages: {
+          'core.floatingMenu.label': 'Block einfügen', 'blockControls.slash.noMatches': 'Keine Ergebnisse',
+        } });
+        return 'Stale Croatian wording';
+      } });
+      expect(changed).toBe(true);
+      expect(root.getAttribute('aria-label')).toBe('Block einfügen');
+      expect(root.lang).toBe('de');
+      expect(root.querySelector('.dm-slash-command-empty')?.textContent).toBe('Keine Ergebnisse');
+      expect(editor.state).toBe(state);
+    },
+  );
 
   it('patches the open slash popup in place and retains the selected action across a pending click', () => {
     const command = vi.fn();

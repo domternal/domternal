@@ -58,8 +58,10 @@ export const MathEditing = Extension.create<MathEditingOptions>({
     preview.className = 'dm-math-popover-preview';
 
     const refreshLabels = (): void => {
+      const revision = i18n?.getSnapshot().revision;
       const source = localizeMessage(i18n, mathMessages.source);
       const placeholder = localizeMessage(i18n, mathMessages.preview);
+      if (revision !== i18n?.getSnapshot().revision) { refreshLabels(); return; }
       textarea.setAttribute('aria-label', source.text);
       textarea.lang = source.language;
       preview.setAttribute('data-placeholder', placeholder.text);

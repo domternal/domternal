@@ -32,6 +32,35 @@ afterEach(() => {
 });
 
 describe('mention UI localization', () => {
+  it.each(['mention.suggestions.label', 'mention.suggestions.empty'] as const)(
+    'settles a reentrant %s translation without fetching again', triggerId => {
+      const items = vi.fn(() => []);
+      const editor = createEditor({ items });
+      editor.view.dispatch(editor.state.tr.insertText('@'));
+      const menu = menuOf(editor);
+      const empty = menu.querySelector('.dm-mention-suggestion-empty');
+      const state = editor.state;
+      items.mockClear();
+      let changed = false;
+      editor.i18n.set({ locale: 'hr', resolve: id => {
+        if (id !== triggerId || changed) return undefined;
+        changed = true;
+        editor.i18n.set({ locale: 'de', messages: {
+          'mention.suggestions.label': 'Erwähnungen', 'mention.suggestions.empty': 'Keine Ergebnisse',
+        } });
+        return 'Stale Croatian wording';
+      } });
+      expect(changed).toBe(true);
+      expect(menu.getAttribute('aria-label')).toBe('Erwähnungen');
+      expect(menu.lang).toBe('de');
+      expect(empty?.textContent).toBe('Keine Ergebnisse');
+      expect(empty?.getAttribute('lang')).toBe('de');
+      expect(menuOf(editor)).toBe(menu);
+      expect(items).not.toHaveBeenCalled();
+      expect(editor.state).toBe(state);
+    },
+  );
+
   it('updates an empty menu in place without re-running the source or changing query/document', () => {
     const items = vi.fn(() => []);
     const editor = createEditor({ items });

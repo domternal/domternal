@@ -32,6 +32,39 @@ afterEach(() => {
 });
 
 describe('math UI localization', () => {
+  it.each(['math.empty', 'math.source.label', 'math.preview.placeholder'] as const)(
+    'settles reentrant %s copy without replacing the equation or open draft', triggerId => {
+      const editor = createEditor('<p><span data-type="math-inline" data-latex=""></span></p>');
+      const node = editor.view.dom.querySelector<HTMLElement>('.dm-math');
+      const { textarea, preview, popover } = open(editor, '');
+      textarea.value = 'unfinished source';
+      textarea.focus();
+      textarea.setSelectionRange(2, 6);
+      const state = editor.state;
+      let changed = false;
+      editor.i18n.set({ locale: 'hr', resolve: id => {
+        if (id !== triggerId || changed) return undefined;
+        changed = true;
+        editor.i18n.set({ locale: 'de', messages: {
+          'math.empty': 'Neue Gleichung', 'math.source.label': 'LaTeX Quelle',
+          'math.preview.placeholder': 'Vorschau',
+        } });
+        return 'Stale Croatian wording';
+      } });
+      expect(changed).toBe(true);
+      expect(node?.textContent).toBe('Neue Gleichung');
+      expect(node?.lang).toBe('de');
+      expect(textarea.getAttribute('aria-label')).toBe('LaTeX Quelle');
+      expect(textarea.lang).toBe('de');
+      expect(preview.getAttribute('data-placeholder')).toBe('Vorschau');
+      expect(popover.querySelector('textarea')).toBe(textarea);
+      expect(textarea.value).toBe('unfinished source');
+      expect([textarea.selectionStart, textarea.selectionEnd]).toEqual([2, 6]);
+      expect(document.activeElement).toBe(textarea);
+      expect(editor.state).toBe(state);
+    },
+  );
+
   it('updates open source accessibility and preview copy while preserving a composing draft and selection', () => {
     const editor = createEditor('<p><span data-type="math-inline" data-latex="x^2"></span></p>');
     const { textarea, preview, popover } = open(editor, 'x^2');

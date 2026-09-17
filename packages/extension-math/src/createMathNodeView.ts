@@ -52,8 +52,15 @@ export function createMathNodeView(
       dom.removeAttribute('lang');
       if (!latex) {
         dom.classList.add('dm-math-empty');
+        const revision = i18n?.getSnapshot().revision;
         const copy = localizeMessage(i18n, mathMessages.empty);
-        dom.textContent = copy.text;
+        if (revision !== i18n?.getSnapshot().revision) { render(currentLatex); return; }
+        const text = dom.firstChild;
+        if (text?.nodeType === 3 && text === dom.lastChild) {
+          if (text.nodeValue !== copy.text) text.nodeValue = copy.text;
+        } else {
+          dom.textContent = copy.text;
+        }
         dom.lang = copy.language;
         return;
       }

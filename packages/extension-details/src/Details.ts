@@ -118,7 +118,9 @@ export const Details = Node.create<DetailsOptions>({
       const toggle = document.createElement('button');
       toggle.type = 'button';
       const refreshLabel = (): void => {
+        const revision = editor?.i18n?.getSnapshot().revision;
         const copy = localizeMessage(editor?.i18n, detailsMessages.toggle);
+        if (revision !== editor?.i18n?.getSnapshot().revision) { refreshLabel(); return; }
         toggle.setAttribute('aria-label', copy.text);
         toggle.lang = copy.language;
       };

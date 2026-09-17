@@ -16,6 +16,7 @@ import {
 import type { FloatingMenuItem, IconSet } from '@domternal/core';
 import { blockControlsMessages } from './messages.js';
 import type { SlashCommandProps, SlashCommandRenderer } from './SlashCommand.js';
+import { setLabelText } from './helpers/setLabelText.js';
 
 // Unique id suffixes so `aria-activedescendant` on the menu root can announce
 // the selection to screen readers as the user arrow-keys through items.
@@ -62,8 +63,7 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
       .join('\u0002');
 
   const setLanguage = (element: HTMLElement, language?: string): void => {
-    if (language) element.lang = language;
-    else element.removeAttribute('lang');
+    element.lang = language ?? '';
   };
 
   const refreshLabels = (props: SlashCommandProps, groups: ReturnType<typeof groupFloatingMenuItems>): void => {
@@ -74,7 +74,7 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
     const empty = root.querySelector<HTMLElement>('.dm-slash-command-empty');
     if (empty) {
       const message = props.editor.i18n.resolve(blockControlsMessages.noMatches);
-      empty.textContent = message.text;
+      setLabelText(empty, message.text);
       empty.lang = message.language;
     }
     groups.forEach((group, index) => {
@@ -87,7 +87,7 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
         setLanguage(element, group.labelLanguage);
       }
       if (label) {
-        label.textContent = text;
+        setLabelText(label, text);
         setLanguage(label, group.labelLanguage);
       }
     });
@@ -98,7 +98,7 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
       setLanguage(button, item.labelLanguage);
       const label = button.querySelector<HTMLElement>('.dm-slash-command-item-label');
       if (label) {
-        label.textContent = item.label;
+        setLabelText(label, item.label);
         setLanguage(label, item.labelLanguage);
       }
       const text = button.querySelector('.dm-slash-command-item-text');
@@ -109,7 +109,7 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
           description.className = 'dm-slash-command-item-description';
           text.appendChild(description);
         }
-        description.textContent = item.description;
+        setLabelText(description, item.description);
         setLanguage(description, item.descriptionLanguage);
       } else description?.remove();
       let shortcut = button.querySelector<HTMLElement>('.dm-slash-command-item-shortcut');
@@ -120,7 +120,7 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
           shortcut.setAttribute('aria-hidden', 'true');
           button.appendChild(shortcut);
         }
-        shortcut.textContent = item.shortcut;
+        setLabelText(shortcut, item.shortcut);
       } else shortcut?.remove();
     });
   };
