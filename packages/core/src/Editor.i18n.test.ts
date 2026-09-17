@@ -147,4 +147,77 @@ describe('editor UI localization', () => {
     expect(toolbarChanged).not.toHaveBeenCalled();
     expect(floatingChanged).not.toHaveBeenCalled();
   });
+  it.each(['core.toolbar.bold', 'core.toolbar.italic'] as const)(
+    'keeps caches and subscribed controllers on the newest revision after reentrant %s resolution',
+    triggerId => {
+      const custom = Extension.create({
+        name: 'reentrantMenus',
+        addToolbarItems() {
+          return [{ type: 'button', name: 'bold', command: 'toggleBold', icon: 'textB',
+            ...localizedLabel(this.editor?.i18n, coreMessages.bold) }];
+        },
+        addFloatingMenuItems() {
+          return [{ name: 'italic', command: 'toggleItalic',
+            ...localizedLabel(this.editor?.i18n, coreMessages.italic) }];
+        },
+      });
+      const editor = create({ extensions: [Document, Paragraph, Text, custom] });
+      const toolbar = new ToolbarController(editor as unknown as ConstructorParameters<typeof ToolbarController>[0], vi.fn());
+      const floating = new FloatingMenuController(editor, vi.fn());
+      toolbar.subscribe();
+      floating.subscribe();
+      const state = editor.state;
+      const transaction = vi.fn();
+      editor.on('transaction', transaction);
+      let reentered = false;
+      editor.i18n.set({ locale: 'hr', resolve: id => {
+        if (id !== triggerId || reentered) return undefined;
+        reentered = true;
+        editor.i18n.set({ locale: 'de', messages: {
+          'core.toolbar.bold': 'Fett', 'core.toolbar.italic': 'Kursiv',
+        } });
+        return 'Stale Croatian wording';
+      } });
+      expect(reentered).toBe(true);
+      expect(editor.i18n.getSnapshot().locale).toBe('de');
+      expect(editor.toolbarItems[0]).toMatchObject({ label: 'Fett', labelLanguage: 'de' });
+      expect(editor.floatingMenuItems[0]).toMatchObject({ label: 'Kursiv', labelLanguage: 'de' });
+      expect(toolbar.groups[0]?.items[0]).toBe(editor.toolbarItems[0]);
+      expect(floating.flatItems[0]).toBe(editor.floatingMenuItems[0]);
+      expect(editor.state).toBe(state);
+      expect(transaction).not.toHaveBeenCalled();
+      toolbar.destroy();
+      floating.destroy();
+    },
+  );
+
+  it.each(['toolbarItems', 'floatingMenuItems'] as const)(
+    'retries lazy %s collection when reentrancy invalidates an unpopulated cache',
+    surface => {
+      const custom = Extension.create({
+        name: 'reentrantLazyMenus',
+        addToolbarItems() {
+          return [{ type: 'button', name: 'bold', command: 'toggleBold', icon: 'textB',
+            ...localizedLabel(this.editor?.i18n, coreMessages.bold) }];
+        },
+        addFloatingMenuItems() {
+          return [{ name: 'bold', command: 'toggleBold',
+            ...localizedLabel(this.editor?.i18n, coreMessages.bold) }];
+        },
+      });
+      const editor = create({ extensions: [Document, Paragraph, Text, custom] });
+      let reentered = false;
+      editor.i18n.set({ locale: 'hr', resolve: id => {
+        if (id !== 'core.toolbar.bold' || reentered) return undefined;
+        reentered = true;
+        editor.i18n.set({ locale: 'de', messages: { 'core.toolbar.bold': 'Fett' } });
+        return 'Stale Croatian wording';
+      } });
+      const items = editor[surface];
+      expect(reentered).toBe(true);
+      expect(items[0]).toMatchObject({ label: 'Fett', labelLanguage: 'de' });
+      expect(editor[surface]).toBe(items);
+    },
+  );
+
 });

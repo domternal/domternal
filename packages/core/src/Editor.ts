@@ -139,6 +139,7 @@ export class Editor extends EventEmitter<EditorEvents> {
 
   private _localeRepaintPending = false;
   private _localeRepaintQueued = false;
+  private _isLocaleRepainting = false;
 
   /**
    * Creates a new Editor instance
@@ -771,9 +772,23 @@ export class Editor extends EventEmitter<EditorEvents> {
   private repaintLocalizedView(): void {
     // A view refresh with stored marks can terminate an active IME composition.
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (this._isDestroyed || this._isViewConstructing || !this.view || this.view.composing) return;
-    this._localeRepaintPending = false;
-    this.view.setProps({});
+    if (this._isDestroyed || this._isViewConstructing || this._isLocaleRepainting || !this.view || this.view.composing) return;
+    this._isLocaleRepainting = true;
+    try {
+      do {
+        const revision = this.i18n.getSnapshot().revision;
+        this._localeRepaintPending = false;
+        this.view.setProps({});
+        // A resolver can publish new wording before the outer DOM paint finishes.
+        // Finish that paint first, then apply the newest revision synchronously.
+        // setProps callbacks can destroy the editor or begin composition.
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (!this._isDestroyed && revision !== this.i18n.getSnapshot().revision) this._localeRepaintPending = true;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      } while (this._localeRepaintPending && !this._isDestroyed && !this.view.composing);
+    } finally {
+      this._isLocaleRepainting = false;
+    }
   }
 
   private readonly queueLocalizedViewRepaint = (): void => {

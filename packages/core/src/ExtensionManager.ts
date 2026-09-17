@@ -275,7 +275,13 @@ export class ExtensionManager {
    * Cached after first call
    */
   get toolbarItems(): ToolbarItem[] {
-    this._toolbarItems ??= this.collectToolbarItems();
+    while (this._toolbarItems === null) {
+      const revision = this.editor.i18n?.getSnapshot().revision;
+      const items = this.collectToolbarItems();
+      // A resolver may publish a newer revision while this collection is running.
+      // Keep its nested cache, or retry if the new revision has not been collected.
+      if (revision === this.editor.i18n?.getSnapshot().revision) this._toolbarItems = items;
+    }
     return this._toolbarItems;
   }
 
@@ -284,7 +290,11 @@ export class ExtensionManager {
    * Cached after first call
    */
   get floatingMenuItems(): FloatingMenuItem[] {
-    this._floatingMenuItems ??= this.collectFloatingMenuItems();
+    while (this._floatingMenuItems === null) {
+      const revision = this.editor.i18n?.getSnapshot().revision;
+      const items = this.collectFloatingMenuItems();
+      if (revision === this.editor.i18n?.getSnapshot().revision) this._floatingMenuItems = items;
+    }
     return this._floatingMenuItems;
   }
 
