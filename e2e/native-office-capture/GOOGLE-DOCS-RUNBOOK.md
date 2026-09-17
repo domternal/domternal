@@ -51,15 +51,18 @@ generated; a bundle that holds anything else must be deleted, not edited.
    text and the formatting of single words.
 3. In Google Docs, turn off Tools > Preferences > Automatically capitalize words,
    Use smart quotes and Automatic substitution.
-4. Create the six documents with File > New > Document and the titles of the
+4. Create the seven documents with File > New > Document and the titles of the
    specification: `gdocs-v1-basics`, `gdocs-v1-lists`, `gdocs-v1-tables`,
-   `gdocs-v1-images`, `gdocs-v1-mixed` and `gdocs-v1-large`. Copy each text from
-   TextEdit and paste it with Cmd+Shift+V, then apply the formatting the block
-   names. Never type a list marker. Never upload or import a document file.
+   `gdocs-v1-images`, `gdocs-v1-large-image`, `gdocs-v1-mixed` and
+   `gdocs-v1-large`. Copy each text from TextEdit and paste it with
+   Cmd+Shift+V, then apply the formatting the block names. Never type a list
+   marker. Never upload or import a document file.
 5. When a document is finished, use File > Download > Microsoft Word (.docx),
    keep the file outside the repository and run `shasum -a 256 <file>.docx`.
    That hash is the fixture hash of every capture from the document; a later
-   edit needs a new export and hash. Confirm that
+   edit needs a new export and hash. Each capture's fixture holds this export,
+   which `prepare-fixture.mjs` and `offline.mjs` accept up to 16 MiB; the large
+   image has its own document so that only its captures carry it. Confirm that
    `unzip -p <file>.docx docProps/core.xml docProps/app.xml` shows no name or
    address.
 

@@ -211,19 +211,23 @@ Firefox is captured by the owner or a named tester with the
 profile.
 
 - [`content/google-docs-v1.json`](./content/google-docs-v1.json) mirrors the Word
-  specification where Google Docs supports it. Six documents (`gdocs-v1-basics`,
-  `-lists`, `-tables`, `-images`, `-mixed` and `-large`) are defined block by
-  block with the Google Docs command for each, and 34 `gdocs-*` scenarios give
-  the selection, the expected editor result in preserve and in adapt, the
-  machine-checked outcome of each policy and, for images, what to record from
-  the capture. They cover headings, a plain paragraph, Croatian text, bold,
-  italic and underline, links, lists and nested lists with Google's markers,
-  tables with merged cells, images by URL, a large image, the slow copy, the 50
-  image limit and partial selections.
+  specification where Google Docs supports it. Seven documents
+  (`gdocs-v1-basics`, `-lists`, `-tables`, `-images`, `-large-image`, `-mixed`
+  and `-large`) are defined block by block with the Google Docs command for
+  each, and 34 `gdocs-*` scenarios give the selection, the expected editor
+  result in preserve and in adapt, the machine-checked outcome of each policy
+  and, for images, what to record from the capture. They cover headings, a
+  plain paragraph, Croatian text, bold, italic and underline, links, lists and
+  nested lists with Google's markers, tables with merged cells, images by URL, a
+  large image, the slow copy, the 50 image limit and partial selections.
 - [`content/google-docs-images.mjs`](./content/google-docs-images.mjs) writes the
   57 PNG images the documents insert, outside the repository: solid colors of
-  known sizes, an 18 MB noise image of 3000 x 2000 pixels and 51 small images for
+  known sizes, a 5.8 MB noise image of 1600 x 1200 pixels and 51 small images for
   the limit. The bytes do not depend on the zlib version and are pinned by tests.
+  The noise image exceeds the capture's 5 MiB file and 2 MiB text flavor limits
+  and has a document of its own, whose `.docx` export, the fixture source of each
+  of its captures, stays below the 16 MiB source limit of `prepare-fixture.mjs`
+  and `offline.mjs`.
 - The fixture editor allows no remote images, so an image that Google Docs serves
   by URL is expected to be removed with `image-removed`, its alt text staying in
   its place. Its default schema has no LineHeight, so preserve is expected to

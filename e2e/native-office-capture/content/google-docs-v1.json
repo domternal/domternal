@@ -1064,29 +1064,10 @@
           "docs": "In the same cell, below GI13, in a paragraph of its own"
         },
         {
-          "id": "GI15",
-          "type": "paragraph",
-          "docs": "Normal text below the table",
-          "text": "GI15 Large picture follows."
-        },
-        {
-          "id": "GI16",
-          "type": "image",
-          "file": "gdocs-v1-large-3000x2000.png",
-          "alt": "GI16 Large noise image",
-          "docs": "The 18 MB noise image in a paragraph of its own; wait until Google Docs has finished uploading it"
-        },
-        {
-          "id": "GI17",
-          "type": "paragraph",
-          "docs": "Normal text",
-          "text": "GI17 After the large picture."
-        },
-        {
           "id": "GI18",
           "type": "heading",
           "level": 2,
-          "docs": "Heading 2",
+          "docs": "Below the table, Heading 2",
           "text": "GI18 Limit of 50 pictures"
         },
         {
@@ -1107,6 +1088,31 @@
           "type": "paragraph",
           "docs": "Enter after the last small image, Normal text",
           "text": "GI21 After fifty-one pictures."
+        }
+      ]
+    },
+    {
+      "title": "gdocs-v1-large-image",
+      "export": "gdocs-v1-large-image.docx",
+      "blocks": [
+        {
+          "id": "GI15",
+          "type": "paragraph",
+          "docs": "Normal text. The large image has a document of its own, so only its captures carry the large export as their fixture source.",
+          "text": "GI15 Large picture follows."
+        },
+        {
+          "id": "GI16",
+          "type": "image",
+          "file": "gdocs-v1-large-1600x1200.png",
+          "alt": "GI16 Large noise image",
+          "docs": "The 5.8 MB noise image in a paragraph of its own; wait until Google Docs has finished uploading it"
+        },
+        {
+          "id": "GI17",
+          "type": "paragraph",
+          "docs": "Normal text",
+          "text": "GI17 After the large picture."
         }
       ]
     },
@@ -2038,8 +2044,8 @@
     },
     {
       "id": "gdocs-large-image",
-      "document": "gdocs-v1-images",
-      "selection": "GI15 to GI17",
+      "document": "gdocs-v1-large-image",
+      "selection": "GI15 to GI17: drag from the start of GI15 to the end of GI17",
       "images": "removed",
       "blocks": [
         "GI15",
@@ -2068,30 +2074,17 @@
     },
     {
       "id": "gdocs-slow-copy",
-      "document": "gdocs-v1-images",
-      "selection": "GI02 to GI17 (seven images including the large one). Copy and paste into the capture area within one second; then copy again and wait 15 seconds before pasting. Capture both and record the wait in the copy method.",
+      "document": "gdocs-v1-large-image",
+      "selection": "Select All (Cmd+A), GI15 to GI17 with the large image. Copy and paste into the capture area within one second; then copy again and wait 15 seconds before pasting. Capture both and record the wait in the copy method.",
       "images": "removed",
       "blocks": [
-        "GI02",
-        "GI03",
-        "GI04",
-        "GI05",
-        "GI06",
-        "GI07",
-        "GI08",
-        "GI09",
-        "GI10",
-        "GI11",
-        "GI12",
-        "GI13",
-        "GI14",
         "GI15",
         "GI16",
         "GI17"
       ],
       "capture": "For each wait: the number of img elements, their src schemes and any message Google Docs showed while copying.",
       "expected": {
-        "preserve": "Every text block in both waits. Each image Google Docs serves by URL is removed with image-removed and keeps its alt text; an image the copy left out has neither, so its identifier is missing without a finding.",
+        "preserve": "GI15 and GI17 in both waits. If the copy holds the large image by URL, it is removed with image-removed and GI16's alt text stays in its place; an image the copy left out has neither, so GI16 is missing without a finding.",
         "adapt": "The same."
       },
       "outcome": {
@@ -2238,8 +2231,8 @@
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "c41933ffd946eee6a981091c2af00ca91278a18d",
-    "originalSpecificationSha256": "1a32c0e59e181424becd3a9de8478405aafe39ed38f93059bdf66fde39950c16",
+    "originalSpecificationBlob": "547ec6e11efff247c186984ee0853262a1950fef",
+    "originalSpecificationSha256": "c47512129e9771c6f1685267d641a03d9be1ecbf0977af68038381862dea3c20",
     "originalKind": "domternal-native-capture-content",
     "originalStatus": "prepared-not-captured",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",

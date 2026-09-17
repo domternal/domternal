@@ -20,8 +20,10 @@ export const GOOGLE_DOCS_IMAGES = Object.freeze([
   solid('gdocs-v1-orange-200x200.png', 200, 200, [0xf2, 0x8c, 0x28]),
   solid('gdocs-v1-red-160x120.png', 160, 120, [0xc6, 0x28, 0x28]),
   solid('gdocs-v1-purple-160x120.png', 160, 120, [0x6a, 0x1b, 0x9a]),
-  // Seeded noise does not compress, so the file stays large after any re-encoding.
-  Object.freeze({ name: 'gdocs-v1-large-3000x2000.png', width: 3000, height: 2000, noise: 0x9e3779b9 }),
+  // Seeded noise does not compress, so the file stays large after any re-encoding. At 5.8 MB it exceeds
+  // the capture's 5 MiB file limit and, as a data URL, its 2 MiB text flavor limit, while the .docx export
+  // of its own document stays well below the 16 MiB fixture source limit of prepare-fixture.mjs and offline.mjs.
+  Object.freeze({ name: 'gdocs-v1-large-1600x1200.png', width: 1600, height: 1200, noise: 0x9e3779b9 }),
   // Fifty-one distinct colors: 37, 91 and 157 are odd, so each channel differs for every index.
   ...Array.from({ length: 51 }, (_, index) => solid(`gdocs-v1-limit-${String(index + 1).padStart(2, '0')}.png`, 32, 32,
     [(37 * (index + 1)) % 256, (91 * (index + 1)) % 256, (157 * (index + 1)) % 256])),

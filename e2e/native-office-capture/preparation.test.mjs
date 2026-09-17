@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { HARD_LIMITS } from './capture.mjs';
 import { CaptureEvidenceError, verifyCaptureFixture } from './offline.mjs';
 import { prepareFixture } from './prepare-fixture.mjs';
 import { inflateSync } from 'node:zlib';
@@ -224,7 +225,16 @@ test('the Google Docs images are deterministic PNG files, pinned and written onl
   t.after(() => rm(target, { recursive: true, force: true }));
   const written = await writeGoogleDocsImages(target);
   assert.deepEqual((await readdir(target)).sort(), GOOGLE_DOCS_IMAGES.map(image => image.name).sort());
-  assert.equal(written.find(entry => entry.file === 'gdocs-v1-large-3000x2000.png').bytes, 18_003_438);
+  const large = written.find(entry => entry.file === 'gdocs-v1-large-1600x1200.png');
+  assert.equal(large.bytes, 5_761_703);
+  // Large for the capture as a file and as a data URL, yet its document's export stays a valid fixture source.
+  assert.ok(large.bytes > HARD_LIMITS.maxFileBytes && Math.ceil(large.bytes / 3) * 4 > HARD_LIMITS.maxFormatBytes);
+  assert.ok(large.bytes < FIXTURE_SOURCE_LIMIT / 2);
+  assert.deepEqual(written.filter(entry => entry.bytes > 1024 * 1024).map(entry => entry.file), [large.file]);
+  // Only the captures of the large image document carry the large image in their fixture source.
+  const holders = docs.documents.filter(document => document.blocks.some(block => block.file === large.file));
+  assert.deepEqual(holders.map(document => document.title), ['gdocs-v1-large-image']);
+  assert.deepEqual(holders[0].blocks.filter(block => block.type === 'image' || block.type === 'imageRun').map(block => block.file), [large.file]);
 });
 
 test('every Word and Google Docs scenario passes a synthetic dry run under both policies', () => {
@@ -328,4 +338,6 @@ test('the printed specification lists every text an operator enters', () => {
 const blocksById = specification => new Map(specification.documents.flatMap(document => document.blocks.map(block => [block.id, block])));
 
 const LARGE_SOURCE_SHA256 = '65961f471b3cc61546725eb60db6be7578eb3d0aeb8bf05bcddc442d6dbfed9d';
-const GOOGLE_DOCS_IMAGES_SHA256 = '4d231d555c22a4c93824e90a407c32796e84bf22c168f962a538754cb900ddc4';
+const GOOGLE_DOCS_IMAGES_SHA256 = 'f8078173e395786a68c6fc4d74a3acf2a165bc716edf3c52ee466bb851f502f0';
+// The source size limit of prepare-fixture.mjs and offline.mjs.
+const FIXTURE_SOURCE_LIMIT = 16 * 1024 * 1024;
