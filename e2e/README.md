@@ -30,7 +30,7 @@ the result with the release verification.
 | Legacy per-application suites under `apps/demo-*/e2e` | `pnpm test:e2e` |
 | Native Office capture tooling, as [its README](native-office-capture/README.md) describes | `node --test e2e/native-office-capture/capture.test.mjs e2e/native-office-capture/offline.test.mjs e2e/native-office-capture/preparation.test.mjs` and `pnpm exec playwright test --config e2e/native-office-capture/browser.config.mjs` |
 | Paste performance harness, as [its README](paste-performance/README.md) describes | `node --test e2e/paste-performance/fixtures.test.mjs e2e/paste-performance/large.test.mjs e2e/paste-performance/sampler.test.mjs` and `node e2e/paste-performance/runner.mjs --smoke --out <directory>` |
-| Content performance and output equivalence against the published 1.2.0, as [its README](content-performance/README.md) describes | `node e2e/content-performance/runner.mjs --out <directory> --rounds 1 --browsers chromium` |
+| Content performance and output equivalence against the published 1.2.0, as [its README](content-performance/README.md) describes | `node --test e2e/content-performance/provenance.test.mjs` and `node e2e/content-performance/runner.mjs --out <directory> --rounds 1 --browsers chromium` |
 
 The performance runners measure one machine; their full runs are evidence for a
 report, not a pass or fail check.

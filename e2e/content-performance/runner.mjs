@@ -7,7 +7,7 @@
  * rotates and reverses by round, so drift in machine load spreads over the variants.
  *
  *   node e2e/content-performance/runner.mjs --out <new dir> [--rounds 6] [--browsers chromium,firefox,webkit]
- *     [--current <label>] [--bundle <label>=<bundle.js from an earlier output>] [--documents a,b]
+ *     [--current <label>] [--bundle <label>=<bundle.js of an earlier output>] [--documents a,b]
  *   node e2e/content-performance/runner.mjs --out <new dir> --equivalence <label>,<label> [--bundle ...] [--seeds 8] [--count 250]
  */
 import assert from 'node:assert/strict';
@@ -20,6 +20,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { earlierBundle } from './provenance.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
@@ -77,8 +78,11 @@ for (const entry of values.bundle) {
   assert.ok(label && path && label !== BASELINE && label !== values.current, `Invalid bundle ${entry}`);
   const bytes = readFileSync(resolve(path));
   writeFileSync(join(out, `${label}.js`), bytes);
-  variants.push({ label, sha256: sha256(bytes), from: resolve(path) });
+  // The commit, inputs and tree state the earlier output recorded for it, never a local path.
+  variants.push({ label, ...earlierBundle(resolve(path), sha256(bytes)) });
 }
+// Listed before measuring, so a later run can name these bundles even if this one stops early.
+writeFileSync(join(out, 'variants.json'), `${JSON.stringify(variants, null, 2)}\n`);
 for (const { label } of variants) writeFileSync(join(out, `${label}.html`), `<!doctype html><meta charset="utf-8"><title>${label}</title><div id="editor"></div><script type="module" src="/${label}.js"></script>`);
 
 const server = createServer((request, response) => {

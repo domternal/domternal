@@ -50,15 +50,20 @@ node e2e/content-performance/runner.mjs --out /private/tmp/content-performance -
 ```
 
 `--current <label>` names this checkout's build in the report (default `current`).
-Every output directory keeps the bundles it measured, so `--bundle <label>=<path>`
-adds a bundle of an earlier output, for example the build before a change, to a
-later run. `--equivalence <label>,<label>` instead compares every output and
+Every output directory keeps the bundles it measured and lists them in
+`variants.json` before measuring, so `--bundle <label>=<path>` adds a bundle of an
+earlier output, for example the build before a change, to a later run. The report
+names such a bundle by the commit, inputs and working tree state its output
+recorded for it, never by its path, and the runner refuses a bundle that the
+`variants.json` or `report.json` beside it does not list with the same SHA-256. `--equivalence <label>,<label>` instead compares every output and
 diagnostic of the JSON entry points (`normalizeContent`, `generateHTML` with
 `onDiagnostic`, initial content with `onContentDiagnostic`, `getHTML` plain and
 styled, `getJSON` and `setContent`) for seeded documents full of edge values: heading
 levels, list markers, hrefs and CSS values valid and not. It exits with status 1 when
 any differs. Both modes write `report.json` with the machine, load averages before
-and after each page, browser versions and bundle hashes.
+and after each page, browser versions and bundle hashes. `provenance.test.mjs`
+checks how a bundle of an earlier output is named:
+`node --test e2e/content-performance/provenance.test.mjs`.
 
 ## Results
 
