@@ -70,6 +70,23 @@ describe('Link hrefs in loaded JSON content', () => {
     expect(diagnostics.map(diagnostic => diagnostic.code)).toEqual(['unsafe-url', 'unsupported-url', 'unsafe-url', 'unsupported-url']);
   });
 
+  it('checks an href over 2,048 characters again on every load and render instead of keeping it', () => {
+    // A long-lived page or server would otherwise keep thousands of such hrefs from untrusted content.
+    const long = `https://example.com/${'x'.repeat(2048)}`;
+    const content = linked([long, ...hrefs.slice(0, 2)]);
+    const editor = mount({}, content);
+    const html = editor.getHTML();
+    vi.mocked(urlPolicy.checkUrl).mockClear();
+
+    editor.commands.setContent(content);
+    expect(editor.getHTML()).toBe(html);
+    expect(generateHTML(content, [Document, Paragraph, Text, Link])).toBe(html);
+
+    const checked = vi.mocked(urlPolicy.checkUrl).mock.calls.map(([href]) => href);
+    expect(checked.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(checked)).toEqual(new Set([long]));
+  });
+
   it('keeps the checks of different policies apart', () => {
     const content = linked(['mailto:a@b.example', '#top']);
     const wide = mount({}, content);

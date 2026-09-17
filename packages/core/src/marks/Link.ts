@@ -163,17 +163,20 @@ function configuredProtocols(protocols: unknown): readonly string[] {
  * new schema, with a new copy of the default schemes, on every call. Keyed by what a check reads
  * of a Link policy, its schemes and `allowRelative`, so equal policies share their checks.
  * Bounded, and cleared when full, so a document of many distinct links cannot grow it without limit.
+ * An href over 2,048 characters is checked each time instead of kept, so content with huge hrefs,
+ * refused or not, cannot keep megabytes alive for as long as the module lives.
  */
 const policyChecks = new Map<string, Map<string, UrlCheck>>();
 /** The shared checks of each checked scheme list, which is one array per `protocols` value, without and with relative links. */
 const protocolChecks = new WeakMap<object, readonly [Map<string, UrlCheck>, Map<string, UrlCheck>]>();
 const POLICY_CHECKS_LIMIT = 4096;
 const POLICIES_LIMIT = 64;
+const POLICY_CHECKS_HREF_LENGTH = 2048;
 
 /** The URL check of an href under a Link policy, remembered for a string. */
 function policyCheck(policy: UrlPolicyOptions, href: unknown): UrlCheck {
   const { protocols } = policy;
-  if (typeof href !== 'string' || typeof protocols !== 'object') return checkUrl(href, policy);
+  if (typeof href !== 'string' || href.length > POLICY_CHECKS_HREF_LENGTH || typeof protocols !== 'object') return checkUrl(href, policy);
   let byRelative = protocolChecks.get(protocols);
   if (byRelative === undefined) {
     // Scheme names hold no space, so the joined list names the schemes exactly.
