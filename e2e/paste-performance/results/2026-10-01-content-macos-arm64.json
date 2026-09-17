@@ -64,7 +64,27 @@
     {
       "label": "head",
       "sha256": "086ff635ae4f57dc28514ed8abb725f8f6d64b1b5da09ef6fea652839c5853b4",
-      "from": "$SCRATCHPAD/ff89/f9/cp-head/head.js"
+      "inputs": [
+        "packages/pm/src/state.js",
+        "packages/pm/src/view.js",
+        "packages/pm/src/model.js",
+        "packages/pm/src/transform.js",
+        "packages/pm/src/keymap.js",
+        "packages/pm/src/commands.js",
+        "packages/pm/src/inputrules.js",
+        "packages/pm/src/schema-list.js",
+        "packages/pm/src/history.js",
+        "packages/pm/src/dropcursor.js",
+        "packages/pm/src/gapcursor.js",
+        "packages/core/dist/index.js",
+        "packages/core/dist/clipboard.js",
+        "packages/extension-image/dist/index.js",
+        "packages/pm/src/tables.js",
+        "packages/extension-table/dist/index.js"
+      ],
+      "commit": "daa1ce1b42798d9526ef7b49c8dd34daeddb8931",
+      "dirty": true,
+      "bundledAs": "head"
     }
   ],
   "browsers": {

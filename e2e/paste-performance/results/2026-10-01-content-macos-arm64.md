@@ -7,12 +7,13 @@ document and engine, `generateHTML` up to 49 percent, the initial load with JSON
 content up to 22 percent in Chromium, and `getHTML` 12 to 18 percent for heading-dense
 documents and 6 to 15 percent for styled content. Profiles named the causes; two
 commits remove most of the cost with byte-identical outputs and unchanged diagnostics.
-The initial load and `getHTML` of articles are now at or below 1.2.0, and
-`generateHTML` of the 40 and 160 section articles within 8 percent; `setContent` with
-JSON still costs more, for the reasons below.
+`getHTML` of articles is now at or below 1.2.0, their initial load within 1 percent of
+it, and `generateHTML` of the 40 and 160 section articles within 8 percent;
+`setContent` with JSON, and the initial load of the heading and styled documents,
+still cost more, as listed below.
 
-- Timing JSON SHA256: `a4f18cd1b256410fa9353dc37e03fbc36c4536f27daa3155df19ab2ac4c52edf`
-- Equivalence JSON SHA256: `c7befe5a17a2e345be4beb2aa9d6e91d05ba88436a2a3cc08f45cc5cd837c488`
+- Timing JSON SHA256: `ae2c1ad44d85ab8f764d550f4fd47bffcb7d2b7d9da4b27c6fd6bd81b18b4a0c`
+- Equivalence JSON SHA256: `2161ae72f8b92b9b166f2581f7be146c9016b9a9f449e9c7efef819256a2eaab`
 
 ## Method and environment
 
@@ -23,7 +24,13 @@ and floating-ui files, so the comparison isolates Domternal's own code:
 - **1.2.0**: the registry packages `@domternal/core`, `extension-image` and
   `extension-table` 1.2.0 of `tests/mixed-version/v1.2.0`.
 - **Before**: the build of `daa1ce1`, whose packages equal those of `2ebb649`, the
-  state the release review measured.
+  state the release review measured. This bundle came from an earlier output of the
+  harness, and both JSON files first named it by its local path. Its entry now gives
+  what that output recorded for it: the commit, the inputs and `dirty: true`, since
+  source edits for the changes below had begun in the checkout, though not yet been
+  built, when it was bundled. A clean checkout of `daa1ce1`, built and bundled by the
+  harness, gives the same bundle, SHA-256
+  `086ff635ae4f57dc28514ed8abb725f8f6d64b1b5da09ef6fea652839c5853b4`.
 - **After**: the build of the clean commit `c706475`, which holds `edce42c` and
   `24b068b`.
 
@@ -124,6 +131,13 @@ suites and the table suites passed in all three engines.
 
 ## What still costs more
 
+- The initial load with JSON content stays slower for the heading and styled
+  documents: `headings-only` by 14 percent in Chromium [+0, +17] and 20 percent in
+  WebKit, the outlines and styled documents by about 7 percent in Chromium, and
+  `styled-m` by 25 percent and `styled-l` by 10 percent in Firefox. Firefox and WebKit
+  load these documents in 4 to 20 ms on whole-millisecond clocks, so a millisecond is
+  5 to 25 percent there, while the Chromium figures resolve finer; the initial load was
+  not profiled further.
 - `setContent` with JSON stays slower than in 1.2.0: by 9 to 90 percent in Chromium,
   36 to 72 percent in Firefox and 54 to 86 percent in WebKit. Loading now checks every
   heading level, list marker and link href of the content and reports what it replaces,
