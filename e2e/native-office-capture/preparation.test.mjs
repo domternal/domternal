@@ -1,18 +1,22 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createHash } from 'node:crypto';
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CaptureEvidenceError, verifyCaptureFixture } from './offline.mjs';
 import { prepareFixture } from './prepare-fixture.mjs';
-import { blocksFromEditorJSON, blocksFromHTML, checkScenario, compareBlocks, compareOutcome, expectedBlocks } from './semantics.mjs';
+import { inflateSync } from 'node:zlib';
+import { blocksFromEditorJSON, blocksFromHTML, checkScenario, compareBlocks, compareOutcome, dryRun, expectedBlocks, imageInventory,
+  printSpecification, syntheticEditorResult } from './semantics.mjs';
 import { largeSourceDocument } from './content/large-source.mjs';
+import { GOOGLE_DOCS_IMAGES, renderImage, writeGoogleDocsImages } from './content/google-docs-images.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const spec = JSON.parse(await readFile(join(here, 'content/word-mac-v1.json'), 'utf8'));
+const docs = JSON.parse(await readFile(join(here, 'content/google-docs-v1.json'), 'utf8'));
 const cleanupRequire = createRequire(new URL('../../packages/extension-paste-cleanup/package.json', import.meta.url));
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
@@ -144,6 +148,7 @@ test('prepare-fixture writes a review skeleton that the offline verifier refuses
   const base = await claimedFixture(t);
   const { manifest, summary } = await prepareFixture(base, { id: 'word-mac-v1-test', source: 'source.html', capture: 'capture.json' });
   assert.equal(manifest.expected, null); assert.equal(manifest.origin, 'claimed-native');
+  assert.deepEqual(summary.htmlImages, { count: 1, withAlt: 1, schemes: { cid: 1 } });
   assert.equal(summary.qualification, false); assert.equal(summary.reviewed, false);
   assert.equal(summary.formatUnits['text/html'], JSON.parse(await readFile(join(base, 'capture.json'), 'utf8')).payload.text['text/html'].length);
   await assert.rejects(verifyCaptureFixture(base), error => error instanceof CaptureEvidenceError && error.code === 'evidence-schema');
@@ -161,4 +166,131 @@ test('prepare-fixture refuses paths outside the fixture, other ids and synthetic
   await assert.rejects(prepareFixture(base, { id: 'word-mac-v1-test', source: 'source.html', capture: 'capture.json' }), error => error.code === 'evidence-provenance');
 });
 
+test('the Google Docs content specification is complete, addressable and consistent with its images', async () => {
+  assert.equal(docs.status, 'authored-English-regression-variant');
+  assert.deepEqual(docs.captures, []);
+  assert.equal(docs.editedRegressionProvenance.nativeCapturePerformed, false);
+  assert.deepEqual(docs.source.destinations, ['Chrome', 'Safari', 'Firefox']);
+  const page = await readFile(join(here, 'index.html'), 'utf8');
+  const titles = new Set(docs.documents.map(document => document.title));
+  const files = new Set(GOOGLE_DOCS_IMAGES.map(image => image.name));
+  const blocks = new Map();
+  for (const document of docs.documents) for (const block of document.blocks) {
+    assert.ok(!blocks.has(block.id), block.id); blocks.set(block.id, block);
+    if (typeof block.text === 'string') assert.ok(block.text.startsWith(block.id), block.id);
+    if (block.type === 'image') { assert.ok(files.has(block.file), block.id); assert.ok(block.alt.startsWith(block.id), block.id); }
+    if (block.type === 'imageRun') assert.equal(GOOGLE_DOCS_IMAGES.filter(image => image.name.startsWith('gdocs-v1-limit-')).length, block.count);
+    if (block.list) {
+      const markers = block.list.kind === 'bullet' ? ['disc', 'circle', 'square'] : ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'];
+      assert.ok(markers.includes(block.list.marker), block.id);
+    }
+  }
+  for (const scenario of docs.scenarios) {
+    assert.match(scenario.id, /^gdocs-/u);
+    assert.ok(titles.has(scenario.document), scenario.id);
+    assert.ok(page.includes(`<option>${scenario.id}</option>`), scenario.id);
+    assert.ok(['quiet', 'visible', 'observe'].includes(scenario.outcome.notice), scenario.id);
+    assert.equal(typeof scenario.expected.preserve, 'string', scenario.id); assert.equal(typeof scenario.expected.adapt, 'string', scenario.id);
+    assert.ok([undefined, 'removed', 'observe'].includes(scenario.images), scenario.id);
+    assert.ok([undefined, 'schema=capability-full'].includes(scenario.editorQuery), scenario.id);
+    for (const id of scenario.excluded ?? []) { assert.ok(blocks.has(id), id); assert.ok(!scenario.blocks.includes(id), id); }
+  }
+  // Both specifications: a partial selection starts inside its first block and ends inside its last.
+  for (const specification of [spec, docs]) for (const scenario of specification.scenarios.filter(entry => entry.partial)) {
+    const { expected } = expectedBlocks(specification, scenario.id);
+    assert.ok(expected[0].text.endsWith(scenario.partial.first), scenario.id);
+    assert.ok(expected.at(-1).text.startsWith(scenario.partial.last), scenario.id);
+  }
+  const source = JSON.stringify(docs);
+  assert.doesNotMatch(source, /\u2014/u); assert.doesNotMatch(source, / - /u);
+});
+
+test('the Google Docs images are deterministic PNG files, pinned and written only outside the repository', async t => {
+  const digests = GOOGLE_DOCS_IMAGES.map(image => {
+    const png = renderImage(image);
+    assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [image.width, image.height]);
+    const idat = png.subarray(41, 41 + png.readUInt32BE(33));
+    const raw = inflateSync(idat);
+    assert.equal(raw.length, (image.width * 3 + 1) * image.height, image.name);
+    if (image.rgb) assert.deepEqual([...raw.subarray(1, 4)], image.rgb, image.name);
+    return `${image.name} ${digest(png)}`;
+  });
+  assert.equal(digests.length, 57);
+  assert.equal(digest(digests.join('\n')), GOOGLE_DOCS_IMAGES_SHA256);
+  assert.equal(new Set(GOOGLE_DOCS_IMAGES.filter(image => image.rgb).map(image => image.rgb.join())).size, 56);
+  await assert.rejects(writeGoogleDocsImages(join(here, 'images')), /outside the repository/u);
+  const target = await mkdtemp(join(tmpdir(), 'domternal-gdocs-images-'));
+  t.after(() => rm(target, { recursive: true, force: true }));
+  const written = await writeGoogleDocsImages(target);
+  assert.deepEqual((await readdir(target)).sort(), GOOGLE_DOCS_IMAGES.map(image => image.name).sort());
+  assert.equal(written.find(entry => entry.file === 'gdocs-v1-large-3000x2000.png').bytes, 18_003_438);
+});
+
+test('every Word and Google Docs scenario passes a synthetic dry run under both policies', () => {
+  for (const specification of [spec, docs]) {
+    const report = dryRun(specification);
+    assert.deepEqual(report.results.filter(result => !result.matches), []);
+    assert.equal(report.results.length, specification.scenarios.length * 2);
+    assert.equal(report.synthetic, true); assert.equal(report.qualification, false);
+  }
+});
+
+test('the dry run result catches markers, spans, links, excluded blocks, kept images and adapted styles', () => {
+  const check = (scenario, mutate, formatting = 'preserve') => {
+    const result = syntheticEditorResult(docs, scenario, formatting); mutate(result.doc);
+    return checkScenario(docs, scenario, result, { formatting }).problems.join('\n');
+  };
+  assert.match(check('gdocs-default-bullets', doc => { doc.content[0].content[0].content[1].attrs.listStyleType = null; }), /GL03: list marker is null, expected circle/u);
+  assert.match(check('gdocs-merged-cells', doc => { doc.content[1].content[0].content[0].attrs.rowspan = 1; }), /GT11: rowspan is 1, expected 2/u);
+  assert.match(check('gdocs-links', doc => { doc.content[1].content[1].marks[0].attrs.href = 'https://example.com/'; }), /is not a link to https:\/\/example\.com\/domternal\/gdocs-v1/u);
+  assert.match(check('gdocs-image-partial-selection', doc => { doc.content.push({ type: 'paragraph', content: [{ type: 'text', text: 'GI09 Green square again' }] }); }), /GI09: outside the selection but pasted/u);
+  assert.match(check('gdocs-mixed-one-image', doc => { doc.content[1] = { type: 'image', attrs: { src: 'data:image/png;base64,AAAA', alt: 'GI03 Blue rectangle' } }; }), /images: 1 kept \(data\), expected removal/u);
+  assert.deepEqual(check('gdocs-mixed-one-image', doc => { doc.content.splice(1, 1); }), '');
+  assert.match(check('gdocs-plain-paragraph', doc => { doc.content[0].content[0].marks = [{ type: 'textStyle', attrs: { fontFamily: 'Arial, sans-serif', fontSize: null } }]; }, 'adapt'), /GB04: adapt kept fontFamily/u);
+  assert.match(check('gdocs-alignment-spacing', doc => { doc.content[1].attrs.textAlign = 'center'; }, 'adapt'), /GB16: adapt kept alignment center/u);
+  const styled = syntheticEditorResult(docs, 'gdocs-plain-paragraph', 'preserve');
+  styled.doc.content[0].content[1].marks[0].attrs = { fontFamily: 'Arial, sans-serif', fontSize: '11pt' };
+  assert.deepEqual(checkScenario(docs, 'gdocs-plain-paragraph', styled).problems, []);
+  styled.doc.content[0].content[1].marks[0].attrs.fontFamily = 'Georgia';
+  assert.match(checkScenario(docs, 'gdocs-plain-paragraph', styled).problems.join('\n'), /fontFamily is Georgia, expected Arial/u);
+});
+
+test('outcomes differ by policy and colors compare across notations', () => {
+  const unconfirmed = [{ code: 'destination-formatting-unconfirmed', severity: 'warning' }];
+  assert.deepEqual(compareOutcome(docs, 'gdocs-headings-plain', unconfirmed, { formatting: 'preserve' }), []);
+  assert.match(compareOutcome(docs, 'gdocs-headings-plain', unconfirmed, { formatting: 'adapt' }).join('\n'), /unexpected destination-formatting-unconfirmed/u);
+  assert.match(compareOutcome(docs, 'gdocs-mixed-document', [], { formatting: 'adapt' }).join('\n'), /image-removed is required/u);
+  const result = syntheticEditorResult(docs, 'gdocs-inline-formatting', 'preserve');
+  const color = result.doc.content[0].content.find(node => node.text === 'red').marks[0];
+  color.attrs.color = 'rgb(255, 0, 0)';
+  assert.deepEqual(checkScenario(docs, 'gdocs-inline-formatting', result).problems, []);
+});
+
+test('the HTML model reads Google Docs list nesting, cell spans, links, text styles and images', () => {
+  const blocks = blocksFromHTML('<ul><li><p>GL02 a</p></li><ul><li><p>GL03 b</p></li><ul><li><p>GL04 c</p></li></ul></ul><li><p>GL05 d</p></li></ul>'
+    + '<table><tr><td colspan="2"><p>GT08 x</p></td><td rowspan="2"><p>GT09 y</p></td></tr></table>'
+    + '<p><a href="mailto:pisi@example.com"><span style="font-family:Arial,sans-serif;color:#1155cc"><u>GB14 z</u></span></a></p>'
+    + '<p>GI02 <img src="https://docs-images.example.invalid/a" alt="GI03 alt"></p>');
+  assert.deepEqual(blocks.slice(0, 4).map(block => block.list.depth), [1, 2, 3, 1]);
+  assert.deepEqual(blocks.slice(4, 6).map(block => [block.cell.colspan, block.cell.rowspan]), [[2, 1], [1, 2]]);
+  assert.deepEqual(blocks[6].runs[0].marks.map(mark => mark.type), ['link', 'textStyle', 'underline']);
+  assert.equal(blocks[6].runs[0].marks[1].attrs.fontFamily, 'Arial,sans-serif');
+  assert.deepEqual(blocks.slice(7).map(block => [block.type, block.text]), [['paragraph', 'GI02 '], ['image', 'GI03 alt']]);
+  assert.equal(blocks[8].src, 'https');
+  assert.deepEqual(imageInventory('<img src="https://a.invalid/x" alt=""><p><img src="data:image/png;base64,AA" alt="b"><img></p>'),
+    { count: 3, withAlt: 1, schemes: { https: 1, data: 1, none: 1 } });
+});
+
+test('the printed specification lists every text an operator enters', () => {
+  const printed = printSpecification(docs);
+  for (const document of docs.documents) assert.ok(printed.includes(`# ${document.title} (export ${document.export})`));
+  for (const line of ['GL32 Item 1', 'GL59 Item 28', blocksById(docs).get('GB07').text, '  bold: Bold (Cmd+B)',
+    'GI03  Image gdocs-v1-blue-320x200.png, alt text: GI03 Blue rectangle.']) assert.ok(printed.split('\n').some(entry => entry.startsWith(line)), line);
+  assert.match(printSpecification(spec), /^L60 Item 27$/mu);
+});
+
+const blocksById = specification => new Map(specification.documents.flatMap(document => document.blocks.map(block => [block.id, block])));
+
 const LARGE_SOURCE_SHA256 = '65961f471b3cc61546725eb60db6be7578eb3d0aeb8bf05bcddc442d6dbfed9d';
+const GOOGLE_DOCS_IMAGES_SHA256 = '4d231d555c22a4c93824e90a407c32796e84bf22c168f962a538754cb900ddc4';

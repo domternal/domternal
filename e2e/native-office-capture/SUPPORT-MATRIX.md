@@ -17,7 +17,8 @@ Matrix version: `free-paste-evidence-v2`. Recorded on 2026-09-28 for the
 unreleased paste cleanup work; it replaces `free-paste-evidence-v1` of 2026-09-27.
 Version 2 adds the quiet routine envelope, same-page own copy recognition, Word
 list profiles from level definitions, per-item list fallback, the large paste
-measurement and the prepared Word for Mac capture scenarios. This is an evidence inventory, not a fidelity
+measurement and the prepared Word for Mac capture scenarios. The prepared Google Docs scenarios were
+added on 2026-10-01 without changing any evidence level. This is an evidence inventory, not a fidelity
 score or a release approval. The [package contract](../../packages/extension-paste-cleanup/README.md)
 defines current behavior and its limits.
 
@@ -71,7 +72,7 @@ semantics alongside those image cases.
 | Word desktop | macOS to Safari, Chromium and Firefox | None | Pending. Prepared: [content specification](./content/word-mac-v1.json) and scenarios for Word 16.111 on macOS, to be captured by the owner or a named tester. Local automation attempts produced no complete native capture; they are not qualification evidence. |
 | Word desktop | Windows to Chrome/Edge and Firefox | None | Pending; not exercised by macOS synthetic tests. |
 | Word web | Each declared source browser to each supported destination path | None | Pending; separate from desktop Word. |
-| Google Docs | Exact capture date, source context, browser and OS | None | Pending, including large-image and slow-copy omissions. |
+| Google Docs | macOS to Chrome, Safari and Firefox, with the exact capture date and source context | None | Pending, including large-image and slow-copy omissions. Prepared: [content specification](./content/google-docs-v1.json), generated images and the [runbook](./GOOGLE-DOCS-RUNBOOK.md), to be captured by the owner or a named tester. |
 | LibreOffice Writer | Desktop application, exact OS/browser pair | None | Pending; not inferred from LibreOfficeKit behavior. |
 | Collabora/LibreOfficeKit | Exact web application/browser path, if supported later | None | Unqualified optional source profile. |
 

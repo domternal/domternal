@@ -74,7 +74,9 @@ have their own lifetime; clearing the page does not erase a downloaded file.
 Use the same independently authored scenarios on each exact source/OS/browser
 combination. Record successes, missing data and unsupported combinations. The
 text, list and table scenarios for Word for Mac are described in
-[Word for Mac capture preparation](#word-for-mac-capture-preparation).
+[Word for Mac capture preparation](#word-for-mac-capture-preparation), and the
+Google Docs scenarios, including images, in
+[Google Docs capture preparation](#google-docs-capture-preparation).
 
 | Scenario | Required source evidence |
 | --- | --- |
@@ -119,10 +121,15 @@ would not be the user path this evidence is meant to show.
 - [`content/large-source.mjs`](./content/large-source.mjs) generates the large
   source: 128 sections, 10,000 words, headings, paragraphs, nested lists and
   tables, every block starting with a consecutive `G00001` token.
-- [`semantics.mjs`](./semantics.mjs) compares a saved editor result, or HTML from
-  the offline replay, with a scenario: block order by identifier, block types,
-  heading levels, list kind, marker, depth and ordinal, alignment, text, marks and
-  the diagnostic outcome. It never compares exact HTML and never qualifies.
+- [`semantics.mjs`](./semantics.mjs) compares a saved editor result, HTML from
+  the offline replay or a capture bundle, whose HTML it replays like the offline
+  verifier, with a scenario: block order by identifier, block types, heading
+  levels, list kind, marker, depth and ordinal, cell spans, alignment, text,
+  marks, links and text styles, image removal and the diagnostic outcome of the
+  chosen policy, including text styles that `adapt` must remove. It never compares
+  exact HTML and never qualifies. `--dry-run <content.json>` checks a synthetic
+  result built from the specification for every scenario and both policies, and
+  `--print <content.json>` lists the texts an operator enters.
 - [`prepare-fixture.mjs`](./prepare-fixture.mjs) checks a downloaded bundle's
   integrity and writes a review skeleton: `manifest.json` with `expected: null`,
   which `offline.mjs` refuses until a reviewer authors both expected outputs, and
@@ -143,10 +150,9 @@ commit. Do not upload them to a conversion service.
 | `word-mac-v1-tables.docx` | A 3x3 table with a header row, shading and merged cells, a borderless table, a list inside a cell |
 | `word-mac-v1-large.docx` | Run `node e2e/native-office-capture/content/large-source.mjs > /private/tmp/large-v1.html`, open that file in Word for Mac, save it as a Word document and copy only from the saved `.docx` |
 
-Google Docs later: type or paste the plain text from the specification into a new
-document and apply the formatting there; never upload the `.docx`, because that
-would capture a third-party conversion. LibreOffice later: open the Word-saved
-`.docx` locally and save it as `.odt`.
+Google Docs has its own specification, below: never upload the Word `.docx`,
+because that would capture a third-party conversion. LibreOffice later: open the
+Word-saved `.docx` locally and save it as `.odt`.
 
 ### Matrix for the first captures
 
@@ -191,10 +197,48 @@ web, Google Docs and LibreOffice rows stay pending in the
 node --test e2e/native-office-capture/preparation.test.mjs
 ```
 
-These checks cover the specification's consistency, the pinned large source, the
-semantic checker on authored editor results and on HTML from the public
-normalizer, and the refusal of an unreviewed skeleton. They use authored inputs,
-not captures.
+These checks cover the specifications' consistency, the pinned large source and
+generated images, the semantic checker on authored editor results, on HTML from
+the public normalizer and on the synthetic dry run of every scenario, and the
+refusal of an unreviewed skeleton. They use authored inputs, not captures.
+
+## Google Docs capture preparation
+
+Status: **prepared, not captured.** Google Docs on macOS to Chrome, Safari and
+Firefox is captured by the owner or a named tester with the
+[Google Docs runbook](./GOOGLE-DOCS-RUNBOOK.md); nothing here qualifies a source
+profile.
+
+- [`content/google-docs-v1.json`](./content/google-docs-v1.json) mirrors the Word
+  specification where Google Docs supports it. Six documents (`gdocs-v1-basics`,
+  `-lists`, `-tables`, `-images`, `-mixed` and `-large`) are defined block by
+  block with the Google Docs command for each, and 34 `gdocs-*` scenarios give
+  the selection, the expected editor result in preserve and in adapt, the
+  machine-checked outcome of each policy and, for images, what to record from
+  the capture. They cover headings, a plain paragraph, Croatian text, bold,
+  italic and underline, links, lists and nested lists with Google's markers,
+  tables with merged cells, images by URL, a large image, the slow copy, the 50
+  image limit and partial selections.
+- [`content/google-docs-images.mjs`](./content/google-docs-images.mjs) writes the
+  57 PNG images the documents insert, outside the repository: solid colors of
+  known sizes, an 18 MB noise image of 3000 x 2000 pixels and 51 small images for
+  the limit. The bytes do not depend on the zlib version and are pinned by tests.
+- The fixture editor allows no remote images, so an image that Google Docs serves
+  by URL is expected to be removed with `image-removed`, its alt text staying in
+  its place. Its default schema has no LineHeight, so preserve is expected to
+  report the line spacing Google Docs writes on every paragraph as
+  `destination-formatting-unconfirmed`; adapt removes it.
+- The specification assumes the list shape Google Docs is known to write: each
+  marker as `list-style-type` on its `li`, and a nested list placed directly in
+  its parent list. The checker reads that nesting. A cleanup that does not take
+  the marker from the items shows as marker mismatches and
+  `unsupported-formatting`; the captures confirm or correct the shape.
+
+Check that the checker can express every scenario under both policies:
+
+```sh
+node e2e/native-office-capture/semantics.mjs --dry-run e2e/native-office-capture/content/google-docs-v1.json
+```
 
 ## Bundle contract and limits
 

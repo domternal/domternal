@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { HARD_LIMITS, TEXT_FORMATS } from './capture.mjs';
 import { disposeCaptureEvidence, validateCaptureBytes } from './offline.mjs';
+import { imageInventory } from './semantics.mjs';
 
 const MAX_SOURCE_BYTES = 16 * 1024 * 1024;
 const DEFAULT_LICENSE = 'MIT; synthetic document authored for Domternal paste qualification, reviewed for personal and hidden data';
@@ -52,6 +53,8 @@ export async function prepareFixture(directory, { id, source, capture, license =
     // Flavor sizes are large-paste evidence: PasteCleanup rejects any flavor above its input ceiling.
     formatUnits: Object.fromEntries(TEXT_FORMATS.filter(format => typeof bundle.payload.text[format] === 'string')
       .map(format => [format, bundle.payload.text[format].length])),
+    // Image references by URL scheme, without addresses: the Google Docs image scenarios count them.
+    htmlImages: typeof bundle.payload.text['text/html'] === 'string' ? imageInventory(bundle.payload.text['text/html']) : null,
     textBytes: report.textBytes, fileBytes: report.fileBytes, itemCount: report.itemCount, fileCount: report.fileCount,
     review: [
       'Open the source document and confirm it contains no personal, customer or hidden data.',
