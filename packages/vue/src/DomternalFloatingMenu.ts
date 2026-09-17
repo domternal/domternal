@@ -241,7 +241,7 @@ export const DomternalFloatingMenu = defineComponent({
           const groupId = `dm-fm-${instanceId}-g${String(gi)}`;
           return h('div', { key: group.name || `__group-${String(gi)}`, class: 'dm-floating-menu-group-wrapper' }, [
             (group.label ?? group.name)
-              ? h('div', { class: 'dm-floating-menu-group-label', id: groupId, lang: group.labelLanguage }, group.label ?? group.name)
+              ? h('div', { class: 'dm-floating-menu-group-label', id: groupId, lang: group.labelLanguage ?? '' }, group.label ?? group.name)
               : null,
             h(
               'div',
@@ -281,10 +281,10 @@ export const DomternalFloatingMenu = defineComponent({
                       : null,
                     item.description
                       ? h('span', { class: 'dm-floating-menu-item-text' }, [
-                        h('span', { class: 'dm-floating-menu-item-label', lang: item.labelLanguage }, item.label),
-                        h('span', { class: 'dm-floating-menu-item-description', lang: item.descriptionLanguage }, item.description),
+                        h('span', { class: 'dm-floating-menu-item-label', lang: item.labelLanguage ?? '' }, item.label),
+                        h('span', { class: 'dm-floating-menu-item-description', lang: item.descriptionLanguage ?? '' }, item.description),
                       ])
-                      : h('span', { class: 'dm-floating-menu-item-label', lang: item.labelLanguage }, item.label),
+                      : h('span', { class: 'dm-floating-menu-item-label', lang: item.labelLanguage ?? '' }, item.label),
                     item.shortcut
                       ? h('span', { class: 'dm-floating-menu-item-shortcut', 'aria-hidden': 'true' }, item.shortcut)
                       : null,

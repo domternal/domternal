@@ -62,7 +62,7 @@ import type {
               [attr.aria-expanded]="openDropdown() === asDropdown(item).name"
               [attr.aria-haspopup]="'true'"
               [attr.aria-label]="asDropdown(item).label"
-              [attr.lang]="asDropdown(item).labelLanguage ?? null"
+              [attr.lang]="asDropdown(item).labelLanguage ?? ''"
               [title]="asDropdown(item).label"
               [attr.data-dropdown]="asDropdown(item).name"
               [innerHTML]="getDropdownTriggerHtml(asDropdown(item))"
@@ -78,7 +78,7 @@ import type {
                     [class.dm-toolbar-dropdown-item--active]="isSubItemActive(sub.name)"
                     role="menuitem"
                     [attr.aria-label]="sub.label"
-                    [attr.lang]="sub.labelLanguage ?? null"
+                    [attr.lang]="sub.labelLanguage ?? ''"
                     (mousedown)="$event.preventDefault()"
                     (click)="onDropdownItemClick(sub)"><span [innerHTML]="getCachedIcon(sub.icon)"></span> {{ sub.label }}</button>
                 }
@@ -93,7 +93,7 @@ import type {
             [title]="asButton(item).label"
             [attr.aria-label]="asButton(item).label"
             [attr.data-dm-command]="commandName(asButton(item))"
-            [attr.lang]="asButton(item).labelLanguage ?? null"
+            [attr.lang]="asButton(item).labelLanguage ?? ''"
             [innerHTML]="getCachedIcon(asButton(item).icon)"
             (mousedown)="$event.preventDefault()"
             (click)="executeCommand(asButton(item), $event)"></button>

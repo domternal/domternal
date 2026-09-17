@@ -60,8 +60,9 @@ export function patchIconText(
 }
 
 export function setPresentationLanguage(element: HTMLElement, language: string | undefined): void {
-  if (language === undefined) element.removeAttribute('lang');
-  else if (element.lang !== language) element.lang = language;
+  // An explicit unknown language prevents custom copy inheriting translated chrome.
+  const resolved = language ?? '';
+  if (element.getAttribute('lang') !== resolved) element.lang = resolved;
 }
 
 /** Compatibility for public helpers that return HTML strings instead of DOM nodes. */

@@ -96,7 +96,57 @@ const LocalizedControls = Extension.create({
 });
 const bubbleItems = ['localized'];
 
+const CallerControls = Extension.create({
+  name: 'callerLanguageControls',
+  addToolbarItems() {
+    return [
+      { type: 'button', name: 'caller-button', label: 'Caller button', icon: 'bold', group: 'caller',
+        groupLabel: 'Caller group', command: 'testAction', emitEvent: 'testActionOpen' },
+      { type: 'dropdown', name: 'dynamic-caller', label: 'Menu français', labelLanguage: 'fr', icon: 'bold', group: 'caller',
+        dynamicLabel: true, items: [{ type: 'button', name: 'active-caller', label: 'Active caller', icon: 'bold', command: 'testAction', isActive: 'paragraph' }] },
+      { type: 'dropdown', name: 'caller-dropdown', label: 'Caller dropdown', icon: 'bold', group: 'caller',
+        groupLabel: 'Caller group', items: [
+          { type: 'button', name: 'caller-child', label: 'Caller child', icon: 'bold', command: 'testAction', emitEvent: 'testActionOpen' },
+          { type: 'button', name: 'known-child', label: 'Known child', labelLanguage: 'en', icon: 'bold', command: 'testAction', emitEvent: 'testActionOpen' },
+        ] },
+    ];
+  },
+  addFloatingMenuItems() {
+    return [{ name: 'caller-block', label: 'Caller block', description: 'Caller description',
+      group: 'caller', groupLabel: 'Caller blocks', command: () => undefined }];
+  },
+});
+
+
 describe('Vue i18n integration', () => {
+  it('keeps unknown caller label language independent of translated menu chrome', async () => {
+    const editor = new Editor({ extensions: [Document, Paragraph, Text, CallerControls], content: '<p>Hello</p>' });
+    editors.push(editor);
+    app = createApp({ render: () => [h(DomternalToolbar, { editor }),
+      h(DomternalBubbleMenu, { editor, items: ['caller-button', 'caller-dropdown'] }), h(DomternalFloatingMenu, { editor })] });
+    await update(() => { app?.mount(container); });
+    await update(() => {
+      for (const trigger of container.querySelectorAll<HTMLButtonElement>('[data-dropdown="caller-dropdown"]')) trigger.click();
+    });
+    await update(() => { editor.i18n.set({ locale: 'hr', messages: {
+      'core.toolbar.label': 'Alati', 'core.bubbleMenu.label': 'Oblikovanje', 'core.floatingMenu.label': 'Umetanje',
+    } }); });
+    for (const selector of ['[aria-label="Caller button"]', '[aria-label="Caller dropdown"]',
+      '[aria-label="Caller child"]', '.dm-toolbar-group', '.dm-floating-menu-group-label',
+      '.dm-floating-menu-item-label', '.dm-floating-menu-item-description']) {
+      const labels = container.querySelectorAll(selector);
+      expect(labels.length, selector).toBeGreaterThan(0);
+      for (const label of labels) expect(label.getAttribute('lang'), selector).toBe('');
+    }
+    for (const label of container.querySelectorAll('[aria-label="Known child"]')) expect(label.getAttribute('lang')).toBe('en');
+    expect(container.querySelector('[data-dropdown="dynamic-caller"]')?.getAttribute('lang')).toBe('fr');
+    expect(container.querySelector('[data-dropdown="dynamic-caller"] .dm-toolbar-trigger-label')?.textContent).toBe('Active caller');
+    expect(container.querySelector('[data-dropdown="dynamic-caller"] .dm-toolbar-trigger-label')?.getAttribute('lang')).toBe('');
+    for (const selector of ['.dm-toolbar', '.dm-bubble-menu', '.dm-floating-menu']) {
+      expect(container.querySelector(selector)?.getAttribute('lang')).toBe('hr');
+    }
+  });
+
   it.each((['hook', 'standalone', 'compound', 'all-in-one'] as const).flatMap(path => [false, true].map(immediate => ({ path, immediate }))))(
     'replaces and removes settings without recreating $path, immediate=$immediate', async ({ path, immediate }) => {
       const settings = shallowRef<I18nOptions>();

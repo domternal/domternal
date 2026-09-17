@@ -53,7 +53,7 @@ import type {
     >
       @for (group of groups(); track group.name || $index; let gi = $index) {
         @if (group.name) {
-          <div class="dm-floating-menu-group-label" [id]="groupPrefix + gi" [attr.lang]="group.labelLanguage ?? null">{{ group.label ?? group.name }}</div>
+          <div class="dm-floating-menu-group-label" [id]="groupPrefix + gi" [attr.lang]="group.labelLanguage ?? ''">{{ group.label ?? group.name }}</div>
         }
         <div
           class="dm-floating-menu-group"
@@ -79,11 +79,11 @@ import type {
               }
               @if (item.description) {
                 <span class="dm-floating-menu-item-text">
-                  <span class="dm-floating-menu-item-label" [attr.lang]="item.labelLanguage ?? null">{{ item.label }}</span>
-                  <span class="dm-floating-menu-item-description" [attr.lang]="item.descriptionLanguage ?? null">{{ item.description }}</span>
+                  <span class="dm-floating-menu-item-label" [attr.lang]="item.labelLanguage ?? ''">{{ item.label }}</span>
+                  <span class="dm-floating-menu-item-description" [attr.lang]="item.descriptionLanguage ?? ''">{{ item.description }}</span>
                 </span>
               } @else {
-                <span class="dm-floating-menu-item-label" [attr.lang]="item.labelLanguage ?? null">{{ item.label }}</span>
+                <span class="dm-floating-menu-item-label" [attr.lang]="item.labelLanguage ?? ''">{{ item.label }}</span>
               }
               @if (item.shortcut) {
                 <span class="dm-floating-menu-item-shortcut" aria-hidden="true">{{ item.shortcut }}</span>

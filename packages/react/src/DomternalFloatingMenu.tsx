@@ -237,7 +237,7 @@ export function DomternalFloatingMenu({
         ? groups.map((group, gi) => (
           <Fragment key={group.name || `__group-${String(gi)}`}>
             {(group.label ?? group.name) && (
-              <div className="dm-floating-menu-group-label" lang={group.labelLanguage} id={`${groupIdPrefix}-dm-fm-g${String(gi)}`}>
+              <div className="dm-floating-menu-group-label" lang={group.labelLanguage ?? ''} id={`${groupIdPrefix}-dm-fm-g${String(gi)}`}>
                 {group.label ?? group.name}
               </div>
             )}
@@ -317,11 +317,11 @@ function FloatingMenuItemButton({
       )}
       {item.description ? (
         <span className="dm-floating-menu-item-text">
-          <span className="dm-floating-menu-item-label" lang={item.labelLanguage}>{item.label}</span>
-          <span className="dm-floating-menu-item-description" lang={item.descriptionLanguage}>{item.description}</span>
+          <span className="dm-floating-menu-item-label" lang={item.labelLanguage ?? ''}>{item.label}</span>
+          <span className="dm-floating-menu-item-description" lang={item.descriptionLanguage ?? ''}>{item.description}</span>
         </span>
       ) : (
-        <span className="dm-floating-menu-item-label" lang={item.labelLanguage}>{item.label}</span>
+        <span className="dm-floating-menu-item-label" lang={item.labelLanguage ?? ''}>{item.label}</span>
       )}
       {item.shortcut && (
         <span className="dm-floating-menu-item-shortcut" aria-hidden="true">

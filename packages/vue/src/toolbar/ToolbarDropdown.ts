@@ -25,7 +25,7 @@ export const ToolbarDropdown = defineComponent({
       const label = !isGrid && dropdown.dynamicLabel
         ? props.computedLabel ?? activeItem?.label ?? dropdown.dynamicLabelFallback
         : undefined;
-      const labelLanguage = props.computedLabel ? undefined : activeItem?.labelLanguage ?? dropdown.labelLanguage;
+      const labelLanguage = props.computedLabel ? undefined : (activeItem ? activeItem.labelLanguage : dropdown.labelLanguage);
       const icon = !isGrid && dropdown.dynamicIcon && activeItem ? activeItem.icon : dropdown.icon;
       const color = isGrid ? activeItem?.color ?? dropdown.defaultIndicatorColor : undefined;
       const children = [
@@ -35,7 +35,7 @@ export const ToolbarDropdown = defineComponent({
           'aria-expanded': props.isOpen,
           'aria-haspopup': 'true',
           'aria-label': dropdown.label,
-          lang: dropdown.labelLanguage,
+          lang: dropdown.labelLanguage ?? '',
           title: dropdown.label,
           tabindex: props.tabIndex,
           disabled: props.isDisabled,
@@ -45,7 +45,7 @@ export const ToolbarDropdown = defineComponent({
           onFocus: () => { emit('focus', dropdown.name); },
         }, [
           label !== undefined
-            ? h('span', { class: 'dm-toolbar-trigger-label', lang: labelLanguage }, label)
+            ? h('span', { class: 'dm-toolbar-trigger-label', lang: labelLanguage ?? '' }, label)
             : h('span', {
               class: dropdown.dynamicLabel && !isGrid ? 'dm-toolbar-trigger-label' : undefined,
               style: dropdown.dynamicLabel && !isGrid ? undefined : { display: 'contents' }, 'aria-hidden': 'true', innerHTML: props.getCachedIcon(icon),

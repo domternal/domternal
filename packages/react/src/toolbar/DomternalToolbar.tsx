@@ -121,7 +121,7 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
       {groups.map((group, gi) => (
         <Fragment key={group.name}>
           {gi > 0 && <div className="dm-toolbar-separator" role="separator" />}
-          <div className="dm-toolbar-group" role="group" aria-label={group.label ?? (group.name || toolsGroup.text)} lang={group.labelLanguage ?? (group.name ? undefined : toolsGroup.language)}>
+          <div className="dm-toolbar-group" role="group" aria-label={group.label ?? (group.name || toolsGroup.text)} lang={group.labelLanguage ?? (group.name ? '' : toolsGroup.language)}>
           {group.items.map((item: ToolbarItem) => {
             if (item.type === 'button') {
               const btn = item;

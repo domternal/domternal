@@ -36,7 +36,7 @@ export const ToolbarDropdownPanel = defineComponent({
                   role: 'menuitem',
                   tabindex: -1,
                   'aria-label': sub.label,
-                  lang: sub.labelLanguage,
+                  lang: sub.labelLanguage ?? '',
                   title: getTooltip(sub),
                   style: { backgroundColor: sub.color },
                   onMousedown: (e: MouseEvent) => { e.preventDefault(); },
@@ -49,7 +49,7 @@ export const ToolbarDropdownPanel = defineComponent({
                   role: 'menuitem',
                   tabindex: -1,
                   'aria-label': sub.label,
-                  lang: sub.labelLanguage,
+                  lang: sub.labelLanguage ?? '',
                   title: getTooltip(sub),
                   onMousedown: (e: MouseEvent) => { e.preventDefault(); },
                   onClick: (e: MouseEvent) => { emit('itemClick', sub, e); },
@@ -76,7 +76,7 @@ export const ToolbarDropdownPanel = defineComponent({
             role: 'menuitem',
             tabindex: -1,
             'aria-label': sub.label,
-            lang: sub.labelLanguage,
+            lang: sub.labelLanguage ?? '',
             title: getTooltip(sub),
             onVnodeMounted: (vnode: VNode) => {
               if (sub.style && vnode.el) (vnode.el as HTMLElement).setAttribute('style', sub.style);

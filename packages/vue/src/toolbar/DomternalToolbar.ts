@@ -136,7 +136,7 @@ export const DomternalToolbar = defineComponent({
             gi > 0 ? h('div', { class: 'dm-toolbar-separator', role: 'separator' }) : null,
             h(
               'div',
-              { class: 'dm-toolbar-group', role: 'group', 'aria-label': group.label ?? (group.name || toolsGroup.text), lang: group.labelLanguage ?? (group.name ? undefined : toolsGroup.language) },
+              { class: 'dm-toolbar-group', role: 'group', 'aria-label': group.label ?? (group.name || toolsGroup.text), lang: group.labelLanguage ?? (group.name ? '' : toolsGroup.language) },
               group.items.map((item: ToolbarItem) => {
                 if (item.type === 'button') {
                   const btn = item;

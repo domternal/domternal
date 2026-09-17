@@ -28,7 +28,7 @@ export function ToolbarDropdown({
   const label = !isGrid && dropdown.dynamicLabel
     ? computedLabel ?? activeItem?.label ?? dropdown.dynamicLabelFallback
     : undefined;
-  const labelLanguage = computedLabel ? undefined : activeItem?.labelLanguage ?? dropdown.labelLanguage;
+  const labelLanguage = computedLabel ? undefined : (activeItem ? activeItem.labelLanguage : dropdown.labelLanguage);
   const icon = !isGrid && dropdown.dynamicIcon && activeItem ? activeItem.icon : dropdown.icon;
   const color = isGrid ? activeItem?.color ?? dropdown.defaultIndicatorColor : undefined;
   return (
@@ -39,7 +39,7 @@ export function ToolbarDropdown({
         aria-expanded={isOpen}
         aria-haspopup="true"
         aria-label={dropdown.label}
-        lang={dropdown.labelLanguage}
+        lang={dropdown.labelLanguage ?? ''}
         title={dropdown.label}
         tabIndex={tabIndex}
         disabled={isDisabled}
@@ -49,7 +49,7 @@ export function ToolbarDropdown({
         onFocus={() => { onFocus(dropdown.name); }}
       >
         {label !== undefined
-          ? <span className="dm-toolbar-trigger-label" lang={labelLanguage}>{label}</span>
+          ? <span className="dm-toolbar-trigger-label" lang={labelLanguage ?? ''}>{label}</span>
           : <span className={dropdown.dynamicLabel && !isGrid ? 'dm-toolbar-trigger-label' : undefined}
               style={dropdown.dynamicLabel && !isGrid ? undefined : { display: 'contents' }} aria-hidden="true" dangerouslySetInnerHTML={innerHtml(getCachedIcon(icon))} />}
         <span style={{ display: 'contents' }} aria-hidden="true" dangerouslySetInnerHTML={innerHtml(DROPDOWN_CARET)} />

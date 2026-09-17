@@ -51,7 +51,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
       @if (gi > 0) {
         <div class="dm-toolbar-separator" role="separator"></div>
       }
-      <div class="dm-toolbar-group" role="group" [attr.aria-label]="group.label ?? (group.name || toolsLabel())" [attr.lang]="group.labelLanguage ?? null">
+      <div class="dm-toolbar-group" role="group" [attr.aria-label]="group.label ?? (group.name || toolsLabel())" [attr.lang]="group.labelLanguage ?? (group.name ? '' : toolsLanguage())">
         @for (item of group.items; track item.name) {
           @if (item.type === 'button') {
             <button
@@ -62,7 +62,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
               [attr.aria-expanded]="getAriaExpanded(asButton(item))"
               [attr.aria-label]="asButton(item).label"
               [attr.data-dm-command]="commandName(asButton(item))"
-              [attr.lang]="asButton(item).labelLanguage ?? null"
+              [attr.lang]="asButton(item).labelLanguage ?? ''"
               [title]="getTooltip(asButton(item))"
               [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
               [disabled]="isDisabled(item.name)"
@@ -81,7 +81,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                 [attr.aria-expanded]="openDropdown() === asDropdown(item).name"
                 [attr.aria-haspopup]="'true'"
                 [attr.aria-label]="asDropdown(item).label"
-                [attr.lang]="asDropdown(item).labelLanguage ?? null"
+                [attr.lang]="asDropdown(item).labelLanguage ?? ''"
                 [title]="asDropdown(item).label"
                 [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
                 [disabled]="isDisabled(asDropdown(item).name)"
@@ -91,7 +91,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                 (focus)="onButtonFocus(item.name)"
               >
                 @if (getDropdownTriggerText(asDropdown(item)); as text) {
-                  <span class="dm-toolbar-trigger-label">{{ text }}</span>
+                  <span class="dm-toolbar-trigger-label" [attr.lang]="getDropdownTriggerLanguage(asDropdown(item))">{{ text }}</span>
                   <svg class="dm-dropdown-caret" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 } @else {
                   <span [innerHTML]="getDropdownTriggerHtml(asDropdown(item))"></span>
@@ -110,7 +110,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                           role="menuitem"
                           [attr.tabindex]="-1"
                           [attr.aria-label]="sub.label"
-                          [attr.lang]="sub.labelLanguage ?? null"
+                          [attr.lang]="sub.labelLanguage ?? ''"
                           [title]="getTooltip(sub)"
                           [style.background-color]="sub.color"
                           (mousedown)="$event.preventDefault()"
@@ -123,7 +123,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                           role="menuitem"
                           [attr.tabindex]="-1"
                           [attr.aria-label]="sub.label"
-                          [attr.lang]="sub.labelLanguage ?? null"
+                          [attr.lang]="sub.labelLanguage ?? ''"
                           [title]="getTooltip(sub)"
                           [attr.tabindex]="-1"
                           (mousedown)="$event.preventDefault()"
@@ -143,7 +143,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                         role="menuitem"
                         [attr.tabindex]="-1"
                         [attr.aria-label]="sub.label"
-                        [attr.lang]="sub.labelLanguage ?? null"
+                        [attr.lang]="sub.labelLanguage ?? ''"
                         [title]="getTooltip(sub)"
                         [attr.style]="sub.style ?? null"
                         (mousedown)="$event.preventDefault()"
@@ -279,6 +279,11 @@ export class DomternalToolbarComponent implements OnDestroy {
     return this.editor().i18n.t(coreMessages.toolsGroup);
   }
 
+  toolsLanguage(): string {
+    this.activeVersion();
+    return this.editor().i18n.resolve(coreMessages.toolsGroup).language;
+  }
+
   uiLanguage(): string {
     this.activeVersion();
     return this.editor().i18n.resolve(coreMessages.toolbarLabel).language;
@@ -296,6 +301,19 @@ export class DomternalToolbarComponent implements OnDestroy {
       if (computed) return computed;
     }
     return dropdown.dynamicLabelFallback ?? null;
+  }
+
+  getDropdownTriggerLanguage(dropdown: ToolbarDropdown): string {
+    this.activeVersion();
+    const activeItem = dropdown.items.find((item) => this.controller?.activeMap.get(item.name));
+    if (activeItem) return activeItem.labelLanguage ?? '';
+    if (dropdown.computedStyleProperty) {
+      const computed = dropdown.computedStyleProperty === 'font-family'
+        ? this.getInlineStyleAtCursor(dropdown.computedStyleProperty)
+        : this.getComputedStyleAtCursor(dropdown.computedStyleProperty);
+      if (computed) return '';
+    }
+    return dropdown.labelLanguage ?? '';
   }
 
   /**

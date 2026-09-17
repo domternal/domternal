@@ -35,7 +35,7 @@ export function ToolbarDropdownPanel({
               role="menuitem"
               tabIndex={-1}
               aria-label={sub.label}
-              lang={sub.labelLanguage}
+              lang={sub.labelLanguage ?? ''}
               title={getTooltip(sub)}
               style={{ backgroundColor: sub.color }}
               onMouseDown={(e) => { e.preventDefault(); }}
@@ -49,7 +49,7 @@ export function ToolbarDropdownPanel({
               role="menuitem"
               tabIndex={-1}
               aria-label={sub.label}
-              lang={sub.labelLanguage}
+              lang={sub.labelLanguage ?? ''}
               title={getTooltip(sub)}
               onMouseDown={(e) => { e.preventDefault(); }}
               onClick={(e) => { onItemClick(sub, e); }}
@@ -77,7 +77,7 @@ export function ToolbarDropdownPanel({
           role="menuitem"
           tabIndex={-1}
           aria-label={sub.label}
-          lang={sub.labelLanguage}
+          lang={sub.labelLanguage ?? ''}
           title={getTooltip(sub)}
           ref={(el: HTMLButtonElement | null) => { if (el && sub.style) el.setAttribute('style', sub.style); }}
           onMouseDown={(e) => { e.preventDefault(); }}

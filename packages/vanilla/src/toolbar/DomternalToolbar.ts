@@ -399,6 +399,7 @@ export class DomternalToolbar extends EventTarget {
 
   #updateTriggerContent(button: HTMLButtonElement, dd: ToolbarDropdown): void {
     const activeItem = dd.items.find((sub) => this.#controller.activeMap.get(sub.name));
+    let labelLanguage = activeItem ? activeItem.labelLanguage : dd.labelLanguage;
     let label = dd.dynamicLabel ? activeItem?.label ?? dd.dynamicLabelFallback ?? null : null;
 
     // Dynamic-label dropdown reading computed style at cursor (e.g. font-size)
@@ -415,6 +416,7 @@ export class DomternalToolbar extends EventTarget {
       }
       if (computed) {
         label = computed;
+        labelLanguage = undefined;
       }
     }
     if (dd.layout === 'grid') {
@@ -428,6 +430,8 @@ export class DomternalToolbar extends EventTarget {
         caret: DROPDOWN_CARET,
         textClass: 'dm-toolbar-trigger-label',
       });
+      const text = button.querySelector<HTMLElement>('.dm-toolbar-trigger-label');
+      if (text) setPresentationLanguage(text, labelLanguage);
     }
   }
 

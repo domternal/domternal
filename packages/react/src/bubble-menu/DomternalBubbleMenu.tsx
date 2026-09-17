@@ -144,7 +144,7 @@ export function DomternalBubbleMenu({
             title={btn.label}
             aria-label={btn.label}
             data-dm-command={typeof btn.command === 'string' ? btn.command : undefined}
-            lang={btn.labelLanguage}
+            lang={btn.labelLanguage ?? ''}
             aria-pressed={active}
             dangerouslySetInnerHTML={innerHtml(getCachedHtml(btn.icon))}
             onMouseDown={(e) => { e.preventDefault(); }}
@@ -299,7 +299,7 @@ function BubbleDropdown({
         aria-expanded={isOpen}
         aria-haspopup="true"
         aria-label={dropdown.label}
-        lang={dropdown.labelLanguage}
+        lang={dropdown.labelLanguage ?? ''}
         title={dropdown.label}
         data-dropdown={dropdown.name}
         dangerouslySetInnerHTML={innerHtml(triggerHtml)}
@@ -323,7 +323,7 @@ function BubbleDropdown({
                 className={`dm-toolbar-dropdown-item${subActive ? ' dm-toolbar-dropdown-item--active' : ''}`}
                 role="menuitem"
                 aria-label={sub.label}
-                lang={sub.labelLanguage}
+                lang={sub.labelLanguage ?? ''}
                 onMouseDown={(e) => { e.preventDefault(); }}
                 onClick={() => { executeSubItem(sub); }}
               >
