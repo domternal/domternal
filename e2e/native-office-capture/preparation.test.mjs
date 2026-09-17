@@ -254,6 +254,23 @@ test('the dry run result catches markers, spans, links, excluded blocks, kept im
   assert.deepEqual(checkScenario(docs, 'gdocs-plain-paragraph', styled).problems, []);
   styled.doc.content[0].content[1].marks[0].attrs.fontFamily = 'Georgia';
   assert.match(checkScenario(docs, 'gdocs-plain-paragraph', styled).problems.join('\n'), /fontFamily is Georgia, expected Arial/u);
+  // The editor keeps a highlight as a text style background, which adapt removes with the other colors.
+  assert.match(check('gdocs-inline-formatting', doc => { doc.content[0].content.at(-1).marks = [{ type: 'textStyle', attrs: { backgroundColor: '#ffff00' } }]; }, 'adapt'),
+    /GB10: adapt kept backgroundColor/u);
+});
+
+test('an empty paragraph that does not arrive is reported once and does not move the blocks after it', () => {
+  // Google Docs can copy both empty paragraphs as line breaks, which the editor keeps in one paragraph.
+  const result = syntheticEditorResult(docs, 'gdocs-empty-paragraphs', 'preserve');
+  result.doc.content.splice(1, 2, { type: 'paragraph', attrs: { textAlign: null }, content: [{ type: 'hardBreak' }, { type: 'hardBreak' }] });
+  assert.deepEqual(checkScenario(docs, 'gdocs-empty-paragraphs', result).problems, ['GB22b: expected an empty paragraph']);
+});
+
+test('a transparent background in replayed HTML is neither a highlight nor a text style', () => {
+  const [block] = blocksFromHTML('<p><span style="background-color:transparent">GB10 </span><span style="background-color:transparent;color:#ff0000">highlighted</span></p>');
+  assert.deepEqual(block.runs.map(run => run.marks), [[], [{ type: 'textStyle', attrs: { color: '#ff0000' } }]]);
+  assert.match(compareBlocks(docs, 'gdocs-inline-formatting', [{ ...block, text: 'GB10 strikethrough H2O x2 Georgia red highlighted',
+    runs: [{ text: 'GB10 strikethrough H2O x2 Georgia red ', marks: [] }, block.runs[1]] }]).join('\n'), /"highlighted" lacks highlight/u);
 });
 
 test('outcomes differ by policy and colors compare across notations', () => {

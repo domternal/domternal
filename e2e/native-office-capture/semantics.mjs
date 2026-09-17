@@ -16,8 +16,8 @@ import { fileURLToPath } from 'node:url';
 
 const IDENTIFIER = /\b([BLT][0-9]{2}[a-z]?|G[BILMT][0-9]{2}[a-z]?|G[0-9]{5})\b/u;
 const MARKS = Object.freeze({ bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strike', subscript: 'subscript', superscript: 'superscript', highlight: 'highlight' });
-// Text styles that `adapt` removes; a result that keeps one in that policy is a finding.
-const ADAPTED_STYLES = Object.freeze(['fontFamily', 'fontSize', 'color']);
+// Text styles that `adapt` removes, a highlight's background included; a result that keeps one in that policy is a finding.
+const ADAPTED_STYLES = Object.freeze(['fontFamily', 'fontSize', 'color', 'backgroundColor']);
 const POLICIES = Object.freeze(['preserve', 'adapt']);
 const cleanupRequire = createRequire(new URL('../../packages/extension-paste-cleanup/package.json', import.meta.url));
 
@@ -91,7 +91,9 @@ export function blocksFromHTML(html) {
     if (INLINE_MARKS[element.tagName]) next.push({ type: INLINE_MARKS[element.tagName] });
     if (element.tagName === 'a' && attribute(element, 'href') !== undefined) next.push({ type: 'link', attrs: { href: attribute(element, 'href') } });
     const style = declarations(element);
-    if (/\S/u.test(style.get('background-color') ?? '') && style.get('background-color') !== 'transparent') next.push({ type: 'highlight' });
+    // A transparent background draws nothing: it is neither a highlight nor a text style.
+    if (style.get('background-color')?.toLowerCase() === 'transparent') style.delete('background-color');
+    if (/\S/u.test(style.get('background-color') ?? '')) next.push({ type: 'highlight' });
     const attrs = {};
     for (const [property, name] of Object.entries(STYLE_ATTRIBUTES)) if (style.get(property)) attrs[name] = style.get(property);
     if (Object.keys(attrs).length > 0) {
@@ -341,6 +343,10 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
       ? previous + 1 : positions.get(block.id);
     const found = index === undefined ? undefined : actual[index];
     if (!found) { problems.push(`${block.id}: missing`); return; }
+    if (block.type === 'empty' && !partialFirst && !partialLast && found.type !== 'empty') {
+      // An empty paragraph that did not arrive leaves the next block in its own place.
+      problems.push(`${block.id}: expected an empty paragraph`); return;
+    }
     if (index <= previous) problems.push(`${block.id}: out of order`);
     previous = index;
     if (partialFirst || partialLast) {
@@ -348,7 +354,7 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
       if (normalizeText(found.text) !== text) problems.push(`${block.id}: partial text is ${JSON.stringify(found.text)}, expected ${JSON.stringify(text)}`);
       return;
     }
-    if (block.type === 'empty') { if (found.type !== 'empty') problems.push(`${block.id}: expected an empty paragraph`); return; }
+    if (block.type === 'empty') return;
     if (block.type === 'literalItem') {
       if (found.type === 'listItem' || !normalizeText(found.text).endsWith(block.text) || normalizeText(found.text) === block.text) {
         problems.push(`${block.id}: expected a literal paragraph that keeps its visible marker`);
