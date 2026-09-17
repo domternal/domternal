@@ -59,3 +59,8 @@ styled, `getJSON` and `setContent`) for seeded documents full of edge values: he
 levels, list markers, hrefs and CSS values valid and not. It exits with status 1 when
 any differs. Both modes write `report.json` with the machine, load averages before
 and after each page, browser versions and bundle hashes.
+
+## Results
+
+- [2026-10-01, macOS arm64](../paste-performance/results/2026-10-01-content-macos-arm64.md):
+  1.2.0 against the builds before and after the content performance changes.

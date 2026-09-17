@@ -1,0 +1,255 @@
+{
+  "kind": "domternal-content-equivalence",
+  "startedAt": "2026-10-01T03:45:20.872Z",
+  "machine": {
+    "os": "darwin",
+    "release": "25.5.0",
+    "cpu": "Apple M1 Max",
+    "logicalCPUs": 10,
+    "totalMemoryBytes": 68719476736,
+    "node": "v24.13.0",
+    "playwright": "1.58.2",
+    "initialLoadAverage": [
+      6.54248046875,
+      6.78466796875,
+      8.54296875
+    ]
+  },
+  "variants": [
+    {
+      "label": "final",
+      "sha256": "a63c12fdf0ad94ef0cf614d59ec40749a355bfb4a95d0f40edc6f0ac82d9c2c5",
+      "inputs": [
+        "packages/pm/src/state.js",
+        "packages/pm/src/view.js",
+        "packages/pm/src/model.js",
+        "packages/pm/src/transform.js",
+        "packages/pm/src/keymap.js",
+        "packages/pm/src/commands.js",
+        "packages/pm/src/inputrules.js",
+        "packages/pm/src/schema-list.js",
+        "packages/pm/src/history.js",
+        "packages/pm/src/dropcursor.js",
+        "packages/pm/src/gapcursor.js",
+        "packages/core/dist/index.js",
+        "packages/core/dist/clipboard.js",
+        "packages/extension-image/dist/index.js",
+        "packages/pm/src/tables.js",
+        "packages/extension-table/dist/index.js"
+      ],
+      "commit": "c706475a8da153eedc550000e2d42c500de5bfde",
+      "dirty": false
+    },
+    {
+      "label": "head",
+      "sha256": "086ff635ae4f57dc28514ed8abb725f8f6d64b1b5da09ef6fea652839c5853b4",
+      "from": "$SCRATCHPAD/ff89/f9/cp-head/head.js"
+    }
+  ],
+  "browsers": {
+    "chromium": "145.0.7632.6",
+    "firefox": "146.0.1",
+    "webkit": "26.0"
+  },
+  "pages": [
+    {
+      "browser": "chromium",
+      "seed": 1,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 227,
+      "withAThrow": 0
+    },
+    {
+      "browser": "chromium",
+      "seed": 2,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 228,
+      "withAThrow": 0
+    },
+    {
+      "browser": "chromium",
+      "seed": 3,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 232,
+      "withAThrow": 0
+    },
+    {
+      "browser": "chromium",
+      "seed": 4,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 239,
+      "withAThrow": 0
+    },
+    {
+      "browser": "chromium",
+      "seed": 5,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 234,
+      "withAThrow": 0
+    },
+    {
+      "browser": "chromium",
+      "seed": 6,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 233,
+      "withAThrow": 0
+    },
+    {
+      "browser": "chromium",
+      "seed": 7,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 234,
+      "withAThrow": 0
+    },
+    {
+      "browser": "chromium",
+      "seed": 8,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 234,
+      "withAThrow": 0
+    },
+    {
+      "browser": "firefox",
+      "seed": 1,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 227,
+      "withAThrow": 0
+    },
+    {
+      "browser": "firefox",
+      "seed": 2,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 228,
+      "withAThrow": 0
+    },
+    {
+      "browser": "firefox",
+      "seed": 3,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 232,
+      "withAThrow": 0
+    },
+    {
+      "browser": "firefox",
+      "seed": 4,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 239,
+      "withAThrow": 0
+    },
+    {
+      "browser": "firefox",
+      "seed": 5,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 234,
+      "withAThrow": 0
+    },
+    {
+      "browser": "firefox",
+      "seed": 6,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 233,
+      "withAThrow": 0
+    },
+    {
+      "browser": "firefox",
+      "seed": 7,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 234,
+      "withAThrow": 0
+    },
+    {
+      "browser": "firefox",
+      "seed": 8,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 234,
+      "withAThrow": 0
+    },
+    {
+      "browser": "webkit",
+      "seed": 1,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 227,
+      "withAThrow": 0
+    },
+    {
+      "browser": "webkit",
+      "seed": 2,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 228,
+      "withAThrow": 0
+    },
+    {
+      "browser": "webkit",
+      "seed": 3,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 232,
+      "withAThrow": 0
+    },
+    {
+      "browser": "webkit",
+      "seed": 4,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 239,
+      "withAThrow": 0
+    },
+    {
+      "browser": "webkit",
+      "seed": 5,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 234,
+      "withAThrow": 0
+    },
+    {
+      "browser": "webkit",
+      "seed": 6,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 233,
+      "withAThrow": 0
+    },
+    {
+      "browser": "webkit",
+      "seed": 7,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 234,
+      "withAThrow": 0
+    },
+    {
+      "browser": "webkit",
+      "seed": 8,
+      "documents": 250,
+      "differing": [],
+      "withDiagnostics": 234,
+      "withAThrow": 0
+    }
+  ],
+  "finishedAt": "2026-10-01T03:46:43.917Z",
+  "finalLoadAverage": [
+    7.005859375,
+    6.94140625,
+    8.4443359375
+  ],
+  "identical": true
+}

@@ -118,6 +118,24 @@ export const REPORTS = [
       digests: [{ label: 'imageAssets JSON SHA256', self: true }],
     },
   },
+  {
+    path: 'e2e/paste-performance/results/2026-10-01-content-macos-arm64.json',
+    serializer: 'node',
+    digests: [],
+    markdown: {
+      path: 'e2e/paste-performance/results/2026-10-01-content-macos-arm64.md',
+      digests: [{ label: 'Timing JSON SHA256', self: true }],
+    },
+  },
+  {
+    path: 'e2e/paste-performance/results/2026-10-01-content-equivalence-macos-arm64.json',
+    serializer: 'node',
+    digests: [],
+    markdown: {
+      path: 'e2e/paste-performance/results/2026-10-01-content-macos-arm64.md',
+      digests: [{ label: 'Equivalence JSON SHA256', self: true }],
+    },
+  },
 ];
 
 /** The bytes `serializer` writes for `value`. */
