@@ -86,16 +86,23 @@ formatting adaptation alone stays quiet, including when its informational findin
 fill the diagnostic allowance. Load the normal `@domternal/theme` CSS
 for styling. The notice follows editor adoption and is removed on destruction.
 
-With the theme, the notice stays in view in a long document: it sticks to the
-bottom of the visible part of the editor, in the page or in an outer scroller,
-and settles after the last line once the end of the document is in view. It does
-not scroll the page or take focus, and its place in the DOM, the keyboard order
-and the accessibility tree stays the same. While a notice shows, the theme clips
-the element the view mounts in with `overflow: clip` instead of `hidden`, since a
-scroll container would hold a sticky notice in place; engines without `clip`
-show the notice after the document. An application that styles the notice itself
-needs `position: sticky` and no scroll container between the notice and the
-scroller.
+With the theme, the notice stays in view in a long document on a screen at
+least `30rem` tall (480 px at the default font size): it sticks to the bottom of
+the visible part of the editor, in the page or in an outer scroller, and settles
+after the last line once the end of the document is in view. While it sticks, it
+covers the lines behind it. Showing it does not scroll the page or take focus,
+and its place in the DOM, the keyboard order and the accessibility tree stays the
+same. In a shorter viewport, such as a phone held sideways or a laptop screen
+zoomed to 200 percent, a sticky notice would cover most of the view, so the
+notice stays after the document there, as it does in print. While a notice shows
+on such a screen, the theme clips the element the view mounts in with
+`overflow: clip` instead of `hidden`, since a scroll container would hold a
+sticky notice in place; engines without `clip` show the notice after the
+document. That rule has the specificity of the theme's own rule for the element,
+so an application rule that overrides the theme there, such as one that makes
+the element scroll, still applies, and the notice then sticks inside it. An
+application that styles the notice itself needs `position: sticky` and no scroll
+container between the notice and the scroller.
 
 The routine clipboard envelope is removed without a diagnostic: `head`, `title`,
 `meta`, `link`, `base` and `style` elements and Office `xml` islands, with their

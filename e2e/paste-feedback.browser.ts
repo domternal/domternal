@@ -450,7 +450,17 @@ test.describe('paste notice placement in a long document', () => {
     scrollY: number;
     editorFocused: boolean;
     wrapper: { overflow: string; display: string };
+    position: string;
   }
+
+  const seedLongDocument = (page: Page): Promise<void> => page.evaluate(() => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    const lines = Array.from({ length: 80 }, (_, index) => `<p>Line ${String(index + 1)}</p>`).join('');
+    if (!probe.editor.setContent(lines, false)) throw new Error('Could not seed the editor');
+    probe.editor.commands.focus('start');
+    window.scrollTo(0, 0);
+    probe.clearObservations();
+  });
 
   const placement = (page: Page): Promise<Placement> => page.evaluate(() => {
     const view = (window as unknown as ProbeWindow).__pasteCleanup.editor.view;
@@ -469,20 +479,14 @@ test.describe('paste notice placement in a long document', () => {
       scrollY: window.scrollY,
       editorFocused: document.activeElement === view.dom,
       wrapper: { overflow: style.overflowY, display: style.display },
+      position: getComputedStyle(notice).position,
     };
   });
 
   for (const framework of FRAMEWORKS) {
     test(`${framework}: keeps the notice of a paste at the top of a long document in view, without scrolling or taking focus`, async ({ page, browserName }) => {
       await openFixture(page, framework, { theme: true });
-      await page.evaluate(() => {
-        const probe = (window as unknown as ProbeWindow).__pasteCleanup;
-        const lines = Array.from({ length: 80 }, (_, index) => `<p>Line ${String(index + 1)}</p>`).join('');
-        if (!probe.editor.setContent(lines, false)) throw new Error('Could not seed the editor');
-        probe.editor.commands.focus('start');
-        window.scrollTo(0, 0);
-        probe.clearObservations();
-      });
+      await seedLongDocument(page);
       const idle = await placement(page);
       expect(idle.wrapper).toEqual({ overflow: 'hidden', display: 'block' });
 
@@ -518,4 +522,57 @@ test.describe('paste notice placement in a long document', () => {
       expect((await placement(page)).wrapper).toEqual({ overflow: 'hidden', display: 'block' });
     });
   }
+
+  // 320 by 256 is the reflow size of WCAG 1.4.10, and 640 by 360 a 1280 by 720 screen at 200 percent zoom.
+  for (const size of [{ width: 320, height: 256 }, { width: 640, height: 360 }]) {
+    test(`keeps the notice after the document in a ${String(size.width)} by ${String(size.height)} viewport, where sticking would cover most of it`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await openFixture(page, 'vanilla', { theme: true });
+      await seedLongDocument(page);
+      await paste(page, WARNING_HTML);
+      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toBeVisible();
+      await expect(page.getByRole('status')).toHaveText('Review the pasted content.');
+      const shown = await placement(page);
+      expect(shown.position).toBe('static');
+      expect(shown.wrapper).toEqual({ overflow: 'hidden', display: 'block' });
+      expect(shown.notice.top).toBeGreaterThanOrEqual(shown.lastLineBottom);
+      expect(shown.scrollY).toBe(0);
+      expect(shown.editorFocused).toBe(true);
+    });
+  }
+
+  test('leaves a mount wrapper that the application made its scroller scrolling, with the notice stuck inside it', async ({ page }) => {
+    await openFixture(page, 'vanilla', { theme: true });
+    // A rule that beats the theme's wrapper rule, as the theming guide says a scroller there must.
+    await page.addStyleTag({ content: 'body .dm-editor > div:has(> .ProseMirror) { max-height: 300px; overflow-y: auto; display: block; }' });
+    await seedLongDocument(page);
+    expect((await placement(page)).wrapper).toEqual({ overflow: 'auto', display: 'block' });
+    await paste(page, WARNING_HTML);
+    await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toBeVisible();
+    const scrolled = await page.evaluate(() => {
+      const mount = (window as unknown as ProbeWindow).__pasteCleanup.editor.view.dom.parentElement;
+      const notice = document.querySelector('.dm-paste-feedback');
+      if (mount === null || notice === null) throw new Error('The mount and the notice must render');
+      mount.scrollTop = 400;
+      const box = mount.getBoundingClientRect();
+      const stuck = notice.getBoundingClientRect();
+      return { scrollTop: mount.scrollTop, noticeInside: stuck.top >= box.top && stuck.bottom <= box.bottom };
+    });
+    expect(scrolled).toEqual({ scrollTop: 400, noticeInside: true });
+    expect((await placement(page)).wrapper).toEqual({ overflow: 'auto', display: 'block' });
+  });
+
+  test('prints the mount wrapper the same way whether a notice shows or not', async ({ page }) => {
+    await openFixture(page, 'vanilla', { theme: true });
+    await seedLongDocument(page);
+    await page.emulateMedia({ media: 'print' });
+    const idle = await placement(page);
+    await page.emulateMedia({ media: 'screen' });
+    await paste(page, WARNING_HTML);
+    await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toBeVisible();
+    await page.emulateMedia({ media: 'print' });
+    const shown = await placement(page);
+    expect(shown.wrapper).toEqual(idle.wrapper);
+    expect(shown.position).toBe('static');
+  });
 });

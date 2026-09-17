@@ -1,13 +1,4 @@
 .dm-paste-feedback {
-  // The notice follows the whole document, so in a long one it would sit far below a
-  // paste near the top. Sticky keeps it at the bottom of the visible part of the editor,
-  // in the page or an outer scroller, and it settles after the last line when the end of
-  // the document is in view. Its place in the DOM, the focus order and the live region
-  // stay as they are, and nothing scrolls.
-  position: sticky;
-  inset-block-end: 0.5rem;
-  // Above content and table controls, below the block handle and floating menus.
-  z-index: 20;
   box-sizing: border-box;
   max-inline-size: 100%;
   margin-block: 0.5rem;
@@ -58,14 +49,35 @@
   }
 }
 
-// The view's mount wrapper clips with `overflow: hidden`, which also makes it a scroll
-// container, and a sticky notice would stick inside it rather than in the page. While a
-// notice shows, the wrapper clips with `clip`, which is no scroll container, and
-// `flow-root` keeps the formatting context `hidden` gave it, so floats and margins lay out
-// as before. Engines without `clip` keep `hidden` and the notice after the document.
-.dm-editor > div:has(> .ProseMirror):has(> .dm-paste-feedback:not([hidden])) {
-  display: flow-root;
-  overflow: clip;
+// The notice follows the whole document, so in a long one it would sit far below a paste
+// near the top. On a screen tall enough to spare the room, sticky keeps it at the bottom of
+// the visible part of the editor, in the page or an outer scroller, and it settles after the
+// last line when the end of the document is in view. Its place in the DOM, the focus order
+// and the live region stay as they are. In a shorter viewport, such as a zoomed or reflowed
+// page, the notice would cover most of the view, so it stays after the document there.
+@media screen and (min-height: 30rem) {
+  .dm-paste-feedback {
+    position: sticky;
+    inset-block-end: 0.5rem;
+    // Above content and table controls, below the block handle and floating menus.
+    z-index: 20;
+  }
+
+  // The view's mount wrapper clips with `overflow: hidden`, which also makes it a scroll
+  // container, and a sticky notice would stick inside it rather than in the page. While a
+  // notice shows, the wrapper clips with `clip`, which is no scroll container. The selector
+  // has the specificity of the theme's own wrapper rule, so an application rule that
+  // overrides that one, such as a wrapper made to scroll, overrides this one too. Engines
+  // without `clip` keep `hidden` and the notice after the document.
+  .dm-editor > div:has(> .ProseMirror):where(:has(> .dm-paste-feedback:not([hidden]))) {
+    overflow: clip;
+  }
+
+  // `flow-root` keeps the formatting context `hidden` gave the wrapper, so floats and
+  // margins lay out as before. Without specificity, any display the application sets wins.
+  :where(.dm-editor > div:has(> .ProseMirror):has(> .dm-paste-feedback:not([hidden]))) {
+    display: flow-root;
+  }
 }
 
 @media print {
