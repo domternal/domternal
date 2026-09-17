@@ -746,8 +746,11 @@ coordinator currently normalizes a paste without images twice. Firefox can also 
 its cycle collector, which frees unreachable DOM objects, synchronously inside a
 paste; that paste then takes several hundred milliseconds longer (up to 873 ms in
 that measurement, with about 0.7 percent of pastes taking 100 ms or more). Pastes
-without PasteCleanup show the same stalls: it is the engine's work, and a page
-cannot postpone it. These figures are measurements, not latency bounds.
+without PasteCleanup stall the same way, but less often: a cleaned paste allocates
+more, and in that measurement a paste took 100 ms or more 1.8 times as often with
+PasteCleanup, and 9 times as often with `imageAssets`. The collection is the
+engine's work, and a page cannot postpone it. These figures are measurements, not
+latency bounds.
 
 ## Trusted Types
 
