@@ -763,3 +763,124 @@ describe('paste notice announcements and focus', () => {
     expect(document.activeElement).toBe(dismiss);
   });
 });
+
+describe('paste notice that the theme keeps sticky', () => {
+  const line = (top: number, bottom: number): { top: number; bottom: number } => ({ top, bottom });
+  const rect = (top: number, bottom: number): DOMRect => ({
+    top, bottom, left: 0, right: 100, x: 0, y: top, width: 100, height: bottom - top, toJSON: () => ({}),
+  });
+  // Lets a microtask queued by uncover run.
+  const flush = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0); });
+
+  /** A visible notice that the theme made sticky, at 600 to 700 px in the viewport. */
+  function stuck(parent?: HTMLElement | ShadowRoot): ReturnType<typeof fixture> {
+    const view = fixture(new I18nService(), document, parent);
+    view.renderer.update(result());
+    expect(view.notice.hidden).toBe(false);
+    view.notice.style.position = 'sticky';
+    vi.spyOn(view.notice, 'getBoundingClientRect').mockReturnValue(rect(600, 700));
+    return view;
+  }
+
+  function scroller(): HTMLDivElement {
+    const element = document.createElement('div');
+    element.style.overflowY = 'auto';
+    document.body.append(element);
+    cleanups.push(() => { element.remove(); });
+    vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect(100, 720));
+    return element;
+  }
+
+  it('scrolls the page by the overlap after the view scrolled to a line the notice covers', async () => {
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+    const { renderer } = stuck();
+    const measure = vi.fn(() => line(610, 630));
+    renderer.uncover(measure);
+    // The view's own scroll runs first, in the same task.
+    expect(measure).not.toHaveBeenCalled();
+    await flush();
+    expect(measure).toHaveBeenCalledOnce();
+    expect(scrollBy).toHaveBeenCalledExactlyOnceWith(0, 38);
+  });
+
+  it('scrolls the scroller the notice sticks in, also across a shadow root, instead of the page', async () => {
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+    const outer = scroller();
+    const shadowHost = outer.appendChild(document.createElement('div'));
+    const { renderer } = stuck(shadowHost.attachShadow({ mode: 'open' }));
+    renderer.uncover(() => line(650, 670));
+    await flush();
+    expect(outer.scrollTop).toBe(78);
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it('keeps the start of a line taller than the room above the notice in view', async () => {
+    const outer = scroller();
+    const { renderer } = stuck(outer);
+    renderer.uncover(() => line(120, 690));
+    await flush();
+    expect(outer.scrollTop).toBe(12);
+    renderer.uncover(() => line(105, 690));
+    await flush();
+    expect(outer.scrollTop).toBe(12);
+  });
+
+  it('leaves a line clear of the notice, or below it, where it is', async () => {
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+    const { renderer } = stuck();
+    renderer.uncover(() => line(570, 592));
+    await flush();
+    renderer.uncover(() => line(700, 720));
+    await flush();
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it('measures nothing while the notice is not sticky, hidden, detached or disposed', async () => {
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+    const measure = vi.fn(() => line(610, 630));
+    const unthemed = stuck();
+    unthemed.notice.style.position = 'static';
+    unthemed.renderer.uncover(measure);
+    const hidden = stuck();
+    hidden.renderer.update(result('applied', []));
+    expect(hidden.notice.hidden).toBe(true);
+    hidden.renderer.uncover(measure);
+    const detached = stuck();
+    detached.host.remove();
+    detached.renderer.uncover(measure);
+    const disposed = stuck();
+    disposed.renderer.uncover(measure);
+    disposed.renderer.dispose();
+    disposed.renderer.uncover(measure);
+    await flush();
+    expect(measure).not.toHaveBeenCalled();
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it('measures once per task with the latest request, and again in a later task', async () => {
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+    const { renderer } = stuck();
+    const early = vi.fn(() => line(610, 630));
+    const late = vi.fn(() => line(640, 660));
+    renderer.uncover(early);
+    renderer.uncover(late);
+    await flush();
+    expect(early).not.toHaveBeenCalled();
+    expect(late).toHaveBeenCalledOnce();
+    expect(scrollBy).toHaveBeenCalledExactlyOnceWith(0, 68);
+    renderer.uncover(early);
+    await flush();
+    expect(early).toHaveBeenCalledOnce();
+    expect(scrollBy).toHaveBeenLastCalledWith(0, 38);
+  });
+
+  it('contains a measurement that throws or finds no line', async () => {
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+    const { renderer } = stuck();
+    renderer.uncover(() => { throw new Error('The view is gone'); });
+    await flush();
+    renderer.uncover(() => undefined);
+    await flush();
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+});

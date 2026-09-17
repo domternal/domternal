@@ -523,6 +523,79 @@ test.describe('paste notice placement in a long document', () => {
     });
   }
 
+  interface Caret { head: number; covered: boolean; visible: boolean }
+
+  // Whether the middle of the caret line shows the notice instead of the line.
+  const caret = (page: Page): Promise<Caret> => page.evaluate(() => {
+    const view = (window as unknown as ProbeWindow).__pasteCleanup.editor.view;
+    const head = view.state.selection.head;
+    const line = view.coordsAtPos(head);
+    const hit = document.elementFromPoint(line.left + 1, (line.top + line.bottom) / 2);
+    return { head, covered: hit !== null && hit.closest('.dm-paste-feedback') !== null, visible: line.top >= 0 && line.bottom <= window.innerHeight };
+  });
+
+  for (const framework of FRAMEWORKS) {
+    test(`${framework}: keeps the caret line above the stuck notice while the keyboard moves down and text is typed`, async ({ page }) => {
+      await openFixture(page, framework, { theme: true });
+      await seedLongDocument(page);
+      await paste(page, WARNING_HTML);
+      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      await expect(notice).toBeVisible();
+      expect((await placement(page)).position).toBe('sticky');
+      // From about the twelfth line on, the caret reaches the notice at the bottom of the viewport.
+      let head = (await caret(page)).head;
+      for (let step = 0; step < 30; step++) {
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(async () => (await caret(page)).head).toBeGreaterThan(head);
+        await expect.poll(() => caret(page), `line ${String(step + 2)}`).toMatchObject({ covered: false, visible: true });
+        head = (await caret(page)).head;
+      }
+      await page.keyboard.type('TYPED');
+      await expect.poll(() => caret(page)).toMatchObject({ covered: false, visible: true });
+      const shown = await placement(page);
+      expect(shown.notice.top).toBeGreaterThanOrEqual(0);
+      expect(shown.notice.bottom).toBeLessThanOrEqual(shown.viewport);
+      expect(shown.notice.bottom).toBeLessThan(shown.lastLineBottom);
+      expect(shown.editorFocused).toBe(true);
+      await expect(notice).toBeVisible();
+    });
+  }
+
+  test('keeps the caret line above a notice stuck in an outer scroller, as the theming guide builds one', async ({ page }) => {
+    await openFixture(page, 'vanilla', { theme: true });
+    // Move the view's mount into a scroller of the application's own inside the frame.
+    await page.evaluate(() => {
+      const mount = (window as unknown as ProbeWindow).__pasteCleanup.editor.view.dom.parentElement;
+      const frame = mount === null ? null : mount.parentElement;
+      if (mount === null || frame === null) throw new Error('The themed frame must render');
+      frame.setAttribute('style', 'height: 400px; display: flex; flex-direction: column');
+      const scroller = document.createElement('div');
+      scroller.className = 'app-scroller';
+      scroller.setAttribute('style', 'flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden');
+      frame.insertBefore(scroller, mount);
+      scroller.append(mount);
+    });
+    await seedLongDocument(page);
+    await paste(page, WARNING_HTML);
+    await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toBeVisible();
+    let head = (await caret(page)).head;
+    for (let step = 0; step < 20; step++) {
+      await page.keyboard.press('ArrowDown');
+      await expect.poll(async () => (await caret(page)).head).toBeGreaterThan(head);
+      await expect.poll(() => caret(page), `line ${String(step + 2)}`).toMatchObject({ covered: false, visible: true });
+      head = (await caret(page)).head;
+    }
+    const inside = await page.evaluate(() => {
+      const scroller = document.querySelector('.app-scroller');
+      const notice = document.querySelector('.dm-paste-feedback');
+      if (scroller === null || notice === null) throw new Error('The scroller and the notice must render');
+      const box = scroller.getBoundingClientRect();
+      const stuck = notice.getBoundingClientRect();
+      return { scrolled: scroller.scrollTop > 0, page: window.scrollY, noticeInside: stuck.top >= box.top && stuck.bottom <= box.bottom };
+    });
+    expect(inside).toEqual({ scrolled: true, page: 0, noticeInside: true });
+  });
+
   // 320 by 256 is the reflow size of WCAG 1.4.10, and 640 by 360 a 1280 by 720 screen at 200 percent zoom.
   for (const size of [{ width: 320, height: 256 }, { width: 640, height: 360 }]) {
     test(`keeps the notice after the document in a ${String(size.width)} by ${String(size.height)} viewport, where sticking would cover most of it`, async ({ page }) => {

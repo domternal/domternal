@@ -472,3 +472,34 @@ describe('PasteCleanup editor integration', () => {
     ).toBeNull();
   });
 });
+
+describe('PasteCleanup sticky notice', () => {
+  it('lets ProseMirror scroll first, then moves a line the sticky notice covers above it', async () => {
+    const host = document.body.appendChild(document.createElement('div'));
+    try {
+      const instance = new Editor({ element: host, extensions: [Document, Text, Paragraph, PasteCleanup], content: '<p>Original content</p>' });
+      editor = instance;
+      paste(instance, { html: '<p>New<img src="https://paste-probe.invalid/missing.png"></p>', text: 'New' });
+      // The operation settles, and the notice shows, after the paste event.
+      await new Promise(resolve => { setTimeout(resolve, 0); });
+      const notice = host.querySelector<HTMLElement>('.dm-paste-feedback');
+      if (notice === null) throw new Error('The default notice must render');
+      expect(notice.hidden).toBe(false);
+      notice.style.position = 'sticky';
+      vi.spyOn(notice, 'getBoundingClientRect').mockReturnValue({
+        top: 600, bottom: 700, left: 0, right: 100, x: 0, y: 600, width: 100, height: 100, toJSON: () => ({}),
+      });
+      const coords = vi.spyOn(instance.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 610, bottom: 630 });
+      const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+      const plugin = instance.state.plugins.find(candidate => candidate.props.handleScrollToSelection !== undefined);
+      if (plugin === undefined) throw new Error('PasteCleanup must take part in scrolling the selection');
+      expect(plugin.props.handleScrollToSelection?.call(plugin, instance.view)).toBe(false);
+      expect(coords).not.toHaveBeenCalled();
+      await new Promise(resolve => { setTimeout(resolve, 0); });
+      expect(coords).toHaveBeenCalledExactlyOnceWith(instance.state.selection.head, 1);
+      expect(scrollBy).toHaveBeenCalledExactlyOnceWith(0, 38);
+    } finally {
+      host.remove();
+    }
+  });
+});

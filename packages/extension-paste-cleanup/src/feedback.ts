@@ -11,14 +11,29 @@ export interface PasteFeedbackResult {
   readonly reason?: PasteOperationRejectionReason;
 }
 
+/** Viewport coordinates of the line the selection's head is on. */
+export interface PasteFeedbackSelectionLine {
+  readonly top: number;
+  readonly bottom: number;
+}
+
 export interface PasteFeedbackRenderer {
   /** Show pending preparation. Dismissing its notice never calls cancel. */
   preparing(operationId: string, cancel: () => void): void;
   update(result: PasteFeedbackResult): void;
   /** Reattach next to a moved or adopted view without changing the editor. */
   refresh(): void;
+  /**
+   * Call after the view scrolled its selection into view. When the theme keeps the notice
+   * sticky and it covers that line, the scroller it sticks in moves on by the overlap, once
+   * per task and after the view's own scroll, measuring the line with `measure` then.
+   */
+  uncover(measure: () => PasteFeedbackSelectionLine | undefined): void;
   dispose(): void;
 }
+
+// Room kept between an uncovered selection line and the notice.
+const UNCOVER_GAP = 8;
 
 type Copy = (typeof pasteCleanupMessages)[keyof typeof pasteCleanupMessages];
 const diagnosticMessages: Readonly<Record<PasteDiagnosticCode, Copy>> = {
@@ -151,6 +166,8 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom' | 'focus'>, i18
   // with the same title is announced again.
   let announced: { revision: number; text: string; language: string } | undefined;
   let announceTimer: { clear: () => void } | undefined;
+  // The measurement of the latest scroll that asked to uncover the selection this task.
+  let uncoverPending: (() => PasteFeedbackSelectionLine | undefined) | undefined;
 
   const attach = (): void => {
     const parent = view.dom.parentNode;
@@ -302,6 +319,41 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom' | 'focus'>, i18
       if (focused !== null) returnFocus();
     } finally { rendering = false; }
   };
+  // The nearest scroll container around the notice, the one a sticky notice sticks in, or
+  // null when that is the viewport. A shadow root continues at its host.
+  const scrollerOf = (owner: Window): HTMLElement | null => {
+    const doc = notice.ownerDocument;
+    let node: Node | null = notice.parentNode;
+    while (node !== null && node !== doc.body && node !== doc.documentElement) {
+      if (node.nodeType === 1) {
+        const overflow = owner.getComputedStyle(node as Element).overflowY;
+        if (overflow === 'auto' || overflow === 'scroll' || overflow === 'hidden' || overflow === 'overlay') return node as HTMLElement;
+      }
+      node = node.nodeType === 11 && 'host' in node ? (node as ShadowRoot).host : node.parentNode;
+    }
+    return null;
+  };
+  // ProseMirror scrolls a selection only to the edge of its scroller, and a sticky notice sits
+  // there, so it can cover the line just reached by the keyboard or typing. Move that line
+  // above the notice, without moving its start out of the visible part of the scroller.
+  const uncoverNow = (): void => {
+    const measure = uncoverPending;
+    uncoverPending = undefined;
+    const owner = notice.ownerDocument.defaultView;
+    if (measure === undefined || disposed || notice.hidden || !notice.isConnected || owner === null) return;
+    if (owner.getComputedStyle(notice).position !== 'sticky') return;
+    const line = measure();
+    if (line === undefined) return;
+    const stuck = notice.getBoundingClientRect();
+    const overlap = line.bottom + UNCOVER_GAP - stuck.top;
+    if (overlap <= 0 || line.top >= stuck.bottom) return;
+    const scroller = scrollerOf(owner);
+    const visibleTop = scroller === null ? 0 : scroller.getBoundingClientRect().top + scroller.clientTop;
+    const distance = Math.min(overlap, line.top - visibleTop - UNCOVER_GAP);
+    if (distance <= 0) return;
+    if (scroller === null) owner.scrollBy(0, distance);
+    else scroller.scrollTop += distance;
+  };
   // Dismiss, Escape and Cancel act on the notice, so focus that was in it, or that a pointer
   // press on a button took to the page, goes back to the editor.
   const userHides = (): boolean => focusedWithin() !== null || focusLost();
@@ -355,6 +407,15 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom' | 'focus'>, i18
       render();
     },
     refresh: render,
+    uncover(measure) {
+      if (disposed || notice.hidden) return;
+      const queued = uncoverPending !== undefined;
+      uncoverPending = measure;
+      if (queued) return;
+      queueMicrotask(() => {
+        try { uncoverNow(); } catch { /* A view torn down meanwhile cannot be measured; uncovering is a convenience. */ }
+      });
+    },
     dispose() {
       if (disposed) return;
       disposed = true;

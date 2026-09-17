@@ -154,6 +154,15 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
         };
       },
       props: {
+        // Returning false keeps ProseMirror's own scroll, and a sticky notice that covers the
+        // selection's line afterwards moves it above itself.
+        handleScrollToSelection(view) {
+          feedback?.uncover(() => {
+            const line = view.coordsAtPos(view.state.selection.head, 1);
+            return { top: line.top, bottom: line.bottom };
+          });
+          return false;
+        },
         handleDOMEvents: {
           paste(view, event) {
             startAttempt();

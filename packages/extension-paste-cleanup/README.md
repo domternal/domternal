@@ -90,9 +90,11 @@ With the theme, the notice stays in view in a long document on a screen at
 least `30rem` tall (480 px at the default font size): it sticks to the bottom of
 the visible part of the editor, in the page or in an outer scroller, and settles
 after the last line once the end of the document is in view. While it sticks, it
-covers the lines behind it. Showing it does not scroll the page or take focus,
-and its place in the DOM, the keyboard order and the accessibility tree stays the
-same. In a shorter viewport, such as a phone held sideways or a laptop screen
+covers the lines behind it: a pointer reaches them after scrolling, and when the
+keyboard or typing brings the selection behind the notice, PasteCleanup scrolls
+on until the selection's line is above it. Showing it does not scroll the page or
+take focus, and its place in the DOM, the keyboard order and the accessibility
+tree stays the same. In a shorter viewport, such as a phone held sideways or a laptop screen
 zoomed to 200 percent, a sticky notice would cover most of the view, so the
 notice stays after the document there, as it does in print. While a notice shows
 on such a screen, the theme clips the element the view mounts in with
