@@ -182,7 +182,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
         },
         this.items(),
       );
-      controller.subscribe();
+      controller.subscribe(() => this.menuEl().nativeElement);
       this.controller = controller;
       // Controller is a plain field, not a signal - bumping `version` is
       // what tells the `groups`/`focusedIndex` computeds to re-evaluate

@@ -106,7 +106,7 @@ export const DomternalFloatingMenu = defineComponent({
       const hasCustomSlot = Boolean(slots['default']);
       if (!hasCustomSlot) {
         const ctl = new FloatingMenuController(editor, () => { version.value++; }, props.items);
-        ctl.subscribe();
+        ctl.subscribe(() => menuRef.value);
         controller.value = ctl;
       } else {
         unsubscribeI18n = editor.i18n.subscribe(() => { version.value++; });

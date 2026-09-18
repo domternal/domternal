@@ -110,6 +110,40 @@ const CallerControls = Extension.create({
 
 
 describe('React i18n integration', () => {
+  it('retains a pressed floating menu presentation through an unrelated parent render', async () => {
+    const editor = new Editor({ extensions: [Document, Paragraph, Text, LocalizedControls], content: '<p>Hello</p>' });
+    editors.push(editor);
+    const render = (revision: number): void => {
+      root.render(<section data-parent-revision={revision}><DomternalFloatingMenu editor={editor} /></section>);
+    };
+    await update(() => { render(0); });
+    const button = container.querySelector<HTMLButtonElement>('.dm-floating-menu-item');
+    const label = button?.querySelector('.dm-floating-menu-item-label');
+    const description = button?.querySelector('.dm-floating-menu-item-description');
+    if (!button || !label || !description) throw new Error('Expected a described floating action.');
+    const text = label.firstChild;
+    const state = editor.state;
+    await update(() => {
+      button.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      editor.i18n.set({ locale: 'fr' });
+      render(1);
+    });
+    expect(container.querySelector('section')?.getAttribute('data-parent-revision')).toBe('1');
+    expect(label.textContent).toBe('<b>en</b>');
+    expect(description.textContent).toBe('Description en');
+    expect(label.firstChild).toBe(text);
+    expect(editor.state).toBe(state);
+    await act(async () => {
+      button.dispatchEvent(new Event('pointerup', { bubbles: true }));
+      button.click();
+      await new Promise<void>(resolve => { setTimeout(resolve, 0); });
+    });
+    await update(() => undefined);
+    expect(label.textContent).toBe('<b>fr</b>');
+    expect(description.textContent).toBe('Description fr');
+    expect(label.firstChild).toBe(text);
+  });
+
   it('keeps unknown caller label language independent of translated menu chrome', async () => {
     const editor = new Editor({ extensions: [Document, Paragraph, Text, CallerControls], content: '<p>Hello</p>' });
     editors.push(editor);

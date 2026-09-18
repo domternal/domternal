@@ -132,7 +132,7 @@ export function DomternalFloatingMenu({
       return;
     }
     const controller = new FloatingMenuController(editor, forceRender, items);
-    controller.subscribe();
+    controller.subscribe(() => menuRef.current);
     controllerRef.current = controller;
     // Controller is stored on a ref (not state) - React won't re-render on
     // that assignment, so trigger a bump so the next render reads the newly

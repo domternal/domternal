@@ -156,7 +156,7 @@ export class DomternalFloatingMenu extends EventTarget {
       () => { this.#scheduleRender(); },
       options.items,
     );
-    this.#controller.subscribe();
+    this.#controller.subscribe(() => this.host);
     this.host.addEventListener('pointerdown', () => { this.#pointerDown = true; }, { signal: this.#abortCtl.signal });
     const releasePointer = (): void => {
       if (!this.#pointerDown) return;
