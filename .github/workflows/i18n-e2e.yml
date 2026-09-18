@@ -1,0 +1,151 @@
+name: Localization browser tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  merge_group: {}
+  workflow_dispatch: {}
+  schedule:
+    - cron: '47 4 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  i18n-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      FORCE_COLOR: '0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with:
+          version: 10.34.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the public packages before starting browsers
+        # Nx lint and typecheck can also rebuild dependencies. Nothing may
+        # change the package output while the fixture servers are running.
+        run: pnpm build
+
+      - name: Install the locked Playwright browsers and system dependencies
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Run localization browser coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/i18n
+          runner_pid=''
+          monitor_pid=''
+
+          cleanup() {
+            local status=$?
+            trap - EXIT INT TERM
+            if [[ -n "$runner_pid" ]]; then
+              kill -- "-$runner_pid" 2>/dev/null || true
+              wait "$runner_pid" 2>/dev/null || true
+            fi
+            if [[ -n "$monitor_pid" ]]; then
+              kill "$monitor_pid" 2>/dev/null || true
+              wait "$monitor_pid" 2>/dev/null || true
+            fi
+            exit "$status"
+          }
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+
+          run_suite() {
+            local suite="$1"
+            shift
+            local log="test-results/i18n/$suite.log"
+            local report="$GITHUB_WORKSPACE/test-results/i18n/$suite.json"
+            local start status=0
+            start=$(date +%s)
+
+            # Each suite owns a directory so the next run cannot erase traces.
+            PLAYWRIGHT_JSON_OUTPUT_NAME="$report" setsid pnpm exec playwright test "$@" \
+              --workers=2 --retries=0 --reporter=list,json \
+              --output="test-results/i18n/$suite" > "$log" 2>&1 &
+            runner_pid=$!
+            (
+              last_fail=0
+              last_report="$start"
+              while kill -0 "$runner_pid" 2>/dev/null; do
+                now=$(date +%s)
+                failed=$(grep -cE '^[[:space:]]*(✘|×)[[:space:]]+[0-9]+' "$log" || true)
+                if (( failed > last_fail )); then
+                  awk -v previous="$last_fail" \
+                    '/^[[:space:]]*(✘|×)[[:space:]]+[0-9]+/ { if (++seen > previous) print "NEW FAILURE: " $0 }' "$log"
+                  last_fail="$failed"
+                fi
+                if (( now - last_report >= 120 )); then
+                  awk -v suite="$suite" -v elapsed="$((now - start))" '
+                    /^Running [0-9]+ tests/ { total = $2 }
+                    /^[[:space:]]*(✓|✘|×|-)[[:space:]]+[0-9]+/ { done++; active = $0 }
+                    /^[[:space:]]*✓[[:space:]]+[0-9]+/ { passed++ }
+                    /^[[:space:]]*(✘|×)[[:space:]]+[0-9]+/ { failed++ }
+                    /^[[:space:]]*-[[:space:]]+[0-9]+/ { skipped++ }
+                    END {
+                      remaining = total - done
+                      eta = done ? int(elapsed * remaining / done) "s" : "unknown"
+                      printf "%s: %d/%d completed, %d passed, %d failed, %d skipped, 0 retries, %ds elapsed, %d remaining, ETA %s\n", suite, done, total, passed, failed, skipped, elapsed, remaining, eta
+                      print "Latest test: " (active ? active : "server startup")
+                    }' "$log"
+                  last_report="$now"
+                fi
+                sleep 2
+              done
+            ) &
+            monitor_pid=$!
+
+            wait "$runner_pid" || status=$?
+            runner_pid=''
+            kill "$monitor_pid" 2>/dev/null || true
+            wait "$monitor_pid" 2>/dev/null || true
+            monitor_pid=''
+            cat "$log"
+            echo "$suite finished with exit $status in $(($(date +%s) - start))s"
+            return "$status"
+          }
+
+          status=0
+          # Both configs cover Chromium, Firefox and WebKit. The ownership
+          # config also includes asynchronous mention and upload scenarios.
+          run_suite demos --config e2e/playwright.cross-browser.config.ts \
+            'i18n.*\.spec\.ts' || status=$?
+          run_suite ownership --config e2e/i18n-ownership.config.ts || status=$?
+          exit "$status"
+
+      - name: Preserve localization logs, reports and failure traces
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: i18n-browser-results
+          path: test-results/i18n/
+          if-no-files-found: warn
+          retention-days: 7
