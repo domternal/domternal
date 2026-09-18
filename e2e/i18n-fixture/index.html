@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Localization wrapper ownership fixture</title>
+    <style>
+      body { font-family: sans-serif; margin: 32px; }
+      .ProseMirror { border: 1px solid #888; min-height: 120px; padding: 12px; }
+      .dm-toolbar { display: flex; gap: 12px; margin-bottom: 16px; }
+      .dm-toolbar-group { display: flex; }
+      .dm-toolbar button { width: 36px; height: 36px; }
+      .dm-toolbar button svg { width: 20px; height: 20px; }
+      [data-placeholder]::before { content: attr(data-placeholder); color: #777; pointer-events: none; float: left; height: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="fixture"><i18n-test-app></i18n-test-app></div>
+    <script type="module" src="/entry.mjs"></script>
+  </body>
+</html>

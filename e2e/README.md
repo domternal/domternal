@@ -54,3 +54,32 @@ selection or selected table cells before real user actions. These tests do not
 claim IME composition, native drag-to-select gestures or exhaustive coverage of
 unrelated editor features. Compile-time findings use the consumer type gate;
 server persistence uses real process integration tests rather than browser mocks.
+
+## Localization regression coverage
+
+Build all Free packages before running the localization suites. Finish Nx lint
+and typecheck first: their task dependencies can rebuild packages implicitly.
+Keep source, fixture, configuration and `dist` files unchanged throughout each
+browser run. Rebuilds can trigger Vite reloads and invalidate the results.
+
+```sh
+pnpm exec playwright test --config e2e/playwright.cross-browser.config.ts 'i18n.*\.spec\.ts' --workers=4 --reporter=list
+pnpm exec playwright test --config e2e/i18n-ownership.config.ts
+```
+
+The normal matrix automatically collects the localization specs. They exercise
+live translation, fallback, safe text, reentrant resolvers, independent editors,
+open input drafts, menu actions, composition lifecycle and native pointer targets
+across Vanilla, React, Vue and Angular in Chromium, Firefox and WebKit. State and
+transaction assertions distinguish UI updates from document edits.
+
+The separate ownership fixture uses public built packages on port 5894. It checks
+reactive prop replacement and removal, imperative ownership, completed parent
+rerenders, custom label languages, scroll preservation, destruction, deferred
+mention results and pending uploads without network requests. Its `.browser.ts`
+files are intentionally excluded from the normal matrix.
+
+Synthetic composition events verify browser lifecycle behavior. They do not
+replace native OS IME or screen-reader checks. Keep raw logs and monitor progress
+according to the repository instructions, and run these suites without concurrent
+build or dependency installation jobs.
