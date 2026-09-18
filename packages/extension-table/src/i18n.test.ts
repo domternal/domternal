@@ -31,6 +31,84 @@ afterEach(() => {
 });
 
 describe('table UI localization', () => {
+  it.each(['row', 'column'] as const)('keeps a pressed %s menu stable until its action completes, then uses the latest locale', async (kind) => {
+    const id = kind === 'row' ? 'table.row.insertAbove' : 'table.column.insertLeft';
+    const original = 'Insert before the selected table section';
+    const editor = createEditor({ messages: { [id]: original } });
+    const other = createEditor();
+    const container = element(editor.view.dom, '.dm-table-container');
+    const cell = element(container, 'td');
+    vi.spyOn(editor.view, 'posAtCoords').mockReturnValue(null);
+    cell.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    const handle = element(container, kind === 'row' ? '.dm-table-row-handle' : '.dm-table-col-handle');
+    handle.click();
+    const menu = element(document, '.dm-table-controls-dropdown');
+    const target = element(menu, 'button');
+    const text = element(target, 'span:last-child').firstChild;
+    const state = editor.state;
+    const transaction = vi.fn();
+    editor.on('transaction', transaction);
+    target.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    editor.i18n.set({ locale: 'hr', messages: { [id]: 'Intermediate wording' } });
+    editor.i18n.set({ locale: 'de', messages: { [id]: 'Go' } });
+    other.i18n.set({ locale: 'de', messages: { 'table.controls.cellOptions': 'Other editor options' } });
+    expect(target.textContent).toBe(original);
+    expect(element(target, 'span:last-child').firstChild).toBe(text);
+    expect(target.lang).toBe('en');
+    expect(element(other.view.dom, '.dm-table-cell-handle').getAttribute('aria-label')).toBe('Other editor options');
+    expect(editor.state).toBe(state);
+    expect(transaction).not.toHaveBeenCalled();
+    target.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    expect(target.textContent).toBe(original);
+    target.click();
+    expect(editor.state.doc.firstChild?.childCount).toBe(kind === 'row' ? 2 : 1);
+    expect(editor.state.doc.firstChild?.firstChild?.childCount).toBe(kind === 'column' ? 3 : 2);
+    expect(editor.state.doc.textContent).toBe('Original cellB');
+    await new Promise(resolve => { setTimeout(resolve, 0); });
+    element(container, 'td').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    handle.click();
+    const next = element(element(document, '.dm-table-controls-dropdown'), 'button');
+    expect(next.textContent).toBe('Go');
+    expect(next.lang).toBe('de');
+  });
+
+  it.each(['pointerup', 'pointercancel'])('settles a cancelled menu activation after an outside %s', async (event) => {
+    const editor = createEditor();
+    const container = element(editor.view.dom, '.dm-table-container');
+    vi.spyOn(editor.view, 'posAtCoords').mockReturnValue(null);
+    element(container, 'td').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    element(container, '.dm-table-col-handle').click();
+    const target = element(element(document, '.dm-table-controls-dropdown'), 'button');
+    const state = editor.state;
+    target.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    editor.i18n.set({ locale: 'de', messages: { 'table.column.insertLeft': 'Links' } });
+    expect(target.textContent).toBe('Insert Column Left');
+    document.body.dispatchEvent(new Event(event, { bubbles: true }));
+    await new Promise(resolve => { setTimeout(resolve, 0); });
+    expect(target.textContent).toBe('Links');
+    expect(target.lang).toBe('de');
+    expect(editor.state).toBe(state);
+  });
+
+  it('cancels a pending menu presentation when the node view is destroyed', async () => {
+    const editor = createEditor();
+    const container = element(editor.view.dom, '.dm-table-container');
+    vi.spyOn(editor.view, 'posAtCoords').mockReturnValue(null);
+    element(container, 'td').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    element(container, '.dm-table-col-handle').click();
+    const target = element(element(document, '.dm-table-controls-dropdown'), 'button');
+    target.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    const resolve = vi.fn();
+    editor.i18n.set({ locale: 'de', messages: { 'table.column.insertLeft': 'Links' }, resolve });
+    target.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    editor.destroy();
+    resolve.mockClear();
+    await new Promise(resolveTimer => { setTimeout(resolveTimer, 0); });
+    expect(target.isConnected).toBe(false);
+    expect(target.textContent).toBe('Insert Column Left');
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
   it('settles a reentrant handle translation on the current revision', () => {
     const editor = createEditor();
     const handle = element(editor.view.dom, '.dm-table-cell-handle');

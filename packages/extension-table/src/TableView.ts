@@ -28,7 +28,7 @@ import {
   isInTable,
   selectedRect,
 } from '@domternal/pm/tables';
-import { positionFloating, positionFloatingOnce, localizeMessage } from '@domternal/core';
+import { positionFloating, positionFloatingOnce, localizeMessage, observeI18nPresentation } from '@domternal/core';
 
 import type { I18nService, ResolvedMessage } from '@domternal/core';
 import { tableMessages } from './messages.js';
@@ -179,9 +179,9 @@ export class TableView implements NodeView {
     this.colHandle.addEventListener('mouseenter', this.boundCancelHide);
     this.rowHandle.addEventListener('mouseenter', this.boundCancelHide);
     this.cellHandle.addEventListener('mouseenter', this.boundCancelHide);
-    this.unsubscribeI18n = i18n?.subscribe(() => {
+    this.unsubscribeI18n = i18n ? observeI18nPresentation(i18n, () => this.dropdown, () => {
       for (const update of this.localizedElements.values()) update();
-    });
+    }) : undefined;
   }
 
   // ─── NodeView interface ───────────────────────────────────────────────
