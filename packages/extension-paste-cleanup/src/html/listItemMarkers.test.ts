@@ -121,6 +121,8 @@ describe('list item markers moved to their list', () => {
       '<ul style="list-style-type:circle"><li><p>A</p></li></ul>'],
     ['the declaration name and value are read without case', '<ul><li style="LIST-STYLE-TYPE: DISC"><p>A</p></li></ul>',
       '<ul style="list-style-type:disc"><li><p>A</p></li></ul>'],
+    ['an item with its own HTML type also declares a marker, which outranks the type', '<ol><li type="a" style="list-style-type:decimal"><p>A</p></li></ol>',
+      '<ol style="list-style-type:decimal"><li><p>A</p></li></ol>'],
   ])('moves the marker when %s', (_name, html, expected) => {
     for (const formatting of both) expect(clean(html, { formatting })).toEqual({ html: expected, warnings: [], truncated: false });
   });
@@ -164,6 +166,11 @@ describe('list item markers that stay a reported loss', () => {
       ['a string', 'mso-a:"x;list-style-type:lower-roman;mso-b:"'], ['a bracket', 'mso-a:f(x;list-style-type:lower-roman;mso-b:)'],
       ['mismatched brackets', 'mso-a:(];list-style-type:lower-roman;mso-b:)']].map(([name, style]): [string, string, string, number] => [`a marker hidden by ${String(name)}`,
       `<ol><li style='${String(style)}'><p>A</p></li><li style='${String(style)}'><p>B</p></li></ol>`, '<ol><li><p>A</p></li><li><p>B</p></li></ol>', 2]),
+    // An unstyled item's own HTML type outranks its list's marker, and the items in any other element take the list's marker.
+    ['an unstyled item with its own HTML type', '<ol type="1"><li style="list-style-type:decimal"><p>A</p></li><li type="a"><p>B</p></li></ol>',
+      '<ol type="1"><li><p>A</p></li><li><p>B</p></li></ol>', 1],
+    ['a list that holds an element other than an item or a list', '<ul><li style="list-style-type:square"><p>A</p></li><div><li><p>B</p></li></div></ul>',
+      '<ul><li><p>A</p></li><div><li><p>B</p></li></div></ul>', 1],
   ])('reports %s', (_name, html, expected, count) => {
     for (const formatting of both) {
       expect(clean(html, { formatting })).toEqual({ html: expected, warnings: Array<string>(count).fill('unsupported-formatting'), truncated: false });

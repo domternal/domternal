@@ -415,10 +415,12 @@ Both formatting modes retain supported list marker classes. Ordered lists suppor
 support `disc`, `circle` and `square`. Only these kind-specific `list-style-type`
 values and supported HTML `type` attributes are accepted. A `list-style-type`
 declared on list items moves to their list when every direct item agrees, an item
-without one counting as its list's marker; items that disagree, declare a marker
-their list kind cannot hold, or carry a style that CSS may read otherwise than a
-split on semicolons (a comment, an escape, `!important`, or a string or bracket
-holding a semicolon) still report `unsupported-formatting`. This covers the
+without one counting as its list's marker. Items that disagree, declare a marker
+their list kind cannot hold, have an HTML `type` of their own without a marker, or
+carry a style that CSS may read otherwise than a split on semicolons (a comment, an
+escape, `!important`, or a string or bracket holding a semicolon), and lists that
+hold elements other than items and nested lists, keep the markers on the items,
+which still report `unsupported-formatting`. This covers the
 shape expected from Google Docs, which writes the marker on each item; it is checked
 against authored HTML, not native captures. Core stores an explicit
 marker in `listStyleType`; `null` keeps the destination theme's depth-based defaults.

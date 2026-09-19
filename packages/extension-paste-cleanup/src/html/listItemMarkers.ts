@@ -18,12 +18,19 @@ function splitMarker(style: unknown): { marker: string | undefined; rest: string
   return { marker, rest };
 }
 
+const listChildren = new Set(['li', 'ul', 'ol']);
+
 function hoist(list: Element): void {
   const tag = list.tagName;
   const items = list.children.filter((child): child is Element => child.type === 'element' && child.tagName === 'li');
   const own = splitMarker(list.properties.style);
-  const markers = items.map(item => splitMarker(item.properties.style));
-  if (own === undefined) return;
+  // An item's HTML type outranks its list's marker and cleanup drops it, so an item without a marker of its own keeps its report.
+  const markers = items.map(item => {
+    const split = splitMarker(item.properties.style);
+    return split?.marker === undefined && item.properties.type !== undefined ? undefined : split;
+  });
+  // Any other element passes the list's marker on to the items it holds, which would then take the moved one.
+  if (own === undefined || list.children.some(child => child.type === 'element' && !listChildren.has(child.tagName))) return;
   // CSS precedence: an item's own marker, then the list's style, then its HTML type. A list
   // marker the vocabulary cannot hold leaves nothing to stand in for an item without one.
   const inherited = own.marker ?? listStyleFromType(tag, list.properties.type);
@@ -50,8 +57,9 @@ function hoist(list: Element): void {
  * Move a list-style-type that every direct item of a list declares, or takes from its list, to the list.
  * An item's marker takes precedence over its list's in CSS, so the rendered markers do not change. This is
  * the shape Google Docs is expected to write, checked against authored HTML, not native captures. Lists
- * whose items disagree, hold a marker their kind cannot represent or carry a style CSS may read otherwise
- * are left for the item report, and task lists never keep a marker.
+ * whose items disagree, hold a marker their kind cannot represent, have an HTML type of their own or carry
+ * a style CSS may read otherwise, and lists holding other elements, are left for the item report, and task
+ * lists never keep a marker.
  */
 export function hoistListItemMarkers(tree: Root): void {
   const pending: (Root | Element)[] = [tree];
