@@ -442,6 +442,15 @@ moved to it or a reconstructed Office list, also stays separate from a destinati
 list without one: pasting it inside such a list splits that list around it, and in
 a numbered list the items after the paste number from 1 again.
 
+A list whose content starts with a nested list, before any item, as a partial
+Google Docs selection that starts in a nested item is expected to write it, gets a
+new first item that holds the nested list. ProseMirror's parse moves a nested list
+written after an item into that item, but one written first closes the outer list
+there, and the items after it would paste as a separate list, a bulleted one even
+when the outer list was numbered. SmartPaste then keeps the nested list under an
+empty first item. This shape is checked against authored HTML, not native
+captures; task lists are left as written.
+
 Reconstructed Office lists use an explicit marker class at every depth, and a
 change of marker class creates a separate list. The schema probes must confirm
 each explicit marker class before Office marker text is removed. Legacy schemas

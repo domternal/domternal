@@ -20,6 +20,7 @@ import { LINK_FEATURES, unwrapLinks } from './links.js';
 import { reconstructOfficeLists } from './officeLists.js';
 import type { OfficeListReconstructionOptions } from './officeLists.js';
 import { hoistListItemMarkers } from './listItemMarkers.js';
+import { nestLeadingLists } from './leadingLists.js';
 import { quietImageBoxes } from './imageBoxes.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
 import { envelopeTags, transparentOfficeWrapper } from './envelope.js';
@@ -172,6 +173,8 @@ export function normalizeClipboardHTML(
         preserveOrderedListStart = lists.reconstructedLists > 0;
       }
       hoistListItemMarkers(tree);
+      // After the markers moved, so the added item does not stop a list's items from agreeing on one.
+      nestLeadingLists(tree);
       quietImageBoxes(tree);
       resolveInlineInheritance(tree, {
         maxNodes: limits.maxNodes, maxDepth: limits.maxDepth, maxInputLength: limits.maxInputLength,

@@ -62,13 +62,19 @@ const EXPECTED: Record<string, Record<Host, string>> = {
     // A numbered list keeps its own kind and splits the bullet list after the caret's item.
     'the end of a bullet item': 'bulletList(listItem(paragraph("host"))), orderedList(listItem(paragraph, orderedList(listItem(paragraph("nested item")))), listItem(paragraph("top item")))',
   },
-  // ProseMirror's parse closes the outer list at the inner one, so the items land in lists of their own,
-  // which SmartPaste places below the caret's item as it places any several blocks there.
+  // Without PasteCleanup, ProseMirror's parse closes the outer list at the inner one, so the items land in
+  // lists of their own, which SmartPaste places below the caret's item as it places any several blocks there.
   'a Google Docs list in a list': {
     'an empty paragraph': 'bulletList(listItem(paragraph)), bulletList(listItem(paragraph("nested item"))), bulletList(listItem(paragraph("top item")))',
     'the end of a bullet item': 'bulletList(listItem(paragraph("host"), bulletList(listItem(paragraph)), bulletList(listItem(paragraph("nested item"))), '
       + 'bulletList(listItem(paragraph("top item")))))',
   },
+};
+
+// PasteCleanup puts a list that starts its parent list in a new first item, so the items stay in one list,
+// which keeps the markers moved to it apart from an unmarked host list.
+const CLEANED: Record<string, Record<Host, string>> = {
+  'a Google Docs list in a list': { 'an empty paragraph': NESTED, 'the end of a bullet item': `bulletList(listItem(paragraph("host"))), ${NESTED}` },
 };
 
 async function open(page: Page, framework: string, cleanup: boolean, extra: Record<string, string> = {}): Promise<void> {
@@ -148,23 +154,39 @@ for (const framework of FRAMEWORKS) {
       await open(page, framework, cleanup);
       const outcomes = await pasteShapes(page, SHAPES, Object.keys(HOSTS) as Host[]);
       expect(outcomes).toEqual(outcomes.map(({ shape, host }) => ({
-        shape, host, outline: EXPECTED[shape]?.[host] ?? 'missing expectation', valid: true, prevented: true, errors: [],
+        shape, host, outline: (cleanup ? CLEANED[shape]?.[host] : undefined) ?? EXPECTED[shape]?.[host] ?? 'missing expectation',
+        valid: true, prevented: true, errors: [],
         status: cleanup ? ['applied'] : [],
       })));
     });
   }
 }
 
-test('a numbered copy keeps its start, and a Google Docs list keeps the markers PasteCleanup moves to the lists', async ({ page }) => {
+/** The marker of every list in document order. */
+function markers(page: Page): Promise<unknown[]> {
+  return page.evaluate(() => {
+    const found: unknown[] = [];
+    (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.descendants(node => {
+      if (node.type.name.endsWith('List')) found.push(node.attrs['listStyleType']);
+    });
+    return found;
+  });
+}
+
+test('a numbered copy keeps its start, and Google Docs lists keep their kinds and the markers PasteCleanup moves to the lists', async ({ page }) => {
   await open(page, 'vanilla', true);
   await pasteShapes(page, { numbered: SHAPES['a numbered copy'] ?? '' }, ['an empty paragraph']);
   expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.firstChild?.attrs['start'] as unknown)).toBe(4);
   await pasteShapes(page, { google: SHAPES['a Google Docs list in a list'] ?? '' }, ['an empty paragraph']);
-  expect(await page.evaluate(() => {
-    const markers: unknown[] = [];
-    (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.forEach(node => { markers.push(node.attrs['listStyleType']); });
-    return markers;
-  })).toEqual(['disc', 'circle', null]);
+  expect(await markers(page)).toEqual(['disc', 'circle']);
+  const numbered = google(`<ol style="margin-top:0;margin-bottom:0;"><ol style="margin-top:0;margin-bottom:0;">${
+    googleItem('lower-alpha', 2, 'nested item')}</ol>${googleItem('decimal', 1, 'top item')}</ol>`);
+  expect(await pasteShapes(page, { numbered }, ['an empty paragraph'])).toEqual([{
+    shape: 'numbered', host: 'an empty paragraph', valid: true, prevented: true, errors: [], status: ['applied'],
+    // The top level item stays in the numbered list instead of landing in a bullet list of its own.
+    outline: 'orderedList(listItem(paragraph, orderedList(listItem(paragraph("nested item")))), listItem(paragraph("top item")))',
+  }]);
+  expect(await markers(page)).toEqual(['decimal', 'lower-alpha']);
 });
 
 for (const cleanup of [true, false]) {
