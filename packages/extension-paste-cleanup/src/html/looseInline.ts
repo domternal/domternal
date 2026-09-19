@@ -40,16 +40,18 @@ function spaceBetweenText(run: readonly RootContent[]): boolean {
  * image the destination places as a block closed it empty, with the rest of the run back at the
  * top of the slice; a division opens no block of its own, so such an image ends the paragraph
  * before it, if any, and the run goes on in a new one after it. A run before the first block
- * keeps its space and is left as written.
+ * keeps its space and is left as written. Returns whether it wrapped a run.
  */
-export function wrapLooseInlineRuns(root: Root): void {
+export function wrapLooseInlineRuns(root: Root): boolean {
   let afterBlock = false;
+  let wrapped = false;
   const wrapRuns = (parent: Root | Element): void => {
     const children: RootContent[] = [];
     let run: RootContent[] = [];
     const flush = (): void => {
       if (afterBlock && spaceBetweenText(run)) {
         children.push({ type: 'element', tagName: 'div', properties: {}, children: run as Element['children'] });
+        wrapped = true;
       } else children.push(...run);
       run = [];
     };
@@ -67,4 +69,5 @@ export function wrapLooseInlineRuns(root: Root): void {
     parent.children = children;
   };
   wrapRuns(root);
+  return wrapped;
 }

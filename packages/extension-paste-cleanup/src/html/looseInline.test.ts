@@ -52,6 +52,21 @@ describe('inline content that follows a block at the top of the pasted HTML', ()
       .toBe(`<p>x</p><div><span>a</span><span> </span><img src="${PNG}" alt="i"><span>b</span></div>`);
   });
 
+  // The wrapper is generated, so it uses the shared depth and node allowance like every other.
+  it.each([
+    ['depth', { maxDepth: 5 }, { maxDepth: 6 }],
+    ['node', { maxNodes: 14 }, { maxNodes: 15 }],
+  ])('rejects a run whose wrapper would pass the %s limit', (_name, short, enough) => {
+    const html = '<p>x</p><b><i>a</i></b> <b><i>b</i></b>';
+    expect(normalizePasteHTML(html, { limits: enough }).status).toBe('cleaned');
+    expect(normalizePasteHTML(html, { limits: short })).toEqual({
+      status: 'rejected', html: '', source: 'html', diagnosticsTruncated: false,
+      diagnostics: [{ code: 'structure-limit', severity: 'error' }],
+    });
+    // Without a wrapper the same limit holds the content.
+    expect(normalizePasteHTML('<p>x</p><b><i>a</i></b><b><i>b</i></b>', { limits: short }).status).toBe('cleaned');
+  });
+
   it.each([
     ['before the first block', 'Loose <b>a</b> <i>b</i><p>A</p>', 'Loose <span><strong>a</strong></span> <span><em>b</em></span><p>A</p>'],
     ['without white space between its words', '<p>x</p><b>a</b><i>b</i>', '<p>x</p><span><strong>a</strong></span><span><em>b</em></span>'],

@@ -282,6 +282,8 @@ In the `<div>` the parser puts the run in a paragraph, where the space stays. An
 image in the run stays in that paragraph when the editor's images are inline;
 when they are blocks, as by default, the image goes between the paragraph of the
 words before it and a new one for the words after it, with no empty paragraph.
+The `<div>` counts toward `maxNodes` and `maxDepth` like every generated wrapper,
+so content that fits the limits only without it is rejected with `structure-limit`.
 Inline content before the first block is left as written and still joins the
 paragraph at the caret. Without PasteCleanup, ProseMirror's parse still drops
 that space.
