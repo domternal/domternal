@@ -8,7 +8,7 @@
     "pnpm": ">=10.34.4 <11"
   },
   "scripts": {
-    "build": "nx run-many --target=build --all",
+    "build": "pnpm locales:generate && nx run-many --target=build --all",
     "dev": "nx run-many --target=dev --all",
     "test": "nx run-many --target=test --all",
     "test:coverage": "nx run-many --target=test --all -- --coverage",

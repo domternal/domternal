@@ -98,6 +98,7 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { discoverLocales, localeSymbols } from '../i18n/generate-locales.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
@@ -342,9 +343,10 @@ export function discoverTargets(packagesDir) {
  * to count as a covered package while contributing nothing, the second is a
  * surface only half the ecosystem would ever see.
  */
-export function planSnapshots(targets, dir) {
+export function planSnapshots(targets, dir, localeContracts = new Map()) {
   const planned = new Map();
   const errors = [];
+  const checkedLocales = new Set();
 
   for (const { label, origin, declarations } of targets) {
     const surfaces = declarations.map(({ path, target }) => ({
@@ -375,10 +377,41 @@ export function planSnapshots(targets, dir) {
     }
     if (differ) continue;
 
+    if (localeContracts.has(origin)) {
+      const expected = renderSnapshot(new Set(localeContracts.get(origin)));
+      if (canonical !== expected) {
+        errors.push(
+          `${origin}: locale exports must be exactly ${expected.trim().replaceAll('\n', ', ')}`
+        );
+      }
+      checkedLocales.add(origin);
+      continue;
+    }
+    if (origin.includes('/locales/')) {
+      errors.push(`${origin}: no central locale source or message owner defines this entry`);
+      continue;
+    }
+
     planned.set(join(dir, `${label}.txt`), { label, out: canonical });
   }
 
-  return { planned, errors };
+  for (const origin of localeContracts.keys()) {
+    if (!checkedLocales.has(origin))
+      errors.push(`${origin}: official locale declaration entry is missing or invalid`);
+  }
+  return { planned, errors, checkedLocales };
+}
+
+/** Locale names are a fixed public contract, not snapshots inferred from a build. */
+export function localeApiContracts(owners, locales) {
+  return new Map(
+    owners.flatMap((owner) =>
+      locales.map((locale) => [
+        `${owner}/locales/${locale.id}`,
+        [locale.messages, locale.searchAliases],
+      ])
+    )
+  );
 }
 
 function main() {
@@ -386,14 +419,23 @@ function main() {
   mkdirSync(snapshotsDir, { recursive: true });
 
   const { targets, assetOnly, discoveryErrors } = discoverTargets(join(repoRoot, 'packages'));
-  const { planned, errors } = planSnapshots(targets, snapshotsDir);
+  const owners = Object.keys(
+    JSON.parse(readFileSync(join(repoRoot, 'tests/i18n/namespaces.json'), 'utf8'))
+  );
+  const locales = discoverLocales(repoRoot).map((id) => ({ id, ...localeSymbols(id) }));
+  const contracts = localeApiContracts(owners, locales);
+  const { planned, errors, checkedLocales } = planSnapshots(targets, snapshotsDir, contracts);
   const problems = [...discoveryErrors, ...errors];
 
   // Measured against every entry point that was DISCOVERED, not every one that
   // planned cleanly. A target that failed above already has its own message,
   // and calling its snapshot stale as well would report one defect twice and
   // point at the wrong fix.
-  const expected = new Set(targets.map(({ label }) => join(snapshotsDir, `${label}.txt`)));
+  const expected = new Set(
+    targets
+      .filter(({ origin }) => !origin.includes('/locales/'))
+      .map(({ label }) => join(snapshotsDir, `${label}.txt`))
+  );
   const stale = readdirSync(snapshotsDir)
     .filter((name) => name.endsWith('.txt'))
     .map((name) => join(snapshotsDir, name))
@@ -470,7 +512,9 @@ function main() {
       console.error('[api-surface] breaking change and needs a major, so check the diff first.');
       process.exit(1);
     }
-    console.log(`[api-surface] OK - ${planned.size} entries match committed snapshots`);
+    console.log(
+      `[api-surface] OK - ${planned.size} entries match committed snapshots; ${checkedLocales.size} locale entries match the fixed catalog API`
+    );
   } else {
     console.log(
       `[api-surface] wrote ${planned.size} snapshots and removed ${stale.length} stale ones`

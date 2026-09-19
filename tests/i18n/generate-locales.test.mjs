@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { centralLocaleProblems, createLocalePlan, GENERATED_HEADER, localeFileProblems } from './generate-locales.mjs';
+import { centralLocaleProblems, createLocalePlan, createRepositoryLocalePlan, discoverLocales, generateLocales, generatedHeader, GENERATED_HEADER, localeExport, localeFileProblems, localeSymbols } from './generate-locales.mjs';
 
 const namespaces = { '@domternal/core': 'core.', '@domternal/extension-table': 'table.' };
 const inventory = { messages: [
@@ -158,7 +158,7 @@ test('drift checks detect missing, edited and unexpected generated files without
   assert.match(localeFileProblems(root, outputs).join('\n'), /packages\/unknown\/src\/locales\/de.ts/);
 });
 
-test('unknown central language files require an explicit new contract', (t) => {
+test('new canonical language sources are discovered without a registry', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'domternal-locale-sources-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   assert.match(centralLocaleProblems(root).join('\n'), /Missing central locale/);
@@ -167,7 +167,8 @@ test('unknown central language files require an explicit new contract', (t) => {
   writeFileSync(join(root, 'locales/README.md'), 'Documentation');
   assert.deepEqual(centralLocaleProblems(root), []);
   writeFileSync(join(root, 'locales/fr.ts'), source);
-  assert.match(centralLocaleProblems(root).join('\n'), /Unsupported central locale source: locales\/fr.ts/);
+  assert.deepEqual(centralLocaleProblems(root), []);
+  assert.deepEqual(discoverLocales(root), ['de', 'fr']);
 });
 
 test('the same owner convention supports the Pro repository without a Free checkout', () => {
@@ -183,4 +184,177 @@ export function core() {
   const result = createLocalePlan(proSource, { namespaces: proNamespaces, inventory: proInventory, root: '/pro' });
   assert.deepEqual(result.errors, []);
   assert.match(result.outputs.get('packages/core/src/locales/de.ts'), /from ['"]\.\.\/messages\.js['"]/);
+});
+
+
+function fixture(t) {
+  const root = mkdtempSync(join(tmpdir(), 'domternal-locale-generation-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'locales'), { recursive: true });
+  mkdirSync(join(root, 'tests/i18n'), { recursive: true });
+  writeFileSync(join(root, 'locales/de.ts'), source);
+  writeFileSync(join(root, 'tests/i18n/namespaces.json'), JSON.stringify(namespaces));
+  writeFileSync(join(root, 'tests/i18n/inventory.json'), JSON.stringify(inventory));
+  for (const owner of Object.keys(namespaces)) {
+    const path = join(root, 'packages', owner.split('/')[1], 'package.json');
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify({ name: owner, exports: { '.': './dist/index.js', './style.css': './dist/style.css' }, scripts: { build: 'unchanged' } }, null, 2) + '\n');
+  }
+  return root;
+}
+
+const localeSource = (locale) => {
+  const symbols = localeSymbols(locale);
+  return source.replaceAll('deMessages', symbols.messages).replaceAll('deSearchAliases', symbols.searchAliases);
+};
+const manifestAt = (root, name = 'core') => JSON.parse(readFileSync(join(root, `packages/${name}/package.json`), 'utf8'));
+
+test('locale symbols and exports preserve canonical language, script and region names', () => {
+  for (const [locale, prefix] of [['fr', 'fr'], ['pt-BR', 'ptBR'], ['zh-Hant-TW', 'zhHantTW'], ['es-419', 'es419']]) {
+    assert.deepEqual(localeSymbols(locale), { messages: `${prefix}Messages`, searchAliases: `${prefix}SearchAliases` });
+    const published = localeExport(locale);
+    assert.deepEqual(Object.keys(published), ['import', 'require']);
+    assert.equal(published.import.types, `./dist/locales/${locale}.d.ts`);
+    assert.equal(published.require.default, `./dist/locales/${locale}.cjs`);
+    assert.equal(localeExport(locale, '@domternal/source')['@domternal/source'], `./src/locales/${locale}.ts`);
+    const result = createLocalePlan(localeSource(locale), { namespaces, inventory, root: '/fixture', locale });
+    assert.deepEqual(result.errors, []);
+    assert.match(result.outputs.get(`packages/core/src/locales/${locale}.ts`), new RegExp(`export const ${prefix}Messages`));
+    assert.ok(result.outputs.get(`packages/core/src/locales/${locale}.ts`).startsWith(generatedHeader(locale)));
+  }
+});
+
+test('invalid and non-canonical locale filenames are rejected before generation', (t) => {
+  for (const locale of ['../fr', 'FR', 'pt-br', 'en_US', 'iw', 'fr.test', 'en-u-ca-gregory', 'x-private', 'a', '']) {
+    assert.throws(() => localeSymbols(locale), /locale tag/);
+    assert.ok(createLocalePlan(source, { namespaces, inventory, locale }).errors.length > 0);
+  }
+  const root = fixture(t);
+  writeFileSync(join(root, 'locales/FR.ts'), localeSource('fr'));
+  assert.throws(() => discoverLocales(root), /locale tag/);
+  assert.throws(() => generateLocales({ root }), /locale tag/);
+  assert.equal(manifestAt(root).exports['./locales/de'], undefined);
+});
+
+test('adding a French file alone generates every owner module and explicit public export', (t) => {
+  const root = fixture(t);
+  writeFileSync(join(root, 'locales/fr.ts'), localeSource('fr'));
+  const result = generateLocales({ root });
+  assert.deepEqual(result.locales, ['de', 'fr']);
+  assert.equal(result.outputs.size, 6);
+  for (const name of ['core', 'extension-table']) {
+    const manifest = manifestAt(root, name);
+    assert.deepEqual(manifest.exports['./locales/fr'], localeExport('fr', '@domternal/source'));
+    assert.equal(manifest.exports['./style.css'], './dist/style.css');
+    assert.equal(manifest.scripts.build, 'unchanged');
+    assert.match(readFileSync(join(root, `packages/${name}/src/locales/fr.ts`), 'utf8'), /export const frMessages/);
+  }
+  assert.doesNotThrow(() => generateLocales({ root, check: true }));
+  const second = generateLocales({ root });
+  assert.deepEqual([...second.outputs], [...result.outputs]);
+});
+
+test('all central sources are validated before any source or manifest is written', (t) => {
+  const root = fixture(t);
+  generateLocales({ root });
+  const before = readFileSync(join(root, 'packages/core/package.json'), 'utf8');
+  const germanBefore = readFileSync(join(root, 'packages/core/src/locales/de.ts'), 'utf8');
+  writeFileSync(join(root, 'locales/de.ts'), source.replace('Beschriftung', 'Changed'));
+  writeFileSync(join(root, 'locales/fr.ts'), localeSource('fr').replace("'core.label': 'Beschriftung'", ''));
+  assert.throws(() => generateLocales({ root }), /fr:.*missing message core.label/);
+  assert.equal(readFileSync(join(root, 'packages/core/package.json'), 'utf8'), before);
+  assert.equal(readFileSync(join(root, 'packages/core/src/locales/de.ts'), 'utf8'), germanBefore);
+});
+
+test('check mode detects manifest and source drift without modifying either', (t) => {
+  const root = fixture(t);
+  generateLocales({ root });
+  const path = join(root, 'packages/core/package.json');
+  const original = readFileSync(path, 'utf8');
+  writeFileSync(path, original.replace('./dist/locales/de.js', './dist/locales/wrong.js'));
+  writeFileSync(join(root, 'locales/fr.ts'), localeSource('fr'));
+  const changed = readFileSync(path, 'utf8');
+  assert.throws(() => generateLocales({ root, check: true }), /Stale locale owner manifest/);
+  assert.equal(readFileSync(path, 'utf8'), changed);
+  assert.equal(createRepositoryLocalePlan(root).outputs.size, 6);
+  assert.match(localeFileProblems(root, createRepositoryLocalePlan(root).outputs).join('\n'), /Missing generated locale: packages\/core\/src\/locales\/fr.ts/);
+});
+
+test('removing a language removes only its generated modules and managed manifest exports', (t) => {
+  const root = fixture(t);
+  writeFileSync(join(root, 'locales/fr.ts'), localeSource('fr'));
+  generateLocales({ root });
+  const testPath = join(root, 'packages/core/src/locales/de.test.ts');
+  writeFileSync(testPath, 'untouched test');
+  rmSync(join(root, 'locales/fr.ts'));
+  assert.throws(() => generateLocales({ root, check: true }), /Unexpected generated locale/);
+  generateLocales({ root });
+  assert.equal(manifestAt(root).exports['./locales/fr'], undefined);
+  assert.throws(() => readFileSync(join(root, 'packages/core/src/locales/fr.ts')), /ENOENT/);
+  assert.equal(readFileSync(testPath, 'utf8'), 'untouched test');
+  assert.doesNotThrow(() => generateLocales({ root, check: true }));
+});
+
+test('handwritten output is never overwritten or deleted, including after a source removal', (t) => {
+  const root = fixture(t);
+  generateLocales({ root });
+  for (const filename of ['de.ts', 'fr.ts']) {
+    const path = join(root, `packages/core/src/locales/${filename}`);
+    writeFileSync(path, 'export const userAuthored = true;\n');
+    assert.throws(() => generateLocales({ root }), /Unmanaged locale output/);
+    assert.equal(readFileSync(path, 'utf8'), 'export const userAuthored = true;\n');
+    rmSync(path);
+    generateLocales({ root });
+  }
+});
+
+test('owner generation updates only that package while validating all source owners', (t) => {
+  const root = fixture(t);
+  const untouched = readFileSync(join(root, 'packages/extension-table/package.json'), 'utf8');
+  const result = generateLocales({ root, owner: '@domternal/core' });
+  assert.equal(result.outputs.size, 2);
+  assert.equal(readFileSync(join(root, 'packages/extension-table/package.json'), 'utf8'), untouched);
+  assert.throws(() => readFileSync(join(root, 'packages/extension-table/src/locales/de.ts')), /ENOENT/);
+  assert.throws(() => generateLocales({ root, owner: '@domternal/unknown' }), /Unknown locale owner/);
+  writeFileSync(join(root, 'locales/de.ts'), source.replace("'table.label': ({ count }) => words[count === 1 ? 0 : 1]", ''));
+  assert.throws(() => generateLocales({ root, owner: '@domternal/core' }), /missing message table.label/);
+});
+
+test('Pro published manifests receive locale exports without workspace conditions', (t) => {
+  const root = fixture(t);
+  const owner = '@domternal-pro/core';
+  writeFileSync(join(root, 'tests/i18n/namespaces.json'), JSON.stringify({ [owner]: 'core.' }));
+  writeFileSync(join(root, 'tests/i18n/inventory.json'), JSON.stringify({ messages: [{ owner, id: 'core.label', searchable: true }] }));
+  writeFileSync(join(root, 'locales/de.ts'), source.slice(0, source.indexOf('export function extensionTable')));
+  const manifest = { name: owner, exports: { '.': './dist/index.js' }, publishConfig: { access: 'public', exports: { '.': './dist/index.js' } } };
+  writeFileSync(join(root, 'packages/core/package.json'), JSON.stringify(manifest));
+  generateLocales({ root });
+  const result = manifestAt(root);
+  assert.deepEqual(result.exports['./locales/de'], localeExport('de', '@domternal-pro/source'));
+  assert.deepEqual(result.publishConfig.exports['./locales/de'], localeExport('de'));
+  assert.equal(result.publishConfig.access, 'public');
+});
+
+test('missing owner metadata and malformed manifests fail closed', (t) => {
+  const root = fixture(t);
+  rmSync(join(root, 'packages/core/package.json'));
+  assert.throws(() => generateLocales({ root }), /Missing locale owner manifest/);
+  writeFileSync(join(root, 'tests/i18n/namespaces.json'), '{}');
+  assert.throws(() => generateLocales({ root }), /at least one message owner/);
+  assert.match(createLocalePlan(source, { namespaces: {}, inventory }).errors.join('\n'), /at least one message owner/);
+});
+
+test('symlinked central sources and output ancestors are rejected without touching targets', (t) => {
+  const root = fixture(t);
+  const outside = mkdtempSync(join(tmpdir(), 'domternal-locale-target-'));
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  const sourceTarget = join(outside, 'fr.ts');
+  writeFileSync(sourceTarget, localeSource('fr'));
+  symlinkSync(sourceTarget, join(root, 'locales/fr.ts'));
+  assert.throws(() => generateLocales({ root }), /regular file/);
+  rmSync(join(root, 'locales/fr.ts'));
+  symlinkSync(outside, join(root, 'packages/core/src'));
+  assert.throws(() => generateLocales({ root }), /symbolic link/);
+  assert.equal(readFileSync(sourceTarget, 'utf8'), localeSource('fr'));
+  assert.throws(() => readFileSync(join(outside, 'locales/de.ts')), /ENOENT/);
 });

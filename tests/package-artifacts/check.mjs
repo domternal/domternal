@@ -14,6 +14,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { discoverLocales } from '../i18n/generate-locales.mjs';
 import { discoverPublishablePackages } from '../package-policy/check.mjs';
 import {
   exportTargets,
@@ -23,6 +24,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const policyPath = join(here, 'policy.json');
+const repoRoot = resolve(here, '../..');
 
 /** Runs a command, returning stdout, and throws with both streams on failure. */
 function run(command, args, cwd) {
@@ -37,6 +39,38 @@ function run(command, args, cwd) {
 export function loadPolicy(path = policyPath) {
   const parsed = JSON.parse(readFileSync(path, 'utf8'));
   return new Map(Object.entries(parsed).filter(([name]) => !name.startsWith('$')));
+}
+
+/** Keep exact artifact names and reviewed size increments for discovered locales. */
+export function expandLocalePolicy(name, entry, owners, locales) {
+  if (!owners.includes(name)) {
+    if (entry.maxAdditionalLocaleBytes !== undefined)
+      throw new Error(`${name}: locale allowance has no message owner`);
+    return entry;
+  }
+  if (
+    !Number.isSafeInteger(entry.maxAdditionalLocaleBytes) ||
+    entry.maxAdditionalLocaleBytes <= 0
+  ) {
+    throw new Error(`${name}: maxAdditionalLocaleBytes must be a positive integer`);
+  }
+  const localeFiles = locales.flatMap(({ id }) =>
+    ['js', 'cjs', 'js.map', 'cjs.map', 'd.ts', 'd.cts'].map(
+      (suffix) => `dist/locales/${id}.${suffix}`
+    )
+  );
+  return {
+    ...entry,
+    maxPackedBytes:
+      entry.maxPackedBytes + Math.max(0, locales.length - 1) * entry.maxAdditionalLocaleBytes,
+    requiredFiles: [...entry.requiredFiles, ...localeFiles],
+  };
+}
+
+/** Extra catalogs cannot be attributed to the original package base automatically. */
+export function refreshedBaseBudget(entry, measuredBytes, localeCount) {
+  if (localeCount > 1 && entry.maxAdditionalLocaleBytes !== undefined) return entry.maxPackedBytes;
+  return Math.ceil((measuredBytes * 1.1) / 1000) * 1000;
 }
 
 /** A policy entry that names no package, or a package that has no entry. */
@@ -92,10 +126,13 @@ export function packedFiles(tarball, cwd) {
     return path.endsWith('/') ? type !== 'd' : type !== '-';
   });
   if (irregular.length > 0) {
-    throw new Error(`tarball carries something other than files and directories: ${irregular.join(', ')}`);
+    throw new Error(
+      `tarball carries something other than files and directories: ${irregular.join(', ')}`
+    );
   }
   const outside = paths.filter((path) => !path.startsWith('package/'));
-  if (outside.length > 0) throw new Error(`tarball has paths outside package/: ${outside.join(', ')}`);
+  if (outside.length > 0)
+    throw new Error(`tarball has paths outside package/: ${outside.join(', ')}`);
 
   const files = [];
   for (const path of paths) {
@@ -143,7 +180,8 @@ export function fileFailures(files, entry, patterns) {
 export function manifestFailures(source, packed, files) {
   const failures = [];
   if (packed.name !== source.name) failures.push(`packed name is ${String(packed.name)}`);
-  if (packed.version !== source.version) failures.push(`packed version is ${String(packed.version)}`);
+  if (packed.version !== source.version)
+    failures.push(`packed version is ${String(packed.version)}`);
   if (packed.license !== 'MIT') failures.push(`packed license is ${String(packed.license)}`);
 
   // The publish artifact, derived from the pack artifact by the same code the
@@ -167,6 +205,10 @@ function main() {
   const update = process.argv.includes('--update');
   const packages = discoverPublishablePackages();
   const policy = loadPolicy();
+  const owners = Object.keys(
+    JSON.parse(readFileSync(join(repoRoot, 'tests/i18n/namespaces.json'), 'utf8'))
+  );
+  const locales = discoverLocales(repoRoot).map((id) => ({ id }));
 
   const gaps = policyGaps(
     packages.map(({ manifest }) => manifest.name),
@@ -186,7 +228,7 @@ function main() {
     for (const { directory, manifest } of packages) {
       const label = manifest.name;
       try {
-        const entry = policy.get(label);
+        const entry = expandLocalePolicy(label, policy.get(label), owners, locales);
         const patterns = compilePolicy(label, entry);
         const destination = join(temporaryRoot, label.replace('/', '-'));
         mkdirSync(destination);
@@ -225,13 +267,23 @@ function main() {
 
   if (update) {
     const parsed = JSON.parse(readFileSync(policyPath, 'utf8'));
+    let refreshed = 0;
     for (const [name, bytes] of measured) {
       // A tenth of headroom, rounded up to a readable number.
-      parsed[name].maxPackedBytes = Math.ceil((bytes * 1.1) / 1000) * 1000;
+      const allowance =
+        Math.max(0, locales.length - 1) * (parsed[name].maxAdditionalLocaleBytes ?? 0);
+      if (allowance > 0) {
+        console.log(
+          `[package-artifacts] keeping ${name} base budget: multiple locale catalogs require explicit budget review`
+        );
+        continue;
+      }
+      parsed[name].maxPackedBytes = refreshedBaseBudget(parsed[name], bytes, locales.length);
+      refreshed += 1;
     }
     writeFileSync(policyPath, `${JSON.stringify(parsed, null, 2)}\n`);
     console.log(
-      `\n[package-artifacts] refreshed ${String(measured.size)} budgets from the measured sizes` +
+      `\n[package-artifacts] refreshed ${String(refreshed)} budgets from the measured sizes` +
         (measured.size === packages.length
           ? ''
           : '; the packages that failed above kept their old budget')

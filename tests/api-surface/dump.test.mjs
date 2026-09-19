@@ -35,10 +35,12 @@ import {
   exportOrigin,
   extractExports,
   isDeclarationTarget,
+  localeApiContracts,
   planSnapshots,
   renderSnapshot,
   snapshotLabel,
 } from './dump.mjs';
+import { discoverLocales, localeSymbols } from '../i18n/generate-locales.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
@@ -447,12 +449,62 @@ test('every planned snapshot exists on disk and matches, and none is orphaned', 
      shows up as a failing test rather than only as a red pipeline. */
   const snapshotsDir = join(here, 'snapshots');
   const { targets } = discoverTargets(join(repoRoot, 'packages'));
-  const { planned, errors } = planSnapshots(targets, snapshotsDir);
+  const owners = Object.keys(
+    JSON.parse(readFileSync(join(repoRoot, 'tests/i18n/namespaces.json'), 'utf8'))
+  );
+  const locales = discoverLocales(repoRoot).map((id) => ({ id, ...localeSymbols(id) }));
+  const { planned, errors, checkedLocales } = planSnapshots(
+    targets,
+    snapshotsDir,
+    localeApiContracts(owners, locales)
+  );
   assert.deepEqual(errors, []);
+  assert.equal(checkedLocales.size, owners.length * locales.length);
 
   for (const [path, { out }] of planned) {
     assert.equal(readFileSync(path, 'utf8'), out, `${path} is out of date`);
   }
   const onDisk = readdirSync(snapshotsDir).filter((name) => name.endsWith('.txt'));
   assert.equal(onDisk.length, planned.size, 'a snapshot file has no entry point behind it');
+});
+
+test('locale API contracts reject extra, missing, unknown and mismatched public exports', (t) => {
+  const root = fixture(t, {
+    probe: {
+      manifest: {},
+      files: {
+        'fr.d.ts': 'export { frMessages, frSearchAliases };',
+        'fr.d.cts': 'export { frMessages, frSearchAliases };',
+        'wrong.d.ts': 'export { frMessages, frSearchAliases, Editor };',
+      },
+    },
+  });
+  const origin = '@domternal/probe/locales/fr';
+  const contracts = localeApiContracts(
+    ['@domternal/probe'],
+    [{ id: 'fr', messages: 'frMessages', searchAliases: 'frSearchAliases' }]
+  );
+  const declarations = ['fr.d.ts', 'fr.d.cts'].map((target) => ({
+    target,
+    path: join(root, 'probe', target),
+  }));
+  const target = { label: 'probe__locales__fr', origin, declarations };
+  const valid = planSnapshots([target], '/snapshots', contracts);
+  assert.deepEqual(valid.errors, []);
+  assert.equal(valid.planned.size, 0, 'locale entries never need hand-written snapshots');
+  assert.match(planSnapshots([], '/snapshots', contracts).errors.join(), /missing or invalid/);
+  assert.match(planSnapshots([target], '/snapshots').errors.join(), /no central locale source/);
+  const wrong = {
+    ...target,
+    declarations: [{ target: 'wrong.d.ts', path: join(root, 'probe/wrong.d.ts') }],
+  };
+  assert.match(planSnapshots([wrong], '/snapshots', contracts).errors.join(), /must be exactly/);
+  assert.match(
+    planSnapshots(
+      [{ ...target, declarations: [...declarations, ...wrong.declarations] }],
+      '/snapshots',
+      contracts
+    ).errors.join(),
+    /surfaces differ/
+  );
 });

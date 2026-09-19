@@ -1,7 +1,8 @@
+import { localeEntries } from '../../scripts/locale-build.mjs';
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: { index: 'src/index.ts', 'locales/de': 'src/locales/de.ts' },
+  entry: { index: 'src/index.ts', ...localeEntries('@domternal/extension-toc') },
   format: ['esm', 'cjs'],
   target: 'es2022',
   dts: {

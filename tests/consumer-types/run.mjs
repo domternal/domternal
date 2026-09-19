@@ -100,30 +100,36 @@ if (tscCjs.status !== 0) {
   console.error('[consumer-types] resolves under `import`, or a tsup dts build that emitted the');
   console.error('[consumer-types] .d.ts but not the matching .d.cts. Reproduce it with:');
   console.error('[consumer-types]   pnpm --filter @domternal/tests-consumer-types exec \\');
-  console.error('[consumer-types]     tsc --noEmit --project tsconfig.check-cjs.json --explainFiles');
+  console.error(
+    '[consumer-types]     tsc --noEmit --project tsconfig.check-cjs.json --explainFiles'
+  );
   process.exit(tscCjs.status ?? 1);
 }
 log('CommonJS pass OK');
 
-log('complete German locale subpaths without editor runtime dependencies');
-const germanLocales = spawnSync('node', [join(here, 'german-locales-check.mjs')], {
+log('complete official locale subpaths without editor runtime dependencies');
+const locales = spawnSync('node', [join(here, 'locales-check.mjs')], {
   cwd: here,
   stdio: 'inherit',
 });
-if (germanLocales.status !== 0) process.exit(germanLocales.status ?? 1);
+if (locales.status !== 0) process.exit(locales.status ?? 1);
 
-log('each German locale registers its own messages in isolated ESM and CommonJS type programs');
-const germanLocaleTypes = spawnSync('node', [join(here, 'german-locale-types-check.mjs')], {
+log('each official locale registers its own messages in isolated ESM and CommonJS type programs');
+const localeTypes = spawnSync('node', [join(here, 'locale-types-check.mjs')], {
   cwd: here,
   stdio: 'inherit',
 });
-if (germanLocaleTypes.status !== 0) process.exit(germanLocaleTypes.status ?? 1);
+if (localeTypes.status !== 0) process.exit(localeTypes.status ?? 1);
 
 log('tutorial storage examples against built dists (ESM and CommonJS)');
-const tutorialStorage = spawnSync(tscBin, ['--noEmit', '--project', 'tsconfig.tutorial-storage.json'], {
-  cwd: here,
-  stdio: 'inherit',
-});
+const tutorialStorage = spawnSync(
+  tscBin,
+  ['--noEmit', '--project', 'tsconfig.tutorial-storage.json'],
+  {
+    cwd: here,
+    stdio: 'inherit',
+  }
+);
 if (tutorialStorage.status !== 0) {
   console.error('[consumer-types] FAILED: tutorial storage examples no longer type-check');
   process.exit(tutorialStorage.status ?? 1);

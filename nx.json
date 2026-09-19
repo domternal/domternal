@@ -6,11 +6,21 @@
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": ["default"],
-    "sharedGlobals": []
+    "sharedGlobals": [
+      "{workspaceRoot}/locales/**/*",
+      "{workspaceRoot}/tests/i18n/generate-locales.mjs",
+      "{workspaceRoot}/tests/i18n/namespaces.json",
+      "{workspaceRoot}/tests/i18n/inventory.json",
+      "{workspaceRoot}/scripts/locale-build.mjs"
+    ]
   },
   "targetDefaults": {
     "build": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "outputs": [
+        "{projectRoot}/dist",
+        "{projectRoot}/.locale-build.json"
+      ]
     },
     "typecheck": {
       "dependsOn": ["^build"]

@@ -79,6 +79,9 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: pnpm test:ci-wiring
 
+      - name: Check committed locale output before builds
+        run: node tests/i18n/generate-locales.mjs --check
+
       - name: Lint
         run: pnpm lint
 

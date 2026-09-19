@@ -16,11 +16,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   compilePolicy,
+  expandLocalePolicy,
   fileFailures,
   loadPolicy,
   manifestFailures,
   packedFiles,
   policyGaps,
+  refreshedBaseBudget,
 } from './check.mjs';
 
 /** Builds package/<files> into a .tgz and returns its path. */
@@ -61,7 +63,9 @@ test('an unanchored pattern is refused, because it would stop being an allowlist
     () => compilePolicy('probe', { ...base, allowedPatterns: ['^dist/.*'] }),
     /anchored with \^ and \$/
   );
-  assert.doesNotThrow(() => compilePolicy('probe', { ...base, allowedPatterns: ['^dist/a\\.js$'] }));
+  assert.doesNotThrow(() =>
+    compilePolicy('probe', { ...base, allowedPatterns: ['^dist/a\\.js$'] })
+  );
 });
 
 test('a policy that would bound nothing is refused', () => {
@@ -71,7 +75,12 @@ test('a policy that would bound nothing is refused', () => {
     /positive integer/
   );
   assert.throws(
-    () => compilePolicy('probe', { maxPackedBytes: 10, requiredFiles: ['a', 'a'], allowedPatterns: [] }),
+    () =>
+      compilePolicy('probe', {
+        maxPackedBytes: 10,
+        requiredFiles: ['a', 'a'],
+        allowedPatterns: [],
+      }),
     /duplicate/
   );
 });
@@ -79,28 +88,98 @@ test('a policy that would bound nothing is refused', () => {
 test('the shipped policy compiles for every package it describes', () => {
   const policy = loadPolicy();
   for (const [name, entry] of policy) assert.doesNotThrow(() => compilePolicy(name, entry));
-  assert.ok(policy.size >= 17, `expected every package to be described, got ${String(policy.size)}`);
+  assert.ok(
+    policy.size >= 17,
+    `expected every package to be described, got ${String(policy.size)}`
+  );
 });
 
-test('German locale artifacts are allowed without permitting unrelated locale or scratch files', () => {
+test('discovered locale artifacts are required without permitting unknown locale or scratch files', () => {
   const policy = loadPolicy();
-  const owners = ['core', 'extension-block-controls', 'extension-details', 'extension-emoji',
-    'extension-image', 'extension-math', 'extension-mention', 'extension-table', 'extension-toc'];
+  const owners = [
+    'core',
+    'extension-block-controls',
+    'extension-details',
+    'extension-emoji',
+    'extension-image',
+    'extension-math',
+    'extension-mention',
+    'extension-table',
+    'extension-toc',
+  ];
   for (const owner of owners) {
     const name = `@domternal/${owner}`;
-    const entry = policy.get(name);
+    const entry = expandLocalePolicy(name, policy.get(name), [name], [{ id: 'de' }, { id: 'fr' }]);
     const patterns = compilePolicy(name, entry);
-    const localeFiles = ['js', 'cjs', 'js.map', 'cjs.map', 'd.ts', 'd.cts']
-      .map((suffix) => `dist/locales/de.${suffix}`);
-    assert.deepEqual(fileFailures([...entry.requiredFiles, ...localeFiles], entry, patterns), [], name);
-    for (const path of ['dist/locales/fr.js', 'dist/locales/de.test.js', 'dist/locales/.env', 'dist/locales/de.json']) {
-      assert.ok(fileFailures([...entry.requiredFiles, path], entry, patterns).length > 0, `${name}: ${path}`);
+    assert.deepEqual(fileFailures(entry.requiredFiles, entry, patterns), [], name);
+    assert.match(
+      fileFailures(
+        entry.requiredFiles.filter((file) => file !== 'dist/locales/fr.d.cts'),
+        entry,
+        patterns
+      ).join(),
+      /missing required files/
+    );
+    for (const path of [
+      'dist/locales/unknown.js',
+      'dist/locales/de.test.js',
+      'dist/locales/.env',
+      'dist/locales/de.json',
+    ]) {
+      assert.ok(
+        fileFailures([...entry.requiredFiles, path], entry, patterns).length > 0,
+        `${name}: ${path}`
+      );
     }
+    assert.equal(
+      entry.maxPackedBytes,
+      policy.get(name).maxPackedBytes + policy.get(name).maxAdditionalLocaleBytes
+    );
   }
 });
 
+test('locale pack allowances remain fixed and require reviewed owner policy', () => {
+  const base = {
+    maxPackedBytes: 1000,
+    maxAdditionalLocaleBytes: 200,
+    requiredFiles: [],
+    allowedPatterns: [],
+  };
+  assert.equal(expandLocalePolicy('core', base, ['core'], [{ id: 'de' }]).maxPackedBytes, 1000);
+  assert.equal(
+    expandLocalePolicy('core', base, ['core'], [{ id: 'de' }, { id: 'fr' }, { id: 'it' }])
+      .maxPackedBytes,
+    1400
+  );
+  assert.equal(expandLocalePolicy('core', base, ['core'], []).maxPackedBytes, 1000);
+  assert.throws(() => expandLocalePolicy('other', base, ['core'], []), /no message owner/);
+  assert.throws(
+    () =>
+      expandLocalePolicy('core', { ...base, maxAdditionalLocaleBytes: undefined }, ['core'], []),
+    /positive integer/
+  );
+});
+
+test('repeated budget refreshes never fold extra language bytes into the package base', () => {
+  const entry = { maxPackedBytes: 10000, maxAdditionalLocaleBytes: 5000 };
+  assert.equal(refreshedBaseBudget(entry, 14000, 2), 10000);
+  assert.equal(
+    refreshedBaseBudget(
+      { ...entry, maxPackedBytes: refreshedBaseBudget(entry, 14000, 2) },
+      14000,
+      2
+    ),
+    10000
+  );
+  assert.equal(refreshedBaseBudget(entry, 8000, 1), 9000);
+  assert.equal(refreshedBaseBudget({ maxPackedBytes: 10000 }, 8000, 2), 9000);
+});
+
 test('a missing required file and a file nothing allows are both named', () => {
-  const entry = { requiredFiles: ['LICENSE', 'package.json'], allowedPatterns: ['^dist/index\\.js$'] };
+  const entry = {
+    requiredFiles: ['LICENSE', 'package.json'],
+    allowedPatterns: ['^dist/index\\.js$'],
+  };
   const patterns = entry.allowedPatterns.map((pattern) => new RegExp(pattern));
   assert.deepEqual(fileFailures(['LICENSE', 'package.json', 'dist/index.js'], entry, patterns), []);
   const failures = fileFailures(['package.json', 'dist/index.js', 'dist/.env'], entry, patterns);
