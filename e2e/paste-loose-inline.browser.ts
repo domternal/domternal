@@ -2,9 +2,10 @@
  * Inline content that follows a block at the top of pasted HTML, as a partial Google Docs selection
  * may write its last paragraph: bare spans after the blocks, inside the guid wrapper. ProseMirror's
  * parse dropped a span holding only a space there, so "GB09 bold ita" pasted as
- * "GB09 boldita". PasteCleanup wraps such a run in a paragraph. Synthetic paste events through
- * every wrapper; the unit tests are packages/extension-paste-cleanup/src/PasteCleanup.looseInline.test.ts
- * and src/html/looseInline.test.ts.
+ * "GB09 boldita". PasteCleanup wraps such a run in a division, which a block image in the run
+ * ends without an empty paragraph before it. Synthetic paste events through every wrapper; the unit
+ * tests are packages/extension-paste-cleanup/src/PasteCleanup.looseInline.test.ts and
+ * src/html/looseInline.test.ts.
  */
 import { expect, type Page } from '@playwright/test';
 import type { Editor } from '@domternal/core';
@@ -32,12 +33,23 @@ const run = (style: string, text: string): string =>
 const partialLast = run('font-weight:400;', 'GB09 ') + run('font-weight:700;', 'bold') + run('font-weight:400;', ' ')
   + run('font-weight:400;font-style:italic;', 'ita');
 const first = '<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;">First</span></p>';
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+// The image box Google Docs is expected to write around an image in a paragraph; authored, not a native capture.
+const imageBox = run('font-weight:400;', '<span style="border:none;display:inline-block;overflow:hidden;width:20px;height:20px;">'
+  + `<img src="${PNG}" width="20" height="20" alt="i" style="margin-left:0px;margin-top:0px;" /></span>`);
 
 const SHAPES: Record<string, { html: string; blocks: string[] }> = {
   'a partial Google Docs last paragraph': { html: google(first + partialLast), blocks: ['paragraph: First', 'paragraph: GB09 bold ita'] },
   'the same after a Google Docs line break': { html: google(`${first}<br />${partialLast}`), blocks: ['paragraph: First', 'paragraph: \nGB09 bold ita'] },
   'formatted words after a paragraph': { html: '<p>x</p><b>a</b> <i>b</i>', blocks: ['paragraph: x', 'paragraph: a b'] },
   'formatted words after a list': { html: '<ul><li>x</li></ul><b>a</b> <i>b</i>', blocks: ['bulletList: x', 'paragraph: a b'] },
+  // The fixture's Image is a block.
+  'words after an image that starts the run': {
+    html: `<p>x</p><img src="${PNG}" alt="i"><span>a</span><span> </span><span>b</span>`, blocks: ['paragraph: x', 'image: ', 'paragraph: a b'],
+  },
+  'a partial Google Docs last paragraph that starts with an image': {
+    html: google(first + imageBox + partialLast), blocks: ['paragraph: First', 'image: ', 'paragraph: GB09 bold ita'],
+  },
 };
 
 async function open(page: Page, framework: string, formatting: 'preserve' | 'adapt'): Promise<void> {

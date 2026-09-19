@@ -273,11 +273,15 @@ preserving every unwrapped trailing break during paste is not guaranteed.
 
 Inline content that follows a block at the top of the pasted HTML, or inside an
 inline element there that holds blocks, such as the Google Docs guid wrapper, is
-wrapped in a paragraph when a space between its words is a text node of white
+wrapped in a `<div>` when a space between its words is a text node of white
 space only. ProseMirror's clipboard parser reads such a text node there as the
 space between two blocks and drops it, so a partly selected last paragraph
 written as bare spans, the shape expected from Google Docs and checked against
 authored HTML only, would paste `GB09 bold ita` as `GB09 boldita`.
+In the `<div>` the parser puts the run in a paragraph, where the space stays. An
+image in the run stays in that paragraph when the editor's images are inline;
+when they are blocks, as by default, the image goes between the paragraph of the
+words before it and a new one for the words after it, with no empty paragraph.
 Inline content before the first block is left as written and still joins the
 paragraph at the caret. Without PasteCleanup, ProseMirror's parse still drops
 that space.

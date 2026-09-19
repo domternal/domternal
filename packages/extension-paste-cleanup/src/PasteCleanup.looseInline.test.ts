@@ -1,7 +1,8 @@
 /**
  * Inline content that follows a block at the top of pasted HTML: ProseMirror's parse reads a space
  * between its words that is a text node of white space only as the space between two blocks and
- * drops it. PasteCleanup wraps such a run in a paragraph, where the space stays.
+ * drops it. PasteCleanup wraps such a run in a division, whose inline content ProseMirror puts in a
+ * paragraph where the space stays, and which an image ends when it is a block.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
@@ -9,6 +10,7 @@ import {
   TextStyle,
 } from '@domternal/core';
 import type { Node as PMNode } from '@domternal/pm/model';
+import { Image } from '../../extension-image/dist/index.js';
 import { PasteCleanup } from './index.js';
 import type { NormalizePasteHTMLResult, PasteCleanupOptions } from './index.js';
 
@@ -25,12 +27,18 @@ const run = (style: string, text: string): string =>
 const partialLast = run('font-weight:400;', 'GB09 ') + run('font-weight:700;', 'bold') + run('font-weight:400;', ' ')
   + run('font-weight:400;font-style:italic;', 'ita');
 const first = '<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;">First</span></p>';
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+const image = `<img src="${PNG}" alt="i">`;
+// The image box Google Docs is expected to write around an image in a paragraph; authored, not a native capture.
+const imageBox = run('font-weight:400;', `<span style="border:none;display:inline-block;overflow:hidden;width:20px;height:20px;">`
+  + `<img src="${PNG}" width="20" height="20" alt="i" style="margin-left:0px;margin-top:0px;" /></span>`);
 
-function mount(options: PasteCleanupOptions = {}): { editor: Editor; results: NormalizePasteHTMLResult[] } {
+function mount(options: PasteCleanupOptions = {}, images?: 'block' | 'inline'): { editor: Editor; results: NormalizePasteHTMLResult[] } {
   const results: NormalizePasteHTMLResult[] = [];
   const editor = new Editor({
     content: '<p>Replace</p>',
     extensions: [Document, Paragraph, Text, HardBreak, Bold, Italic, BulletList, ListItem, TextStyle, FontFamily, FontSize, TextColor,
+      ...(images === undefined ? [] : [Image.configure({ inline: images === 'inline' })]),
       PasteCleanup.configure({ ...options, onResult: result => { results.push(result); } })],
   });
   editors.push(editor);
@@ -48,11 +56,13 @@ function paste(editor: Editor, html: string): void {
   expect(() => { editor.state.doc.check(); }).not.toThrow();
 }
 
-/** Each top-level block's type and text, with a hard break shown as a line feed. */
+/** Each top-level block's type and text, with a hard break shown as a line feed and an inline image as `[image]`. */
 function blocks(editor: Editor): string[] {
   const text = (node: PMNode): string => {
     let value = '';
-    node.descendants(child => { value += child.isText ? child.text ?? '' : child.type.name === 'hardBreak' ? '\n' : ''; });
+    node.descendants(child => {
+      value += child.isText ? child.text ?? '' : child.type.name === 'hardBreak' ? '\n' : child.type.name === 'image' ? '[image]' : '';
+    });
     return value;
   };
   const result: string[] = [];
@@ -98,5 +108,25 @@ describe('PasteCleanup keeps the spaces of inline content that follows a block',
     editor.commands.focus('end');
     paste(editor, '<b>a</b> <i>b</i><p>x</p>');
     expect(blocks(editor)).toEqual(['paragraph: Hosta b', 'paragraph: x']);
+  });
+
+  // A block image ends the paragraph ProseMirror opens for the run, which goes on in a new one after it;
+  // a paragraph wrapper left an empty paragraph before the image and the words after it lost their space.
+  it.each([
+    ['first in the run', `<p>x</p>${image}<span>a</span><span> </span><span>b</span>`,
+      ['paragraph: x', 'image: ', 'paragraph: a b'], ['paragraph: x', 'paragraph: [image]a b']],
+    ['in the middle of the run', `<p>x</p><span>a</span><span> </span>${image}<span>b</span><span> </span><span>c</span>`,
+      ['paragraph: x', 'paragraph: a', 'image: ', 'paragraph: b c'], ['paragraph: x', 'paragraph: a [image]b c']],
+    ['last in the run', `<p>x</p><span>a</span><span> </span><span>b</span>${image}`,
+      ['paragraph: x', 'paragraph: a b', 'image: '], ['paragraph: x', 'paragraph: a b[image]']],
+    ['first in a partial Google Docs last paragraph', google(first + imageBox + partialLast),
+      ['paragraph: First', 'image: ', 'paragraph: GB09 bold ita'], ['paragraph: First', 'paragraph: [image]GB09 bold ita']],
+  ])('keeps the space of words around an image %s, as a block or inline', (_name, html, block, inline) => {
+    for (const [images, expected] of [['block', block], ['inline', inline]] as const) {
+      const { editor, results } = mount({}, images);
+      paste(editor, html);
+      expect(blocks(editor)).toEqual(expected);
+      expect(results.map(result => result.status)).toEqual(['cleaned']);
+    }
   });
 });

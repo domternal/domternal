@@ -5,6 +5,7 @@ import { normalizePasteHTML } from './normalize.js';
 // The last paragraph of a partial Google Docs selection may arrive as bare spans after the blocks
 // before it, inside the guid wrapper. The shape is authored, not a native capture.
 const GUID = 'docs-internal-guid-00000000-7fff-4000-8000-000000000009';
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
 const google = (content: string): string => `<meta charset="utf-8"><b style="font-weight:normal;" id="${GUID}">${content}</b>`;
 const run = (style: string, text: string): string => `<span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;${style}white-space:pre-wrap;">${text}</span>`;
 // The final run deliberately contains only the first three letters of "italic".
@@ -12,33 +13,43 @@ const partialLast = run('font-weight:400;', 'GB09 ') + run('font-weight:700;', '
   + run('font-weight:400;font-style:italic;', 'ita');
 
 describe('inline content that follows a block at the top of the pasted HTML', () => {
-  it.each(['preserve', 'adapt'] as const)('is wrapped in a paragraph when a space between its words is white space only, in %s', formatting => {
+  it.each(['preserve', 'adapt'] as const)('is wrapped in a division when a space between its words is white space only, in %s', formatting => {
     const result = normalizePasteHTML('<p>x</p><b>a</b> <i>b</i>', { formatting });
-    expect(result.html).toBe('<p>x</p><p><span><strong>a</strong></span> <span><em>b</em></span></p>');
+    expect(result.html).toBe('<p>x</p><div><span><strong>a</strong></span> <span><em>b</em></span></div>');
     expect(result.diagnostics).toEqual([]);
   });
 
   it('is wrapped inside the Google Docs guid wrapper, which holds the blocks before it', () => {
     const result = normalizePasteHTML(google(`<p dir="ltr"><span>First</span></p>${partialLast}`), { formatting: 'adapt' });
     const pre = '<span style="white-space:pre-wrap">';
-    expect(result.html).toBe(`<span id="${GUID}"><p dir="ltr"><span>First</span></p><p>${pre}GB09 </span>`
-      + `${pre}<strong>bold</strong></span>${pre} </span>${pre}<em>ita</em></span></p></span>`);
+    expect(result.html).toBe(`<span id="${GUID}"><p dir="ltr"><span>First</span></p><div>${pre}GB09 </span>`
+      + `${pre}<strong>bold</strong></span>${pre} </span>${pre}<em>ita</em></span></div></span>`);
   });
 
   it('is wrapped after a list, a heading or a division, and in a wrapper after a block outside it', () => {
     expect(normalizePasteHTML('<ul><li>x</li></ul><b>a</b> <i>b</i>').html)
-      .toBe('<ul><li>x</li></ul><p><span><strong>a</strong></span> <span><em>b</em></span></p>');
+      .toBe('<ul><li>x</li></ul><div><span><strong>a</strong></span> <span><em>b</em></span></div>');
     expect(normalizePasteHTML('<h2>x</h2><b>a</b> <i>b</i>').html)
-      .toBe('<h2>x</h2><p><span><strong>a</strong></span> <span><em>b</em></span></p>');
+      .toBe('<h2>x</h2><div><span><strong>a</strong></span> <span><em>b</em></span></div>');
     expect(normalizePasteHTML('<div>x</div><b>a</b> <i>b</i>').html)
-      .toBe('<div>x</div><p><span><strong>a</strong></span> <span><em>b</em></span></p>');
+      .toBe('<div>x</div><div><span><strong>a</strong></span> <span><em>b</em></span></div>');
     expect(normalizePasteHTML('<p>x</p><span><b>a</b> <i>b</i><p>y</p></span>').html)
-      .toBe('<p>x</p><span><p><span><strong>a</strong></span> <span><em>b</em></span></p><p>y</p></span>');
+      .toBe('<p>x</p><span><div><span><strong>a</strong></span> <span><em>b</em></span></div><p>y</p></span>');
   });
 
-  it('keeps the white space around the run inside the new paragraph, where ProseMirror trims it', () => {
+  it('keeps the white space around the run inside the new division, where ProseMirror trims it', () => {
     expect(normalizePasteHTML('<p>x</p>\n<b>a</b> <i>b</i>\n<p>y</p>').html)
-      .toBe('<p>x</p><p>\n<span><strong>a</strong></span> <span><em>b</em></span>\n</p><p>y</p>');
+      .toBe('<p>x</p><div>\n<span><strong>a</strong></span> <span><em>b</em></span>\n</div><p>y</p>');
+  });
+
+  // A division, unlike a paragraph, opens no block of its own: ProseMirror puts its inline content in a
+  // paragraph it opens there, which an image ends when the destination's image is a block and holds
+  // when it is inline. A paragraph wrapper left a block image an empty paragraph before it.
+  it('keeps an image in the run inside the division', () => {
+    expect(normalizePasteHTML(`<p>x</p><img src="${PNG}" alt="i"><span>a</span><span> </span><span>b</span>`).html)
+      .toBe(`<p>x</p><div><img src="${PNG}" alt="i"><span>a</span><span> </span><span>b</span></div>`);
+    expect(normalizePasteHTML(`<p>x</p><span>a</span><span> </span><img src="${PNG}" alt="i"><span>b</span>`).html)
+      .toBe(`<p>x</p><div><span>a</span><span> </span><img src="${PNG}" alt="i"><span>b</span></div>`);
   });
 
   it.each([

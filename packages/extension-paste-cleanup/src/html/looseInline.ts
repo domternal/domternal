@@ -30,12 +30,16 @@ function spaceBetweenText(run: readonly RootContent[]): boolean {
 }
 
 /**
- * Wraps in a paragraph each run of inline content that follows a block at the top of the pasted
+ * Wraps in a division each run of inline content that follows a block at the top of the pasted
  * HTML, or inside an inline element there that holds blocks, such as the Google Docs guid wrapper,
  * when a space between its words is a text node of white space only. ProseMirror parses such a
  * run straight into the top of the slice, and once a block came first there it reads that text as
  * the space between two blocks and drops it: a partly selected last paragraph written as bare
- * spans pasted "GB09 podebljanokur". In a paragraph the space stays. A run before the first block
+ * spans pasted "GB09 podebljanokur". In a division ProseMirror opens a paragraph for the run's
+ * inline content, where the space stays. A paragraph wrapper would do the same for text, but an
+ * image the destination places as a block closed it empty, with the rest of the run back at the
+ * top of the slice; a division opens no block of its own, so such an image ends the paragraph
+ * before it, if any, and the run goes on in a new one after it. A run before the first block
  * keeps its space and is left as written.
  */
 export function wrapLooseInlineRuns(root: Root): void {
@@ -45,7 +49,7 @@ export function wrapLooseInlineRuns(root: Root): void {
     let run: RootContent[] = [];
     const flush = (): void => {
       if (afterBlock && spaceBetweenText(run)) {
-        children.push({ type: 'element', tagName: 'p', properties: {}, children: run as Element['children'] });
+        children.push({ type: 'element', tagName: 'div', properties: {}, children: run as Element['children'] });
       } else children.push(...run);
       run = [];
     };
