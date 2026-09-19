@@ -426,7 +426,10 @@ against authored HTML, not native captures. Core stores an explicit
 marker in `listStyleType`; `null` keeps the destination theme's depth-based defaults.
 Slice context follows the same restrictions. Task lists do not gain this
 attribute. Lists with different explicit markers stay separate during paste and
-list editing.
+list editing. A pasted list with an explicit marker, such as one whose item markers
+moved to it or a reconstructed Office list, also stays separate from a destination
+list without one: pasting it inside such a list splits that list around it, and in
+a numbered list the items after the paste number from 1 again.
 
 Reconstructed Office lists use an explicit marker class at every depth, and a
 change of marker class creates a separate list. The schema probes must confirm

@@ -269,6 +269,22 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
         ['bulletList', null, [['END']]]]);
     });
 
+    test('a Google Docs numbered list pasted into a default marker numbered list splits it as a Word list does, so its later items number from 1 again', async ({ page }) => {
+      const pasteInto = async (html: string): Promise<ListShape> => {
+        await seed(page, listHTML('ol', null, 'HOST', 'END')); await selection(page, 'HOST', 4);
+        await paste(page, html, 'One\nTwo'); await cleanPaste(page);
+        return listShape((await snapshot(page)).doc);
+      };
+      await open(page, framework, 'adapt');
+      const google = await pasteInto(googleSlice(googleList('ol', googleItem('decimal', 'One', 1), googleItem('decimal', 'Two', 1))));
+      const word = await pasteInto(wordStyle + wordItem('l1', 1, 'mso-bidi-font-family:Calibri', '1.', 'One')
+        + wordItem('l1', 1, 'mso-bidi-font-family:Calibri', '2.', 'Two'));
+      expect(google).toEqual(word);
+      // The pasted list's explicit marker differs from the host's null marker, so the host list ends before it and
+      // resumes after it as a new list that starts at 1: the host shows 1. HOST, the paste 1. One 2. Two, then 1. END.
+      expect(google).toEqual([['orderedList', null, 1, [['HOST']]], ['orderedList', 'decimal', 1, [['One'], ['Two']]], ['orderedList', null, 1, [['END']]]]);
+    });
+
     test('a Word list keeps one unsupported item literal inside its parent item and reconstructs the rest', async ({ page }) => {
       await open(page, framework); await seed(page, '<p>Replace me</p>'); const before = await snapshot(page);
       // The level two definition names Courier New, but this marker run is Arial, so its o is not a proven bullet.
