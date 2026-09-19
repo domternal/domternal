@@ -1,3 +1,4 @@
+import { useDemoI18n } from './demo-language.js';
 import { Domternal, useCurrentEditor } from '@domternal/react';
 import {
   Bold,
@@ -51,11 +52,12 @@ function EditorProbe() {
  * wrappers cover the same provide/inject editor-sharing behaviour.
  */
 export function CompoundDemo() {
+  const i18n = useDemoI18n();
   return (
     <div className="compound-demo" data-demo="compound">
       <h2>Compound Component Demo (&lt;Domternal&gt; with namespaced subcomponents)</h2>
 
-      <Domternal extensions={extensions} content="<p>Compound root provides editor via context</p>">
+      <Domternal i18n={i18n} extensions={extensions} content="<p>Compound root provides editor via context</p>">
         <Domternal.Toolbar />
         <Domternal.Content />
         <Domternal.BubbleMenu contexts={{ text: ['bold', 'italic', 'underline'] }} />

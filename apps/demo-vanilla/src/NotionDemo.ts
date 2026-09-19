@@ -1,3 +1,4 @@
+import type { I18nOptions } from '@domternal/core';
 import {
   DomternalEditor,
   DomternalBubbleMenu,
@@ -183,6 +184,7 @@ const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
  * E2E exposure: `window.__DEMO_EDITOR__` + `window.__DOMTERNAL_LIST_CTX__`.
  */
 export interface NotionDemoOptions {
+  i18n?: I18nOptions;
   /** Cap the page wrapper height and scroll its content internally. Adds
    * `notion-page--scrollable` and wires `activeScrollParent`. */
   scrollable?: boolean;
@@ -236,6 +238,7 @@ export class NotionDemo {
     container.appendChild(notionDemo);
 
     this.#editorWrapper = new DomternalEditor(editorHost, {
+      i18n: options.i18n ?? {},
       // Scrollable mode tracks the host; full-height mode tracks window.
       extensions: buildExtensions(scrollable ? notionPage : null),
       content: NOTION_DEMO_CONTENT,
@@ -315,6 +318,10 @@ export class NotionDemo {
     );
 
     this.#refreshOutputs();
+  }
+
+  setI18n(i18n: I18nOptions): void {
+    if (!this.#destroyed) this.#editorWrapper.editor.i18n.set(i18n);
   }
 
   destroy(): void {

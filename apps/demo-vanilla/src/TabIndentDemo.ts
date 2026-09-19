@@ -1,3 +1,4 @@
+import type { I18nOptions } from '@domternal/core';
 import { DomternalEditor } from '@domternal/vanilla';
 import { StarterKit, type AnyExtension } from '@domternal/core';
 
@@ -27,11 +28,13 @@ interface Panel {
 }
 
 export class TabIndentDemo {
+  #i18n: I18nOptions;
   #container: HTMLElement;
   #panels: Panel[] = [];
   #destroyed = false;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, i18n: I18nOptions = {}) {
+    this.#i18n = i18n;
     this.#container = container;
 
     const root = document.createElement('div');
@@ -93,6 +96,7 @@ export class TabIndentDemo {
     grid.appendChild(panel);
 
     const wrapper = new DomternalEditor(host, {
+      i18n: this.#i18n,
       extensions,
       content: CONTENT,
     });
@@ -103,6 +107,12 @@ export class TabIndentDemo {
   #exposeForE2E(): void {
     const w = window as unknown as Record<string, unknown>;
     w.__TAB_EDITORS__ = this.#panels.map((p) => p.wrapper.editor);
+  }
+
+  setI18n(i18n: I18nOptions): void {
+    if (this.#destroyed) return;
+    this.#i18n = i18n;
+    for (const entry of this.#panels) entry.wrapper.editor.i18n.set(i18n);
   }
 
   destroy(): void {

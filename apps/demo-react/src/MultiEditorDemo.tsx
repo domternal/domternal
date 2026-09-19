@@ -1,3 +1,4 @@
+import { useDemoI18n } from './demo-language.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor, DomternalToolbar, DomternalBubbleMenu } from '@domternal/react';
 import {
@@ -67,7 +68,9 @@ function MultiEditorPanel({
   onEditorReady: (id: number, editor: Editor | null) => void;
   onRemove: (id: number) => void;
 }) {
+  const i18n = useDemoI18n();
   const { editor, editorRef } = useEditor({
+    i18n,
     extensions: sharedExtensions,
     content: sampleContent(spec.id),
   });

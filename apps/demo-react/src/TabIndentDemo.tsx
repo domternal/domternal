@@ -1,3 +1,4 @@
+import { useDemoI18n } from './demo-language.js';
 import { useEffect } from 'react';
 import { useEditor } from '@domternal/react';
 import { StarterKit, type AnyExtension } from '@domternal/core';
@@ -38,8 +39,9 @@ const panelStyle: React.CSSProperties = {
 const fieldStyle: React.CSSProperties = { display: 'block', width: '100%', boxSizing: 'border-box' };
 
 export function TabIndentDemo() {
-  const a = useEditor({ extensions: DEFAULT_EXT, content: CONTENT });
-  const b = useEditor({ extensions: OPT_IN_EXT, content: CONTENT });
+  const i18n = useDemoI18n();
+  const a = useEditor({ i18n, extensions: DEFAULT_EXT, content: CONTENT });
+  const b = useEditor({ i18n, extensions: OPT_IN_EXT, content: CONTENT });
 
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;

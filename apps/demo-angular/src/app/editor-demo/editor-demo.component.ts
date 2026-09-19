@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, OnDestroy, signal, input, effect, untracked, computed } from '@angular/core';
-import type { IconSet } from '@domternal/core';
+import type { IconSet, I18nOptions } from '@domternal/core';
 import {
   DomternalEditorComponent,
   DomternalToolbarComponent,
@@ -79,6 +79,8 @@ const mockUsers: MentionItem[] = [
   templateUrl: './editor-demo.component.html',
 })
 export class EditorDemoComponent implements OnDestroy {
+  readonly i18n = input.required<I18nOptions>();
+
   private readonly params = new URLSearchParams(window.location.search);
   private readonly constrainTable = !this.params.has('constrainTable', 'false');
   private readonly resizeBehavior = (this.params.get('resizeBehavior') ?? 'neighbor') as 'neighbor' | 'independent' | 'redistribute';

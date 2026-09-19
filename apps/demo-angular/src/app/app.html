@@ -4,6 +4,17 @@
     <button class="theme-toggle" (click)="toggleTheme()" [title]="isDark() ? 'Switch to light' : 'Switch to dark'">
       {{ isDark() ? '☀️' : '🌙' }}
     </button>
+    <select
+      #languageSelect
+      class="language-select"
+      aria-label="Editor language"
+      data-testid="demo-language"
+      [value]="language()"
+      (change)="setLanguage(languageSelect.value)"
+    >
+      <option value="en" lang="en">English</option>
+      <option value="de" lang="de">Deutsch</option>
+    </select>
   </h1>
 
   <div class="toolbar-mode-toggle">
@@ -22,19 +33,19 @@
          demo's destroy + recreate behaviour on mode change. -->
     @switch (mode()) {
       @case ('notion') {
-        <app-notion-demo />
+        <app-notion-demo [i18n]="editorI18n()" />
       }
       @case ('notion-scrollable') {
-        <app-notion-demo [scrollable]="true" />
+        <app-notion-demo [i18n]="editorI18n()" [scrollable]="true" />
       }
     }
   } @else if (mode() === 'multi') {
-    <app-multi-editor-demo />
+    <app-multi-editor-demo [i18n]="editorI18n()" />
   } @else if (mode() === 'tab') {
-    <app-tab-indent-demo />
+    <app-tab-indent-demo [i18n]="editorI18n()" />
   } @else if (mode() === 'ngmodel') {
-    <app-ngmodel-demo />
+    <app-ngmodel-demo [i18n]="editorI18n()" />
   } @else {
-    <app-editor-demo [useLayout]="useLayout()" />
+    <app-editor-demo [i18n]="editorI18n()" [useLayout]="useLayout()" />
   }
 </div>

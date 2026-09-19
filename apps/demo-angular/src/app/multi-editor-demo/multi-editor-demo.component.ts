@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, OnDestroy, signal, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnDestroy, signal, effect, input } from '@angular/core';
 import {
   DomternalEditorComponent,
   DomternalToolbarComponent,
@@ -9,7 +9,7 @@ import {
   Heading, Blockquote, HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList, ListIndent,
   SelectionDecoration, ClearFormatting, Dropcursor,
-  type AnyExtension, type Editor,
+  type AnyExtension, type Editor, type I18nOptions,
 } from '@domternal/core';
 
 interface PanelSpec { id: number; withToolbar: boolean }
@@ -33,6 +33,8 @@ interface PanelSpec { id: number; withToolbar: boolean }
   templateUrl: './multi-editor-demo.component.html',
 })
 export class MultiEditorDemoComponent implements OnDestroy {
+  readonly i18n = input.required<I18nOptions>();
+
   /** ONE shared extensions array, intentionally reused for every editor. */
   readonly extensions: AnyExtension[] = [
     Bold, Italic, Underline, Strike, Code, Link,

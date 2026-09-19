@@ -47,7 +47,7 @@ import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
 import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-mention';
 import type { MentionItem } from '@domternal/extension-mention';
-import type { IconSet } from '@domternal/core';
+import type { IconSet, I18nOptions } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -60,7 +60,7 @@ import {
   type BubbleIconsParam,
 } from './bubble-icons-fixtures.js';
 
-const { useLayout } = defineProps<{ useLayout: boolean }>();
+const props = defineProps<{ useLayout: boolean; i18n: I18nOptions }>();
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
@@ -123,7 +123,10 @@ const toolbarLayout: ToolbarLayoutEntry[] = [
   'undo', 'redo',
 ];
 
-const { editor, editorRef } = useEditor({ extensions, content: DEMO_CONTENT });
+const { editor, editorRef } = useEditor({
+  get i18n() { return props.i18n; },
+  extensions, content: DEMO_CONTENT,
+});
 const { htmlContent } = useEditorState(editor);
 
 // Selector mode (Vue-specific: computed with memoization)

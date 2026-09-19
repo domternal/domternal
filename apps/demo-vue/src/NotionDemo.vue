@@ -43,7 +43,7 @@ import {
   type AnyExtension,
 } from '@domternal/core';
 import { defaultBubbleContexts } from '@domternal/core';
-import type { IconSet } from '@domternal/core';
+import type { IconSet, I18nOptions } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
 import { MathInline, MathBlock, createKatexRenderer } from '@domternal/extension-math';
@@ -185,6 +185,7 @@ interface Toast {
 }
 
 const props = withDefaults(defineProps<{
+  i18n: I18nOptions;
   /** Cap the page wrapper height and scroll its content internally. Adds
    * `notion-page--scrollable` and wires `activeScrollParent` so the TOC
    * scroll-spy follows the host scroll instead of the window. */
@@ -212,6 +213,7 @@ onMounted(() => {
 });
 
 const { editor, editorRef } = useEditor({
+  get i18n() { return props.i18n; },
   extensions,
   content: NOTION_DEMO_CONTENT,
   // Paints dm-notion-mode on the wrapper and switches preset-aware

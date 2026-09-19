@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { watch, onBeforeUnmount } from 'vue';
 import { useEditor, DomternalToolbar, DomternalBubbleMenu } from '@domternal/vue';
-import type { Editor } from '@domternal/core';
+import type { Editor, I18nOptions } from '@domternal/core';
 import { sharedExtensions, sampleContent } from './multiEditorShared.js';
 
 interface PanelSpec { id: number; withToolbar: boolean }
 
-const props = defineProps<{ spec: PanelSpec; index: number }>();
+const props = defineProps<{ spec: PanelSpec; index: number; i18n: I18nOptions }>();
 const emit = defineEmits<{
   editor: [id: number, editor: Editor | null];
   remove: [id: number];
@@ -14,6 +14,7 @@ const emit = defineEmits<{
 
 // SAME shared array passed to every editor; the manager clones it per editor.
 const { editor, editorRef } = useEditor({
+  get i18n() { return props.i18n; },
   extensions: sharedExtensions,
   content: sampleContent(props.spec.id),
 });

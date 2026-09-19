@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomternalEditorComponent } from '@domternal/angular';
 import {
@@ -12,6 +12,7 @@ import {
   SelectionDecoration,
   type AnyExtension,
   type Content,
+  type I18nOptions,
 } from '@domternal/core';
 
 /**
@@ -30,6 +31,8 @@ import {
   templateUrl: './ngmodel-demo.component.html',
 })
 export class NgModelDemoComponent {
+  readonly i18n = input.required<I18nOptions>();
+
   extensions: AnyExtension[] = [
     Bold,
     Italic,

@@ -1,6 +1,6 @@
-import { Component, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnDestroy, input } from '@angular/core';
 import { DomternalEditorComponent } from '@domternal/angular';
-import { StarterKit, type AnyExtension, type Editor } from '@domternal/core';
+import { StarterKit, type AnyExtension, type Editor, type I18nOptions } from '@domternal/core';
 
 /**
  * "Tab + lists" demo (Angular). Two StarterKit editors embedded between form
@@ -20,6 +20,8 @@ import { StarterKit, type AnyExtension, type Editor } from '@domternal/core';
   templateUrl: './tab-indent-demo.component.html',
 })
 export class TabIndentDemoComponent implements OnDestroy {
+  readonly i18n = input.required<I18nOptions>();
+
   readonly content =
     '<ul><li><p>Bullet one</p></li><li><p>Bullet two</p></li></ul>' +
     '<p>Para after list</p>' +

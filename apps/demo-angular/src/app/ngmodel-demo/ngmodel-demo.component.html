@@ -9,6 +9,7 @@
   </div>
 
   <domternal-editor
+    [i18n]="i18n()"
     [ngModel]="content"
     (ngModelChange)="onModelChange($event)"
     [extensions]="extensions"

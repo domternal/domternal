@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { I18nOptions } from '@domternal/core';
 import { useEditor, DomternalToolbar, provideEditor } from '@domternal/vue';
 import { useExposeEditorForE2E } from './useExposeEditorForE2E.js';
 import {
@@ -11,6 +12,8 @@ import {
   SelectionDecoration,
 } from '@domternal/core';
 import { Callout, type CalloutVariant } from './Callout.js';
+
+const props = defineProps<{ i18n: I18nOptions }>();
 
 const extensions = [
   Bold, Italic, Underline, Heading, BulletList, OrderedList,
@@ -27,7 +30,10 @@ const initialContent = `
 <p>Below this paragraph you can insert more callouts using the buttons.</p>
 `;
 
-const { editor, editorRef } = useEditor({ extensions, content: initialContent });
+const { editor, editorRef } = useEditor({
+  get i18n() { return props.i18n; },
+  extensions, content: initialContent,
+});
 
 // Required for VueNodeViewRenderer: stores Vue appContext for inject chain forwarding
 provideEditor(editor);
