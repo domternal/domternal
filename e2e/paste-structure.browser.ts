@@ -7,7 +7,7 @@
 import { expect, type Page } from '@playwright/test';
 import type { Editor } from '@domternal/core';
 import type { PasteOperationResult } from '@domternal/extension-paste-cleanup';
-import { test } from './fixtures.js';
+import { test } from './native-clipboard.js';
 
 const BASE_URL = 'http://127.0.0.1:5895';
 const FRAMEWORKS = ['vanilla', 'react', 'vue', 'angular'] as const;
@@ -99,3 +99,51 @@ for (const framework of FRAMEWORKS) {
       .toEqual({ doc: `doc(${table([['ra', 'rb'], ['rc', 'rd']])}, paragraph("after"))`, valid: true, status: ['applied'] });
   });
 }
+
+// Unit tests: packages/extension-paste-cleanup/src/html/blockBoxes.test.ts and src/PasteCleanup.blockBoxes.test.ts.
+const BLOCK_BOXES: Record<string, { html: string; doc: string }> = {
+  'a definition list': { html: '<dl><dt>term</dt><dd>definition</dd></dl>', doc: 'doc(paragraph("term"), paragraph("definition"))' },
+  'two sections': { html: '<section>one</section><section>two</section>', doc: 'doc(paragraph("one"), paragraph("two"))' },
+  'a figure caption after a paragraph': { html: '<p>text</p><figure><figcaption>caption</figcaption></figure>', doc: 'doc(paragraph("text"), paragraph("caption"))' },
+};
+
+for (const framework of FRAMEWORKS) {
+  test(`${framework} pastes block elements PasteCleanup does not keep as separate paragraphs, as it does without`, async ({ page }) => {
+    for (const cleanup of ['on', 'off']) {
+      await open(page, framework, cleanup === 'on' ? {} : { 'paste-cleanup': 'off' });
+      for (const [name, { html, doc }] of Object.entries(BLOCK_BOXES)) {
+        expect(await paste(page, '<p></p>', { html, text: 'fallback' }), `${name}, PasteCleanup ${cleanup}`)
+          .toEqual({ doc, valid: true, status: cleanup === 'on' ? ['applied'] : [] });
+      }
+    }
+  });
+}
+
+test('a keyboard copy of a web page definition list pastes its term and definition as separate paragraphs', async ({ page }) => {
+  for (const cleanup of ['on', 'off']) {
+    await open(page, 'vanilla', cleanup === 'on' ? {} : { 'paste-cleanup': 'off' });
+    await page.evaluate(() => {
+      const source = document.body.appendChild(document.createElement('div'));
+      source.innerHTML = '<dl><dt>term</dt><dd>definition</dd></dl>';
+      const range = document.createRange();
+      range.selectNodeContents(source);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(range);
+    });
+    await page.keyboard.press('ControlOrMeta+c');
+    await page.evaluate(() => {
+      const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+      if (!probe.editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
+      probe.editor.view.focus();
+      probe.select(1);
+      probe.clearObservations();
+    });
+    await page.keyboard.press('ControlOrMeta+v');
+    // The blocks and their text; a copy can bring the page's font as a text style.
+    await expect.poll(() => page.evaluate(() => {
+      const blocks: string[] = [];
+      (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.forEach(node => { blocks.push(`${node.type.name}: ${node.textContent}`); });
+      return blocks;
+    }), `PasteCleanup ${cleanup}`).toEqual(['paragraph: term', 'paragraph: definition']);
+  }
+});

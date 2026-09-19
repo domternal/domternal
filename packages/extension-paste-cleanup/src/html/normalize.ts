@@ -42,6 +42,10 @@ const tags = [
   'blockquote', 'pre', 'code', 'ul', 'ol', 'li', 'table', 'thead', 'tbody',
   'tfoot', 'tr', 'td', 'th', 'colgroup', 'col', 'caption', 'img', 'details', 'summary',
 ];
+// Elements a browser lays out as blocks that the allowlist lacks. Unwrapped, their text ran into their
+// neighbors' ("termdefinition"); as plain divisions each stays a block, as without cleanup.
+const blockBoxes = new Set(['address', 'article', 'aside', 'center', 'dd', 'dl', 'dt', 'fieldset', 'figcaption', 'figure', 'footer',
+  'form', 'header', 'hgroup', 'legend', 'main', 'nav', 'search', 'section']);
 // Active or interactive content whose removal can hide what the source showed. Envelope elements are separate.
 const discard = new Set(['script', 'iframe', 'object', 'embed', 'svg', 'math', 'template', 'noscript', 'textarea', 'select', 'button']);
 const schema: Schema = {
@@ -305,7 +309,9 @@ export function normalizeClipboardHTML(
         child.properties = clean;
         if (!tags.includes(child.tagName)) {
           if (!transparentOfficeWrapper(child.tagName)) report('unsupported-formatting', child);
-          children.push(...child.children);
+          // Without its attributes, so the division takes no meaning the element did not have.
+          if (blockBoxes.has(child.tagName)) children.push({ type: 'element', tagName: 'div', properties: {}, children: child.children });
+          else children.push(...child.children);
         }
         else children.push(child);
       }

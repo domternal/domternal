@@ -112,7 +112,12 @@ content. Office paragraph marks (`o:p`), content controls (`w:*`) and smart tags
 (`st1:*`) are unwrapped and keep their text. Scripts, frames, embedded objects,
 templates, form controls, SVG and MathML still report `unsafe-content-removed`;
 VML drawings, Office math, `font` and other unknown elements still report
-`unsupported-formatting`.
+`unsupported-formatting`. Unknown elements a browser lays out as blocks, such
+as definition lists (`dl`, `dt`, `dd`), `section`, `article`, `header`,
+`footer`, `figure`, `figcaption`, `fieldset` and `form`, become plain `<div>`
+elements without their attributes, so each one's text stays a block of its own,
+as it does without PasteCleanup, instead of running into its neighbors' text
+(`termdefinition`). Other unknown elements are unwrapped and keep their text.
 
 Routine declarations are also dropped without a diagnostic: Office private
 `mso-*` properties other than `mso-hide`, values that render like their absence
