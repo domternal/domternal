@@ -116,6 +116,34 @@ describe('destination capability feedback through the editor', () => {
     }
   });
 
+  // Authored in the shape Google Docs is expected to write nested lists, not a native capture: the marker on
+  // each li and each nested list placed directly in its parent list. The captures confirm or correct it.
+  it.each(['preserve', 'adapt'] as const)('keeps the item markers of an authored Google Docs nested list on its lists in %s mode', async formatting => {
+    const run = (text: string): string => '<span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;'
+      + `font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">${text}</span>`;
+    const item = (marker: string, text: string): string => `<li dir="ltr" style="list-style-type:${marker};font-size:11pt;font-family:Arial,sans-serif;`
+      + 'color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;'
+      + `white-space:pre;" aria-level="1"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation">${run(text)}</p></li>`;
+    const list = (tag: string, ...content: string[]): string => `<${tag} style="margin-top:0;margin-bottom:0;padding-inline-start:48px;">${content.join('')}</${tag}>`;
+    const html = '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-00000000-7fff-4000-8000-000000000003">'
+      + list('ul', item('disc', 'One'), list('ul', item('circle', 'Two'))) + list('ol', item('decimal', 'Three'), list('ol', item('lower-alpha', 'Four'))) + '</b>';
+    for (const supported of [true, false]) {
+      const ordered = supported ? OrderedList : OrderedList.extend({ addAttributes() { return { start: { default: 1 } }; } });
+      const bullet = supported ? BulletList : BulletList.extend({ addAttributes() { return {}; } });
+      const fixture = mount({ formatting }, [ordered, bullet, ListItem, ...typography]);
+      paste(fixture.editor, html);
+      const result = await terminal(fixture, 'applied');
+      expect(result.diagnostics.filter(diagnostic => diagnostic.severity !== 'info')).toEqual(supported ? [] : [warning]);
+      const doc = fixture.editor.state.doc;
+      const markers: [string, unknown][] = [];
+      doc.descendants(node => { if (node.type.name.endsWith('List')) markers.push([node.type.name, node.attrs['listStyleType']]); });
+      expect(markers).toEqual([['bulletList', supported ? 'disc' : undefined], ['bulletList', supported ? 'circle' : undefined],
+        ['orderedList', supported ? 'decimal' : undefined], ['orderedList', supported ? 'lower-alpha' : undefined]]);
+      expect(doc.textContent).toBe('OneTwoThreeFour');
+      doc.check();
+    }
+  });
+
   it.each(['preserve', 'adapt'] as const)('warns for missing semantic marks while preserving readable text in %s mode', async formatting => {
     const fixture = mount({ formatting });
     const before = snapshot(fixture.editor);

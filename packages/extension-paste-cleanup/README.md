@@ -407,7 +407,12 @@ responsible for destination compatibility.
 Both formatting modes retain supported list marker classes. Ordered lists support
 `decimal`, `lower-alpha`, `upper-alpha`, `lower-roman` and `upper-roman`; bullet lists
 support `disc`, `circle` and `square`. Only these kind-specific `list-style-type`
-values and supported HTML `type` attributes are accepted. Core stores an explicit
+values and supported HTML `type` attributes are accepted. A `list-style-type`
+declared on list items moves to their list when every direct item agrees, an item
+without one counting as its list's marker; items that disagree or declare a marker
+their list kind cannot hold still report `unsupported-formatting`. This covers the
+shape expected from Google Docs, which writes the marker on each item; it is checked
+against authored HTML, not native captures. Core stores an explicit
 marker in `listStyleType`; `null` keeps the destination theme's depth-based defaults.
 Slice context follows the same restrictions. Task lists do not gain this
 attribute. Lists with different explicit markers stay separate during paste and

@@ -237,11 +237,12 @@ profile.
   paragraph. The editor makes one paragraph of line breaks from each run of
   them: the checker ignores empty blocks a scenario does not name, and reports
   two empty paragraphs that arrive as one in `gdocs-empty-paragraphs`.
-- The specification assumes the list shape Google Docs is known to write: each
-  marker as `list-style-type` on its `li`, and a nested list placed directly in
-  its parent list. The checker reads that nesting. A cleanup that does not take
-  the marker from the items shows as marker mismatches and
-  `unsupported-formatting`; the captures confirm or correct the shape.
+- The specification assumes the list shape Google Docs is expected to write:
+  each marker as `list-style-type` on its `li`, and a nested list placed
+  directly in its parent list. The checker reads that nesting. Cleanup moves a
+  marker that every direct item of a list declares to the list, so the authored
+  shape pastes with its markers. That rule is checked against authored HTML
+  only; the captures confirm or correct the shape.
 
 Check that the checker can express every scenario under both policies:
 
@@ -260,9 +261,9 @@ node e2e/native-office-capture/offline.mjs e2e/native-office-capture/fixtures/go
 node e2e/native-office-capture/semantics.mjs e2e/native-office-capture/content/google-docs-v1.json gdocs-mixed-document e2e/native-office-capture/fixtures/google-docs-dry-run-v1/capture.json preserve
 ```
 
-The last command reports the three list markers that the authored shape loses,
-`GM04`, `GM05` and `GM06`, and nothing else. It is an authored approximation of
-the Google Docs clipboard, not a capture.
+The last command reports no problems: the list markers of `GM04`, `GM05` and
+`GM06` arrive on their lists. It is an authored approximation of the Google
+Docs clipboard, not a capture.
 
 ## Bundle contract and limits
 

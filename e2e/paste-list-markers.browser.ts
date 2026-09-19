@@ -41,9 +41,9 @@ const doc = (...content: JSONContent[]): JSONContent => ({ type: 'doc', content 
 const listHTML = (tag: 'ol' | 'ul', marker: string | null, ...labels: string[]): string =>
   `<${tag}${marker ? ` style="list-style-type:${marker}"` : ''}>${labels.map(value => `<li><p>${value}</p></li>`).join('')}</${tag}>`;
 
-async function open(page: Page, framework: string, formatting: Formatting = 'preserve', legacy = false): Promise<void> {
+async function open(page: Page, framework: string, formatting: Formatting = 'preserve', legacy = false, schema?: 'capability-full'): Promise<void> {
   await page.goto(`http://127.0.0.1:5895/?${new URLSearchParams({ framework, formatting, 'list-markers': '1',
-    ...(legacy ? { 'list-marker-policy': 'legacy' } : {}),
+    ...(legacy ? { 'list-marker-policy': 'legacy' } : {}), ...(schema === undefined ? {} : { schema }),
   }).toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
   await expect(page.locator('.dm-editor .ProseMirror')).toBeVisible();
@@ -178,6 +178,39 @@ const wordListHTML = '<html xmlns:o="urn:schemas-microsoft-com:office:office"><h
 const wordListJSON = doc(ul('disc', [item(p('Disc'), ul('circle', [item(p('Circle'), ul('square', [item(p('Square'))]))]))]),
   ol('decimal', [item(p('Decimal'), ol('lower-alpha', [item(p('Alpha'), ol('lower-roman', [item(p('Roman'))]))]))]));
 
+// Google Docs lists in the shape Google Docs is expected to write them, authored and not a native capture:
+// the marker as list-style-type on each li, a nested list placed directly in its parent list, the guid
+// wrapper and the trailing line break. The Google Docs captures confirm or correct this shape.
+const googleRun = (label: string): string => '<span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;'
+  + `font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">${label}</span>`;
+const googleItem = (marker: string, label: string, level: number): string => `<li dir="ltr" style="list-style-type:${marker};font-size:11pt;`
+  + 'font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;'
+  + `vertical-align:baseline;white-space:pre;" aria-level="${String(level)}"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" `
+  + `role="presentation">${googleRun(label)}</p></li>`;
+const googleList = (tag: 'ul' | 'ol', ...content: string[]): string =>
+  `<${tag} style="margin-top:0;margin-bottom:0;padding-inline-start:48px;">${content.join('')}</${tag}>`;
+const googleSlice = (body: string): string => '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-00000000-7fff-4000-8000-000000000004">'
+  + `${body}</b><br class="Apple-interchange-newline">`;
+const googleBullets = googleList('ul', googleItem('disc', 'One', 1), googleList('ul', googleItem('circle', 'Two', 2), googleList('ul', googleItem('square', 'Three', 3))));
+const googleListHTML = googleSlice(googleBullets
+  + googleList('ol', googleItem('decimal', 'Four', 1), googleList('ol', googleItem('lower-alpha', 'Five', 2), googleList('ol', googleItem('lower-roman', 'Six', 3)))));
+type ListShape = string | number | null | ListShape[];
+/** Lists with their marker, ordered start and item texts; text formatting is not part of this projection. */
+function listShape(node: JSONContent): ListShape {
+  const content = (node.content ?? []).map(listShape);
+  if (node.type === 'paragraph') return (node.content ?? []).map(child => child.text ?? '').join('');
+  if (node.type === 'bulletList') return ['bulletList', (node.attrs?.['listStyleType'] as string | null | undefined) ?? null, content];
+  if (node.type === 'orderedList') return ['orderedList', (node.attrs?.['listStyleType'] as string | null | undefined) ?? null, node.attrs?.['start'] as number, content];
+  return content;
+}
+const googleShape = (bullets: (string | null)[], ordered: (string | null)[]): ListShape => [
+  ['bulletList', bullets[0] ?? null, [['One', ['bulletList', bullets[1] ?? null, [['Two', ['bulletList', bullets[2] ?? null, [['Three']]]]]]]]],
+  ['orderedList', ordered[0] ?? null, 1, [['Four', ['orderedList', ordered[1] ?? null, 1, [['Five', ['orderedList', ordered[2] ?? null, 1, [['Six']]]]]]]]],
+];
+async function pasteResults(page: Page): Promise<NormalizePasteHTMLResult[]> {
+  return page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.results);
+}
+
 for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
   test.describe(`${framework}: explicit list markers`, () => {
     for (const formatting of ['preserve', 'adapt'] as const) test(`${formatting} reconstructs Word default bullet and numbering profiles quietly`, async ({ page }) => {
@@ -186,6 +219,54 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       await history(page, before, wordListJSON); await reload(page, wordListJSON);
       expect(await computedMarkers(page)).toEqual(['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'lower-roman']);
       await expect(page.locator('.dm-paste-feedback')).toBeHidden();
+    });
+
+    for (const [formatting, schema] of [['adapt', undefined], ['preserve', 'capability-full']] as const) {
+      test(`${formatting} keeps the markers Google Docs writes on list items on their lists${schema ? ` with ${schema}` : ''}`, async ({ page }) => {
+        await open(page, framework, formatting, false, schema); await seed(page, '<p>Replace me</p>');
+        await paste(page, googleListHTML, 'One\nTwo\nThree\nFour\nFive\nSix'); await cleanPaste(page);
+        expect(listShape((await snapshot(page)).doc)).toEqual(googleShape(['disc', 'circle', 'square'], ['decimal', 'lower-alpha', 'lower-roman']));
+        expect(await computedMarkers(page)).toEqual(['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'lower-roman']);
+        await expect(page.locator('.dm-paste-feedback')).toBeHidden();
+      });
+    }
+
+    test('Google Docs list markers stay explicit where only the line spacing is unconfirmed', async ({ page }) => {
+      await open(page, framework); await seed(page, '<p>Replace me</p>');
+      await paste(page, googleListHTML, 'One\nTwo\nThree\nFour\nFive\nSix');
+      const results = await pasteResults(page);
+      expect(results).toHaveLength(1); expect(results[0]?.status).toBe('cleaned');
+      // The default schema has no LineHeight, so the line spacing Google Docs writes on each paragraph is unconfirmed.
+      expect(results[0]?.diagnostics).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
+      expect(listShape((await snapshot(page)).doc)).toEqual(googleShape(['disc', 'circle', 'square'], ['decimal', 'lower-alpha', 'lower-roman']));
+      expect(await computedMarkers(page)).toEqual(['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'lower-roman']);
+    });
+
+    for (const formatting of ['preserve', 'adapt'] as const) test(`${formatting} reports Google Docs list markers a legacy schema cannot keep once`, async ({ page }) => {
+      await open(page, framework, formatting, true); await seed(page, '<p>Replace me</p>');
+      await paste(page, googleListHTML, 'One\nTwo\nThree\nFour\nFive\nSix');
+      const results = await pasteResults(page);
+      expect(results).toHaveLength(1); expect(results[0]?.status).toBe('cleaned');
+      expect(results[0]?.diagnostics.filter(entry => entry.severity !== 'info')).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
+      expect(listShape((await snapshot(page)).doc)).toEqual(googleShape([null, null, null], [null, null, null]));
+      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toContainText('Review the pasted content.');
+    });
+
+    test('a Google Docs bullet list pasted into a default marker list keeps its own wrapper, as a Word list does', async ({ page }) => {
+      const pasteInto = async (html: string, text: string): Promise<ListShape> => {
+        await seed(page, listHTML('ul', null, 'HOST', 'END')); await selection(page, 'HOST', 4);
+        await paste(page, html, text); await cleanPaste(page);
+        return listShape((await snapshot(page)).doc);
+      };
+      await open(page, framework, 'adapt');
+      const google = await pasteInto(googleSlice(googleBullets), 'One\nTwo\nThree');
+      const word = await pasteInto(wordStyle + wordItem('l0', 1, 'font-family:Symbol', '·', 'One') + wordItem('l0', 2, 'font-family:"Courier New"', 'o', 'Two')
+        + wordItem('l0', 3, 'font-family:Wingdings', '§', 'Three'), 'One\nTwo\nThree');
+      expect(google).toEqual(word);
+      // Explicit markers differ from the host's null marker, so the pasted list does not merge into the host list.
+      expect(google).toEqual([['bulletList', null, [['HOST']]],
+        ['bulletList', 'disc', [['One', ['bulletList', 'circle', [['Two', ['bulletList', 'square', [['Three']]]]]]]]],
+        ['bulletList', null, [['END']]]]);
     });
 
     test('a Word list keeps one unsupported item literal inside its parent item and reconstructs the rest', async ({ page }) => {

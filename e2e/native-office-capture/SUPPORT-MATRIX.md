@@ -87,7 +87,7 @@ outcome. This increment does not retry native automation.
 | Fixture | Origin | Expected result | Qualification |
 | --- | --- | --- | --- |
 | `synthetic-office-evidence-v1` | Independently authored HTML, a Node synthetic event and an arbitrary four-byte File. No Office application or OS clipboard. | Preserve/adapt retain `Alpha` in bold, `Beta` in italic and the image alt text; unresolved `cid:2` is removed with `image-removed`. | False. The file is evidence for byte checks, not a raster or a proved image binding. |
-| `synthetic-google-docs-dry-run-v1` | Authored HTML in the Google Docs clipboard shape for `gdocs-mixed-document`, a Node synthetic event and a custom flavor whose bytes the capture omits. No Google Docs session or OS clipboard. | Preserve/adapt keep the heading, marks, link, nested lists, the merged cell and the alt text of the URL image, which is removed with `image-removed`; the list markers written on each `li` are lost with `unsupported-formatting`, as the oracle records. | False. A dry run of the procedure, not a capture of Google Docs. |
+| `synthetic-google-docs-dry-run-v1` | Authored HTML in the Google Docs clipboard shape for `gdocs-mixed-document`, a Node synthetic event and a custom flavor whose bytes the capture omits. No Google Docs session or OS clipboard. | Preserve/adapt keep the heading, marks, link, nested lists, the merged cell and the alt text of the URL image, which is removed with `image-removed`; the list markers written on each `li` move to their lists, and the sized span around the image reports `unsupported-formatting`, as the oracle records. | False. A dry run of the procedure, not a capture of Google Docs. |
 
 The [manifest](./fixtures/synthetic-v1/manifest.json) pins the exact source and
 capture SHA-256 values and an explicitly reviewed output for both policies. The
@@ -96,7 +96,7 @@ timestamp. Exact wrapper serialization was reviewed against the public
 normalizer; the oracle is never derived from that normalizer during a test.
 The fixture is MIT-licensed synthetic content without customer data. The Google
 Docs dry run manifest pins its oracles the same way; they record the current
-cleanup of the authored shape, including its list marker loss, not a target.
+cleanup of the authored shape, not a target.
 
 ## Admission of future evidence
 
