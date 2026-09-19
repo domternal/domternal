@@ -271,6 +271,17 @@ a block as a placeholder and can remove it. Breaks inside retained inline wrappe
 are distinct from that case. Cleanup does not override this clipboard rule, so
 preserving every unwrapped trailing break during paste is not guaranteed.
 
+Inline content that follows a block at the top of the pasted HTML, or inside an
+inline element there that holds blocks, such as the Google Docs guid wrapper, is
+wrapped in a paragraph when a space between its words is a text node of white
+space only. ProseMirror's clipboard parser reads such a text node there as the
+space between two blocks and drops it, so a partly selected last paragraph
+written as bare spans, the shape expected from Google Docs and checked against
+authored HTML only, would paste `GB09 bold ita` as `GB09 boldita`.
+Inline content before the first block is left as written and still joins the
+paragraph at the caret. Without PasteCleanup, ProseMirror's parse still drops
+that space.
+
 The editor integration checks requested built-in destination capabilities using
 small constant probes against the actual schema parser. It checks semantic marks,
 requested heading levels, retained text styles, paragraph alignment/line spacing,

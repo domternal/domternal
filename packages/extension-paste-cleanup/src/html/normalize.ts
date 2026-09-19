@@ -23,6 +23,7 @@ import { hoistListItemMarkers } from './listItemMarkers.js';
 import { quietImageBoxes } from './imageBoxes.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
 import { envelopeTags, transparentOfficeWrapper } from './envelope.js';
+import { wrapLooseInlineRuns } from './looseInline.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -309,6 +310,8 @@ export function normalizeClipboardHTML(
     assertOutputTreeBounds(tree, limits.maxNodes, limits.maxDepth);
     const sanitized = sanitize(tree, schema);
     if (sanitized.type !== 'root') throw new Error('Expected a sanitized fragment');
+    // A verified own copy holds only blocks at its top, as the editor serialized them.
+    if (!own) wrapLooseInlineRuns(sanitized);
     if (destination !== undefined) {
       const requested = collectDestinationDemand(sanitized, limits);
       const unconfirmed = requested.length > 0 ? destination(requested) : [];
