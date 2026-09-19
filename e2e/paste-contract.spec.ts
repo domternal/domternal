@@ -205,6 +205,25 @@ for (const target of demoTargets) {
       await expectHistoryRoundTrip(page, before);
     });
 
+    test('a list whose first item starts with a nested list pastes as one list under an empty item', async ({ page }) => {
+      await seed(page, '<p></p>', { text: '', offset: 0 });
+      const before = await snapshot(page);
+      // A browser copies this when a selection starts inside a nested item and ends in the next one.
+      await paste(page, target, {
+        text: 'nested item\ntop item',
+        html: '<ul><li><ul><li>nested item</li></ul></li><li>top item</li></ul>',
+      });
+
+      expect(await page.evaluate(() => {
+        const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as Editor | undefined;
+        if (!editor) throw new Error('__DEMO_EDITOR__ not found');
+        editor.state.doc.check();
+        return editor.state.doc.toString();
+      })).toBe('doc(bulletList(listItem(paragraph, bulletList(listItem(paragraph("nested item")))), listItem(paragraph("top item"))))');
+      await expectCaretAtEnd(page, 'top item');
+      await expectHistoryRoundTrip(page, before);
+    });
+
     test('heading paste splits the destination paragraph and restores its original caret', async ({ page }) => {
       await seed(page, '<p>beforeafter</p>', { text: 'beforeafter', offset: 6 });
       const before = await snapshot(page);

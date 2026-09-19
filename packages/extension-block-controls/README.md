@@ -98,7 +98,12 @@ values must be trusted application constants, never user-supplied content.
   It splits the caret's block, or its list item, only where both halves stay valid: a list
   pasted into the middle of a heading or code block inside a list item lands at the caret
   inside the item, and a block pasted into a details summary goes through ProseMirror's own
-  paste, which keeps the summary whole.
+  paste, which keeps the summary whole. It inserts whole blocks, so a pasted slice that
+  starts or ends inside a block first gets what its schema requires there: a list whose
+  first item starts with a nested list, as a browser copies a selection that starts inside
+  a nested item, keeps its nesting under an empty first item, and an empty item or quote
+  at either edge stays an empty item or quote. A slice it cannot complete goes through
+  ProseMirror's own paste.
 - **`KeyboardReorder`** - `Mod-Shift-ArrowUp` / `Mod-Shift-ArrowDown` move the current
   top-level block.
 - **`FloatingMenu`** - the empty-line insert menu; `requireExplicitTrigger` gates it

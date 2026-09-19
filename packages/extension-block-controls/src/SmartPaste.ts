@@ -18,15 +18,17 @@
  *
  * Do NOT bail on `openStart > 0`: PM's clipboard parser routinely sets
  * `openStart=1` even for closed-looking input like `<h1>x</h1>`. Top-level
- * children of the slice are what matter.
+ * children of the slice are what matter. The strategies insert those children
+ * as whole nodes, so the slice's open sides are completed first (see
+ * `wholeSliceContent`), and a slice that cannot be completed is left to PM.
  */
 
 import { Extension } from '@domternal/core';
 import { getClipboardPasteBehavior } from '@domternal/core/clipboard';
 import { Plugin, TextSelection, Selection } from '@domternal/pm/state';
 import { canSplit } from '@domternal/pm/transform';
-import { Fragment } from '@domternal/pm/model';
-import type { Slice, Node as PMNode, ResolvedPos, NodeType } from '@domternal/pm/model';
+import { Fragment, Slice } from '@domternal/pm/model';
+import type { Node as PMNode, ResolvedPos, NodeType } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import type { Transaction } from '@domternal/pm/state';
 import { insertBlockSplittingList } from './helpers/moveBlock.js';
@@ -66,7 +68,7 @@ export const SmartPaste = Extension.create<SmartPasteOptions>({
 });
 
 /** Returns `true` when this plugin handled the paste (PM skips its default). */
-function handleSmartPaste(view: EditorView, event: ClipboardEvent, slice: Slice): boolean {
+function handleSmartPaste(view: EditorView, event: ClipboardEvent, pasted: Slice): boolean {
   const { state } = view;
   const { selection } = state;
   const $from = selection.$from;
@@ -75,12 +77,18 @@ function handleSmartPaste(view: EditorView, event: ClipboardEvent, slice: Slice)
   if (!$from.parent.isTextblock) return false;
 
   // No non-paragraph block at top level: PM merges plain inline content cleanly.
-  if (!sliceHasNonParagraphBlock(slice)) return false;
+  if (!sliceHasNonParagraphBlock(pasted)) return false;
 
   // Single block of the SAME TYPE as the destination (e.g. <h1> into <h1>):
   // splitting the parent to "preserve" the wrapper would shred the heading
   // into three pieces. PM's default inline merge is what the user wants.
-  if (sliceIsSingleSameTypeAsParent(slice, $from.parent.type.name)) return false;
+  if (sliceIsSingleSameTypeAsParent(pasted, $from.parent.type.name)) return false;
+
+  // Every strategy below inserts whole nodes. A slice whose open sides cannot
+  // be completed is left to PM's paste, which fits an open slice itself.
+  const whole = wholeSliceContent(pasted);
+  if (whole === undefined) return false;
+  const slice = new Slice(whole, 0, 0);
 
   // Strategy 1: list-slice into list ancestor, merge as siblings.
   if (tryPasteListSliceIntoList(view, event, slice)) return true;
@@ -163,6 +171,58 @@ function handleSmartPaste(view: EditorView, event: ClipboardEvent, slice: Slice)
 
   view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
   return true;
+}
+
+/**
+ * The slice's content as whole nodes, or undefined when it cannot be made valid.
+ *
+ * ProseMirror's clipboard parse leaves a slice open where the pasted HTML starts
+ * or ends inside a node, and a node on an open side can lack what its schema
+ * requires there. A web page copy that starts inside a nested list item gives a
+ * list whose first item starts with the nested list and has no label paragraph;
+ * a list in a list leaves an empty list; a copy that ends at the start of an
+ * item leaves an empty item. Inserted as they are, such nodes break the
+ * document, and an extension that then changes one of them, as UniqueID does,
+ * throws and loses the paste. Each node on an open side therefore gets the
+ * content its schema requires before its first child and after its last, as
+ * ProseMirror completes a slice it closes: an empty label paragraph keeps a
+ * nested list at its depth under an empty item. Valid nodes come back as they
+ * were, so a slice that needs nothing is unchanged.
+ */
+function wholeSliceContent(slice: Slice): Fragment | undefined {
+  const content = completeSides(slice.content, slice.openStart, slice.openEnd);
+  if (content === null) return undefined;
+  try {
+    content.forEach((node) => { node.check(); });
+  } catch {
+    return undefined;
+  }
+  return content;
+}
+
+/** `fragment` with its first child completed `openStart` levels down and its last child `openEnd` levels down. */
+function completeSides(fragment: Fragment, openStart: number, openEnd: number): Fragment | null {
+  const last = fragment.childCount - 1;
+  let result = fragment;
+  for (const index of last > 0 ? [0, last] : last === 0 ? [0] : []) {
+    const child = completeNode(result.child(index), index === 0 ? openStart : 0, index === last ? openEnd : 0);
+    if (child === null) return null;
+    if (child !== result.child(index)) result = result.replaceChild(index, child);
+  }
+  return result;
+}
+
+/** `node`, open `openStart` levels at its start and `openEnd` at its end counting itself, with both sides completed. */
+function completeNode(node: PMNode, openStart: number, openEnd: number): PMNode | null {
+  if (node.isLeaf || (openStart <= 0 && openEnd <= 0)) return node;
+  const inner = completeSides(node.content, openStart - 1, openEnd - 1);
+  if (inner === null) return null;
+  const before = node.type.contentMatch.fillBefore(inner);
+  const filled = before?.append(inner);
+  const after = filled && node.type.contentMatch.matchFragment(filled)?.fillBefore(Fragment.empty, true);
+  if (!filled || !after) return null;
+  const content = filled.append(after);
+  return content.eq(node.content) ? node : node.copy(content);
 }
 
 /** True if any top-level slice child is a block other than `paragraph`. */
