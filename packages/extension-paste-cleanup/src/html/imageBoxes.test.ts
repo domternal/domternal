@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import type { Element } from 'hast';
 import { normalizePasteHTML } from './normalize.js';
+import { quietImageBoxes } from './imageBoxes.js';
 import type { NormalizePasteHTMLOptions, PasteDiagnostic } from './types.js';
 
 // The image box below is authored in the shape Google Docs is expected to write around an image: a span
@@ -59,6 +61,13 @@ describe('the box a span draws around exactly one image', () => {
     expect(rotated.offsets).toEqual([html.indexOf('<img')]);
   });
 
+  it.each(both)('drops the box around an image with a zero border attribute, zero padding or a size written with a character reference in %s', formatting => {
+    for (const html of [box(image(PNG, undefined, ' width="320" height="200" border="0"')), box(image(PNG, 'margin:0;padding:0')),
+      box(image(PNG, undefined, ' width="3&#50;0" height="200"'))]) {
+      expect(clean(html, { formatting })).toEqual({ html: `<span><img src="${PNG}" alt="Alt" width="320" height="200"></span>`, warnings: [], offsets: [] });
+    }
+  });
+
   it('keeps an image box quiet when the image is removed over the image limit', () => {
     const result = clean(box(image()) + box(image()), { limits: { maxImages: 1 } });
     expect(result.warnings).toEqual(['image-removed']);
@@ -93,12 +102,31 @@ describe('image boxes that still report a crop, an offset or other layout', () =
     ['a box whose earlier width is important', box(image(), 'border:none;display:inline-block;overflow:hidden;width:100px !important;width:320px;height:200px')],
     ['a box whose last width follows a no-break space', box(image(), 'border:none;display:inline-block;overflow:hidden;width:100px;height:200px;\u00a0width:320px')],
     ['an image whose margin reset is inside a comment', box(image(PNG, 'margin-top:-40px;mso-a:x/*;margin-top:0px;mso-b:*/'))],
+    // Padding and the hspace, vspace and border attributes move the image inside the clip as a margin does.
+    ['an image pushed down by its top padding', box(image(PNG, 'margin-left:0px;margin-top:0px;padding-top:40px'))],
+    ['an image pushed down by a padding shorthand', box(image(PNG, 'padding:40px 0'))],
+    ['an image pushed down by its block padding', box(image(PNG, 'padding-block-start:40px'))],
+    ...[' hspace="40"', ' vspace="40"', ' border="10"'].map((attribute): [string, string] =>
+      [`an image with${attribute}`, box(image(PNG, undefined, ` width="320" height="200"${attribute}`))]),
+    // Browsers read a size attribute up to its first character that is not a digit, where HAST reads these as numbers.
+    ['an image width that browsers read as 1', box(image(PNG, undefined, ' width="1e3" height="200"'),
+      'border:none;display:inline-block;overflow:hidden;width:1000px;height:200px')],
+    ['an image width in hexadecimal', box(image(PNG, undefined, ' width="0x140" height="200"'))],
+    ['an image width with a plus sign, which browsers ignore', box(image(PNG, undefined, ' width="+320" height="200"'))],
   ])('reports %s', (_name, html) => {
     for (const formatting of both) {
       const result = clean(html, { formatting });
       expect(result.warnings).toEqual(['unsupported-formatting']);
       expect(result.offsets).toEqual([0]);
     }
+  });
+
+  it('keeps the box around an image whose attributes the HTML parser did not read', () => {
+    const style = 'border:none;display:inline-block;overflow:hidden;width:320px;height:200px';
+    const span: Element = { type: 'element', tagName: 'span', properties: { style },
+      children: [{ type: 'element', tagName: 'img', properties: { src: PNG, width: 320, height: 200 }, children: [] }] };
+    quietImageBoxes({ type: 'root', children: [span] });
+    expect(span.properties.style).toBe(style);
   });
 
   it('reports both the box and the image when the image moves sideways', () => {

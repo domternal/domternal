@@ -1,4 +1,5 @@
 import type { Element, Root } from 'hast';
+import { imageSourceAttributes } from './parse.js';
 import { plainDeclarations, zeroLength } from './styles.js';
 
 const boxDeclarations = new Set(['border', 'display', 'overflow', 'width', 'height']);
@@ -9,31 +10,35 @@ function declarations(style: unknown): Map<string, string> | undefined {
   return plain && new Map(plain.map(([name, value]) => [name, value.toLowerCase()]));
 }
 
-/** A positive pixel length, from a CSS `px` value or an HTML size attribute. */
-function pixels(value: unknown, css: boolean): number | undefined {
-  const text = String(value);
-  const match = css ? /^(\d{1,5}(?:\.\d{1,3})?)px$/.exec(text) : /^\d{1,5}(?:\.\d{1,3})?$/.exec(text);
-  const size = Number(css ? match?.[1] : match?.[0]);
-  return match !== null && size > 0 ? size : undefined;
+/** A positive pixel length, from a CSS `px` value or the source text of an HTML size attribute. */
+function pixels(value: string | undefined, css: boolean): number | undefined {
+  const match = /^(\d{1,5}(?:\.\d{1,3})?)(px)?$/.exec(value ?? '');
+  const size = Number(match?.[1]);
+  return match !== null && (match[2] !== undefined) === css && size > 0 ? size : undefined;
 }
 
 /**
- * The box is exactly the image's: an inline-block of the image's attribute size that clips nothing,
- * since the image keeps that size and no margin moves it. Its baseline is the image's bottom edge too.
+ * The box is the image's own: an inline-block of the image's attribute size around an image that keeps that
+ * size, with no margin, padding, `hspace`, `vspace` or border attribute moving it inside the clip, and the
+ * image's bottom edge as its baseline too. Only an image shorter than the line's text is clipped there, by the
+ * line's baseline below the box's height; without the box such an image shows whole.
  */
 function drawsOnlyImage(span: Element): boolean {
   const image = span.children[0];
   if (span.children.length !== 1 || image?.type !== 'element' || image.tagName !== 'img') return false;
   const box = declarations(span.properties.style);
   const own = declarations(image.properties.style);
-  if (box === undefined || own === undefined || [...box.keys()].some(name => !boxDeclarations.has(name))) return false;
+  // The parser's reading of the attributes, since HAST reads sizes such as `1e3` or `0x140` as numbers browsers do not.
+  const source = imageSourceAttributes.get(image);
+  if (box === undefined || own === undefined || source === undefined || [...box.keys()].some(name => !boxDeclarations.has(name))) return false;
   if (box.get('display') !== 'inline-block' || box.get('overflow') !== 'hidden' || (box.get('border') ?? 'none') !== 'none') return false;
+  if (source.has('hspace') || source.has('vspace') || !/^0*$/.test(source.get('border') ?? '')) return false;
   for (const side of ['width', 'height'] as const) {
-    const size = pixels(image.properties[side], false);
+    const size = pixels(source.get(side), false);
     const css = own.get(side);
     if (size === undefined || pixels(box.get(side), true) !== size || (css !== undefined && pixels(css, true) !== size)) return false;
   }
-  return [...own].every(([name, value]) => !name.startsWith('margin') || value.split(/\s+/).every(zeroLength));
+  return [...own].every(([name, value]) => !/^(?:margin|padding)/.test(name) || value.split(/\s+/).every(zeroLength));
 }
 
 /**

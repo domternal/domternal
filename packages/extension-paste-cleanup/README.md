@@ -123,8 +123,9 @@ table borders, cell padding and table layout, list indentation on semantic lists
 the level indentation of reconstructed Office list paragraphs, and the style of a
 span that only draws the box of the one image it holds (no border, `inline-block`,
 `overflow: hidden`, exactly the image's width and height in pixels, no image
-offset, and no comment, escape or `!important` in either style), as Google Docs is
-expected to wrap images; that shape is checked against
+margin, padding, `hspace`, `vspace` or border attribute, and no comment, escape or
+`!important` in either style), as Google Docs is expected to wrap images; that
+shape is checked against
 authored HTML, not native captures. Nonzero horizontal indentation outside lists
 and tables, borders outside tables, background shorthands and images, an image
 box that crops, pads or offsets its image, hidden text, the `font` shorthand, letter

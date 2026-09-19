@@ -1,10 +1,13 @@
 import { defaultTreeAdapter, parseFragment } from 'parse5';
 import type { DefaultTreeAdapterTypes as P5, TreeAdapter, DefaultTreeAdapterMap } from 'parse5';
 import { fromParse5 } from 'hast-util-from-parse5';
-import type { Nodes, Root } from 'hast';
+import type { Element, Nodes, Root } from 'hast';
 import type { PasteHTMLLimits } from './types.js';
 
 export class StructureLimitError extends Error {}
+
+/** Each parsed image's attributes as the HTML parser read them, before HAST reads `1e3` as the number 1000. */
+export const imageSourceAttributes = new WeakMap<Element, ReadonlyMap<string, string>>();
 
 /** Reject hostile nesting before the recursive HAST conversion or sanitizer runs. */
 export function parseBoundedHTML(html: string, limits: PasteHTMLLimits): Root {
@@ -58,6 +61,9 @@ export function parseBoundedHTML(html: string, limits: PasteHTMLLimits): Root {
         start: { line: location.startLine, column: location.startCol, offset: location.startOffset },
         end: { line: location.endLine, column: location.endCol, offset: location.endOffset },
       };
+    }
+    if (pair.target.type === 'element' && pair.target.tagName === 'img' && 'attrs' in pair.source) {
+      imageSourceAttributes.set(pair.target, new Map(pair.source.attrs.map(({ name, value }) => [name, value])));
     }
     if ('childNodes' in pair.source && 'children' in pair.target) {
       for (let index = 0; index < pair.source.childNodes.length; index++) {
