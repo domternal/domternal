@@ -316,6 +316,8 @@ test('the Google Docs dry run fixture passes the offline verifier, and its repla
   assert.equal(report.integrity.qualification, false); assert.equal(report.integrity.fileCount, 0);
   assert.deepEqual(report.replay.outcomes.map(outcome => [outcome.formatting, outcome.source, outcome.diagnostics.includes('image-removed')]),
     [['preserve', 'google-docs', true], ['adapt', 'google-docs', true]]);
+  // The removed image is the only loss: the image box around it is routine.
+  assert.deepEqual(report.replay.outcomes.map(outcome => outcome.diagnostics.filter(code => code !== 'formatting-adapted')), [['image-removed'], ['image-removed']]);
   const bundle = JSON.parse(await readFile(join(directory, 'capture.json'), 'utf8'));
   assert.deepEqual(bundle.payload.omittedFormats, ['application/x-vnd.google-docs-document-slice-clip+wrapped']);
   for (const formatting of ['preserve', 'adapt']) {

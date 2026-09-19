@@ -119,10 +119,14 @@ Routine declarations are also dropped without a diagnostic: Office private
 (zero margins and indents, `normal` spacing and font variants, `none` borders,
 backgrounds and shadows, the `windowtext` default text color, which resets an
 inherited color), vertical block spacing, pagination and typesetting controls,
-table borders, cell padding and table layout, list indentation on semantic lists
-and the level indentation of reconstructed Office list paragraphs. Nonzero
-horizontal indentation outside lists and tables, borders outside tables,
-background shorthands and images, hidden text, the `font` shorthand, letter
+table borders, cell padding and table layout, list indentation on semantic lists,
+the level indentation of reconstructed Office list paragraphs, and the style of a
+span that only draws the box of the one image it holds (no border, `inline-block`,
+`overflow: hidden`, exactly the image's width and height in pixels, no image
+offset), as Google Docs is expected to wrap images; that shape is checked against
+authored HTML, not native captures. Nonzero horizontal indentation outside lists
+and tables, borders outside tables, background shorthands and images, an image
+box that crops, pads or offsets its image, hidden text, the `font` shorthand, letter
 spacing, case transforms, small caps and other unsupported declarations still
 report `unsupported-formatting`.
 

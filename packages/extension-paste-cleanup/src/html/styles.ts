@@ -47,7 +47,7 @@ const neutralValues: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** A length whose magnitude cannot change layout, such as `0`, `0cm` or Word's `.0001pt`. */
-function zeroLength(value: string): boolean {
+export function zeroLength(value: string): boolean {
   const match = /^[+-]?(\d{0,6}(?:\.\d{0,6})?)(?:[a-z]{1,4}|%)?$/.exec(value);
   const magnitude = match?.[1];
   return magnitude !== undefined && /\d/.test(magnitude) && Number(magnitude) < 0.01;

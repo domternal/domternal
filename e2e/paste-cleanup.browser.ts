@@ -450,6 +450,33 @@ for (const framework of FRAMEWORKS) {
   });
 }
 
+// The span Google Docs is expected to wrap around an image, authored and not a native capture: the
+// Google Docs captures confirm or correct this shape.
+const googleImageBox = (width: number): string => '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-00000000-7fff-4000-8000-000000000006">'
+  + '<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;'
+  + 'background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;'
+  + `white-space:pre-wrap;"><span style="border:none;display:inline-block;overflow:hidden;width:${String(width)}px;height:200px;">`
+  + `<img src="${PNG_URL}" width="320" height="200" alt="Box" style="margin-left:0px;margin-top:0px;" /></span></span></p></b>`;
+
+test('vanilla: a Google Docs image box pastes its image quietly, and a box that crops it shows the notice', async ({ page }) => {
+  await openFixture(page, 'vanilla', { formatting: 'adapt' });
+  await seed(page, '<p></p>');
+  await syntheticPaste(page, { text: '', html: googleImageBox(320) });
+  await expect(page.locator('.ProseMirror img')).toHaveCount(1);
+  let observed = await observations(page);
+  expect(observed.results.at(-1)?.diagnostics.filter(diagnostic => diagnostic.severity !== 'info')).toEqual([]);
+  expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
+  await expect(page.locator('.dm-paste-feedback')).toBeHidden();
+
+  await seed(page, '<p></p>');
+  await syntheticPaste(page, { text: '', html: googleImageBox(300) });
+  await expect(page.locator('.ProseMirror img')).toHaveCount(1);
+  observed = await observations(page);
+  expect(observed.results.at(-1)?.diagnostics.filter(diagnostic => diagnostic.severity !== 'info').map(diagnostic => diagnostic.code))
+    .toEqual(['unsupported-formatting']);
+  await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toContainText('Review the pasted content.');
+});
+
 clipboardTest('Chromium native clipboard keeps an own editor copy through adapt cleanup', async ({ page, context, browserName }) => {
   clipboardTest.skip(browserName !== 'chromium', 'Native clipboard permissions are exercised in Chromium.');
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE_URL });

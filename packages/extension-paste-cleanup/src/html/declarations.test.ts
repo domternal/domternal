@@ -4,6 +4,9 @@ import { normalizePasteHTML } from './index.js';
 import type { PasteDiagnostic } from './types.js';
 
 // Authored approximations of Office and Google Docs clipboard declarations, not native captures.
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+const imageBox = (box: string, image: string): string =>
+  `<p><span style="border:none;display:inline-block;overflow:hidden;${box}"><img src="${PNG}" width="200" height="100" alt="Text" style="${image}"></span></p>`;
 const warnings = (diagnostics: readonly PasteDiagnostic[]): PasteDiagnostic[] => diagnostics.filter(diagnostic => diagnostic.severity !== 'info');
 
 describe('routine source declarations', () => {
@@ -83,6 +86,8 @@ describe('routine source declarations', () => {
     ['a case transform', '<p><span style="text-transform:uppercase">Text</span></p>'],
     ['small caps', '<p><span style="font-variant:small-caps">Text</span></p>'],
     ['positioning', '<p style="position:fixed">Text</p>'],
+    ['an image box that crops its image', imageBox('width:100px;height:50px', 'margin-left:0px;margin-top:0px')],
+    ['an image moved up inside its box', imageBox('width:200px;height:100px', 'margin-left:0px;margin-top:-20px')],
   ])('keeps warning about %s', (_name, html) => {
     for (const formatting of ['preserve', 'adapt'] as const) {
       const result = normalizePasteHTML(html, { formatting });
