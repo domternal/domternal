@@ -72,12 +72,16 @@ generated; a bundle that holds anything else must be deleted, not edited.
    `http://127.0.0.1:5896` in the browser being captured, the same browser that
    shows the Google document.
 2. Fill the form. OS: the output of `sw_vers`. Application: "Google Docs web",
-   the capture date, the account type and the page format. Browser: the full
-   version from chrome://version, Safari > About Safari or Firefox > About
-   Firefox. Fixture identifier: `<scenario>-<browser>`, for example
-   `gdocs-default-bullets-chrome`. Fixture hash: the export hash. Scenario: the
-   Google Docs group. Copy method: the scenario's selection, the copy command and
-   "exported with File > Download > .docx". Then confirm and enable the area.
+   the capture date, the account type and the page format. Browser: only the
+   version with its build, from the first line of chrome://version, Safari >
+   About Safari or Firefox > About Firefox. Fixture identifier:
+   `<scenario>-<browser>`, for example `gdocs-default-bullets-chrome`; a
+   scenario copied more than once adds what differs, for example
+   `gdocs-slow-copy-chrome-wait-15s` or `gdocs-large-document-safari-25-percent`,
+   so every bundle gets its own fixture directory. Fixture hash: the export
+   hash. Scenario: the scenario from the Google Docs group. Copy method: the
+   scenario's selection, the copy command and "exported with File > Download >
+   .docx". Then confirm and enable the area.
 3. For `gdocs-large-image`, `gdocs-slow-copy`, `gdocs-image-limit-51` and
    `gdocs-large-document`, first run the flavor size snippet of the
    [README](./README.md#per-capture) in the capture page's console.
@@ -101,13 +105,15 @@ generated; a bundle that holds anything else must be deleted, not edited.
    counts its images by URL scheme without printing an address. Problems are
    findings to record; never edit a capture.
 7. Put the export as `source.docx` and the bundle as `capture.json` into
-   `e2e/native-office-capture/fixtures/<scenario>-<browser>/` and run
-   `node e2e/native-office-capture/prepare-fixture.mjs <that directory> --id <scenario>-<browser> --source source.docx`.
+   `e2e/native-office-capture/fixtures/<fixture identifier>/` and run
+   `node e2e/native-office-capture/prepare-fixture.mjs <that directory> --id <fixture identifier> --source source.docx`.
    Commit nothing before the privacy review of the source and the bundle.
 
 ## Browser notes
 
-- Chrome: record the version line of chrome://version, including the build.
+- Chrome: record only the first line of chrome://version, including the build.
+  The rest of the page shows the profile and executable paths, which name the
+  macOS account.
 - Safari: Safari can rewrite HTML pasted from another site; capture what
   arrives. If it asks to allow a paste, allow it and say so in the copy method.
 - Firefox: record which formats the capture lists; Firefox can expose fewer
