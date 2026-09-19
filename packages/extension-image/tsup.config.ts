@@ -1,18 +1,20 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: { index: 'src/index.ts', 'locales/de': 'src/locales/de.ts' },
   format: ['esm', 'cjs'],
   target: 'es2022',
   dts: {
     compilerOptions: {
       composite: false,
+      paths: { '@domternal/extension-image': ['./src/index.ts'] },
     },
   },
   sourcemap: true,
   splitting: false,
   treeshake: true,
   external: [
+    '@domternal/extension-image',
     '@domternal/core',
     '@domternal/pm/model',
     '@domternal/pm/state',

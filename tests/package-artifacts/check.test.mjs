@@ -82,6 +82,23 @@ test('the shipped policy compiles for every package it describes', () => {
   assert.ok(policy.size >= 17, `expected every package to be described, got ${String(policy.size)}`);
 });
 
+test('German locale artifacts are allowed without permitting unrelated locale or scratch files', () => {
+  const policy = loadPolicy();
+  const owners = ['core', 'extension-block-controls', 'extension-details', 'extension-emoji',
+    'extension-image', 'extension-math', 'extension-mention', 'extension-table', 'extension-toc'];
+  for (const owner of owners) {
+    const name = `@domternal/${owner}`;
+    const entry = policy.get(name);
+    const patterns = compilePolicy(name, entry);
+    const localeFiles = ['js', 'cjs', 'js.map', 'cjs.map', 'd.ts', 'd.cts']
+      .map((suffix) => `dist/locales/de.${suffix}`);
+    assert.deepEqual(fileFailures([...entry.requiredFiles, ...localeFiles], entry, patterns), [], name);
+    for (const path of ['dist/locales/fr.js', 'dist/locales/de.test.js', 'dist/locales/.env', 'dist/locales/de.json']) {
+      assert.ok(fileFailures([...entry.requiredFiles, path], entry, patterns).length > 0, `${name}: ${path}`);
+    }
+  }
+});
+
 test('a missing required file and a file nothing allows are both named', () => {
   const entry = { requiredFiles: ['LICENSE', 'package.json'], allowedPatterns: ['^dist/index\\.js$'] };
   const patterns = entry.allowedPatterns.map((pattern) => new RegExp(pattern));

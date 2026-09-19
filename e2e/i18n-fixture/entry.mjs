@@ -1,4 +1,5 @@
 import { Bold, Italic, Placeholder, Extension } from '@domternal/core';
+import { deMessages, deSearchAliases } from '@domternal/core/locales/de';
 import { undoDepth, redoDepth } from '@domternal/pm/history';
 
 const framework = new URLSearchParams(location.search).get('framework') ?? 'vanilla';
@@ -74,6 +75,9 @@ const probe = window.__i18nOwnership = {
   finishUpload: () => { if (!pendingUpload) throw new Error('No upload is pending.'); pendingUpload(uploadedSource); },
   uploadedSource,
   replace: settings => replace(settings),
+  replaceGerman: (overrides = {}) => replace({
+    locale: 'de', messages: { ...deMessages, ...overrides }, searchAliases: deSearchAliases,
+  }),
   rerender: () => rerender(),
   imperative: settings => editor.i18n.set(settings),
   unmount: () => unmount(),

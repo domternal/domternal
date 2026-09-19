@@ -19,7 +19,12 @@
     "production code, declarations and deliberate source maps. Measured packed",
     "bytes: core 800641, image 66930, math 36005, mention 47305, table 128044,",
     "toc 96777. Their ceilings now follow the documented ten percent headroom",
-    "rounded up to 1000 bytes. File allowlists and export checks are unchanged."
+    "rounded up to 1000 bytes. File allowlists and export checks are unchanged.",
+    "2026-09-20: optional German subpaths add their own runtime files, declarations",
+    "and source maps. Final packed measurements: details 43411, math 40211 bytes.",
+    "Their ceilings retain ten percent headroom rounded up to 1000 bytes.",
+    "Existing English main JS bundles are byte-identical; locale allowlists name",
+    "only de.js/de.cjs, their maps and their ESM/CommonJS declaration files."
   ],
   "@domternal/angular": {
     "maxPackedBytes": 77000,
@@ -33,12 +38,22 @@
   "@domternal/core": {
     "maxPackedBytes": 881000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": [
+      "^dist/index\\.(js|cjs)(\\.map)?$",
+      "^dist/index\\.d\\.(ts|cts)$",
+      "^dist/locales/de\\.(js|cjs)(\\.map)?$",
+      "^dist/locales/de\\.d\\.(ts|cts)$"
+    ]
   },
   "@domternal/extension-block-controls": {
     "maxPackedBytes": 297000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": [
+      "^dist/index\\.(js|cjs)(\\.map)?$",
+      "^dist/index\\.d\\.(ts|cts)$",
+      "^dist/locales/de\\.(js|cjs)(\\.map)?$",
+      "^dist/locales/de\\.d\\.(ts|cts)$"
+    ]
   },
   "@domternal/extension-code-block-lowlight": {
     "maxPackedBytes": 14000,
@@ -46,19 +61,34 @@
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-details": {
-    "maxPackedBytes": 39000,
+    "maxPackedBytes": 48000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": [
+      "^dist/index\\.(js|cjs)(\\.map)?$",
+      "^dist/index\\.d\\.(ts|cts)$",
+      "^dist/locales/de\\.(js|cjs)(\\.map)?$",
+      "^dist/locales/de\\.d\\.(ts|cts)$"
+    ]
   },
   "@domternal/extension-emoji": {
     "maxPackedBytes": 110000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": [
+      "^dist/index\\.(js|cjs)(\\.map)?$",
+      "^dist/index\\.d\\.(ts|cts)$",
+      "^dist/locales/de\\.(js|cjs)(\\.map)?$",
+      "^dist/locales/de\\.d\\.(ts|cts)$"
+    ]
   },
   "@domternal/extension-image": {
     "maxPackedBytes": 74000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": [
+      "^dist/index\\.(js|cjs)(\\.map)?$",
+      "^dist/index\\.d\\.(ts|cts)$",
+      "^dist/locales/de\\.(js|cjs)(\\.map)?$",
+      "^dist/locales/de\\.d\\.(ts|cts)$"
+    ]
   },
   "@domternal/extension-markdown": {
     "maxPackedBytes": 85000,
@@ -66,24 +96,44 @@
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-math": {
-    "maxPackedBytes": 40000,
+    "maxPackedBytes": 45000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": [
+      "^dist/index\\.(js|cjs)(\\.map)?$",
+      "^dist/index\\.d\\.(ts|cts)$",
+      "^dist/locales/de\\.(js|cjs)(\\.map)?$",
+      "^dist/locales/de\\.d\\.(ts|cts)$"
+    ]
   },
   "@domternal/extension-mention": {
     "maxPackedBytes": 53000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": [
+      "^dist/index\\.(js|cjs)(\\.map)?$",
+      "^dist/index\\.d\\.(ts|cts)$",
+      "^dist/locales/de\\.(js|cjs)(\\.map)?$",
+      "^dist/locales/de\\.d\\.(ts|cts)$"
+    ]
   },
   "@domternal/extension-table": {
     "maxPackedBytes": 141000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": [
+      "^dist/index\\.(js|cjs)(\\.map)?$",
+      "^dist/index\\.d\\.(ts|cts)$",
+      "^dist/locales/de\\.(js|cjs)(\\.map)?$",
+      "^dist/locales/de\\.d\\.(ts|cts)$"
+    ]
   },
   "@domternal/extension-toc": {
     "maxPackedBytes": 107000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": [
+      "^dist/index\\.(js|cjs)(\\.map)?$",
+      "^dist/index\\.d\\.(ts|cts)$",
+      "^dist/locales/de\\.(js|cjs)(\\.map)?$",
+      "^dist/locales/de\\.d\\.(ts|cts)$"
+    ]
   },
   "@domternal/pm": {
     "maxPackedBytes": 6000,

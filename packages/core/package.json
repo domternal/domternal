@@ -23,6 +23,17 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./locales/de": {
+      "@domternal/source": "./src/locales/de.ts",
+      "import": {
+        "types": "./dist/locales/de.d.ts",
+        "default": "./dist/locales/de.js"
+      },
+      "require": {
+        "types": "./dist/locales/de.d.cts",
+        "default": "./dist/locales/de.cjs"
+      }
     }
   },
   "files": [

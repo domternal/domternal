@@ -105,6 +105,20 @@ if (tscCjs.status !== 0) {
 }
 log('CommonJS pass OK');
 
+log('complete German locale subpaths without editor runtime dependencies');
+const germanLocales = spawnSync('node', [join(here, 'german-locales-check.mjs')], {
+  cwd: here,
+  stdio: 'inherit',
+});
+if (germanLocales.status !== 0) process.exit(germanLocales.status ?? 1);
+
+log('each German locale registers its own messages in isolated ESM and CommonJS type programs');
+const germanLocaleTypes = spawnSync('node', [join(here, 'german-locale-types-check.mjs')], {
+  cwd: here,
+  stdio: 'inherit',
+});
+if (germanLocaleTypes.status !== 0) process.exit(germanLocaleTypes.status ?? 1);
+
 log('tutorial storage examples against built dists (ESM and CommonJS)');
 const tutorialStorage = spawnSync(tscBin, ['--noEmit', '--project', 'tsconfig.tutorial-storage.json'], {
   cwd: here,

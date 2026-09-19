@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { Editor, I18nOptions } from '@domternal/core';
+import type { Editor, I18nOptions, Messages } from '@domternal/core';
 import { test } from './fixtures.js';
 
 interface OwnershipWindow {
@@ -7,6 +7,7 @@ interface OwnershipWindow {
     ready: boolean;
     editor: Editor;
     replace: (settings: I18nOptions | undefined) => void;
+    replaceGerman: (overrides?: Messages) => void;
     imperative: (settings: I18nOptions) => void;
     rerender: () => void;
     prepare: () => void;
@@ -61,6 +62,35 @@ async function rerender(page: Page, framework: string): Promise<void> {
 }
 
 for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
+  test(`${framework}: the shipped German catalog supports live overrides and resetting to English`, async ({ page }) => {
+    await openFixture(page, framework);
+    const document = page.locator('.ProseMirror');
+    await document.click();
+    await page.keyboard.type('Original English draft');
+    await page.evaluate(() => { (window as unknown as OwnershipWindow).__i18nOwnership.prepare(); });
+    await page.evaluate(() => { (window as unknown as OwnershipWindow).__i18nOwnership.replaceGerman(); });
+    const formatting = page.getByRole('group', { name: 'Formatierung', exact: true });
+    await expect(formatting.getByRole('button', { name: 'Fett', exact: true })).toHaveAttribute('lang', 'de');
+    await expect(formatting.getByRole('button', { name: 'Kursiv', exact: true })).toBeVisible();
+    await expect(document).toHaveAttribute('aria-label', 'Rich-Text-Editor');
+    await expect(page.locator('.dm-toolbar')).toHaveAttribute('aria-label', 'Editorformatierung');
+    await expect(document).toBeFocused();
+    await expectPreserved(page);
+    await rerender(page, framework);
+    await expect(formatting.getByRole('button', { name: 'Fett', exact: true })).toBeVisible();
+    await expectPreserved(page);
+    await page.evaluate(() => {
+      (window as unknown as OwnershipWindow).__i18nOwnership.replaceGerman({ 'core.toolbar.bold': 'Fettdruck' });
+    });
+    await expect(formatting.getByRole('button', { name: 'Fettdruck', exact: true })).toBeVisible();
+    await expect(formatting.getByRole('button', { name: 'Kursiv', exact: true })).toBeVisible();
+    await expectPreserved(page);
+    await replace(page, {});
+    await expect(page.getByRole('group', { name: 'format', exact: true }).getByRole('button', { name: 'Bold', exact: true })).toBeVisible();
+    await expect(document).toHaveText('Original English draft');
+    await expectPreserved(page);
+  });
+
   test(`${framework}: caller labels with unknown language do not inherit translated toolbar language`, async ({ page }) => {
     await openFixture(page, framework);
     await expect(page.locator('.dm-toolbar')).toHaveAttribute('lang', 'en');
