@@ -123,7 +123,8 @@ table borders, cell padding and table layout, list indentation on semantic lists
 the level indentation of reconstructed Office list paragraphs, and the style of a
 span that only draws the box of the one image it holds (no border, `inline-block`,
 `overflow: hidden`, exactly the image's width and height in pixels, no image
-offset), as Google Docs is expected to wrap images; that shape is checked against
+offset, and no comment, escape or `!important` in either style), as Google Docs is
+expected to wrap images; that shape is checked against
 authored HTML, not native captures. Nonzero horizontal indentation outside lists
 and tables, borders outside tables, background shorthands and images, an image
 box that crops, pads or offsets its image, hidden text, the `font` shorthand, letter
@@ -413,8 +414,10 @@ Both formatting modes retain supported list marker classes. Ordered lists suppor
 support `disc`, `circle` and `square`. Only these kind-specific `list-style-type`
 values and supported HTML `type` attributes are accepted. A `list-style-type`
 declared on list items moves to their list when every direct item agrees, an item
-without one counting as its list's marker; items that disagree or declare a marker
-their list kind cannot hold still report `unsupported-formatting`. This covers the
+without one counting as its list's marker; items that disagree, declare a marker
+their list kind cannot hold, or carry a style that CSS may read otherwise than a
+split on semicolons (a comment, an escape, `!important`, or a string or bracket
+holding a semicolon) still report `unsupported-formatting`. This covers the
 shape expected from Google Docs, which writes the marker on each item; it is checked
 against authored HTML, not native captures. Core stores an explicit
 marker in `listStyleType`; `null` keeps the destination theme's depth-based defaults.

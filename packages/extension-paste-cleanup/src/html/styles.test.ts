@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { readSafeStyles } from './styles.js';
+import { plainDeclarations, readSafeStyles } from './styles.js';
 import { normalizePasteHTML } from './index.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './index.js';
 import { normalizeClipboardHTML } from './normalize.js';
@@ -55,5 +55,34 @@ describe('safe CSS rule lookup through metadata colors and image placement', () 
     expect(result.status).toBe('cleaned');
     expect(result.html).toBe('<p><img style="float:left" src="https://example.com/a.png"></p>');
     expect(result.diagnostics).toEqual([expect.objectContaining({ code: 'unsupported-formatting', severity: 'warning' })]);
+  });
+});
+
+describe('plain declarations', () => {
+  it('reads lowercased names and values trimmed of CSS white space only', () => {
+    expect(plainDeclarations(' Color : Red ;\t;\nLIST-STYLE-TYPE:\fdisc\r')).toEqual([['color', 'Red'], ['list-style-type', 'disc']]);
+    // CSS does not treat a no-break space as white space, so it stays part of the name or value.
+    expect(plainDeclarations('\u00a0width:1px;height:\u00a02px')).toEqual([['\u00a0width', '1px'], ['height', '\u00a02px']]);
+    expect(plainDeclarations(undefined)).toEqual([]);
+  });
+
+  it('reads strings and brackets that hold no semicolon', () => {
+    expect(plainDeclarations(`font-family:'Times New Roman',"Arial";transform:rotate(0.00rad) translateZ(calc(1px + 2px));grid-area:[a]`))
+      .toEqual([['font-family', `'Times New Roman',"Arial"`], ['transform', 'rotate(0.00rad) translateZ(calc(1px + 2px))'], ['grid-area', '[a]']]);
+  });
+
+  it.each([
+    ['a comment', 'a:b/*;c:d*/'],
+    ['an escape', 'a:\\;b:c'],
+    ['an important declaration, which outranks a later one', 'a:b !important;a:c'],
+    ['a string holding a semicolon', 'a:"b;c"'],
+    ['a string holding a line break', "a:'b\nc'"],
+    ['an unclosed string', 'a:"b'],
+    ['a bracket holding a semicolon', 'a:f(b;c:d)'],
+    ['mismatched brackets', 'a:(];b:c)'],
+    ['a closing bracket without its opening one', 'a:b)'],
+    ['a declaration without a colon', 'a:b;c'],
+  ])('refuses %s', (_name, style) => {
+    expect(plainDeclarations(style)).toBeUndefined();
   });
 });

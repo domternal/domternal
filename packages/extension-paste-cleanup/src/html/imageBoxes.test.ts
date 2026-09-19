@@ -87,6 +87,12 @@ describe('image boxes that still report a crop, an offset or other layout', () =
     ['a box with text beside its image', box(`${image()}Caption`)],
     ['a box with white space beside its image', box(` ${image()}`)],
     ['a box with a declaration without a value', box(image(), 'border:none;display:inline-block;overflow:hidden;width:320px;height:200px;clip')],
+    // CSS reads each of these styles otherwise than a split on semicolons: an important declaration outranks a later one,
+    // a no-break space is part of the name, and a comment hides the semicolons it holds.
+    ['an image moved up by an earlier important margin', box(image(PNG, 'margin-top:-40px !important;margin-top:0px'))],
+    ['a box whose earlier width is important', box(image(), 'border:none;display:inline-block;overflow:hidden;width:100px !important;width:320px;height:200px')],
+    ['a box whose last width follows a no-break space', box(image(), 'border:none;display:inline-block;overflow:hidden;width:100px;height:200px;\u00a0width:320px')],
+    ['an image whose margin reset is inside a comment', box(image(PNG, 'margin-top:-40px;mso-a:x/*;margin-top:0px;mso-b:*/'))],
   ])('reports %s', (_name, html) => {
     for (const formatting of both) {
       const result = clean(html, { formatting });

@@ -152,6 +152,18 @@ describe('list item markers that stay a reported loss', () => {
     ['task items', '<ul data-type="taskList"><li data-type="taskItem" data-checked="false" style="list-style-type:disc"><p>A</p></li>'
       + '<li data-type="taskItem" data-checked="true" style="list-style-type:disc"><p>B</p></li></ul>',
     '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>A</p></li><li data-type="taskItem" data-checked="true"><p>B</p></li></ul>', 2],
+    // CSS reads each of these styles otherwise than a split on semicolons: an important declaration outranks a later one, a
+    // no-break space is part of the name, and a comment, escape, string or bracket hides the semicolons it holds.
+    ['an earlier item marker marked important', '<ul><li style="list-style-type:square !important;list-style-type:disc"><p>A</p></li>'
+      + '<li style="list-style-type:disc"><p>B</p></li></ul>', '<ul><li><p>A</p></li><li><p>B</p></li></ul>', 2],
+    ['an earlier list marker marked important that an unstyled item takes', '<ul style="list-style-type:circle !important;list-style-type:disc">'
+      + '<li style="list-style-type:disc"><p>A</p></li><li><p>B</p></li></ul>', '<ul style="list-style-type:disc"><li><p>A</p></li><li><p>B</p></li></ul>', 2],
+    ['a marker name after a no-break space', '<ul><li style="\u00a0list-style-type:circle"><p>A</p></li><li style="\u00a0list-style-type:circle"><p>B</p></li></ul>',
+      '<ul><li><p>A</p></li><li><p>B</p></li></ul>', 2],
+    ...[['a comment', 'mso-a:x/*;list-style-type:lower-roman;mso-b:*/'], ['an escaped semicolon', 'list-style-type:decimal;mso-a:\\;list-style-type:lower-roman'],
+      ['a string', 'mso-a:"x;list-style-type:lower-roman;mso-b:"'], ['a bracket', 'mso-a:f(x;list-style-type:lower-roman;mso-b:)'],
+      ['mismatched brackets', 'mso-a:(];list-style-type:lower-roman;mso-b:)']].map(([name, style]): [string, string, string, number] => [`a marker hidden by ${String(name)}`,
+      `<ol><li style='${String(style)}'><p>A</p></li><li style='${String(style)}'><p>B</p></li></ol>`, '<ol><li><p>A</p></li><li><p>B</p></li></ol>', 2]),
   ])('reports %s', (_name, html, expected, count) => {
     for (const formatting of both) {
       expect(clean(html, { formatting })).toEqual({ html: expected, warnings: Array<string>(count).fill('unsupported-formatting'), truncated: false });
@@ -207,11 +219,18 @@ describe('hoistListItemMarkers', () => {
     for (const html of ['<ul style="list-style-type:square"><li style="color:red">A</li></ul>', '<ul><li style="list-style-type:disc">A</li><li>B</li></ul>',
       '<ul style="list-style-type:disc"><li style="list-style-type:disc">A</li><li style="list-style-type:circle">B</li></ul>', '<ol type="x"><li style="list-style-type:decimal">A</li><li>B</li></ol>',
       '<ul data-type="taskList"><li style="list-style-type:disc">A</li></ul>', '<ol data-type="taskList"><li style="list-style-type:decimal">A</li></ol>', '<ul></ul>',
-      '<ul><li style="list-style-typedisc">A</li></ul>']) {
+      '<ul><li style="list-style-typedisc">A</li></ul>', '<ul><li style="color:red !important;list-style-type:disc">A</li></ul>',
+      '<ul style="margin:0 !important"><li style="list-style-type:disc">A</li></ul>']) {
       const tree = parse(html);
       hoistListItemMarkers(tree);
       expect(toHtml(tree)).toBe(html);
     }
+  });
+
+  it('reads quoted font names and bracketed values that hold no semicolon', () => {
+    const tree = parse(`<ul><li style="font-family:'Times New Roman',serif;color:rgb(0, 0, 0);list-style-type:circle">A</li></ul>`);
+    hoistListItemMarkers(tree);
+    expect(toHtml(tree)).toBe('<ul style="list-style-type:circle"><li style="font-family:&#x27;Times New Roman&#x27;,serif;color:rgb(0, 0, 0)">A</li></ul>');
   });
 
   it('writes the marker once per list, so the style text grows by one separator at most', () => {

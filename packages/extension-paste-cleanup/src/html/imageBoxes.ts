@@ -1,18 +1,12 @@
 import type { Element, Root } from 'hast';
-import { zeroLength } from './styles.js';
+import { plainDeclarations, zeroLength } from './styles.js';
 
 const boxDeclarations = new Set(['border', 'display', 'overflow', 'width', 'height']);
 
-/** Lowercased declarations, the last of a name winning; undefined when one has no value. */
+/** Lowercased declarations, the last of a name winning; undefined for a style CSS may read otherwise. */
 function declarations(style: unknown): Map<string, string> | undefined {
-  const result = new Map<string, string>();
-  for (const declaration of typeof style === 'string' ? style.split(';') : []) {
-    if (declaration.trim() === '') continue;
-    const separator = declaration.indexOf(':');
-    if (separator < 0) return undefined;
-    result.set(declaration.slice(0, separator).trim().toLowerCase(), declaration.slice(separator + 1).trim().toLowerCase());
-  }
-  return result;
+  const plain = plainDeclarations(style);
+  return plain && new Map(plain.map(([name, value]) => [name, value.toLowerCase()]));
 }
 
 /** A positive pixel length, from a CSS `px` value or an HTML size attribute. */

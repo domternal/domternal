@@ -53,6 +53,43 @@ export function zeroLength(value: string): boolean {
   return magnitude !== undefined && /\d/.test(magnitude) && Number(magnitude) < 0.01;
 }
 
+const cssSpace = /^[\t\n\f\r ]+|[\t\n\f\r ]+$/g;
+
+/** Whether every bracket of a text closes, in order, so no semicolon inside one is read as a separator. */
+function closedBrackets(text: string): boolean {
+  const closing: string[] = [];
+  for (const char of text) {
+    const open = '([{'.indexOf(char);
+    if (open >= 0) closing.push(')]}'.charAt(open));
+    else if (')]}'.includes(char) && closing.pop() !== char) return false;
+  }
+  return closing.length === 0;
+}
+
+/**
+ * The declarations of a style attribute in order, names lowercased and both sides trimmed of CSS white space
+ * only, so a name after a no-break space stays as unknown as CSS finds it. Undefined when CSS may read the text
+ * otherwise than a split on semicolons, or a later declaration may not win: a comment, an escape, `!important`,
+ * a string or bracket that is unclosed or holds a semicolon, or a declaration without a colon.
+ */
+export function plainDeclarations(style: unknown): [string, string][] | undefined {
+  if (typeof style !== 'string') return [];
+  // A string without a semicolon or line break cannot move a separator, so only its quotes are checked.
+  const bare = style.replace(/"[^"\n\r\f;]*"|'[^'\n\r\f;]*'/g, '');
+  if (/\/\*|[\\!]/.test(style) || /["']/.test(bare)) return undefined;
+  const texts = style.split(';');
+  const declarations: [string, string][] = [];
+  for (const [index, part] of bare.split(';').entries()) {
+    const text = texts[index] ?? '';
+    if (!closedBrackets(part)) return undefined;
+    if (text.replace(cssSpace, '') === '') continue;
+    const separator = text.indexOf(':');
+    if (separator < 0) return undefined;
+    declarations.push([text.slice(0, separator).replace(cssSpace, '').toLowerCase(), text.slice(separator + 1).replace(cssSpace, '')]);
+  }
+  return declarations;
+}
+
 /** Box spacing: vertical space is destination layout, horizontal space is indentation unless it is zero. */
 function routineBox(name: string, value: string, tag: string): boolean | undefined {
   const box = /^(?:margin|padding)(?:-(top|bottom|left|right|block|inline)(?:-(?:start|end))?)?$/.exec(name);
