@@ -76,6 +76,7 @@
     }
   },
   "devDependencies": {
+    "@domternal/tests-clipboard-slices": "workspace:*",
     "@types/node": "^22.20.1",
     "jsdom": "^28.1.0",
     "linkedom": "^0.18.0",

@@ -1,0 +1,11 @@
+{
+  // Editor and ESLint project discovery only. Packages compile the helper as part of their own
+  // tests, through the workspace dependency, so nothing here is built or emitted.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "lib": ["es2022", "dom"]
+  },
+  "include": ["src/**/*"]
+}

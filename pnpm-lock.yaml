@@ -621,6 +621,9 @@ importers:
         specifier: ^4.3.2
         version: 4.3.2
     devDependencies:
+      '@domternal/tests-clipboard-slices':
+        specifier: workspace:*
+        version: link:../../tests/clipboard-slices
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1
@@ -1029,6 +1032,12 @@ importers:
       vue:
         specifier: ^3.5.41
         version: 3.5.41(typescript@5.9.3)
+
+  tests/clipboard-slices:
+    dependencies:
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../../packages/pm
 
   tests/consumer-types:
     dependencies:

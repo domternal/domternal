@@ -1,0 +1,13 @@
+{
+  "name": "@domternal/tests-clipboard-slices",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Test helper: clipboard data as a paste hands it to an editor, so paste handler tests see the open slices ProseMirror's clipboard parse makes instead of closed ones built by hand.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@domternal/pm": "workspace:*"
+  }
+}
