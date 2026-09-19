@@ -288,6 +288,16 @@ Inline content before the first block is left as written and still joins the
 paragraph at the caret. Without PasteCleanup, ProseMirror's parse still drops
 that space.
 
+Table parts that start the pasted HTML without a table around them, such as
+bare rows, bare cells, or rows after a caption or column group, are parsed
+again as a table's content and put in a table, as a browser and ProseMirror's
+own clipboard parse read them. Their cells stay cells instead of running
+together, and they paste the table they paste without PasteCleanup, into a
+paragraph or cell by cell into a table. The table counts toward
+`maxTableCells`, `maxNodes` and `maxDepth`. Content after the parts, such as a
+paragraph, stays after the table, where ProseMirror's parse alone drops it.
+Table parts after other content are left as the HTML parser reads them.
+
 The editor integration checks requested built-in destination capabilities using
 small constant probes against the actual schema parser. It checks semantic marks,
 requested heading levels, retained text styles, paragraph alignment/line spacing,

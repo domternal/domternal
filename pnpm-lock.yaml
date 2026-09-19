@@ -855,6 +855,9 @@ importers:
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
+      '@domternal/tests-clipboard-slices':
+        specifier: workspace:*
+        version: link:../../tests/clipboard-slices
       '@types/hast':
         specifier: ^3.0.4
         version: 3.0.5

@@ -1,4 +1,4 @@
-import { defaultTreeAdapter, parseFragment } from 'parse5';
+import { defaultTreeAdapter, html as parse5HTML, parseFragment } from 'parse5';
 import type { DefaultTreeAdapterTypes as P5, TreeAdapter, DefaultTreeAdapterMap } from 'parse5';
 import { fromParse5 } from 'hast-util-from-parse5';
 import type { Element, Nodes, Root } from 'hast';
@@ -9,8 +9,11 @@ export class StructureLimitError extends Error {}
 /** Each parsed image's attributes as the HTML parser read them, before HAST reads `1e3` as the number 1000. */
 export const imageSourceAttributes = new WeakMap<Element, ReadonlyMap<string, string>>();
 
-/** Reject hostile nesting before the recursive HAST conversion or sanitizer runs. */
-export function parseBoundedHTML(html: string, limits: PasteHTMLLimits): Root {
+/**
+ * Reject hostile nesting before the recursive HAST conversion or sanitizer runs. A `table` context
+ * parses the HTML as a table's content, as a browser parses bare rows or cells inside a table.
+ */
+export function parseBoundedHTML(html: string, limits: PasteHTMLLimits, context?: 'table'): Root {
   let allocations = 0;
   const allocate = (): void => {
     if (++allocations > limits.maxNodes) throw new StructureLimitError();
@@ -36,7 +39,9 @@ export function parseBoundedHTML(html: string, limits: PasteHTMLLimits): Root {
       checkParent(parent); defaultTreeAdapter.insertBefore(parent, child, reference);
     },
   };
-  const tree = parseFragment(html, { treeAdapter: adapter, sourceCodeLocationInfo: true });
+  const options = { treeAdapter: adapter, sourceCodeLocationInfo: true };
+  const tree = context === undefined ? parseFragment(html, options)
+    : parseFragment(adapter.createElement(context, parse5HTML.NS.HTML, []), html, options);
   const queue: { node: P5.Node; depth: number }[] = [{ node: tree, depth: 0 }];
   while (queue.length > 0) {
     const entry = queue.pop();

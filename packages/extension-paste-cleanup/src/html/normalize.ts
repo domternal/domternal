@@ -25,6 +25,7 @@ import { quietImageBoxes } from './imageBoxes.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
 import { envelopeTags, transparentOfficeWrapper } from './envelope.js';
 import { wrapLooseInlineRuns } from './looseInline.js';
+import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -154,7 +155,9 @@ export function normalizeClipboardHTML(
   result.source = detectSource(html);
   try {
     assertTagWork(html);
-    const tree = parseBoundedHTML(html, limits);
+    let tree = parseBoundedHTML(html, limits);
+    // Before the table bounds, so the cells of bare rows count as the cells of a table.
+    if (startsWithTablePart(tree)) tree = wrapTableContent(parseBoundedHTML(html, limits, 'table'));
     assertTableBounds(tree, limits.maxTableCells);
     let images = 0;
     let pixels = 0;

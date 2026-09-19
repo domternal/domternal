@@ -73,6 +73,7 @@
   "devDependencies": {
     "@domternal/core": "workspace:*",
     "@domternal/pm": "workspace:*",
+    "@domternal/tests-clipboard-slices": "workspace:*",
     "@types/hast": "^3.0.4",
     "jsdom": "^28.1.0",
     "tsup": "^8.5.1",
