@@ -103,7 +103,11 @@ values must be trusted application constants, never user-supplied content.
   first item starts with a nested list, as a browser copies a selection that starts inside
   a nested item, keeps its nesting under an empty first item, and an empty item or quote
   at either edge stays an empty item or quote. A slice it cannot complete goes through
-  ProseMirror's own paste.
+  ProseMirror's own paste. SmartPaste handles a caret or text selection inside a textblock
+  only: over the whole document (`Mod-A`) or a node selection, and in an editor without
+  SmartPaste, ProseMirror's own paste fits such a list instead. The nested list then loses
+  its depth and its first item can join the paragraph at the caret, the items after it
+  form a separate list, and a quote around the list is dropped. No text is lost.
 - **`KeyboardReorder`** - `Mod-Shift-ArrowUp` / `Mod-Shift-ArrowDown` move the current
   top-level block.
 - **`FloatingMenu`** - the empty-line insert menu; `requireExplicitTrigger` gates it

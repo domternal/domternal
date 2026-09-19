@@ -454,8 +454,10 @@ new first item that holds the nested list. ProseMirror's parse moves a nested li
 written after an item into that item, but one written first closes the outer list
 there, and the items after it would paste as a separate list, a bulleted one even
 when the outer list was numbered. SmartPaste then keeps the nested list under an
-empty first item. This shape is checked against authored HTML, not native
-captures; task lists are left as written.
+empty first item. Where SmartPaste does not handle the paste, such as over the whole
+document, ProseMirror's own paste puts the nested list in a list of its own before
+the other items, which keep the outer list's kind. This shape is checked against
+authored HTML, not native captures; task lists are left as written.
 
 Reconstructed Office lists use an explicit marker class at every depth, and a
 change of marker class creates a separate list. The schema probes must confirm
