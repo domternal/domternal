@@ -9,6 +9,10 @@
 /**
  * Maps icon names to SVG strings.
  *
+ * Values are inserted as raw SVG markup by the framework wrappers. Only use
+ * trusted, developer-authored constants. Never populate an IconSet from user
+ * input, persisted content, or an API response.
+ *
  * @example
  * const icons: IconSet = {
  *   textB: '<svg>...</svg>',

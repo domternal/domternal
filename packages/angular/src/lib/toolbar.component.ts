@@ -96,6 +96,9 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                 } @else {
                   <span [innerHTML]="getDropdownTriggerHtml(asDropdown(item))"></span>
                 }
+                @if (getDropdownIndicatorColor(asDropdown(item)); as color) {
+                  <span class="dm-toolbar-color-indicator" [style.background-color]="color"></span>
+                }
               </button>
               @if (openDropdown() === asDropdown(item).name) {
                 @if (asDropdown(item).layout === 'grid') {
@@ -220,25 +223,14 @@ export class DomternalToolbarComponent implements OnDestroy {
     return dropdown.items.some((item: ToolbarButton) => this.controller?.activeMap.get(item.name) ?? false);
   }
 
-  /** Returns trigger innerHTML: dynamic icon + caret (+ color indicator for grid dropdowns). */
+  /** Returns trigger innerHTML: dynamic icon and caret. */
   getDropdownTriggerHtml(dropdown: ToolbarDropdown): SafeHtml {
     this.activeVersion(); // subscribe to changes
-    const activeItem = dropdown.items.find((item: ToolbarButton) => this.controller?.activeMap.get(item.name));
-
     if (dropdown.layout === 'grid') {
-      const color = activeItem?.color ?? dropdown.defaultIndicatorColor ?? null;
-      const key = `tr:${dropdown.icon}:${color ?? ''}`;
-      let cached = this.htmlCache.get(key);
-      if (!cached) {
-        let html = this.resolveIconSvg(dropdown.icon) + this.dropdownCaret;
-        if (color) {
-          html += `<span class="dm-toolbar-color-indicator" style="background-color: ${color}"></span>`;
-        }
-        cached = this.sanitizer.bypassSecurityTrustHtml(html);
-        this.htmlCache.set(key, cached);
-      }
-      return cached;
+      return this.getCachedTriggerIcon(dropdown.icon);
     }
+
+    const activeItem = dropdown.items.find((item: ToolbarButton) => this.controller?.activeMap.get(item.name));
 
     // Non-grid dropdown - show active sub-item's label as text
     if (dropdown.dynamicLabel) {
@@ -267,6 +259,14 @@ export class DomternalToolbarComponent implements OnDestroy {
     }
     const icon = dropdown.dynamicIcon && activeItem ? activeItem.icon : dropdown.icon;
     return this.getCachedTriggerIcon(icon);
+  }
+
+  getDropdownIndicatorColor(dropdown: ToolbarDropdown): string | null {
+    if (dropdown.layout !== 'grid') return null;
+    this.activeVersion(); // subscribe to changes
+    const activeItem = dropdown.items.find((item: ToolbarButton) => this.controller?.activeMap.get(item.name));
+    const color = activeItem?.color ?? dropdown.defaultIndicatorColor;
+    return typeof color === 'string' && color.trim() ? color : null;
   }
 
   toolbarLabel(): string {

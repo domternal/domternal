@@ -124,7 +124,8 @@ export default defineConfig({
 });
 
 test('stripComments leaves a URL inside a string intact', () => {
-  assert.ok(stripComments("const url = 'https://domternal.dev/';").includes('https://domternal.dev/'));
+  const config = "const url = 'https://domternal.dev/';";
+  assert.equal(stripComments(config), config);
 });
 
 test('a bracket inside a quoted entry does not end the list early', () => {

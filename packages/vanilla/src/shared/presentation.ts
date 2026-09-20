@@ -6,6 +6,32 @@ interface PresentationState {
 
 const states = new WeakMap<HTMLElement, PresentationState>();
 
+const HTML_ESCAPES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+const UNSAFE_INDICATOR_COLOR = /["'&<>;]|url\s*\(/iu;
+
+function containsControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f);
+  });
+}
+
+/** Keep one CSS color value inside an HTML attribute or style property. */
+export function safeIndicatorColor(color: string | null | undefined): string | null {
+  if (typeof color !== 'string') return null;
+  if (containsControlCharacter(color)) return null;
+  const value = color.trim();
+  if (!value || UNSAFE_INDICATOR_COLOR.test(value)) return null;
+  return value;
+}
+
 export function patchPresentationText(element: HTMLElement, text: string): void {
   const node = element.firstChild;
   if (node?.nodeType === 3 && element.childNodes.length === 1) {
@@ -20,7 +46,8 @@ export function patchIconText(
   label: string | null,
   options: { caret?: string; textClass?: string; color?: string | null } = {},
 ): void {
-  const hasColor = options.color !== null && options.color !== undefined;
+  const color = safeIndicatorColor(options.color);
+  const hasColor = color !== null;
   const signature = JSON.stringify([icon, label !== null, options.caret, options.textClass, hasColor]);
   let state = states.get(element);
   if (state?.signature !== signature) {
@@ -56,7 +83,7 @@ export function patchIconText(
     states.set(element, state);
   }
   if (state.text && label !== null && state.text.data !== label) state.text.data = label;
-  if (state.indicator) state.indicator.style.backgroundColor = options.color ?? '';
+  if (state.indicator) state.indicator.style.backgroundColor = color ?? '';
 }
 
 export function setPresentationLanguage(element: HTMLElement, language: string | undefined): void {
@@ -67,6 +94,5 @@ export function setPresentationLanguage(element: HTMLElement, language: string |
 
 /** Compatibility for public helpers that return HTML strings instead of DOM nodes. */
 export function escapePresentationText(text: string): string {
-  return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+  return text.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character] ?? character);
 }
