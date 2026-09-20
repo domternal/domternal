@@ -363,7 +363,10 @@ function catalogIn(source, file, packageName, errors) {
 }
 
 function htmlLiterals(text, emit) {
-  let cleaned = text.replace(/\$\{[^}]*\}|\{\{[\s\S]*?\}\}/g, '').replace(/<!--[\s\S]*?-->/g, '');
+  // Keep ignored regions as boundaries so their neighbours cannot form new markup delimiters.
+  let cleaned = text
+    .replace(/\$\{[^}]*\}|\{\{[\s\S]*?\}\}/g, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ');
   // Strip Angular control expressions before treating angle brackets as markup.
   cleaned = cleaned.replace(/@(if|for|switch|case|else if)\s*\((?:[^()]|\([^()]*\))*\)/g, '');
   for (const match of cleaned.matchAll(

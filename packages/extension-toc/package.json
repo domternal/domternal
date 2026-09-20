@@ -79,5 +79,12 @@
   "bugs": {
     "url": "https://github.com/domternal/domternal/issues"
   },
-  "homepage": "https://domternal.dev"
+  "homepage": "https://domternal.dev",
+  "typesVersions": {
+    "*": {
+      "locales/*": [
+        "dist/locales/*"
+      ]
+    }
+  }
 }

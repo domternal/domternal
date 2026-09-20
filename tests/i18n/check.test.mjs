@@ -171,6 +171,19 @@ test('handles Angular control expressions and catches real inline template and C
   assert.ok(!result.findings.some((item) => item.text.includes('ready')));
 });
 
+test('keeps stripped template regions as boundaries without hiding adjacent UI copy', (t) => {
+  const root = fixture(t, catalog, {
+    'component.ts':
+      'Component({template: `<div>Before{{ count }}after</div><div><!<!-- removable -->-- <button aria-label="Visible label">Visible text</button> --></div><!-- <button aria-label="Ignored label">Ignored text</button> -->`});',
+  });
+  const findings = inspectRepository(root).findings;
+  assert.ok(findings.some((item) => item.text === 'Before after'));
+  assert.ok(!findings.some((item) => item.text === 'Beforeafter'));
+  assert.ok(findings.some((item) => item.text === 'Visible label'));
+  assert.ok(findings.some((item) => item.text === 'Visible text'));
+  assert.ok(!findings.some((item) => item.text.includes('Ignored')));
+});
+
 test('requires exact explained exclusions and fails when they become stale', (t) => {
   const root = fixture(t, catalog, { 'view.ts': "function sample(){ button.textContent = 'A'; }" });
   const finding = inspectRepository(root).findings[0];

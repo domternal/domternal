@@ -54,6 +54,26 @@ export function localeExport(locale, sourceCondition) {
     require: { types: `./dist/locales/${locale}.d.cts`, default: `./dist/locales/${locale}.cjs` },
   };
 }
+
+/** Legacy TypeScript resolution for locale subpaths, preserving other mappings. */
+export function localeTypesVersions(typesVersions) {
+  const versions = typesVersions === undefined ? {} : typesVersions;
+  if (versions === null || typeof versions !== 'object' || Array.isArray(versions)) {
+    throw new Error('locale owner typesVersions must be an object');
+  }
+  const result = {};
+  for (const [range, mappings] of Object.entries(versions)) {
+    if (mappings === null || typeof mappings !== 'object' || Array.isArray(mappings)) {
+      throw new Error(`locale owner typesVersions["${range}"] must be an object`);
+    }
+    result[range] = {
+      ...mappings,
+      'locales/*': ['dist/locales/*'],
+    };
+  }
+  if (!Object.hasOwn(result, '*')) result['*'] = { 'locales/*': ['dist/locales/*'] };
+  return result;
+}
 const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
 const packageFunction = (name) => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 
@@ -310,6 +330,11 @@ export function createRepositoryLocalePlan(root = repoRoot) {
     };
     manifest.exports = update(manifest.exports, `${owner.split('/')[0]}/source`);
     if (manifest.publishConfig?.exports) manifest.publishConfig.exports = update(manifest.publishConfig.exports);
+    try {
+      manifest.typesVersions = localeTypesVersions(manifest.typesVersions);
+    } catch (error) {
+      errors.push(`${path}: ${error.message}`);
+    }
     outputs.set(path, `${JSON.stringify(manifest, null, 2)}\n`);
   }
   return { locales, outputs, errors };

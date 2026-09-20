@@ -270,6 +270,61 @@ export function readConfigExport(text) {
   };
 }
 
+/** The opening brace or bracket of the literal exported as the tsup config. */
+function configLiteralStart(text) {
+  const match = /\bexport\s+default\s+|\bmodule\.exports\s*=\s*/.exec(text);
+  if (!match) return -1;
+  let from = match.index + match[0].length;
+  while (/\s/.test(text[from] ?? '')) from += 1;
+  const defineConfig = /^defineConfig\s*\(/.exec(text.slice(from));
+  if (defineConfig) {
+    from += defineConfig[0].length;
+    while (/\s/.test(text[from] ?? '')) from += 1;
+  }
+  return text[from] === '{' || text[from] === '[' ? from : -1;
+}
+
+/**
+ * True only for a spread inside the `entry` object of a literal config.
+ *
+ * An entry value cannot add a sibling `noExternal` option. The accepted shapes
+ * are `defineConfig({ entry: { ...value } })` and the same object directly
+ * inside a root config array. A spread on either config object, or on the root
+ * array itself, remains unreadable because it can add `noExternal`.
+ */
+export function isNestedEntrySpread(text, spreadFrom) {
+  const root = configLiteralStart(text);
+  if (root === -1 || spreadFrom <= root) return false;
+
+  const stack = [];
+  let quote = null;
+  for (let i = root; i < spreadFrom; i += 1) {
+    const char = text[i];
+    if (quote) {
+      if (char === '\\') {
+        i += 1;
+        continue;
+      }
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === "'" || char === '"' || char === '`') {
+      quote = char;
+      continue;
+    }
+    if (char === '(' || char === '[' || char === '{') {
+      stack.push({ char, from: i });
+      continue;
+    }
+    if (char === ')' || char === ']' || char === '}') stack.pop();
+  }
+
+  const shape = stack.map(({ char }) => char).join('');
+  if (shape !== '{{' && shape !== '[{{') return false;
+  const entryObject = stack.at(-1);
+  return entryObject?.char === '{' && /\bentry\s*:\s*$/.test(text.slice(root, entryObject.from));
+}
+
 /**
  * Everything in a tsup config that keeps part of the configuration out of
  * sight, as unreadable declarations.
@@ -304,8 +359,10 @@ export function findHiddenConfig(configText) {
   }
 
   for (const match of text.matchAll(/[{[,]\s*\.\.\./g)) {
-    const operand = readSpreadOperand(text, match.index + match[0].length);
+    const spreadFrom = match.index + match[0].lastIndexOf('...');
+    const operand = readSpreadOperand(text, spreadFrom + 3);
     if (operand === '' || operand.startsWith('{') || operand.startsWith('[')) continue;
+    if (isNestedEntrySpread(text, spreadFrom)) continue;
     const root = /^[A-Za-z_$][\w$]*/.exec(operand)?.[0] ?? '';
     /* A value declared as a literal in this same file hides nothing, since the
        noExternal scan reads every line of the file wherever the setting sits. */

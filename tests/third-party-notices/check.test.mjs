@@ -28,6 +28,7 @@ import {
   deniesBundling,
   escapeForRegExp,
   findHiddenConfig,
+  isNestedEntrySpread,
   licenseDemands,
   mentionsPackage,
   parseNoExternal,
@@ -204,6 +205,57 @@ export default defineConfig({
   assert.deepEqual(findHiddenConfig(config), []);
   assert.deepEqual(
     readTsupBundling(config).flatMap((declaration) => declaration.bundled),
+    ['remend']
+  );
+});
+
+test('a dynamic spread inside an entry object cannot hide a bundling option', () => {
+  const config = `
+import { localeEntries } from '../../scripts/locale-build.mjs';
+import { defineConfig } from 'tsup';
+
+export default defineConfig({
+  entry: { index: 'src/}index].ts', ...localeEntries('@domternal/core') },
+  format: ['esm', 'cjs'],
+});
+`;
+  assert.deepEqual(findHiddenConfig(config), []);
+  const spreadFrom = config.indexOf('...localeEntries');
+  assert.equal(isNestedEntrySpread(config, spreadFrom), true);
+});
+
+test('an entry spread does not excuse spreads that can add noExternal', () => {
+  const entry = "entry: { index: 'src/index.ts', ...localeEntries('@domternal/core') }";
+  for (const config of [
+    `export default defineConfig({ ${entry}, ...base });`,
+    "export default defineConfig({ ...localeEntries('@domternal/core') });",
+    'export default defineConfig([ ...configs ]);',
+    `export default defineConfig([{ ${entry}, ...base }]);`,
+  ]) {
+    const spreads = findHiddenConfig(config).filter(
+      (declaration) => declaration.origin === 'spread' && !declaration.readable
+    );
+    assert.equal(spreads.length, 1, config);
+  }
+});
+
+test('an entry spread does not mask an explicit noExternal declaration', () => {
+  const dynamic = `export default defineConfig({
+    entry: { index: 'src/index.ts', ...localeEntries('@domternal/core') },
+    noExternal: bundledDeps,
+  });`;
+  assert.ok(
+    readTsupBundling(dynamic).some(
+      (declaration) => declaration.origin === 'noExternal' && declaration.readable === false
+    )
+  );
+
+  const literal = `export default defineConfig({
+    entry: { index: 'src/index.ts', ...localeEntries('@domternal/core') },
+    noExternal: ['remend'],
+  });`;
+  assert.deepEqual(
+    readTsupBundling(literal).flatMap((declaration) => declaration.bundled),
     ['remend']
   );
 });

@@ -254,6 +254,40 @@ test('adding a French file alone generates every owner module and explicit publi
   assert.deepEqual([...second.outputs], [...result.outputs]);
 });
 
+test('locale generation adds legacy type resolution without replacing existing mappings', (t) => {
+  const root = fixture(t);
+  const corePath = join(root, 'packages/core/package.json');
+  const core = JSON.parse(readFileSync(corePath, 'utf8'));
+  core.typesVersions = {
+    '>=5.0': { modern: ['dist/modern.d.ts'] },
+    '*': { legacy: ['dist/legacy.d.ts'] },
+  };
+  writeFileSync(corePath, `${JSON.stringify(core, null, 2)}\n`);
+
+  generateLocales({ root });
+
+  for (const name of ['core', 'extension-table']) {
+    assert.deepEqual(manifestAt(root, name).typesVersions['*']['locales/*'], [
+      'dist/locales/*',
+    ]);
+  }
+  assert.deepEqual(manifestAt(root).typesVersions['*'].legacy, ['dist/legacy.d.ts']);
+  assert.deepEqual(manifestAt(root).typesVersions['>=5.0'].modern, ['dist/modern.d.ts']);
+  assert.deepEqual(manifestAt(root).typesVersions['>=5.0']['locales/*'], [
+    'dist/locales/*',
+  ]);
+});
+
+test('malformed legacy type maps fail before generated files are written', (t) => {
+  const root = fixture(t);
+  const path = join(root, 'packages/core/package.json');
+  const baseline = JSON.parse(readFileSync(path, 'utf8'));
+  for (const typesVersions of [[], { '*': [] }]) {
+    writeFileSync(path, `${JSON.stringify({ ...baseline, typesVersions }, null, 2)}\n`);
+    assert.throws(() => generateLocales({ root }), /typesVersions/);
+  }
+});
+
 test('all central sources are validated before any source or manifest is written', (t) => {
   const root = fixture(t);
   generateLocales({ root });

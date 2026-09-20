@@ -116,6 +116,17 @@ test('published locale export paths must match the catalog and compiled formats'
   assert.throws(() => checkLocaleBuild(directory), /stale locale exports/);
 });
 
+test('legacy locale type resolution cannot drift after a successful build', (t) => {
+  const { root, directory } = fixture(t);
+  recordLocaleBuild(directory);
+  editManifest(directory, (manifest) => {
+    delete manifest.typesVersions['*']['locales/*'];
+  });
+  assert.throws(() => checkLocaleBuild(directory), /stale locale type resolution/);
+  generateLocales({ root });
+  assert.doesNotThrow(() => checkLocaleBuild(directory));
+});
+
 test('Free publication may strip its source condition without changing the build receipt', (t) => {
   const { directory, stamp } = fixture(t);
   recordLocaleBuild(directory);

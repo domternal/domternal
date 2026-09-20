@@ -5,7 +5,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
-import { createRepositoryLocalePlan, generateLocales, localeExport, localeFileProblems } from '../tests/i18n/generate-locales.mjs';
+import { createRepositoryLocalePlan, generateLocales, localeExport, localeFileProblems, localeTypesVersions } from '../tests/i18n/generate-locales.mjs';
 
 const stampName = '.locale-build.json';
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -51,6 +51,11 @@ function localeInputs(directory) {
   const expected = Object.fromEntries(plan.locales.map(locale => [`./locales/${locale}`, localeExport(locale)]));
   if (!isDeepStrictEqual(actual, expected)) throw new Error(`${manifest.name}: stale locale exports; run pnpm build`);
   inputs.exports = hash(JSON.stringify(expected));
+  const expectedTypesVersions = localeTypesVersions(manifest.typesVersions);
+  if (!isDeepStrictEqual(manifest.typesVersions, expectedTypesVersions)) {
+    throw new Error(`${manifest.name}: stale locale type resolution; run pnpm build`);
+  }
+  inputs.typesVersions = hash(JSON.stringify(expectedTypesVersions));
   for (const path of ['scripts/locale-build.mjs', 'tests/i18n/generate-locales.mjs', `${relative(root, packageDirectory)}/tsup.config.ts`]) {
     inputs[path] = hash(readFileSync(join(root, path)));
   }
