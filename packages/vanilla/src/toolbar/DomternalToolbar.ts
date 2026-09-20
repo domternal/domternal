@@ -426,7 +426,10 @@ export class DomternalToolbar extends EventTarget {
       });
     } else {
       const icon = dd.dynamicIcon && activeItem ? activeItem.icon : dd.icon;
-      patchIconText(button, label === null ? this.#iconCache.getIcon(icon) : '', label, {
+      const triggerIcon = label === null && dd.dynamicLabel
+        ? `<span class="dm-toolbar-trigger-label">${this.#iconCache.getIcon(icon)}</span>`
+        : this.#iconCache.getIcon(icon);
+      patchIconText(button, label === null ? triggerIcon : '', label, {
         caret: DROPDOWN_CARET,
         textClass: 'dm-toolbar-trigger-label',
       });
