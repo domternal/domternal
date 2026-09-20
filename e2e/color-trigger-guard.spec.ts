@@ -5,6 +5,7 @@
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
+import { selectTextPrefix } from './menu-selection.js';
 
 async function goNotion(page: Page, target: DemoTarget): Promise<void> {
   await page.goto(target.baseURL + '/');
@@ -18,22 +19,13 @@ async function goNotion(page: Page, target: DemoTarget): Promise<void> {
 }
 
 async function selectFirstWord(page: Page, target: DemoTarget): Promise<void> {
-  await page.evaluate((selector) => {
+  await page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
       setContent: (h: string, emit: boolean) => void;
     };
     ed.setContent('<p>guard probe text</p>', false);
-    const paragraph = document.querySelector(`${selector} p`);
-    if (!paragraph?.firstChild) throw new Error('no paragraph');
-    const range = document.createRange();
-    range.setStart(paragraph.firstChild, 0);
-    range.setEnd(paragraph.firstChild, 5);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    const editorEl = document.querySelector(selector);
-    if (editorEl instanceof HTMLElement) editorEl.focus();
-  }, target.editorSelector);
+  });
+  await selectTextPrefix(page, target.editorSelector, 5);
   await expect(page.locator('.dm-bubble-menu')).toHaveAttribute('data-show', '');
 }
 

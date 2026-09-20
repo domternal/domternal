@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Editor } from '@domternal/core';
 import { demoTargets } from './targets.js';
+import { selectTextPrefix } from './menu-selection.js';
 
 interface DemoWindow {
   __DEMO_EDITOR__: Editor;
@@ -96,9 +97,9 @@ for (const target of demoTargets) {
           await page.evaluate(() => {
             const editor = (window as unknown as DemoWindow).__DEMO_EDITOR__;
             editor.setContent('<p>English text stays English.</p>', false);
-            editor.commands.setSelection(1, 8);
-            editor.commands.focus();
           });
+          await selectTextPrefix(page, target.editorSelector, 7);
+          await expect(page.locator('.dm-bubble-menu')).toHaveAttribute('data-show', '');
           await expect(page.locator('.dm-bubble-menu [aria-label="Fett"]')).toBeVisible();
         } else {
           await expect(page.locator('.dm-toolbar [aria-label="Fett"]')).toBeVisible();
