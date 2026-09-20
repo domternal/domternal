@@ -12,7 +12,7 @@ const BASE_URL = 'http://127.0.0.1:5895';
 const FRAMEWORKS = ['vanilla', 'react', 'vue', 'angular'] as const;
 
 interface ProbeWindow {
-  __pasteCleanup: { ready: boolean; editor: Editor; clearObservations: () => void };
+  __pasteCleanup: { ready: boolean; editor: Editor; operations: { status: string }[]; clearObservations: () => void };
   __tableErrors: string[];
 }
 
@@ -150,6 +150,11 @@ for (const framework of FRAMEWORKS) {
             expect(observed.selection).toBe('cell');
             expect(observed.domMatches).toBe(true);
             void width;
+            // A cell paste is a paste transaction, so PasteCleanup's receipt reports it applied, not untracked.
+            if (config['paste-cleanup'] !== 'off') {
+              await expect.poll(() => page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.map(operation => operation.status)))
+                .toEqual(['applied']);
+            }
 
             await page.keyboard.press('ControlOrMeta+z');
             expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.getJSON())).toEqual(before);
@@ -158,6 +163,26 @@ for (const framework of FRAMEWORKS) {
       }
     });
   }
+}
+
+for (const framework of FRAMEWORKS) {
+  test(`${framework} reports content pasted over a cell selection as an applied paste`, async ({ page }) => {
+    await open(page, framework);
+    await seed(page, grid(2, 2), 0, 0);
+    const cells = page.locator('.ProseMirror td');
+    await cells.nth(0).hover();
+    await page.mouse.down();
+    await cells.nth(3).hover();
+    await page.mouse.up();
+    expect((await observe(page)).selection).toBe('cell');
+    await page.evaluate(() => { (window as unknown as ProbeWindow).__pasteCleanup.clearObservations(); });
+
+    expect(await pasteEvent(page, '<p>z</p>')).toBe(true);
+
+    await expect.poll(() => page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.map(operation => operation.status)))
+      .toEqual(['applied']);
+    expect((await observe(page)).text).toBe('zzzz');
+  });
 }
 
 test('a trusted keyboard paste of a 2x2 cell into a 2x2 table pastes it without an error', async ({ page }) => {

@@ -319,19 +319,21 @@ function pasteAtSelection(view: EditorView, slice: Slice): void {
 
 function pasteCells(view: EditorView, slice: Slice, cells: PastedCells | null): boolean {
   const selection = view.state.selection;
+  // A paste transaction, as the editor's other pastes, so paste receipts and observers see it.
+  const dispatch = (tr: Transaction): void => { view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste')); };
   if (selection instanceof CellSelection) {
     cells ??= { width: 1, height: 1, rows: [Fragment.from(fitSlice(tableNodeTypes(view.state.schema).cell, slice))] };
     const table = selection.$anchorCell.node(-1);
     const start = selection.$anchorCell.start(-1);
     const rect = TableMap.get(table).rectBetween(selection.$anchorCell.pos - start, selection.$headCell.pos - start);
     cells = clipCells(cells, rect.right - rect.left, rect.bottom - rect.top);
-    insertCells(view.state, view.dispatch, start, rect, cells);
+    insertCells(view.state, dispatch, start, rect, cells);
     return true;
   }
   if (cells) {
     const $cell = selectionCell(view.state);
     const start = $cell.start(-1);
-    insertCells(view.state, view.dispatch, start, TableMap.get($cell.node(-1)).findCell($cell.pos - start), cells);
+    insertCells(view.state, dispatch, start, TableMap.get($cell.node(-1)).findCell($cell.pos - start), cells);
     return true;
   }
   return false;

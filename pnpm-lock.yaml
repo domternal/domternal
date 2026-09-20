@@ -879,6 +879,9 @@ importers:
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
+      '@domternal/tests-clipboard-slices':
+        specifier: workspace:*
+        version: link:../../tests/clipboard-slices
       jsdom:
         specifier: ^28.1.0
         version: 28.1.0(@noble/hashes@1.8.0)
