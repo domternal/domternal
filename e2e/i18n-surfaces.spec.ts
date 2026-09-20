@@ -18,7 +18,12 @@ interface SurfaceProbe {
 interface SurfaceWindow {
   __DEMO_EDITOR__: Editor;
   __I18N_SURFACE__?: SurfaceProbe;
-  __I18N_SURFACE_PRESS__?: { sameState: boolean; sameButton: boolean; sameTarget: boolean };
+  __I18N_SURFACE_PRESS__?: {
+    localeKeptState: boolean;
+    sameDocument: boolean;
+    sameButton: boolean;
+    sameTarget: boolean;
+  };
 }
 
 const CLASSIC_EDITOR = '.dm-editor .ProseMirror';
@@ -92,9 +97,11 @@ async function pressAcrossLocale(page: Page, button: Locator, messages: Messages
       const state = editor.state;
       const pressed = event.target as Node;
       editor.i18n.set({ locale: 'fr', messages });
+      const localeKeptState = editor.state === state;
       element.addEventListener('mouseup', () => {
         win.__I18N_SURFACE_PRESS__ = {
-          sameState: editor.state === state,
+          localeKeptState,
+          sameDocument: editor.state.doc.eq(state.doc),
           sameButton: element.isConnected,
           sameTarget: pressed.isConnected && element.contains(pressed),
         };
@@ -103,7 +110,7 @@ async function pressAcrossLocale(page: Page, button: Locator, messages: Messages
   }, messages);
   await button.click({ delay: 150 });
   expect(await page.evaluate(() => (window as unknown as SurfaceWindow).__I18N_SURFACE_PRESS__))
-    .toEqual({ sameState: true, sameButton: true, sameTarget: true });
+    .toEqual({ localeKeptState: true, sameDocument: true, sameButton: true, sameTarget: true });
 }
 
 async function openEmoji(page: Page): Promise<void> {
