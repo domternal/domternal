@@ -3,6 +3,7 @@
  *
  * Handles pasting URLs:
  * - If text is selected: wraps selection in a link
+ * - If the selection holds nothing a link marks, such as a selected image: replaces it with the URL
  * - If no selection: inserts URL as clickable link text
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
@@ -89,6 +90,10 @@ export function linkPastePlugin(options: LinkPastePluginOptions): Plugin {
         } else {
           // Has selection - wrap selection in link
           tr.addMark(from, to, type.create({ href: text }));
+          // A selection nothing in which takes the link, such as a selected image or text in a code
+          // block, gets the address in its place, as a pasted text replaces it. A place that takes no
+          // link, such as a code block, gets it as plain text.
+          if (!tr.docChanged) tr.replaceSelectionWith(type.schema.text(text, [type.create({ href: text })]), false);
         }
 
         dispatch(tr.setMeta('paste', true).setMeta('uiEvent', 'paste'));

@@ -17,6 +17,7 @@ interface ProbeWindow {
     ready: boolean;
     editor: Editor;
     operations: PasteOperationResult[];
+    results: { diagnostics: { code: string }[] }[];
     select: (from: number, to?: number) => void;
     clearObservations: () => void;
   };
@@ -175,5 +176,31 @@ for (const framework of FRAMEWORKS) {
       editor.state.doc.descendants(node => { if (node.type.name === 'mention') mentions.push(`${String(node.attrs['type'])} ${String(node.attrs['label'])}`); });
       return { text: editor.state.doc.textContent, mentions };
     })).toEqual({ text: 'See #feature and @Ana', mentions: ['tag feature', 'user Ana'] });
+  });
+}
+
+// Unit tests: packages/core/src/marks/helpers/linkPastePlugin.selection.test.ts.
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+for (const framework of FRAMEWORKS) {
+  test(`${framework} replaces a selected image with a pasted address as a link`, async ({ page }) => {
+    await open(page, framework);
+    await page.evaluate(png => {
+      const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+      if (!probe.editor.setContent(`<p>before</p><img src="${png}" alt="i"><p>after</p>`, false)) throw new Error('Could not seed the editor');
+    }, PNG);
+    await page.locator('.ProseMirror img').click();
+    expect(await page.evaluate(() => ((window as unknown as ProbeWindow).__pasteCleanup.editor.state.selection.toJSON() as { type: string }).type)).toBe('node');
+    await page.evaluate(() => {
+      const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+      probe.clearObservations();
+      const data = new DataTransfer();
+      data.setData('text/plain', 'https://example.com/page');
+      const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+      if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+      probe.editor.view.dom.dispatchEvent(event);
+    });
+    await expect.poll(() => page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.map(operation => operation.status))).toEqual(['applied']);
+    expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.getHTML()))
+      .toMatch(/^<p[^>]*>before<\/p><p[^>]*><a href="https:\/\/example\.com\/page"[^>]*>https:\/\/example\.com\/page<\/a><\/p><p[^>]*>after<\/p>$/);
   });
 }
