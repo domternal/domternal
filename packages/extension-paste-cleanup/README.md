@@ -244,7 +244,11 @@ The result contains:
 The result is editor input, not a destination-schema validation or a general
 HTML publication policy. The receiving editor still controls its nodes, marks,
 URL policies, custom renderers, identifiers and comment ownership. Unsupported
-custom node attributes and slice contexts are not implicitly trusted. The
+custom node attributes and slice contexts are not implicitly trusted. The data
+attributes of Domternal's own inline nodes are kept up to 4,096 characters each:
+a mention's id, label and type (`data-mention-type`, the trigger that made it,
+so a `#` tag mention stays a tag), an emoji's name and character, and a math
+node's source. The
 standalone entry has no own-copy verifier, so it treats every fragment,
 including one with a `data-pm-slice` marker, as external content.
 

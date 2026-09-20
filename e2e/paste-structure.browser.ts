@@ -147,3 +147,33 @@ test('a keyboard copy of a web page definition list pastes its term and definiti
     }), `PasteCleanup ${cleanup}`).toEqual(['paragraph: term', 'paragraph: definition']);
   }
 });
+
+// Unit tests: packages/extension-paste-cleanup/src/PasteCleanup.mentionType.test.ts.
+for (const framework of FRAMEWORKS) {
+  test(`${framework} keeps the type of a mention the editor copied, so a tag mention pastes back as a tag`, async ({ page }) => {
+    await open(page, framework, { mention: '1' });
+    await page.evaluate(() => {
+      const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+      const { editor } = probe;
+      if (!editor.setContent('<p>See <span data-type="mention" data-id="f1" data-label="feature" data-mention-type="tag">#feature</span> and '
+        + '<span data-type="mention" data-id="u1" data-label="Ana" data-mention-type="user">@Ana</span></p>', false)) throw new Error('Could not seed the editor');
+      editor.view.focus();
+      probe.select(1, editor.state.doc.content.size - 1);
+    });
+    await page.keyboard.press('ControlOrMeta+c');
+    await page.evaluate(() => {
+      const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+      if (!probe.editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
+      probe.editor.view.focus();
+      probe.select(1);
+      probe.clearObservations();
+    });
+    await page.keyboard.press('ControlOrMeta+v');
+    await expect.poll(() => page.evaluate(() => {
+      const { editor } = (window as unknown as ProbeWindow).__pasteCleanup;
+      const mentions: string[] = [];
+      editor.state.doc.descendants(node => { if (node.type.name === 'mention') mentions.push(`${String(node.attrs['type'])} ${String(node.attrs['label'])}`); });
+      return { text: editor.state.doc.textContent, mentions };
+    })).toEqual({ text: 'See #feature and @Ana', mentions: ['tag feature', 'user Ana'] });
+  });
+}

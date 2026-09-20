@@ -135,7 +135,7 @@ export function cleanMetadata(original: Properties): Properties {
     const ids = threads.split(/\s+/).filter(Boolean);
     if (ids.length <= 100 && ids.every(safeID)) clean['dataThreadIds'] = ids.join(' ');
   }
-  for (const key of ['dataLatex', 'dataId', 'dataLabel', 'dataName', 'dataEmoji']) {
+  for (const key of ['dataLatex', 'dataId', 'dataLabel', 'dataMentionType', 'dataName', 'dataEmoji']) {
     const value = original[key];
     if (typeof value === 'string' && value.length <= 4_096) clean[key] = value;
   }

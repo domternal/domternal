@@ -10,6 +10,7 @@ import { Image } from '@domternal/extension-image';
 import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
 import { Details, DetailsSummary, DetailsContent } from '@domternal/extension-details';
 import { Markdown } from '@domternal/extension-markdown';
+import { Mention } from '@domternal/extension-mention';
 import { SmartPaste } from '@domternal/extension-block-controls';
 import { PasteCleanup, getPasteAffectedReferences } from '@domternal/extension-paste-cleanup';
 import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
@@ -44,6 +45,8 @@ const withoutSmartPaste = query.get('smart-paste') === 'off';
 // Blocks without ids, so a pasted heading can share the markup of the heading it lands in.
 const withoutUniqueID = query.get('unique-id') === 'off';
 const details = query.get('details') === '1';
+// Mentions from an @ user trigger and a # tag trigger, whose type says which character they show.
+const mentions = query.get('mention') === '1';
 // A CharacterCount limit, whose filterTransaction vetoes keystrokes beyond it.
 const characterLimit = query.has('limit') ? Number(query.get('limit')) : null;
 // An Angular host bound to a reactive form, with the htmlContent signal rendered beside it.
@@ -299,6 +302,7 @@ const extensions = [
     } } : {}),
   })]), ...(tableFirst ? [] : tableExtensions),
   ...(details ? [Details, DetailsSummary, DetailsContent] : []),
+  ...(mentions ? [Mention.configure({ triggers: [{ char: '@', name: 'user', items: () => [] }, { char: '#', name: 'tag', items: () => [] }] })] : []),
   ...(pasteFailure === null ? [] : [FailingPasteHook]),
   Markdown, SmartPaste,
   ...(trailingNode ? [TrailingNode] : []),
