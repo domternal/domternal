@@ -204,3 +204,47 @@ for (const framework of FRAMEWORKS) {
       .toMatch(/^<p[^>]*>before<\/p><p[^>]*><a href="https:\/\/example\.com\/page"[^>]*>https:\/\/example\.com\/page<\/a><\/p><p[^>]*>after<\/p>$/);
   });
 }
+
+/** The document's top-level blocks as `type: text`, for shapes whose marks depend on where the copy came from. */
+function blocks(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const found: string[] = [];
+    (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.forEach(node => { found.push(`${node.type.name}: ${node.textContent}`); });
+    return found;
+  });
+}
+
+// Unit tests: packages/extension-details/src/Details.pasteBody.test.ts.
+for (const framework of FRAMEWORKS) {
+  test(`${framework} pastes blocks copied from a details body as blocks, not in a collapsed details`, async ({ page }) => {
+    for (const cleanup of ['on', 'off']) {
+      await open(page, framework, { details: '1', ...(cleanup === 'on' ? {} : { 'paste-cleanup': 'off' }) });
+      await page.evaluate(() => {
+        const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+        const { editor } = probe;
+        if (!editor.setContent('<details><summary>Sum</summary><div data-details-content><p>one</p><p>two</p></div></details>', false)) {
+          throw new Error('Could not seed the editor');
+        }
+        let from = 0;
+        let to = 0;
+        editor.state.doc.descendants((node, pos) => {
+          if (node.isText && node.text === 'one') from = pos;
+          if (node.isText && node.text === 'two') to = pos + node.nodeSize;
+        });
+        editor.view.focus();
+        probe.select(from, to);
+      });
+      await page.keyboard.press('ControlOrMeta+c');
+      await page.evaluate(() => {
+        const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+        if (!probe.editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
+        probe.editor.view.focus();
+        probe.select(1);
+        probe.clearObservations();
+      });
+      await page.keyboard.press('ControlOrMeta+v');
+      await expect.poll(() => blocks(page), `PasteCleanup ${cleanup}`).toEqual(['paragraph: one', 'paragraph: two']);
+      await expect(page.locator('.ProseMirror p', { hasText: 'two' })).toBeVisible();
+    }
+  });
+}

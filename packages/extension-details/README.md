@@ -91,6 +91,14 @@ Adding `Details` also registers a toolbar button and a slash-menu entry
 - `Enter` on the last block of the content, when that block is empty, removes
   it and creates a block after the accordion, so a second `Enter` escapes
 
+## Copy and paste
+
+- Blocks copied from inside the content, without the summary, paste as those
+  blocks. The copy records the accordion around them, and the paste used to
+  rebuild it as a collapsed block with an empty summary, which hid what was
+  pasted. A copy that includes the summary pastes the whole block. This also
+  holds for content nested in the content of another accordion
+
 ## Localization
 
 This package exports `detailsMessages` for typed custom catalogs. Optional German UI
