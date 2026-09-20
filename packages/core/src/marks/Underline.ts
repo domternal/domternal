@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * Underline Mark
  *
@@ -88,9 +91,10 @@ export const Underline = Mark.create<UnderlineOptions>({
         command: 'toggleUnderline',
         isActive: 'underline',
         icon: 'textUnderline',
-        label: 'Underline',
+        ...localizedLabel(this.editor?.i18n, coreMessages.underline),
         shortcut: 'Mod-U',
         group: 'format',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupFormat),
         priority: 180,
       },
     ];

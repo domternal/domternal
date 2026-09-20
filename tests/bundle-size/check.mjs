@@ -88,6 +88,7 @@ import { Writable } from 'node:stream';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, version as esbuildVersion } from 'esbuild';
+import { discoverLocales } from '../i18n/generate-locales.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
@@ -269,6 +270,24 @@ export function completeness(keys, budgets) {
   };
 }
 
+/** Expand reviewed owner ceilings only for languages with a central source. */
+export function expandLocaleBudgets(budgets, owners, locales) {
+  const expanded = {};
+  const expected = new Set(owners.map((owner) => `${owner}/locales/*`));
+  for (const [key, value] of Object.entries(budgets)) {
+    if (!key.endsWith('/locales/*')) {
+      expanded[key] = value;
+      continue;
+    }
+    if (!expected.delete(key)) throw new Error(`Unexpected locale budget owner: ${key}`);
+    if (!Number.isSafeInteger(value) || value <= 0)
+      throw new Error(`Invalid locale ceiling: ${key}`);
+    for (const { id } of locales) expanded[key.slice(0, -1) + id] = value;
+  }
+  if (expected.size > 0) throw new Error(`Missing locale ceilings: ${[...expected].join(', ')}`);
+  return expanded;
+}
+
 /**
  * A budget to propose for a newly discovered entry.
  *
@@ -354,13 +373,26 @@ export async function marketingBundleSizes(
 
 async function gzippedSize(path) {
   let bytes = 0;
-  const sink = new Writable({ write(chunk, _enc, cb) { bytes += chunk.length; cb(); } });
+  const sink = new Writable({
+    write(chunk, _enc, cb) {
+      bytes += chunk.length;
+      cb();
+    },
+  });
   await pipeline(createReadStream(path), createGzip({ level: 9 }), sink);
   return bytes;
 }
 
 async function main() {
-  const budgets = JSON.parse(readFileSync(join(here, 'budget.json'), 'utf8'));
+  const rawBudgets = JSON.parse(readFileSync(join(here, 'budget.json'), 'utf8'));
+  const owners = Object.keys(
+    JSON.parse(readFileSync(join(repoRoot, 'tests/i18n/namespaces.json'), 'utf8'))
+  ).map((owner) => owner.slice('@domternal/'.length));
+  const budgets = expandLocaleBudgets(
+    rawBudgets,
+    owners,
+    discoverLocales(repoRoot).map((id) => ({ id }))
+  );
   const { measured, aliases, sources, unresolved } = discoverEntries(repoRoot);
 
   // First, because an entry nobody can resolve is an entry nobody is measuring,
@@ -413,7 +445,9 @@ async function main() {
     console.log(`  ${alias.key.padEnd(34)} same file as ${alias.of}, covered by its budget`);
   }
   for (const source of sources) {
-    console.log(`  ${source.key.padEnd(34)} ${source.target}, compiled by the consumer: not measured`);
+    console.log(
+      `  ${source.key.padEnd(34)} ${source.target}, compiled by the consumer: not measured`
+    );
   }
 
   if (unbudgeted.length > 0) {
@@ -421,7 +455,9 @@ async function main() {
     console.error('');
     console.error('[bundle-size] FAILED: shipped entries with no budget in budget.json:');
     for (const key of unbudgeted.sort()) {
-      console.error(`  "${key}": ${suggestBudget(sizes.get(key))},   (measures ${sizes.get(key)} gzipped)`);
+      console.error(
+        `  "${key}": ${suggestBudget(sizes.get(key))},   (measures ${sizes.get(key)} gzipped)`
+      );
     }
     console.error('');
     console.error('[bundle-size] A published entry with no ceiling grows unnoticed and this');

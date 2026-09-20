@@ -14,6 +14,7 @@ TableOfContents
 TableOfContentsBlock
 TableOfContentsBlockOptions
 TableOfContentsOptions
+tocMessages
 tocPluginKey
 TocStorage
 walkHeadings

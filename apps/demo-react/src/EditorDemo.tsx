@@ -1,3 +1,4 @@
+import { useDemoI18n } from './demo-language.js';
 import { useEffect, useState } from 'react';
 import {
   useEditor,
@@ -124,7 +125,9 @@ export interface EditorDemoProps {
 }
 
 export function EditorDemo({ useLayout }: EditorDemoProps) {
+  const i18n = useDemoI18n();
   const { editor, editorRef } = useEditor({
+    i18n,
     extensions,
     content: DEMO_CONTENT,
   });

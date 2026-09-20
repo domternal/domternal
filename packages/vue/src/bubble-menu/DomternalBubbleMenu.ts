@@ -1,6 +1,7 @@
 import { computed, defineComponent, h, ref, watch } from 'vue';
 import type { PropType, ShallowRef, VNode } from 'vue';
 import {
+  coreMessages,
   ToolbarController,
   positionFloatingOnce,
   refocusEditorAfterCommand,
@@ -89,6 +90,9 @@ export const DomternalBubbleMenu = defineComponent({
       // Read activeVersion to establish reactive dependency
       void activeVersion.value;
       const t = trailing.value;
+      const i18n = editorRef.value?.i18n;
+      const colorLabel = i18n?.resolve(coreMessages.notionColorLabel);
+      const moreLabel = i18n?.resolve(coreMessages.moreOptions);
 
       const children: VNode[] = [];
 
@@ -123,6 +127,8 @@ export const DomternalBubbleMenu = defineComponent({
           class: ['dm-toolbar-button', active && 'dm-toolbar-button--active'],
           disabled: isItemDisabled(btn),
           'aria-label': btn.label,
+          'data-dm-command': typeof btn.command === 'string' ? btn.command : undefined,
+          lang: btn.labelLanguage ?? '',
           'aria-pressed': active,
           title: btn.label,
           innerHTML: getCachedIcon(btn.icon),
@@ -147,8 +153,9 @@ export const DomternalBubbleMenu = defineComponent({
             ref: colorBtnRef,
             type: 'button',
             class: ['dm-toolbar-button', 'dm-ncp-trigger', t.hasAnyColor && 'dm-toolbar-button--active'],
-            title: 'Text and background color',
-            'aria-label': 'Text and background color',
+            title: colorLabel?.text,
+            'aria-label': colorLabel?.text,
+            lang: colorLabel?.language,
             'aria-haspopup': 'dialog',
             onMousedown: (e: MouseEvent) => { e.preventDefault(); },
             onClick: () => { if (colorBtnRef.value) openColorPicker(colorBtnRef.value); },
@@ -176,9 +183,10 @@ export const DomternalBubbleMenu = defineComponent({
             class: 'dm-toolbar-button',
             disabled: t.blockMenuButtonDisabled,
             title: t.blockMenuButtonDisabled
-              ? 'Block actions (select within a single block)'
-              : 'More options',
-            'aria-label': 'More options',
+              ? i18n?.t(coreMessages.blockActionsSelectionHint)
+              : moreLabel?.text,
+            'aria-label': moreLabel?.text,
+            lang: moreLabel?.language,
             'aria-haspopup': 'menu',
             innerHTML: getCachedIcon('dotsThree'),
             onMousedown: (e: MouseEvent) => { e.preventDefault(); },
@@ -187,6 +195,7 @@ export const DomternalBubbleMenu = defineComponent({
         );
       }
 
+      const menuLabel = editorRef.value?.i18n.resolve(coreMessages.bubbleMenuLabel);
       const slotContent = slots['default']?.();
       if (slotContent) children.push(...slotContent);
 
@@ -194,7 +203,8 @@ export const DomternalBubbleMenu = defineComponent({
         ref: menuRef,
         class: 'dm-bubble-menu',
         role: 'toolbar',
-        'aria-label': 'Text formatting',
+        'aria-label': menuLabel?.text,
+        lang: menuLabel?.language,
       }, children);
     };
   },
@@ -293,6 +303,7 @@ const BubbleDropdown = defineComponent({
           'aria-expanded': props.isOpen,
           'aria-haspopup': 'true',
           'aria-label': dropdown.label,
+          lang: dropdown.labelLanguage ?? '',
           title: dropdown.label,
           'data-dropdown': dropdown.name,
           innerHTML: triggerHtml,
@@ -308,17 +319,19 @@ const BubbleDropdown = defineComponent({
             'data-dropdown-panel': dropdown.name,
           }, dropdown.items.map((sub) => {
             const subActive = props.isItemActive(sub);
-            const subHtml = `${props.getCachedIcon(sub.icon)} ${sub.label}`;
             return h('button', {
               key: sub.name,
               type: 'button',
               class: ['dm-toolbar-dropdown-item', subActive && 'dm-toolbar-dropdown-item--active'],
               role: 'menuitem',
               'aria-label': sub.label,
-              innerHTML: subHtml,
+              lang: sub.labelLanguage ?? '',
               onMousedown: (e: MouseEvent) => { e.preventDefault(); },
               onClick: () => { props.executeSubItem(sub); },
-            });
+            }, [
+              h('span', { style: { display: 'contents' }, 'aria-hidden': 'true', innerHTML: props.getCachedIcon(sub.icon) }),
+              ' ', sub.label,
+            ]);
           }))
           : null,
       ]);

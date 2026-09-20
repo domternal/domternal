@@ -13,9 +13,9 @@
  * default scoped slot to take over rendering while keeping the composable's
  * lifecycle - the slot receives the full `useNotionColorPicker` API.
  */
-import { computed, defineComponent, h, Teleport, watch } from 'vue';
+import { computed, defineComponent, h, Teleport, watch, ref } from 'vue';
 import type { PropType, ShallowRef, VNode } from 'vue';
-import { positionFloating } from '@domternal/core';
+import { coreMessages, localizeMessage, resolveColorSwatch, positionFloating } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useNotionColorPicker } from './useNotionColorPicker.js';
@@ -38,6 +38,11 @@ export const DomternalNotionColorPicker = defineComponent({
     const editorRef = computed(
       () => props.editor ?? contextEditor.value
     ) as ShallowRef<Editor | null>;
+
+    const localeRevision = ref(0);
+    watch(editorRef, (editor, _previous, onCleanup) => {
+      if (editor) onCleanup(editor.i18n.subscribe(() => { localeRevision.value++; }));
+    }, { immediate: true });
 
     const api = useNotionColorPicker({ editor: editorRef });
     const {
@@ -91,20 +96,26 @@ export const DomternalNotionColorPicker = defineComponent({
     );
 
     const renderDefaultPanel = (): VNode[] => {
+      const i18n = editorRef.value?.i18n;
+      const textLabel = localizeMessage(i18n, coreMessages.colorText);
+      const backgroundLabel = localizeMessage(i18n, coreMessages.colorBackground);
+      const defaultText = resolveColorSwatch(i18n, null, 'text');
+      const defaultBackground = resolveColorSwatch(i18n, null, 'bg');
       const tToken = currentTextToken.value;
       const bToken = currentBgToken.value;
       const pal = palette.value;
       return [
         h('div', { class: 'dm-ncp-section' }, [
-          h('div', { class: 'dm-ncp-label' }, 'Text color'),
+          h('div', { class: 'dm-ncp-label', lang: textLabel.language }, textLabel.text),
           h('div', { class: 'dm-ncp-grid' }, [
             h('button', {
               type: 'button',
               class: ['dm-ncp-swatch', 'dm-ncp-swatch--text', tToken === null && 'dm-ncp-active'],
               'aria-pressed': tToken === null,
               'data-color': 'null',
-              title: 'Default text color',
-              'aria-label': 'Default text color',
+              title: defaultText.text,
+              lang: defaultText.language,
+              'aria-label': defaultText.text,
               onMousedown: (e: MouseEvent) => {
                 e.preventDefault();
               },
@@ -120,7 +131,8 @@ export const DomternalNotionColorPicker = defineComponent({
                 'aria-pressed': tToken === t,
                 'data-color': t,
                 title: tokenLabel(t),
-                'aria-label': `${tokenLabel(t)} text`,
+                'aria-label': resolveColorSwatch(i18n, t, 'text').text,
+                lang: resolveColorSwatch(i18n, t, 'text').language,
                 onMousedown: (e: MouseEvent) => {
                   e.preventDefault();
                 },
@@ -132,15 +144,16 @@ export const DomternalNotionColorPicker = defineComponent({
           ]),
         ]),
         h('div', { class: 'dm-ncp-section' }, [
-          h('div', { class: 'dm-ncp-label' }, 'Background color'),
+          h('div', { class: 'dm-ncp-label', lang: backgroundLabel.language }, backgroundLabel.text),
           h('div', { class: 'dm-ncp-grid' }, [
             h('button', {
               type: 'button',
               class: ['dm-ncp-swatch', 'dm-ncp-swatch--bg', bToken === null && 'dm-ncp-active'],
               'aria-pressed': bToken === null,
               'data-color': 'null',
-              title: 'Default background',
-              'aria-label': 'Default background',
+              title: defaultBackground.text,
+              lang: defaultBackground.language,
+              'aria-label': defaultBackground.text,
               onMousedown: (e: MouseEvent) => {
                 e.preventDefault();
               },
@@ -155,8 +168,9 @@ export const DomternalNotionColorPicker = defineComponent({
                 class: ['dm-ncp-swatch', 'dm-ncp-swatch--bg', bToken === t && 'dm-ncp-active'],
                 'aria-pressed': bToken === t,
                 'data-color': t,
-                title: `${tokenLabel(t)} background`,
-                'aria-label': `${tokenLabel(t)} background`,
+                title: resolveColorSwatch(i18n, t, 'bg').text,
+                lang: resolveColorSwatch(i18n, t, 'bg').language,
+                'aria-label': resolveColorSwatch(i18n, t, 'bg').text,
                 onMousedown: (e: MouseEvent) => {
                   e.preventDefault();
                 },
@@ -171,6 +185,8 @@ export const DomternalNotionColorPicker = defineComponent({
     };
 
     return () => {
+      void localeRevision.value;
+      const panelLabel = localizeMessage(editorRef.value?.i18n, coreMessages.notionColorLabel);
       // SSR-safe: render nothing until the picker is open AND the editor host
       // has been resolved. Teleport's target must be a real DOM node.
       if (!isOpen.value || !hostEl.value) return null;
@@ -188,7 +204,8 @@ export const DomternalNotionColorPicker = defineComponent({
             'data-show': '',
             'data-dm-editor-ui': '',
             role: 'dialog',
-            'aria-label': 'Text and background color',
+            'aria-label': panelLabel.text,
+            lang: panelLabel.language,
             // Intentional non-modal: the picker doesn't trap focus (outside-click
             // closes, editor stays interactive). `role="dialog"` defaults to
             // modal=true for screen readers, so we explicitly opt out.

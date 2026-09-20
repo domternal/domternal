@@ -8,6 +8,9 @@ import type { Node as PmNode } from '@domternal/pm/model';
 import type { PluginKey } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import type { MathRenderer } from './renderer.js';
+import { localizeMessage } from '@domternal/core';
+import type { I18nService } from '@domternal/core';
+import { mathMessages } from './messages.js';
 
 export interface MathNodeViewConfig {
   /** Renderer to turn LaTeX into HTML. When null, the raw LaTeX is shown. */
@@ -16,10 +19,12 @@ export interface MathNodeViewConfig {
   displayMode: boolean;
   /** Plugin key used to dispatch the "edit this node" signal on click. */
   editKey?: PluginKey;
+  /** Editor-local UI translation service. */
+  i18n?: I18nService;
 }
 
 /** Placeholder shown for an empty (no latex) math node. */
-export const MATH_PLACEHOLDER = 'New equation';
+export { MATH_PLACEHOLDER } from './messages.js';
 
 interface MathNodeViewInstance {
   dom: HTMLElement;
@@ -27,12 +32,13 @@ interface MathNodeViewInstance {
   selectNode(): void;
   deselectNode(): void;
   ignoreMutation(): boolean;
+  destroy(): void;
 }
 
 export function createMathNodeView(
   config: MathNodeViewConfig,
 ): (node: PmNode, view: EditorView, getPos: () => number | undefined) => MathNodeViewInstance {
-  const { renderer, displayMode, editKey } = config;
+  const { renderer, displayMode, editKey, i18n } = config;
 
   return (node: PmNode, view: EditorView, getPos: () => number | undefined): MathNodeViewInstance => {
     const typeName = node.type.name;
@@ -43,9 +49,19 @@ export function createMathNodeView(
 
     const render = (latex: string): void => {
       dom.classList.remove('dm-math-empty', 'dm-math-error');
+      dom.removeAttribute('lang');
       if (!latex) {
         dom.classList.add('dm-math-empty');
-        dom.textContent = MATH_PLACEHOLDER;
+        const revision = i18n?.getSnapshot().revision;
+        const copy = localizeMessage(i18n, mathMessages.empty);
+        if (revision !== i18n?.getSnapshot().revision) { render(currentLatex); return; }
+        const text = dom.firstChild;
+        if (text?.nodeType === 3 && text === dom.lastChild) {
+          if (text.nodeValue !== copy.text) text.nodeValue = copy.text;
+        } else {
+          dom.textContent = copy.text;
+        }
+        dom.lang = copy.language;
         return;
       }
       if (!renderer) {
@@ -61,6 +77,9 @@ export function createMathNodeView(
     };
 
     render(currentLatex);
+    const unsubscribeI18n = i18n?.subscribe(() => {
+      if (!currentLatex) render(currentLatex);
+    });
 
     if (editKey) {
       dom.addEventListener('click', () => {
@@ -75,6 +94,7 @@ export function createMathNodeView(
 
     return {
       dom,
+      destroy() { unsubscribeI18n?.(); },
       update(updatedNode: PmNode): boolean {
         if (updatedNode.type.name !== typeName) return false;
         currentLatex = (updatedNode.attrs['latex'] as string | undefined) ?? '';

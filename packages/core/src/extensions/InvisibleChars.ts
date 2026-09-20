@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * InvisibleChars Extension
  *
@@ -280,9 +283,10 @@ export const InvisibleChars = Extension.create<
         name: 'invisibleChars',
         command: 'toggleInvisibleChars',
         icon: 'paragraph',
-        label: 'Invisible Characters',
+        ...localizedLabel(this.editor?.i18n, coreMessages.invisibleCharacters),
         shortcut: 'Mod-Shift-I',
         group: 'utility',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupUtility),
         priority: 100,
         isActiveFn: (editor) => {
           const storage = editor.storage['invisibleChars'] as

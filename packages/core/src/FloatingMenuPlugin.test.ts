@@ -304,6 +304,70 @@ describe('FloatingMenuPlugin', () => {
       expect(plugin).toBeDefined();
     });
 
+    it('localizes its default accessible name live and unsubscribes when removed', () => {
+      menuElement = document.createElement('div');
+      menuElement.setAttribute('role', 'menu');
+      const button = document.createElement('button');
+      button.textContent = 'Custom action';
+      menuElement.appendChild(button);
+      document.body.appendChild(menuElement);
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello</p>',
+        i18n: { locale: 'hr', messages: { 'core.floatingMenu.label': 'Umetni blok' } },
+      });
+      const pluginKey = new PluginKey('localizedFloating');
+      editor.registerPlugin(createFloatingMenuPlugin({ pluginKey, editor, element: menuElement }));
+      expect(menuElement.getAttribute('aria-label')).toBe('Umetni blok');
+      expect(menuElement.lang).toBe('hr');
+      button.focus();
+      const state = editor.state;
+      const transaction = vi.fn();
+      editor.on('transaction', transaction);
+      editor.i18n.set({ locale: 'de', messages: { 'core.floatingMenu.label': '<b>Block einfügen</b>' } });
+      expect(menuElement.getAttribute('aria-label')).toBe('<b>Block einfügen</b>');
+      expect(menuElement.lang).toBe('de');
+      expect(menuElement.firstChild).toBe(button);
+      expect(document.activeElement).toBe(button);
+      expect(editor.state).toBe(state);
+      expect(transaction).not.toHaveBeenCalled();
+      editor.unregisterPlugin(pluginKey);
+      editor.i18n.set({ locale: 'en' });
+      expect(menuElement.getAttribute('aria-label')).toBe('<b>Block einfügen</b>');
+    });
+
+    it.each(['Custom label', 'Insert block', ''])('preserves an explicit accessible name %j without requiring a role', label => {
+      menuElement = document.createElement('div');
+      menuElement.setAttribute('aria-label', label);
+      menuElement.lang = 'fr';
+      editor = new Editor({ extensions: [Document, Text, Paragraph], content: '<p>Hello</p>' });
+      editor.registerPlugin(createFloatingMenuPlugin({ pluginKey: new PluginKey('explicitFloating'), editor, element: menuElement }));
+      editor.i18n.set({ locale: 'hr', messages: { 'core.floatingMenu.label': 'Umetni blok' } });
+      expect(menuElement.getAttribute('role')).toBe('menu');
+      expect(menuElement.getAttribute('aria-label')).toBe(label);
+      expect(menuElement.lang).toBe('fr');
+    });
+
+    it('preserves aria-labelledby and relinquishes a default name replaced by the consumer', () => {
+      menuElement = document.createElement('div');
+      menuElement.setAttribute('aria-labelledby', 'custom-menu-title');
+      editor = new Editor({ extensions: [Document, Text, Paragraph], content: '<p>Hello</p>' });
+      const pluginKey = new PluginKey('labelledFloating');
+      editor.registerPlugin(createFloatingMenuPlugin({ pluginKey, editor, element: menuElement }));
+      editor.i18n.set({ locale: 'hr', messages: { 'core.floatingMenu.label': 'Umetni blok' } });
+      expect(menuElement.hasAttribute('aria-label')).toBe(false);
+      expect(menuElement.getAttribute('aria-labelledby')).toBe('custom-menu-title');
+      editor.unregisterPlugin(pluginKey);
+      menuElement.removeAttribute('aria-labelledby');
+      editor.registerPlugin(createFloatingMenuPlugin({ pluginKey, editor, element: menuElement }));
+      expect(menuElement.getAttribute('aria-label')).toBe('Umetni blok');
+      menuElement.setAttribute('aria-label', 'Consumer name');
+      menuElement.lang = 'en';
+      editor.i18n.set({ locale: 'de', messages: { 'core.floatingMenu.label': 'Block einfügen' } });
+      expect(menuElement.getAttribute('aria-label')).toBe('Consumer name');
+      expect(menuElement.lang).toBe('en');
+    });
+
     it('createFloatingMenuPlugin with custom offset', () => {
       menuElement = document.createElement('div');
       document.body.appendChild(menuElement);

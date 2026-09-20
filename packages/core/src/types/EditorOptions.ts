@@ -1,4 +1,5 @@
 import type { Schema } from '@domternal/pm/model';
+import type { I18nOptions } from '../i18n/index.js';
 import type { Content } from './Content.js';
 import type {
   CreateEventProps,
@@ -60,6 +61,9 @@ export type EditorPreset = 'classic' | 'notion';
  * Configuration options for creating an Editor instance
  */
 export interface EditorOptions {
+  /** UI translations and formatting. Update the existing editor through editor.i18n. */
+  i18n?: I18nOptions;
+
   /**
    * ProseMirror Schema for the editor.
    *

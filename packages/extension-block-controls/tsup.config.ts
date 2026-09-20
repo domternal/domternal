@@ -1,18 +1,21 @@
+import { localeEntries } from '../../scripts/locale-build.mjs';
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: { index: 'src/index.ts', ...localeEntries('@domternal/extension-block-controls') },
   format: ['esm', 'cjs'],
   target: 'es2022',
   dts: {
     compilerOptions: {
       composite: false,
+      paths: { '@domternal/extension-block-controls': ['./src/index.ts'] },
     },
   },
   sourcemap: true,
   splitting: false,
   treeshake: true,
   external: [
+    '@domternal/extension-block-controls',
     '@domternal/core',
     '@domternal/pm',
     '@domternal/pm/model',

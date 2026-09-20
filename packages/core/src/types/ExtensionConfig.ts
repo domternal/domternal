@@ -12,11 +12,14 @@ import type { Command, KeyboardShortcutCommand, SingleCommands } from './Command
 import type { EditorPreset } from './EditorOptions.js';
 import type { ToolbarItem } from './Toolbar.js';
 import type { FloatingMenuItem } from './FloatingMenu.js';
+import type { I18nService } from '../i18n/index.js';
 
 /**
  * Editor instance type (forward declaration)
  */
 export interface ExtensionEditor {
+  /** Optional for schema-only contexts and existing minimal editor adapters. */
+  readonly i18n?: I18nService;
   readonly state: EditorState;
   readonly view: EditorView;
   readonly schema: unknown;
@@ -98,6 +101,8 @@ export interface ExtensionContext<Options = unknown, Storage = unknown> {
   readonly name: string;
   /** Extension options (immutable after creation) */
   readonly options: Options;
+  /** Whether configure() or a custom addOptions() owns this option. */
+  isOptionExplicit(key: keyof Options): boolean;
   /** Extension storage (mutable state) */
   storage: Storage;
   /** Editor instance (null until bound by ExtensionManager) */

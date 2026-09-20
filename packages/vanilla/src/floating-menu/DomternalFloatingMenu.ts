@@ -1,4 +1,4 @@
-import { FloatingMenuController, createFloatingMenuPlugin, refocusEditorAfterCommand } from '@domternal/core';
+import { FloatingMenuController, createFloatingMenuPlugin, refocusEditorAfterCommand, coreMessages } from '@domternal/core';
 import type {
   Editor,
   FloatingMenuItem,
@@ -12,6 +12,7 @@ import { assertBrowser } from '../shared/isBrowser.js';
 import { createPluginKey } from '../shared/pluginKey.js';
 import { resolveIcon } from '../shared/iconRenderer.js';
 import type { CustomContentOption } from '../shared/types.js';
+import { patchPresentationText, setPresentationLanguage } from '../shared/presentation.js';
 
 export interface DomternalFloatingMenuOptions extends CustomContentOption {
   /** Editor instance the floating menu binds to. */
@@ -86,10 +87,17 @@ export class DomternalFloatingMenu extends EventTarget {
 
   #renderPending = false;
   #renderRaf = 0;
+  #structureKey = '';
+  #pointerDown = false;
+  #previousFocusedIndex = -1;
+  #unsubscribeI18n: (() => void) | null = null;
+  #groupPrefix: string;
 
   constructor(host: HTMLElement, options: DomternalFloatingMenuOptions) {
     super();
     assertBrowser('DomternalFloatingMenu');
+    const cryptoRef = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+    this.#groupPrefix = `dm-fm-${cryptoRef?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
 
     if (!(host instanceof HTMLElement)) {
       throw new TypeError(
@@ -110,8 +118,14 @@ export class DomternalFloatingMenu extends EventTarget {
     // Host setup
     this.host.classList.add('dm-floating-menu');
     this.host.setAttribute('role', 'menu');
-    this.host.setAttribute('aria-label', 'Insert block');
     this.host.setAttribute('data-dm-editor-ui', '');
+    const updateChrome = (): void => {
+      const message = this.#editor.i18n.resolve(coreMessages.floatingMenuLabel);
+      this.host.setAttribute('aria-label', message.text);
+      setPresentationLanguage(this.host, message.language);
+    };
+    updateChrome();
+    this.#unsubscribeI18n = this.#editor.i18n.subscribe(updateChrome);
 
     // Register the visibility/positioning plugin
     const plugin = createFloatingMenuPlugin({
@@ -142,7 +156,15 @@ export class DomternalFloatingMenu extends EventTarget {
       () => { this.#scheduleRender(); },
       options.items,
     );
-    this.#controller.subscribe();
+    this.#controller.subscribe(() => this.host);
+    this.host.addEventListener('pointerdown', () => { this.#pointerDown = true; }, { signal: this.#abortCtl.signal });
+    const releasePointer = (): void => {
+      if (!this.#pointerDown) return;
+      this.#pointerDown = false;
+      this.#scheduleRender();
+    };
+    document.addEventListener('pointerup', releasePointer, { signal: this.#abortCtl.signal });
+    document.addEventListener('pointercancel', releasePointer, { signal: this.#abortCtl.signal });
 
     this.host.addEventListener(
       'keydown',
@@ -160,6 +182,7 @@ export class DomternalFloatingMenu extends EventTarget {
   setIcons(icons: IconSet | undefined): void {
     if (this.#destroyed) return;
     this.#icons = icons;
+    this.#structureKey = '';
     if (!this.#hasCustomContent) this.#scheduleRender();
   }
 
@@ -169,6 +192,8 @@ export class DomternalFloatingMenu extends EventTarget {
 
     cancelAnimationFrame(this.#renderRaf);
     this.#abortCtl.abort();
+    this.#unsubscribeI18n?.();
+    this.#unsubscribeI18n = null;
     this.#controller?.destroy();
 
     if (!this.#editor.isDestroyed) {
@@ -189,7 +214,7 @@ export class DomternalFloatingMenu extends EventTarget {
       this.#render();
       // After paint, focus the active item if the menu has keyboard focus
       const focusedIdx = this.#controller.focusedIndex;
-      if (focusedIdx >= 0) {
+      if (focusedIdx >= 0 && focusedIdx !== this.#previousFocusedIndex) {
         queueMicrotask(() => {
           const target = this.host.querySelector<HTMLElement>(
             `[data-floating-menu-index="${String(focusedIdx)}"]`,
@@ -197,29 +222,69 @@ export class DomternalFloatingMenu extends EventTarget {
           target?.focus();
         });
       }
+      this.#previousFocusedIndex = focusedIdx;
     });
   }
 
   #render(): void {
     if (!this.#controller) return;
-    this.host.replaceChildren();
     const groups = this.#controller.groups;
     const focusedIdx = this.#controller.focusedIndex;
+    const key = JSON.stringify(groups.map((group) => [group.name, group.items.map((item) =>
+      [item.name, item.icon, Boolean(item.description), item.shortcut]) ]));
+    if (key === this.#structureKey) {
+      const buttons = Array.from(this.host.querySelectorAll<HTMLButtonElement>('[data-floating-menu-item]'));
+      let flat = 0;
+      for (const [index, group] of groups.entries()) {
+        const label = this.host.querySelector<HTMLElement>(`[id="${this.#groupPrefix}-g${String(index)}"]`);
+        if (label) {
+          patchPresentationText(label, group.label ?? group.name);
+          setPresentationLanguage(label, group.labelLanguage);
+        }
+        for (const item of group.items) {
+          const button = buttons.find((entry) => entry.dataset['floatingMenuItem'] === item.name);
+          if (button) {
+            button.tabIndex = this.#tabIndexFor(flat, focusedIdx);
+            button.disabled = this.#controller.isDisabled(item);
+            if (button.disabled) button.setAttribute('aria-disabled', 'true');
+            else button.removeAttribute('aria-disabled');
+            const text = button.querySelector<HTMLElement>('.dm-floating-menu-item-label');
+            const description = button.querySelector<HTMLElement>('.dm-floating-menu-item-description');
+            if (text) {
+              patchPresentationText(text, item.label);
+              setPresentationLanguage(text, item.labelLanguage);
+            }
+            if (description) {
+              patchPresentationText(description, item.description ?? '');
+              setPresentationLanguage(description, item.descriptionLanguage);
+            }
+          }
+          flat += 1;
+        }
+      }
+      return;
+    }
+    if (this.#pointerDown) return;
+    const focusedName = this.host.contains(document.activeElement)
+      ? (document.activeElement as HTMLElement).dataset['floatingMenuItem'] : undefined;
+    this.host.replaceChildren();
+    this.#structureKey = key;
 
     let flatIndex = 0;
     groups.forEach((group, gi) => {
       if (group.name) {
         const label = document.createElement('div');
         label.className = 'dm-floating-menu-group-label';
-        label.id = `dm-fm-g${String(gi)}`;
-        label.textContent = group.name;
+        label.id = `${this.#groupPrefix}-g${String(gi)}`;
+        label.textContent = group.label ?? group.name;
+        setPresentationLanguage(label, group.labelLanguage);
         this.host.appendChild(label);
       }
 
       const groupEl = document.createElement('div');
       groupEl.className = 'dm-floating-menu-group';
       groupEl.setAttribute('role', 'group');
-      if (group.name) groupEl.setAttribute('aria-labelledby', `dm-fm-g${String(gi)}`);
+      if (group.name) groupEl.setAttribute('aria-labelledby', `${this.#groupPrefix}-g${String(gi)}`);
 
       for (const item of group.items) {
         const currentFlat = flatIndex;
@@ -230,6 +295,11 @@ export class DomternalFloatingMenu extends EventTarget {
 
       this.host.appendChild(groupEl);
     });
+    if (focusedName) {
+      const button = Array.from(this.host.querySelectorAll<HTMLButtonElement>('[data-floating-menu-item]'))
+        .find((entry) => entry.dataset['floatingMenuItem'] === focusedName);
+      button?.focus();
+    }
   }
 
   #createItem(
@@ -263,6 +333,7 @@ export class DomternalFloatingMenu extends EventTarget {
     const labelSpan = document.createElement('span');
     labelSpan.className = 'dm-floating-menu-item-label';
     labelSpan.textContent = item.label;
+    setPresentationLanguage(labelSpan, item.labelLanguage);
     if (item.description) {
       const textSpan = document.createElement('span');
       textSpan.className = 'dm-floating-menu-item-text';
@@ -270,6 +341,7 @@ export class DomternalFloatingMenu extends EventTarget {
       const descriptionSpan = document.createElement('span');
       descriptionSpan.className = 'dm-floating-menu-item-description';
       descriptionSpan.textContent = item.description;
+      setPresentationLanguage(descriptionSpan, item.descriptionLanguage);
       textSpan.appendChild(descriptionSpan);
       btn.appendChild(textSpan);
     } else {
@@ -303,7 +375,9 @@ export class DomternalFloatingMenu extends EventTarget {
 
   #onItemClick(item: FloatingMenuItem): void {
     if (this.#destroyed || !this.#controller) return;
-    this.#controller.execute(item);
+    const current = this.#controller.flatItems.find((entry) => entry.name === item.name);
+    if (!current) return;
+    this.#controller.execute(current);
     refocusEditorAfterCommand(this.#editor.view);
   }
 

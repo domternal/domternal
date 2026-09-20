@@ -29,6 +29,7 @@
         }
 
         <domternal-editor
+          [i18n]="i18n()"
           [extensions]="extensions"
           [content]="contentFor(spec.id)"
           (editorCreated)="onEditorCreated(spec.id, $event)"

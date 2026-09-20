@@ -1,3 +1,4 @@
+import { DEMO_I18N, type DemoLanguage } from './demo-i18n.js';
 import { EditorDemo } from './EditorDemo.js';
 import { NotionDemo } from './NotionDemo.js';
 import { MultiEditorDemo } from './MultiEditorDemo.js';
@@ -16,6 +17,7 @@ function isPlainMode(mode: Mode): boolean {
  * Destroys + recreates the active demo on mode switch.
  */
 export class App {
+  #language: DemoLanguage = 'en';
   #host: HTMLElement;
   #mode: Mode = 'default';
   #isDark = false;
@@ -52,6 +54,21 @@ export class App {
     themeBtn.addEventListener('click', () => { this.#toggleTheme(); });
     h1.appendChild(themeBtn);
     this.#themeToggleBtn = themeBtn;
+    const languageSelect = document.createElement('select');
+    languageSelect.className = 'language-select';
+    languageSelect.setAttribute('aria-label', 'Editor language');
+    languageSelect.dataset.testid = 'demo-language';
+    for (const [value, label] of [['en', 'English'], ['de', 'Deutsch']] as const) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.lang = value;
+      option.textContent = label;
+      languageSelect.appendChild(option);
+    }
+    languageSelect.value = this.#language;
+    languageSelect.addEventListener('change', () => { this.#setLanguage(languageSelect.value); });
+    h1.appendChild(languageSelect);
+
     demo.appendChild(h1);
 
     // Mode toggle
@@ -87,6 +104,16 @@ export class App {
     return mount;
   }
 
+  #setLanguage(value: string): void {
+    if (value !== 'en' && value !== 'de') return;
+    this.#language = value;
+    const i18n = DEMO_I18N[value];
+    this.#editorDemo?.setI18n(i18n);
+    this.#notionDemo?.setI18n(i18n);
+    this.#multiDemo?.setI18n(i18n);
+    this.#tabDemo?.setI18n(i18n);
+  }
+
   #setMode(mode: Mode): void {
     if (mode === this.#mode) return;
     const prev = this.#mode;
@@ -115,6 +142,7 @@ export class App {
     if (this.#mode === 'notion' || this.#mode === 'notion-scrollable') {
       this.#notionDemo = new NotionDemo(this.#demoMount, {
         scrollable: this.#mode === 'notion-scrollable',
+        i18n: DEMO_I18N[this.#language],
       });
       return;
     }
@@ -123,7 +151,7 @@ export class App {
       const multiWrapper = document.createElement('div');
       multiWrapper.className = 'app-multi-editor-demo-mount';
       this.#demoMount.appendChild(multiWrapper);
-      this.#multiDemo = new MultiEditorDemo(multiWrapper);
+      this.#multiDemo = new MultiEditorDemo(multiWrapper, DEMO_I18N[this.#language]);
       return;
     }
 
@@ -131,7 +159,7 @@ export class App {
       const tabWrapper = document.createElement('div');
       tabWrapper.className = 'app-tab-indent-demo-mount';
       this.#demoMount.appendChild(tabWrapper);
-      this.#tabDemo = new TabIndentDemo(tabWrapper);
+      this.#tabDemo = new TabIndentDemo(tabWrapper, DEMO_I18N[this.#language]);
       return;
     }
 
@@ -140,6 +168,7 @@ export class App {
     this.#demoMount.appendChild(wrapper);
     this.#editorDemo = new EditorDemo(wrapper, {
       useLayout: this.#mode === 'custom',
+      i18n: DEMO_I18N[this.#language],
     });
   }
 

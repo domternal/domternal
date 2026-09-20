@@ -29,3 +29,5 @@ export { createEmojiSuggestionRenderer } from './suggestionRenderer.js';
 
 // Default export for convenience
 export { Emoji as default } from './Emoji.js';
+
+export { emojiMessages } from './messages.js';

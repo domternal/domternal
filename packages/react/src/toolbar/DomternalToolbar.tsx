@@ -6,10 +6,10 @@ import type {
   ToolbarItem,
   ToolbarLayoutEntry,
 } from '@domternal/core';
-import { refocusEditorAfterCommand } from '@domternal/core';
+import { coreMessages, refocusEditorAfterCommand } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useToolbarController } from './useToolbarController.js';
-import { useToolbarIcons, DROPDOWN_CARET } from './useToolbarIcons.js';
+import { useToolbarIcons } from './useToolbarIcons.js';
 import { useTooltip } from './useTooltip.js';
 import { useKeyboardNav } from './useKeyboardNav.js';
 import { getComputedStyleAtCursor, getInlineStyleAtCursor } from './useComputedStyle.js';
@@ -47,8 +47,6 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
 
   const {
     getCachedIcon,
-    getCachedItemContent,
-    getDropdownTriggerHtml,
   } = useToolbarIcons(icons);
 
   const { getTooltip } = useTooltip();
@@ -107,20 +105,23 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
   void activeVersion;
 
   if (!editor) return null;
+  const toolbarLabel = editor.i18n.resolve(coreMessages.toolbarLabel);
+  const toolsGroup = editor.i18n.resolve(coreMessages.toolsGroup);
 
   return (
     <div
       ref={toolbarRef}
       className="dm-toolbar"
       role="toolbar"
-      aria-label="Editor formatting"
+      aria-label={toolbarLabel.text}
+      lang={toolbarLabel.language}
       data-dm-editor-ui=""
       onKeyDown={onKeyDown}
     >
       {groups.map((group, gi) => (
         <Fragment key={group.name}>
           {gi > 0 && <div className="dm-toolbar-separator" role="separator" />}
-          <div className="dm-toolbar-group" role="group" aria-label={group.name || 'Tools'}>
+          <div className="dm-toolbar-group" role="group" aria-label={group.label ?? (group.name || toolsGroup.text)} lang={group.labelLanguage ?? (group.name ? '' : toolsGroup.language)}>
           {group.items.map((item: ToolbarItem) => {
             if (item.type === 'button') {
               const btn = item;
@@ -144,7 +145,7 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
               const activeItem = dd.items.find((sub: ToolbarButtonType) => controllerRef.current?.activeMap.get(sub.name));
 
               // Handle dynamic label with computed style
-              let triggerHtml = getDropdownTriggerHtml(dd, activeItem);
+              let computedLabel: string | undefined;
               if (dd.dynamicLabel && !activeItem && dd.computedStyleProperty) {
                 let computed: string | null;
                 if (dd.computedStyleProperty === 'font-family') {
@@ -158,7 +159,7 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
                 }
                 if (computed) {
                   // Re-generate trigger with computed value
-                  triggerHtml = `<span class="dm-toolbar-trigger-label">${computed}</span>${DROPDOWN_CARET}`;
+                  computedLabel = computed;
                 }
               }
 
@@ -171,8 +172,9 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
                   isDropdownActive={isDropdownActive(dd)}
                   isDisabled={isDisabled(dd.name)}
                   tabIndex={getFlatIndex(dd.name) === focusedIndex ? 0 : -1}
-                  triggerHtml={triggerHtml}
-                  getCachedItemContent={getCachedItemContent}
+                  activeItem={activeItem}
+                  computedLabel={computedLabel}
+                  getCachedIcon={getCachedIcon}
                   onToggle={handleDropdownToggle}
                   onItemClick={onDropdownItemClick}
                   onFocus={onButtonFocus}

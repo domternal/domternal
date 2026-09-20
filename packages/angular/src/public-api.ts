@@ -8,4 +8,4 @@ export { DomternalNotionColorPickerComponent } from './lib/notion-color-picker.c
 
 // Re-export commonly used types from core for convenience
 export { Editor } from '@domternal/core';
-export type { Content, AnyExtension, FocusPosition, JSONContent } from '@domternal/core';
+export type { Content, AnyExtension, FocusPosition, I18nOptions, Messages, JSONContent } from '@domternal/core';

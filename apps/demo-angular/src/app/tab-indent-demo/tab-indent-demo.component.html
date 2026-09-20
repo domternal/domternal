@@ -13,7 +13,7 @@
     >
       <strong style="display: block; margin: 0 0 8px;">StarterKit (default - listIndent OFF)</strong>
       <input type="text" data-testid="tab-prev-0" placeholder="Field before editor 0" style="display: block; width: 100%; box-sizing: border-box; margin: 0 0 8px;" />
-      <domternal-editor [extensions]="defaultExt" [content]="content" (editorCreated)="onCreated(0, $event)" />
+      <domternal-editor [i18n]="i18n()" [extensions]="defaultExt" [content]="content" (editorCreated)="onCreated(0, $event)" />
       <input type="text" data-testid="tab-next-0" placeholder="Field after editor 0" style="display: block; width: 100%; box-sizing: border-box; margin: 8px 0 0;" />
     </div>
 
@@ -24,7 +24,7 @@
     >
       <strong style="display: block; margin: 0 0 8px;">StarterKit with listIndent: true (opt-in)</strong>
       <input type="text" data-testid="tab-prev-1" placeholder="Field before editor 1" style="display: block; width: 100%; box-sizing: border-box; margin: 0 0 8px;" />
-      <domternal-editor [extensions]="optInExt" [content]="content" (editorCreated)="onCreated(1, $event)" />
+      <domternal-editor [i18n]="i18n()" [extensions]="optInExt" [content]="content" (editorCreated)="onCreated(1, $event)" />
       <input type="text" data-testid="tab-next-1" placeholder="Field after editor 1" style="display: block; width: 100%; box-sizing: border-box; margin: 8px 0 0;" />
     </div>
   </div>

@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * Subscript Mark
  *
@@ -96,9 +99,10 @@ export const Subscript = Mark.create<SubscriptOptions>({
         command: 'toggleSubscript',
         isActive: 'subscript',
         icon: 'textSubscript',
-        label: 'Subscript',
+        ...localizedLabel(this.editor?.i18n, coreMessages.subscript),
         shortcut: 'Mod-,',
         group: 'format',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupFormat),
         priority: 140,
       },
     ];

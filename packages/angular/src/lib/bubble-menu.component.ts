@@ -1,4 +1,5 @@
 import type { OnDestroy, ElementRef } from '@angular/core';
+import { escapePresentationText } from './presentation.js';
 import {
   Component,
   ChangeDetectionStrategy,
@@ -26,6 +27,7 @@ import {
   refocusEditorAfterCommand,
   resolveBubbleMenuItems,
   resolveBubbleNames,
+  coreMessages,
 } from '@domternal/core';
 import type {
   BubbleContexts,
@@ -48,7 +50,7 @@ import type {
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div #menuEl class="dm-bubble-menu" role="toolbar" aria-label="Text formatting">
+    <div #menuEl class="dm-bubble-menu" role="toolbar" [attr.aria-label]="menuMessage().text" [attr.lang]="menuMessage().language">
       @for (item of resolvedItems(); track item.name) {
         @if (item.type === 'separator') {
           <span class="dm-toolbar-separator" role="separator"></span>
@@ -60,6 +62,7 @@ import type {
               [attr.aria-expanded]="openDropdown() === asDropdown(item).name"
               [attr.aria-haspopup]="'true'"
               [attr.aria-label]="asDropdown(item).label"
+              [attr.lang]="asDropdown(item).labelLanguage ?? ''"
               [title]="asDropdown(item).label"
               [attr.data-dropdown]="asDropdown(item).name"
               [innerHTML]="getDropdownTriggerHtml(asDropdown(item))"
@@ -75,9 +78,9 @@ import type {
                     [class.dm-toolbar-dropdown-item--active]="isSubItemActive(sub.name)"
                     role="menuitem"
                     [attr.aria-label]="sub.label"
-                    [innerHTML]="getCachedItemContent(sub.icon, sub.label)"
+                    [attr.lang]="sub.labelLanguage ?? ''"
                     (mousedown)="$event.preventDefault()"
-                    (click)="onDropdownItemClick(sub)"></button>
+                    (click)="onDropdownItemClick(sub)"><span [innerHTML]="getCachedIcon(sub.icon)"></span> {{ sub.label }}</button>
                 }
               </div>
             }
@@ -89,6 +92,8 @@ import type {
             [disabled]="isItemDisabled(asButton(item))"
             [title]="asButton(item).label"
             [attr.aria-label]="asButton(item).label"
+            [attr.data-dm-command]="commandName(asButton(item))"
+            [attr.lang]="asButton(item).labelLanguage ?? ''"
             [innerHTML]="getCachedIcon(asButton(item).icon)"
             (mousedown)="$event.preventDefault()"
             (click)="executeCommand(asButton(item), $event)"></button>
@@ -100,8 +105,9 @@ import type {
         }
         <button #colorBtn type="button" class="dm-toolbar-button dm-ncp-trigger"
           [class.dm-toolbar-button--active]="hasAnyColor()"
-          title="Text and background color"
-          aria-label="Text and background color"
+          [title]="trailingMessages().color.text"
+          [attr.aria-label]="trailingMessages().color.text"
+          [attr.lang]="trailingMessages().color.language"
           aria-haspopup="dialog"
           (mousedown)="$event.preventDefault()"
           (click)="openColorPicker(colorBtn)">
@@ -117,8 +123,9 @@ import type {
         }
         <button #blockMenuBtn type="button" class="dm-toolbar-button"
           [disabled]="blockMenuButtonDisabled()"
-          [title]="blockMenuButtonDisabled() ? 'Block actions (select within a single block)' : 'More options'"
-          aria-label="More options"
+          [title]="blockMenuButtonDisabled() ? trailingMessages().hint.text : trailingMessages().more.text"
+          [attr.aria-label]="trailingMessages().more.text"
+          [attr.lang]="trailingMessages().more.language"
           aria-haspopup="menu"
           [innerHTML]="getCachedIcon('dotsThree')"
           (mousedown)="$event.preventDefault()"
@@ -235,6 +242,21 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   private disabledMap = new Map<string, boolean>();
   private htmlCache = new Map<string, SafeHtml>();
   private transactionHandler: (() => void) | null = null;
+  private unsubscribeI18n: (() => void) | null = null;
+
+  readonly menuMessage = computed(() => {
+    this.activeVersion();
+    return this.editor().i18n.resolve(coreMessages.bubbleMenuLabel);
+  });
+  readonly trailingMessages = computed(() => {
+    this.activeVersion();
+    const i18n = this.editor().i18n;
+    return {
+      color: i18n.resolve(coreMessages.notionColorLabel),
+      more: i18n.resolve(coreMessages.moreOptions),
+      hint: i18n.resolve(coreMessages.blockActionsSelectionHint),
+    };
+  });
 
   // Dropdown state for bubble-menu-embedded dropdowns (e.g. text-align).
   readonly openDropdown = signal<string | null>(null);
@@ -290,6 +312,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unsubscribeI18n?.();
+    this.unsubscribeI18n = null;
     const editor = this.editor();
     if (this.transactionHandler) {
       editor.off('transaction', this.transactionHandler);
@@ -384,7 +408,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     this.hasNotionColorPicker =
       editor.extensionManager.extensions.some((e) => e.name === 'notionColorPicker');
 
-    const fallbackItems = resolveBubbleNames(
+    let fallbackItems = resolveBubbleNames(
       this.items() ?? ['bold', 'italic', 'underline'],
       this.maps.itemMap,
       this.maps.dropdownMap,
@@ -413,6 +437,16 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       });
     };
     editor.on('transaction', this.transactionHandler);
+    this.unsubscribeI18n = editor.i18n.subscribe(() => {
+      Object.assign(this.maps, buildBubbleItemMaps(editor));
+      fallbackItems = resolveBubbleNames(
+        this.items() ?? ['bold', 'italic', 'underline'],
+        this.maps.itemMap,
+        this.maps.dropdownMap,
+      );
+      this.htmlCache.clear();
+      this.transactionHandler?.();
+    });
     this.updateStates(editor);
     this.syncTrailingButtonsState(editor);
   }
@@ -501,6 +535,10 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   // === Dropdown helpers (shared shape with toolbar.component.ts) ===
 
+  protected commandName(item: ToolbarButton): string | null {
+    return typeof item.command === 'string' ? item.command : null;
+  }
+
   asButton(item: BubbleMenuItem): ToolbarButton {
     return item as ToolbarButton;
   }
@@ -538,7 +576,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     if (!cached) {
       const custom = this.icons();
       const svg = custom?.[iconName] ?? defaultIcons[iconName] ?? '';
-      cached = this.sanitizer.bypassSecurityTrustHtml(`${svg} ${label}`);
+      cached = this.sanitizer.bypassSecurityTrustHtml(`${svg} ${escapePresentationText(label)}`);
       this.htmlCache.set(key, cached);
     }
     return cached;

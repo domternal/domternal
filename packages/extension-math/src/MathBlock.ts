@@ -4,7 +4,8 @@
  * view via the injected renderer. Authoring: the `insertMathBlock` command, the
  * `$$` input rule, and slash/toolbar items.
  */
-import { Node } from '@domternal/core';
+import { Node, localizeMessage, localizedLabel, coreMessages } from '@domternal/core';
+import { mathMessages } from './messages.js';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { InputRule } from '@domternal/pm/inputrules';
 import { NodeSelection } from '@domternal/pm/state';
@@ -78,6 +79,7 @@ export const MathBlock = Node.create<MathOptions>({
       renderer: this.options.renderer,
       displayMode: true,
       editKey: mathEditPluginKey,
+      ...(this.editor?.i18n ? { i18n: this.editor.i18n } : {}),
     });
   },
 
@@ -161,29 +163,36 @@ export const MathBlock = Node.create<MathOptions>({
   },
 
   addToolbarItems(): ToolbarItem[] {
+    const i18n = this.editor?.i18n;
+    const group = localizeMessage(i18n, coreMessages.groupInsert);
     return [
       {
         type: 'button',
         name: 'mathBlock',
         command: 'insertMathBlock',
         icon: 'sigma',
-        label: 'Equation',
+        ...localizedLabel(i18n, mathMessages.block),
         group: 'insert',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 44,
       },
     ];
   },
 
   addFloatingMenuItems(): FloatingMenuItem[] {
+    const i18n = this.editor?.i18n;
+    const group = localizeMessage(i18n, coreMessages.groupAdvanced);
+    const description = localizeMessage(i18n, mathMessages.blockDescription);
     return [
       {
         name: 'mathBlock',
-        label: 'Equation',
-        description: 'Insert a block LaTeX formula',
+        ...localizedLabel(i18n, mathMessages.block),
+        description: description.text, descriptionLanguage: description.language,
         icon: 'sigma',
         group: 'Advanced',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 79,
-        keywords: ['math', 'latex', 'equation', 'formula', 'block', 'display'],
+        keywords: [...(i18n?.getSearchAliases(mathMessages.block) ?? mathMessages.block.technicalAliases ?? [])],
         command: 'insertMathBlock',
       },
     ];

@@ -8,10 +8,12 @@
  * Users can import either or provide their own custom data.
  */
 
+import type { EmojiPresentationItem } from '@domternal/core';
+
 /**
  * A single emoji entry in the dataset.
  */
-export interface EmojiItem {
+export interface EmojiItem extends EmojiPresentationItem {
   /** Native Unicode emoji character (e.g., "😄") */
   emoji: string;
   /** Unique name used as node attribute (e.g., "smile") */

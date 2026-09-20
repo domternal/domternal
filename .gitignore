@@ -43,3 +43,6 @@ Thumbs.db
 
 # pnpm content-addressable store, when it lands inside the repo
 .pnpm-store/
+
+# Local receipt for generated locale build inputs and artifacts
+packages/*/.locale-build.json

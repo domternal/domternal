@@ -10,4 +10,6 @@ DomternalToolbarComponent
 Editor
 EmojiPickerItem
 FocusPosition
+I18nOptions
 JSONContent
+Messages

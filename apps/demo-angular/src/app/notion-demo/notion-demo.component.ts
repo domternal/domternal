@@ -72,7 +72,7 @@ const PARAGRAPH_EXCLUSION_PARENTS = new Set([
   'blockquote', 'tableCell', 'tableHeader', 'tableRow', 'details', 'detailsContent',
 ]);
 import type { MentionItem } from '@domternal/extension-mention';
-import type { IconSet } from '@domternal/core';
+import type { IconSet, I18nOptions } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
 import katex from 'katex';
 import {
@@ -111,6 +111,8 @@ const mockUsers: MentionItem[] = [
   styleUrls: ['./notion-demo.component.scss'],
 })
 export class NotionDemoComponent implements OnDestroy {
+  readonly i18n = input.required<I18nOptions>();
+
   /**
    * Toast display durations (ms). Error toast lingers ~50% longer because it
    * carries diagnostic copy users may want to read; success is shorter to

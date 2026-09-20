@@ -19,6 +19,7 @@ import {
   budgetKey,
   completeness,
   discoverEntries,
+  expandLocaleBudgets,
   manifestEntries,
   marketingClaimFailures,
   marketingKiB,
@@ -28,6 +29,32 @@ import {
 } from './check.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+test('locale budget templates expand only discovered languages and retain fixed ceilings', () => {
+  const budgets = expandLocaleBudgets(
+    { core: 100, 'core/locales/*': 1000 },
+    ['core'],
+    [{ id: 'de' }, { id: 'fr' }]
+  );
+  assert.deepEqual(budgets, { core: 100, 'core/locales/de': 1000, 'core/locales/fr': 1000 });
+  assert.deepEqual(
+    completeness(['core', 'core/locales/de', 'core/locales/fr', 'core/locales/unknown'], budgets),
+    {
+      unbudgeted: ['core/locales/unknown'],
+      stale: [],
+    }
+  );
+  assert.deepEqual(completeness(['core', 'core/locales/de'], budgets).stale, ['core/locales/fr']);
+  assert.throws(() => expandLocaleBudgets({}, ['core'], []), /Missing locale ceilings/);
+  assert.throws(
+    () => expandLocaleBudgets({ 'other/locales/*': 1000 }, ['core'], []),
+    /Unexpected locale budget owner/
+  );
+  assert.throws(
+    () => expandLocaleBudgets({ 'core/locales/*': Infinity }, ['core'], []),
+    /Invalid locale ceiling/
+  );
+});
 
 test('a plain string export is its own target', () => {
   assert.equal(runtimeTarget('./dist/index.js'), './dist/index.js');
@@ -195,9 +222,7 @@ test('the root entry is listed first whatever order the manifest uses', () => {
 
 test('source formats are kept but marked unmeasurable', () => {
   const entries = manifestEntries('theme', { exports: { './scss': './src/index.scss' } });
-  assert.deepEqual(entries, [
-    { key: 'theme/scss', target: './src/index.scss', measurable: false },
-  ]);
+  assert.deepEqual(entries, [{ key: 'theme/scss', target: './src/index.scss', measurable: false }]);
 });
 
 test('an entry with no budget is reported, which is the whole point of the change', () => {
@@ -257,7 +282,9 @@ test('discovery finds the three packages that had no ceiling before', () => {
   const { measured } = discoverEntries(repoRoot);
   const byKey = new Map(measured.map((entry) => [entry.key, entry]));
   assert.ok(byKey.get('theme').file.endsWith('packages/theme/dist/domternal-theme.css'));
-  assert.ok(byKey.get('angular').file.endsWith('packages/angular/dist/fesm2022/domternal-angular.mjs'));
+  assert.ok(
+    byKey.get('angular').file.endsWith('packages/angular/dist/fesm2022/domternal-angular.mjs')
+  );
   assert.ok(byKey.get('pm/model').file.endsWith('packages/pm/src/model.js'));
 });
 

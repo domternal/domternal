@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedDescription, localizedGroup, messageAliases } from '../messages/presentation.js';
 /**
  * BulletList Node
  *
@@ -70,9 +73,10 @@ export const BulletList = Node.create<BulletListOptions>({
         command: 'toggleBulletList',
         isActive: 'bulletList',
         icon: 'listBullets',
-        label: 'Bullet List',
+        ...localizedLabel(this.editor?.i18n, coreMessages.bulletList),
         shortcut: 'Mod-Shift-8',
         group: 'lists',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupListsToolbar),
         priority: 200,
       },
     ];
@@ -82,12 +86,13 @@ export const BulletList = Node.create<BulletListOptions>({
     return [
       {
         name: 'bullet-list',
-        label: 'Bulleted list',
-        description: 'Create a simple bulleted list',
+        ...localizedLabel(this.editor?.i18n, coreMessages.bulletedList),
+        ...localizedDescription(this.editor?.i18n, coreMessages.bulletedListDescription),
         icon: 'listBullets',
         group: 'Lists',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupLists),
         priority: 200,
-        keywords: ['bullet', 'list', 'unordered', 'ul'],
+        keywords: messageAliases(this.editor?.i18n, coreMessages.bulletedList),
         shortcut: '- ',
         command: 'turnIntoBulletList',
         // Don't offer "Bulleted list" while cursor is already inside one,

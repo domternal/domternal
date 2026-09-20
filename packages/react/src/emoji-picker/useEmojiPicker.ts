@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { positionFloatingOnce } from '@domternal/core';
-import type { Editor } from '@domternal/core';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { positionFloatingOnce, observeI18nPresentation, matchesEmojiPresentation, resolveEmojiCategory } from '@domternal/core';
+import type { Editor, EmojiPresentationItem } from '@domternal/core';
 
-export interface EmojiPickerItem {
+export interface EmojiPickerItem extends EmojiPresentationItem {
   emoji: string;
   name: string;
   group: string;
@@ -25,6 +25,7 @@ export interface UseEmojiPickerResult {
 }
 
 export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[]): UseEmojiPickerResult {
+  const [localeRevision, setLocaleRevision] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
@@ -35,6 +36,27 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
   const clickOutsideRef = useRef<((e: Event) => void) | null>(null);
   const keydownRef = useRef<((e: KeyboardEvent) => void) | null>(null);
   const isOpenRef = useRef(false);
+  const localeFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!editor) return;
+    return observeI18nPresentation(editor.i18n, () => pickerRef.current, () => {
+      const focused = document.activeElement;
+      localeFocusRef.current = focused instanceof HTMLElement && pickerRef.current?.contains(focused)
+        && focused.classList.contains('dm-emoji-swatch') ? focused : null;
+      setLocaleRevision((value) => value + 1);
+    });
+  }, [editor]);
+
+  useLayoutEffect(() => {
+    const previous = localeFocusRef.current;
+    localeFocusRef.current = null;
+    const root = pickerRef.current;
+    if (!previous || !root?.isConnected || document.activeElement === previous) return;
+    const replacement = Array.from(root.querySelectorAll<HTMLElement>('.dm-emoji-swatch'))
+      .find((element) => element.dataset['emojiName'] === previous.dataset['emojiName']);
+    (replacement ?? root.querySelector<HTMLInputElement>('input'))?.focus({ preventScroll: true });
+  }, [localeRevision]);
 
   const categories = useMemo(() => {
     const map = new Map<string, EmojiPickerItem[]>();
@@ -49,15 +71,22 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
   const categoryNames = useMemo(() => [...categories.keys()], [categories]);
 
   const filteredEmojis = useMemo(() => {
+    void localeRevision;
     const query = searchQuery.toLowerCase();
     if (!query) return [];
     const storage = getEmojiStorage(editor);
     const searchFn = storage?.['searchEmoji'] as ((q: string) => EmojiPickerItem[]) | undefined;
-    if (searchFn) return searchFn(query);
-    return emojis.filter(
+    const matches = searchFn ? searchFn(query) : emojis.filter(
       (item) => item.name.includes(query) || item.group.toLowerCase().includes(query),
     );
-  }, [searchQuery, emojis, editor]);
+    const displayMatches = emojis.filter((item) => matchesEmojiPresentation(editor?.i18n, item, query)
+      || resolveEmojiCategory(editor?.i18n, item.group).text.toLowerCase().includes(query));
+    const result = new Map(matches.map((item) => [item.name, item]));
+    for (const item of displayMatches) {
+      if (!result.has(item.name)) result.set(item.name, item);
+    }
+    return [...result.values()];
+  }, [searchQuery, emojis, editor, localeRevision]);
 
   const frequentlyUsed = useMemo(() => {
     // Re-evaluate when panel opens

@@ -1,3 +1,4 @@
+import type { I18nOptions } from '@domternal/core';
 import { DomternalEditor, DomternalToolbar, DomternalBubbleMenu } from '@domternal/vanilla';
 import {
   Bold, Italic, Underline, Strike, Code, Link,
@@ -55,6 +56,7 @@ interface EditorEntry {
 }
 
 export class MultiEditorDemo {
+  #i18n: I18nOptions;
   #container: HTMLElement;
   #grid: HTMLElement;
   /** ONE shared extensions array, intentionally reused for every editor. */
@@ -63,7 +65,8 @@ export class MultiEditorDemo {
   #counter = 0;
   #destroyed = false;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, i18n: I18nOptions = {}) {
+    this.#i18n = i18n;
     this.#container = container;
     this.#sharedExtensions = buildExtensions();
 
@@ -143,6 +146,7 @@ export class MultiEditorDemo {
 
     // SAME shared array passed to every editor - the manager clones it per editor.
     const wrapper = new DomternalEditor(host, {
+      i18n: this.#i18n,
       extensions: this.#sharedExtensions,
       content: sampleContent(n),
     });
@@ -183,6 +187,12 @@ export class MultiEditorDemo {
     const editors = this.#entries.map((e) => e.wrapper.editor);
     w.__MULTI_EDITORS__ = editors;
     w.__DEMO_EDITOR__ = editors[0] ?? null;
+  }
+
+  setI18n(i18n: I18nOptions): void {
+    if (this.#destroyed) return;
+    this.#i18n = i18n;
+    for (const entry of this.#entries) entry.wrapper.editor.i18n.set(i18n);
   }
 
   destroy(): void {

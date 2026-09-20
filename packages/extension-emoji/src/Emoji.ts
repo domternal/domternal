@@ -2,13 +2,14 @@
  * Inline atom emoji with shortcode input rules, emoticon support, and a
  * headless suggestion plugin for autocomplete pickers.
  */
-import { Node } from '@domternal/core';
+import { Node, coreMessages, localizeMessage, localizedLabel, matchesEmojiPresentation } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
 import { InputRule } from '@domternal/pm/inputrules';
 import type { EditorState } from '@domternal/pm/state';
 import { emojis as defaultEmojis } from './emojis.js';
 import type { EmojiItem } from './emojis.js';
 import { emoticons } from './emoticons.js';
+import { emojiMessages } from './messages.js';
 import { createSuggestionPlugin } from './suggestionPlugin.js';
 import type { SuggestionOptions } from './suggestionPlugin.js';
 
@@ -119,7 +120,8 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
         (item) =>
           item.name.includes(q) ||
           item.shortcodes.some((sc) => sc.includes(q)) ||
-          item.tags.some((t) => t.includes(q)),
+          item.tags.some((t) => t.includes(q)) ||
+          matchesEmojiPresentation(this.editor?.i18n, item, query),
       );
     };
 
@@ -203,8 +205,10 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
         command: 'insertEmoji',
         commandArgs: ['smile'],
         icon: 'smiley',
-        label: 'Insert Emoji',
+        ...localizedLabel(this.editor?.i18n, emojiMessages.insert),
         group: 'insert',
+        groupLabel: localizeMessage(this.editor?.i18n, coreMessages.groupInsert).text,
+        groupLabelLanguage: localizeMessage(this.editor?.i18n, coreMessages.groupInsert).language,
         priority: 50,
         emitEvent: 'insertEmoji',
         toolbar: this.options.toolbar,
@@ -381,6 +385,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
       createSuggestionPlugin({
         ...suggestion,
         editor: this.editor,
+        i18n: this.editor?.i18n,
         nodeType: this.nodeType,
         storage: this.storage,
         plainText: this.options.plainText,

@@ -1,0 +1,138 @@
+[
+  {
+    "file": "packages/angular/src/lib/bubble-menu.component.ts",
+    "context": "DomternalBubbleMenuComponent",
+    "sink": "template:text",
+    "text": "A",
+    "occurrences": 1,
+    "reason": "Typography color sample glyph. The surrounding control has a separately localized accessible name; this glyph is not a word label."
+  },
+  {
+    "file": "packages/core/src/extensions/Placeholder.ts",
+    "context": "Placeholder.addOptions",
+    "sink": "property:placeholder",
+    "text": "Write something …",
+    "occurrences": 1,
+    "reason": "Compatible public option default. The decoration resolves core.placeholder unless isOptionExplicit marks an application-owned placeholder."
+  },
+  {
+    "file": "packages/core/src/nodes/TaskItem.ts",
+    "context": "TaskItem.renderHTML",
+    "sink": "property:aria-label",
+    "text": "Task status",
+    "occurrences": 1,
+    "reason": "Stable serialized document markup. The mounted TaskItemNodeView separately localizes its live checkbox accessible name; UI locale must not alter document HTML."
+  },
+  {
+    "file": "packages/extension-block-controls/src/BlockContextMenu.ts",
+    "context": "DEFAULT_TURN_INTO",
+    "sink": "property:label",
+    "text": "Paragraph",
+    "occurrences": 1,
+    "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
+  },
+  {
+    "file": "packages/extension-block-controls/src/BlockContextMenu.ts",
+    "context": "DEFAULT_TURN_INTO",
+    "sink": "property:label",
+    "text": "Heading 1",
+    "occurrences": 1,
+    "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
+  },
+  {
+    "file": "packages/extension-block-controls/src/BlockContextMenu.ts",
+    "context": "DEFAULT_TURN_INTO",
+    "sink": "property:label",
+    "text": "Heading 2",
+    "occurrences": 1,
+    "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
+  },
+  {
+    "file": "packages/extension-block-controls/src/BlockContextMenu.ts",
+    "context": "DEFAULT_TURN_INTO",
+    "sink": "property:label",
+    "text": "Heading 3",
+    "occurrences": 1,
+    "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
+  },
+  {
+    "file": "packages/extension-block-controls/src/BlockContextMenu.ts",
+    "context": "DEFAULT_TURN_INTO",
+    "sink": "property:label",
+    "text": "Bullet list",
+    "occurrences": 1,
+    "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
+  },
+  {
+    "file": "packages/extension-block-controls/src/BlockContextMenu.ts",
+    "context": "DEFAULT_TURN_INTO",
+    "sink": "property:label",
+    "text": "Ordered list",
+    "occurrences": 1,
+    "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
+  },
+  {
+    "file": "packages/extension-block-controls/src/BlockContextMenu.ts",
+    "context": "DEFAULT_TURN_INTO",
+    "sink": "property:label",
+    "text": "To-do list",
+    "occurrences": 1,
+    "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
+  },
+  {
+    "file": "packages/extension-block-controls/src/BlockContextMenu.ts",
+    "context": "DEFAULT_TURN_INTO",
+    "sink": "property:label",
+    "text": "Quote",
+    "occurrences": 1,
+    "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
+  },
+  {
+    "file": "packages/extension-block-controls/src/BlockContextMenu.ts",
+    "context": "DEFAULT_TURN_INTO",
+    "sink": "property:label",
+    "text": "Code block",
+    "occurrences": 1,
+    "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
+  },
+  {
+    "file": "packages/react/src/bubble-menu/DomternalBubbleMenu.tsx",
+    "context": "DomternalBubbleMenu",
+    "sink": "jsx:text",
+    "text": "A",
+    "occurrences": 1,
+    "reason": "Typography color sample glyph. The surrounding control has a separately localized accessible name; this glyph is not a word label."
+  },
+  {
+    "file": "packages/theme/src/_block-colors.scss",
+    "context": "<stylesheet>",
+    "sink": "css:content",
+    "text": "A",
+    "occurrences": 1,
+    "reason": "Typography color sample glyph. The surrounding control has a separately localized accessible name; this glyph is not a word label."
+  },
+  {
+    "file": "packages/theme/src/_inline-colors.scss",
+    "context": "<stylesheet>",
+    "sink": "css:content",
+    "text": "A",
+    "occurrences": 1,
+    "reason": "Typography color sample glyph. The surrounding control has a separately localized accessible name; this glyph is not a word label."
+  },
+  {
+    "file": "packages/vanilla/src/bubble-menu/DomternalBubbleMenu.ts",
+    "context": "DomternalBubbleMenu",
+    "sink": "dom:textContent",
+    "text": "A",
+    "occurrences": 1,
+    "reason": "Typography color sample glyph. The surrounding control has a separately localized accessible name; this glyph is not a word label."
+  },
+  {
+    "file": "packages/vue/src/bubble-menu/DomternalBubbleMenu.ts",
+    "context": "DomternalBubbleMenu.setup",
+    "sink": "vue:text",
+    "text": "A",
+    "occurrences": 1,
+    "reason": "Typography color sample glyph. The surrounding control has a separately localized accessible name; this glyph is not a word label."
+  }
+]

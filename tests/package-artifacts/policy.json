@@ -14,7 +14,18 @@
     "breach is always a deliberate edit. @domternal/theme went 83000 to 95000 on",
     "2026-08-20, measured at 86185 packed: the paper layer gained the palette",
     "re-emission, the header-group promotion, the image clamp and the reservation",
-    "hook, and _content.scss gained the list marker cycle."
+    "hook, and _content.scss gained the list marker cycle.",
+    "2026-09-19: typed i18n catalogs, locale services and retained live UI add",
+    "production code, declarations and deliberate source maps. Measured packed",
+    "bytes: core 800641, image 66930, math 36005, mention 47305, table 128044,",
+    "toc 96777. Their ceilings now follow the documented ten percent headroom",
+    "rounded up to 1000 bytes. File allowlists and export checks are unchanged.",
+    "2026-09-20: optional German subpaths add their own runtime files, declarations",
+    "and source maps. Final packed measurements: details 43411, math 40211 bytes.",
+    "Their ceilings retain ten percent headroom rounded up to 1000 bytes.",
+    "Existing English main JS bundles are byte-identical; locale allowlists name",
+    "only de.js/de.cjs, their maps and their ESM/CommonJS declaration files.",
+    "The current maxPackedBytes includes one official locale. Each additional central locale receives only its fixed maxAdditionalLocaleBytes allowance; deleting a locale cannot increase the ceiling. Locale runtime, source map and declaration files are required by exact discovered name. No locale wildcard is allowed in tarballs. The reviewed increments allow ordinary text variation and are never derived automatically from a new language. --update keeps the reviewed base unchanged when multiple locale catalogs are present, so it cannot compound allowances or attribute their bytes to the base."
   ],
   "@domternal/angular": {
     "maxPackedBytes": 77000,
@@ -26,14 +37,16 @@
     ]
   },
   "@domternal/core": {
-    "maxPackedBytes": 767000,
+    "maxPackedBytes": 881000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 24000
   },
   "@domternal/extension-block-controls": {
     "maxPackedBytes": 297000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 9000
   },
   "@domternal/extension-code-block-lowlight": {
     "maxPackedBytes": 14000,
@@ -41,19 +54,22 @@
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-details": {
-    "maxPackedBytes": 39000,
+    "maxPackedBytes": 48000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 6000
   },
   "@domternal/extension-emoji": {
     "maxPackedBytes": 110000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 6000
   },
   "@domternal/extension-image": {
-    "maxPackedBytes": 66000,
+    "maxPackedBytes": 74000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 9000
   },
   "@domternal/extension-markdown": {
     "maxPackedBytes": 85000,
@@ -61,24 +77,28 @@
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-math": {
-    "maxPackedBytes": 34000,
+    "maxPackedBytes": 45000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 7000
   },
   "@domternal/extension-mention": {
-    "maxPackedBytes": 42000,
+    "maxPackedBytes": 53000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 6000
   },
   "@domternal/extension-table": {
-    "maxPackedBytes": 122000,
+    "maxPackedBytes": 141000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 10000
   },
   "@domternal/extension-toc": {
-    "maxPackedBytes": 95000,
+    "maxPackedBytes": 107000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 8000
   },
   "@domternal/pm": {
     "maxPackedBytes": 6000,

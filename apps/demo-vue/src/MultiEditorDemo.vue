@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onBeforeUnmount } from 'vue';
-import type { Editor } from '@domternal/core';
+import type { Editor, I18nOptions } from '@domternal/core';
 import MultiEditorPanel from './MultiEditorPanel.vue';
 
 /**
@@ -16,6 +16,8 @@ import MultiEditorPanel from './MultiEditorPanel.vue';
  */
 
 interface PanelSpec { id: number; withToolbar: boolean }
+
+defineProps<{ i18n: I18nOptions }>();
 
 // Initial layout: one toolbar editor (the "Hero") plus two bubble-menu editors
 // (the "columns") - the exact shape that exposed the bug.
@@ -80,6 +82,7 @@ onBeforeUnmount(() => {
       style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start;"
     >
       <MultiEditorPanel
+        :i18n="i18n"
         v-for="(spec, i) in panels"
         :key="spec.id"
         :spec="spec"

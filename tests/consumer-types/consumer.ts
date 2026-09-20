@@ -4,11 +4,23 @@
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
+import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation } from '@domternal/core';
+import type { CompleteMessages, Messages } from '@domternal/core';
+
+declare module '@domternal/core' {
+  interface MessageParameters {
+    'app.itemCount': { count: number };
+  }
+  interface SearchableMessages {
+    'app.itemCount': true;
+  }
+}
 
 // Bare imports load each extension's `declare module '@domternal/core'`
 // augmentation, without which their commands appear missing.
 import '@domternal/extension-details';
 import '@domternal/extension-emoji';
+import { emojiMessages } from '@domternal/extension-emoji';
 import '@domternal/extension-image';
 import '@domternal/extension-markdown';
 import '@domternal/extension-math';
@@ -17,6 +29,65 @@ import '@domternal/extension-table';
 import '@domternal/extension-toc';
 
 declare const editor: Editor;
+
+// Every built-in definition must retain its public parameter augmentation in dist.
+type PublishedCoreMessages = CompleteMessages<typeof coreMessages>;
+const builtinTranslations: Messages = {
+  'core.toolbar.italic': 'Kursiv',
+  'core.group.insert': 'Einfügen',
+  'core.group.media': 'Medien',
+  'core.group.advanced': 'Erweitert',
+  'core.heading.level': ({ level }) => `Überschrift ${String(level)}`,
+};
+editor.i18n.set({
+  messages: builtinTranslations,
+  searchAliases: { 'core.floating.quote': ['Zitat'], 'core.heading.level': ['Überschrift'] },
+});
+editor.i18n.t(coreMessages.italic);
+editor.i18n.t(coreMessages.groupInsert);
+editor.i18n.t(coreMessages.headingLevel, { level: 2 });
+// @ts-expect-error Built-in dynamic parameters remain checked after declaration bundling.
+editor.i18n.t(coreMessages.headingLevel, { level: 'two' });
+// @ts-expect-error Dynamic built-in messages require their parameters.
+editor.i18n.t(coreMessages.headingLevel);
+// @ts-expect-error Only declared searchable messages accept aliases.
+editor.i18n.set({ searchAliases: { 'core.group.insert': ['Einfügen'] } });
+
+resolveColorName(editor.i18n, 'blue');
+resolveColorSwatch(editor.i18n, 'blue', 'bg');
+resolveEmojiCategory(editor.i18n, 'Objects');
+resolveEmojiLabel(editor.i18n, { name: 'smile', label: 'Custom', labelLanguage: 'en' });
+matchesEmojiPresentation(editor.i18n, { name: 'smile', searchAliases: ['happy'] }, 'happy');
+editor.i18n.t(coreMessages.emojiItemName, { name: 'smile' });
+// @ts-expect-error Emoji display lookup preserves its stable string identity contract.
+editor.i18n.t(coreMessages.emojiItemName, { name: 1 });
+// @ts-expect-error Swatch variants are a finite presentation choice.
+resolveColorSwatch(editor.i18n, 'blue', 'invalid');
+
+observeI18nPresentation(editor.i18n, () => document.body, () => undefined)();
+
+editor.i18n.t(emojiMessages.suggestionEmpty);
+editor.i18n.set({ messages: { 'emoji.insert': 'Insert emoji', 'emoji.suggestion.label': 'Suggestions' } });
+
+const itemCountMessage = defineMessage({
+  id: 'app.itemCount',
+  defaultValue: ({ count }, context) => `${context.number(count)} items`,
+  description: 'A consumer-owned item count.',
+  owner: 'app',
+});
+const selectedMessages: CompleteMessages<{ itemCount: typeof itemCountMessage }> = {
+  'app.itemCount': ({ count }) => String(count),
+};
+const partialMessages: Messages = { 'core.toolbar.bold': 'Fett', ...selectedMessages };
+editor.i18n.set({ locale: 'de', messages: partialMessages, searchAliases: { 'app.itemCount': ['items'] } });
+editor.i18n.t(itemCountMessage, { count: 2 });
+editor.i18n.refresh();
+// @ts-expect-error Consumer message parameters remain checked in published declarations.
+editor.i18n.t(itemCountMessage, { count: 'two' });
+// @ts-expect-error Parameterized messages require their parameters.
+editor.i18n.t(itemCountMessage);
+// @ts-expect-error Unknown built-in IDs must not silently enter a partial catalog.
+editor.i18n.set({ messages: { 'core.toolbar.bodl': 'Fett' } });
 
 editor.commands.focus();
 editor.commands.focus('end');

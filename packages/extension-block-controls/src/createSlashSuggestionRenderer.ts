@@ -9,11 +9,14 @@
  */
 import {
   defaultIcons,
+  coreMessages,
   groupFloatingMenuItems,
   positionFloatingOnce,
 } from '@domternal/core';
 import type { FloatingMenuItem, IconSet } from '@domternal/core';
+import { blockControlsMessages } from './messages.js';
 import type { SlashCommandProps, SlashCommandRenderer } from './SlashCommand.js';
+import { setLabelText } from './helpers/setLabelText.js';
 
 // Unique id suffixes so `aria-activedescendant` on the menu root can announce
 // the selection to screen readers as the user arrow-keys through items.
@@ -28,6 +31,10 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
   let cleanupFloating: (() => void) | null = null;
   // Flat list of rendered menuitem buttons, parallel to filtered item list.
   let itemButtons: HTMLButtonElement[] = [];
+  let groupElements: HTMLElement[] = [];
+  let groupLabels: (HTMLElement | null)[] = [];
+  let groupNames: string[] = [];
+  let nextItemId = 0;
   let flatItems: FloatingMenuItem[] = [];
   let selectedIndex = 0;
   let currentCommand: SlashCommandProps['command'] | null = null;
@@ -38,15 +45,16 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
   let renderedRows: string | null = null;
   const rendererId = `dm-slash-${String(++idCounter)}`;
 
-  // Everything a row's DOM is built from, group names included: two lists that
-  // render the same buttons compare equal.
+  // Stable row structure determines DOM identity. Text and language are patched
+  // separately so localization cannot detach a pressed or focused button.
   const rowsOf = (groups: ReturnType<typeof groupFloatingMenuItems>): string =>
     groups
       .map((group) =>
         [
           group.name,
+          String(Boolean(group.label ?? group.name)),
           ...group.items.map((item) =>
-            [item.name, item.label, item.description ?? '', item.shortcut ?? '', item.icon ?? ''].join(
+            [item.name, item.icon ?? ''].join(
               '\u0000',
             ),
           ),
@@ -54,117 +62,185 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
       )
       .join('\u0002');
 
+  const setLanguage = (element: HTMLElement, language?: string): void => {
+    element.lang = language ?? '';
+  };
+
+  const refreshLabels = (props: SlashCommandProps, groups: ReturnType<typeof groupFloatingMenuItems>): void => {
+    if (!root) return;
+    const menuLabel = props.editor.i18n.resolve(coreMessages.floatingMenuLabel);
+    root.setAttribute('aria-label', menuLabel.text);
+    root.lang = menuLabel.language;
+    const empty = root.querySelector<HTMLElement>('.dm-slash-command-empty');
+    if (empty) {
+      const message = props.editor.i18n.resolve(blockControlsMessages.noMatches);
+      setLabelText(empty, message.text);
+      empty.lang = message.language;
+    }
+    groups.forEach((group, index) => {
+      const element = groupElements[index];
+      const label = groupLabels[index];
+      const text = group.label ?? group.name;
+      if (element) {
+        if (text) element.setAttribute('aria-label', text);
+        else element.removeAttribute('aria-label');
+        setLanguage(element, group.labelLanguage);
+      }
+      if (label) {
+        setLabelText(label, text);
+        setLanguage(label, group.labelLanguage);
+      }
+    });
+    flatItems.forEach((item, index) => {
+      const button = itemButtons[index];
+      if (!button) return;
+      button.setAttribute('aria-label', item.label);
+      setLanguage(button, item.labelLanguage);
+      const label = button.querySelector<HTMLElement>('.dm-slash-command-item-label');
+      if (label) {
+        setLabelText(label, item.label);
+        setLanguage(label, item.labelLanguage);
+      }
+      const text = button.querySelector('.dm-slash-command-item-text');
+      let description = button.querySelector<HTMLElement>('.dm-slash-command-item-description');
+      if (item.description && text) {
+        if (!description) {
+          description = document.createElement('span');
+          description.className = 'dm-slash-command-item-description';
+          text.appendChild(description);
+        }
+        setLabelText(description, item.description);
+        setLanguage(description, item.descriptionLanguage);
+      } else description?.remove();
+      let shortcut = button.querySelector<HTMLElement>('.dm-slash-command-item-shortcut');
+      if (item.shortcut) {
+        if (!shortcut) {
+          shortcut = document.createElement('span');
+          shortcut.className = 'dm-slash-command-item-shortcut';
+          shortcut.setAttribute('aria-hidden', 'true');
+          button.appendChild(shortcut);
+        }
+        setLabelText(shortcut, item.shortcut);
+      } else shortcut?.remove();
+    });
+  };
+
+  const createItemButton = (item: FloatingMenuItem): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'dm-slash-command-item';
+    button.setAttribute('role', 'menuitem');
+    button.tabIndex = -1;
+    button.id = `${rendererId}-item-${String(nextItemId++)}`;
+
+    // Only trusted icon SVG is HTML. Translated copy is patched as text.
+    const iconHTML = item.icon ? (icons?.[item.icon] ?? defaultIcons[item.icon] ?? '') : '';
+    if (iconHTML) {
+      const icon = document.createElement('span');
+      icon.className = 'dm-slash-command-item-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.innerHTML = iconHTML;
+      button.appendChild(icon);
+    }
+    const text = document.createElement('span');
+    text.className = 'dm-slash-command-item-text';
+    const label = document.createElement('span');
+    label.className = 'dm-slash-command-item-label';
+    text.appendChild(label);
+    button.appendChild(text);
+
+    button.addEventListener('mousedown', (event: MouseEvent) => { event.preventDefault(); });
+    button.addEventListener('mouseenter', () => { selectItem(flatItems.findIndex(candidate => candidate.name === item.name)); });
+    button.addEventListener('click', (event: MouseEvent) => {
+      event.preventDefault();
+      if (destroyed) return;
+      // Identity survives locale filtering and ranking. A removed button must
+      // never execute whichever action has taken its former array position.
+      const current = flatItems.find(candidate => candidate.name === item.name);
+      if (current) currentCommand?.(current);
+    });
+    return button;
+  };
+
+  const reconcileChildren = (parent: HTMLElement, children: HTMLElement[]): void => {
+    const wanted = new Set(children);
+    for (const child of Array.from(parent.children)) {
+      if (!wanted.has(child as HTMLElement)) child.remove();
+    }
+    children.forEach((child, index) => {
+      const current = parent.children[index];
+      if (current !== child) parent.insertBefore(child, current ?? null);
+    });
+  };
+
   const renderPopup = (props: SlashCommandProps): void => {
     if (!root) return;
-
     const groups = groupFloatingMenuItems(props.items);
-
-    // `onUpdate` runs on every transaction, and replacing the pressed button
-    // loses the press: `click` fires on the nearest common ancestor of the
-    // mousedown and mouseup targets, and a detached one leaves none.
     const rows = rowsOf(groups);
     if (rows === renderedRows) {
-      // Same buttons, fresh item objects; handlers read them by index.
       flatItems = groups.flatMap((group) => group.items);
+      refreshLabels(props, groups);
       return;
     }
     renderedRows = rows;
 
-    root.innerHTML = '';
+    const selectedName = flatItems[selectedIndex]?.name;
+    const focused = root.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
+    const previousButtons = new Map(flatItems.map((item, index) => [item.name, { item, button: itemButtons[index] }]));
+    const previousGroups = new Map(groupNames.map((name, index) => [name, { element: groupElements[index], label: groupLabels[index] }]));
     itemButtons = [];
+    groupElements = [];
+    groupLabels = [];
+    groupNames = [];
     flatItems = [];
+    const children: HTMLElement[] = [];
 
     if (props.items.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'dm-slash-command-empty';
-      // status + aria-live=polite announces the filter result without stealing focus.
       empty.setAttribute('role', 'status');
       empty.setAttribute('aria-live', 'polite');
-      empty.textContent = 'No matches';
-      root.appendChild(empty);
+      reconcileChildren(root, [empty]);
+      refreshLabels(props, groups);
+      highlight(selectedIndex);
       return;
     }
 
     for (const group of groups) {
-      if (group.name) {
-        const label = document.createElement('div');
-        label.className = 'dm-slash-command-group-label';
-        label.textContent = group.name;
-        root.appendChild(label);
+      const previous = previousGroups.get(group.name);
+      let groupLabel: HTMLElement | null = null;
+      if (group.label ?? group.name) {
+        groupLabel = previous?.label ?? document.createElement('div');
+        groupLabel.className = 'dm-slash-command-group-label';
+        children.push(groupLabel);
       }
-      const groupEl = document.createElement('div');
-      groupEl.className = 'dm-slash-command-group';
-      groupEl.setAttribute('role', 'group');
-      if (group.name) groupEl.setAttribute('aria-label', group.name);
-
+      const groupElement = previous?.element ?? document.createElement('div');
+      groupElement.className = 'dm-slash-command-group';
+      groupElement.setAttribute('role', 'group');
+      groupNames.push(group.name);
+      groupElements.push(groupElement);
+      groupLabels.push(groupLabel);
+      const buttons: HTMLButtonElement[] = [];
       for (const item of group.items) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'dm-slash-command-item';
-        btn.setAttribute('role', 'menuitem');
-        btn.setAttribute('aria-label', item.label);
-        btn.tabIndex = -1;
-        // Stable per-button id for the root's `aria-activedescendant`.
-        btn.id = `${rendererId}-item-${String(flatItems.length)}`;
-
-        // Only the icon SVG (from our trusted set or consumer overrides) is interpolated as
-        // HTML. label/description/shortcut use textContent since FloatingMenuItem
-        // fields may come from arbitrary extension authors (XSS).
-        const iconHTML = item.icon ? (icons?.[item.icon] ?? defaultIcons[item.icon] ?? '') : '';
-        if (iconHTML) {
-          const iconSpan = document.createElement('span');
-          iconSpan.className = 'dm-slash-command-item-icon';
-          iconSpan.setAttribute('aria-hidden', 'true');
-          iconSpan.innerHTML = iconHTML;
-          btn.appendChild(iconSpan);
-        }
-
-        const textSpan = document.createElement('span');
-        textSpan.className = 'dm-slash-command-item-text';
-
-        const labelSpan = document.createElement('span');
-        labelSpan.className = 'dm-slash-command-item-label';
-        labelSpan.textContent = item.label;
-        textSpan.appendChild(labelSpan);
-
-        if (item.description) {
-          const descSpan = document.createElement('span');
-          descSpan.className = 'dm-slash-command-item-description';
-          descSpan.textContent = item.description;
-          textSpan.appendChild(descSpan);
-        }
-
-        btn.appendChild(textSpan);
-
-        if (item.shortcut) {
-          const shortcutSpan = document.createElement('span');
-          shortcutSpan.className = 'dm-slash-command-item-shortcut';
-          shortcutSpan.setAttribute('aria-hidden', 'true');
-          shortcutSpan.textContent = item.shortcut;
-          btn.appendChild(shortcutSpan);
-        }
-
-        const indexForItem = flatItems.length;
-        btn.addEventListener('mousedown', (e: MouseEvent) => { e.preventDefault(); });
-        btn.addEventListener('mouseenter', () => { selectItem(indexForItem); });
-        btn.addEventListener('click', (e: MouseEvent) => {
-          e.preventDefault();
-          // A mousedown-to-click pair can span `onExit` if the popup was
-          // dismissed by an outside event while the button was held.
-          if (destroyed) return;
-          // By index: the button outlives updates, so `flatItems` is fresher.
-          currentCommand?.(flatItems[indexForItem] ?? item);
-        });
-
-        itemButtons.push(btn);
+        const previousButton = previousButtons.get(item.name);
+        const button = previousButton?.button && previousButton.item.icon === item.icon
+          ? previousButton.button
+          : createItemButton(item);
+        buttons.push(button);
+        itemButtons.push(button);
         flatItems.push(item);
-        groupEl.appendChild(btn);
       }
-      root.appendChild(groupEl);
+      reconcileChildren(groupElement, buttons);
+      children.push(groupElement);
     }
+    reconcileChildren(root, children);
 
-    if (selectedIndex >= flatItems.length) selectedIndex = 0;
+    const retainedIndex = flatItems.findIndex(item => item.name === selectedName);
+    selectedIndex = retainedIndex >= 0 ? retainedIndex : Math.min(selectedIndex, Math.max(0, flatItems.length - 1));
+    refreshLabels(props, groups);
     highlight(selectedIndex);
+    // Moving an existing focused button can blur it on older DOM engines.
+    if (focused && root.contains(focused) && document.activeElement !== focused) focused.focus({ preventScroll: true });
   };
 
   const highlight = (index: number): void => {
@@ -229,7 +305,6 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
       root = document.createElement('div');
       root.className = 'dm-slash-command-menu';
       root.setAttribute('role', 'menu');
-      root.setAttribute('aria-label', 'Insert block');
       root.setAttribute('data-dm-editor-ui', '');
 
       const editorEl = props.element.closest('.dm-editor');
@@ -254,6 +329,9 @@ export function createSlashSuggestionRenderer(icons?: IconSet): SlashCommandRend
       root?.remove();
       root = null;
       itemButtons = [];
+      groupElements = [];
+      groupLabels = [];
+      groupNames = [];
       flatItems = [];
       selectedIndex = 0;
       currentCommand = null;

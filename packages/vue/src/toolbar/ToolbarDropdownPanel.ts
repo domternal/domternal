@@ -8,8 +8,8 @@ export const ToolbarDropdownPanel = defineComponent({
   props: {
     dropdown: { type: Object as PropType<ToolbarDropdown>, required: true },
     isActive: { type: Function as PropType<(name: string) => boolean>, required: true },
-    getCachedItemContent: {
-      type: Function as PropType<(icon: string, label: string, mode?: 'icon-text' | 'text' | 'icon') => string>,
+    getCachedIcon: {
+      type: Function as PropType<(icon: string) => string>,
       required: true,
     },
   },
@@ -17,7 +17,7 @@ export const ToolbarDropdownPanel = defineComponent({
   setup(props, { emit }) {
     const { getTooltip } = useTooltip();
     return () => {
-      const { dropdown, isActive, getCachedItemContent } = props;
+      const { dropdown, isActive, getCachedIcon } = props;
 
       if (dropdown.layout === 'grid') {
         return h(
@@ -36,6 +36,7 @@ export const ToolbarDropdownPanel = defineComponent({
                   role: 'menuitem',
                   tabindex: -1,
                   'aria-label': sub.label,
+                  lang: sub.labelLanguage ?? '',
                   title: getTooltip(sub),
                   style: { backgroundColor: sub.color },
                   onMousedown: (e: MouseEvent) => { e.preventDefault(); },
@@ -48,11 +49,14 @@ export const ToolbarDropdownPanel = defineComponent({
                   role: 'menuitem',
                   tabindex: -1,
                   'aria-label': sub.label,
+                  lang: sub.labelLanguage ?? '',
                   title: getTooltip(sub),
-                  innerHTML: getCachedItemContent(sub.icon, sub.label),
                   onMousedown: (e: MouseEvent) => { e.preventDefault(); },
                   onClick: (e: MouseEvent) => { emit('itemClick', sub, e); },
-                }),
+                }, [
+                  h('span', { style: { display: 'contents' }, 'aria-hidden': 'true', innerHTML: getCachedIcon(sub.icon) }),
+                  ' ', sub.label,
+                ]),
           ),
         );
       }
@@ -72,14 +76,19 @@ export const ToolbarDropdownPanel = defineComponent({
             role: 'menuitem',
             tabindex: -1,
             'aria-label': sub.label,
+            lang: sub.labelLanguage ?? '',
             title: getTooltip(sub),
-            innerHTML: getCachedItemContent(sub.icon, sub.label, dropdown.displayMode),
             onVnodeMounted: (vnode: VNode) => {
               if (sub.style && vnode.el) (vnode.el as HTMLElement).setAttribute('style', sub.style);
             },
             onMousedown: (e: MouseEvent) => { e.preventDefault(); },
             onClick: (e: MouseEvent) => { emit('itemClick', sub, e); },
-          }),
+          }, [
+            dropdown.displayMode !== 'text'
+              ? h('span', { style: { display: 'contents' }, 'aria-hidden': 'true', innerHTML: getCachedIcon(sub.icon) })
+              : null,
+            dropdown.displayMode !== 'icon' ? (dropdown.displayMode === 'text' ? sub.label : ' ' + sub.label) : null,
+          ]),
         ),
       );
     };

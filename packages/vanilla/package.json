@@ -26,13 +26,17 @@
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",
+    "jsdom": "^28.1.0",
     "tsup": "^8.5.1",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.10"
   },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm build && node ../../scripts/prepare-publish-manifest.mjs",
     "postpublish": "git checkout package.json"

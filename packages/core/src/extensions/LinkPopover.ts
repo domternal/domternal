@@ -24,6 +24,7 @@ import { defaultIcons } from '../icons/index.js';
 import { positionFloating } from '../utils/positionFloating.js';
 import { copyThemeClass } from '../utils/copyThemeClass.js';
 import type { Editor } from '../Editor.js';
+import { coreMessages } from '../messages/core.js';
 
 export interface LinkPopoverOptions {
   /**
@@ -50,23 +51,33 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
 
   const input = document.createElement('input');
   input.type = 'url';
-  input.placeholder = 'Enter URL...';
   input.className = 'dm-link-popover-input';
-  input.setAttribute('aria-label', 'URL');
 
   const applyBtn = document.createElement('button');
   applyBtn.type = 'button';
   applyBtn.className = 'dm-link-popover-btn dm-link-popover-apply';
-  applyBtn.title = 'Apply link';
-  applyBtn.setAttribute('aria-label', 'Apply link');
   applyBtn.innerHTML = defaultIcons['check'] ?? '';
 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'dm-link-popover-btn dm-link-popover-remove';
-  removeBtn.title = 'Remove link';
-  removeBtn.setAttribute('aria-label', 'Remove link');
   removeBtn.innerHTML = defaultIcons['linkBreak'] ?? '';
+
+  const updateLabels = (): void => {
+    const url = editor.i18n.resolve(coreMessages.linkUrlLabel);
+    const apply = editor.i18n.resolve(coreMessages.linkApply);
+    const remove = editor.i18n.resolve(coreMessages.linkRemove);
+    el.lang = editor.i18n.getSnapshot().locale;
+    input.placeholder = editor.i18n.t(coreMessages.linkUrlPlaceholder);
+    input.setAttribute('aria-label', url.text);
+    input.lang = url.language;
+    applyBtn.title = apply.text;
+    applyBtn.setAttribute('aria-label', apply.text);
+    applyBtn.lang = apply.language;
+    removeBtn.title = remove.text;
+    removeBtn.setAttribute('aria-label', remove.text);
+    removeBtn.lang = remove.language;
+  };
 
   el.appendChild(input);
   el.appendChild(applyBtn);
@@ -322,6 +333,8 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
     },
 
     view: () => {
+      updateLabels();
+      const unsubscribeI18n = editor.i18n.subscribe(updateLabels);
       // Append to document.body so it's not clipped by .dm-editor overflow:hidden
       document.body.appendChild(el);
 
@@ -339,6 +352,7 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
 
       return {
         destroy: () => {
+          unsubscribeI18n();
           hide();
           input.removeEventListener('keydown', onInputKeydown);
           applyBtn.removeEventListener('mousedown', onPreventBlur);

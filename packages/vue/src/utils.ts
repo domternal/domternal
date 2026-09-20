@@ -1,4 +1,4 @@
-import { customRef } from 'vue';
+import { customRef, onScopeDispose } from 'vue';
 import type { AppContext, Ref } from 'vue';
 import type { Editor } from '@domternal/core';
 
@@ -15,6 +15,11 @@ export function useDebouncedRef<T>(initialValue: T): Ref<T> {
   let value = initialValue;
   let rafId1: number | undefined;
   let rafId2: number | undefined;
+
+  onScopeDispose(() => {
+    if (rafId1 !== undefined) cancelAnimationFrame(rafId1);
+    if (rafId2 !== undefined) cancelAnimationFrame(rafId2);
+  });
 
   return customRef<T>((track, trigger) => ({
     get() {

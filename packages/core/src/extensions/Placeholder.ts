@@ -9,6 +9,8 @@ import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
 import type { Node as PMNode } from '@domternal/pm/model';
 import { Extension } from '../Extension.js';
+import { coreMessages } from '../messages/core.js';
+import { localizeMessage } from '../utils/localizeMessage.js';
 
 export interface PlaceholderOptions {
   /**
@@ -65,6 +67,7 @@ export const Placeholder = Extension.create<PlaceholderOptions>({
   },
 
   addProseMirrorPlugins() {
+    const ownsPlaceholder = this.isOptionExplicit('placeholder');
     return [
       new Plugin({
         key: placeholderPluginKey,
@@ -109,7 +112,9 @@ export const Placeholder = Extension.create<PlaceholderOptions>({
                     !node.firstChild.text);
 
             const getPlaceholderText = (node: PMNode, pos: number): string =>
-              typeof this.options.placeholder === 'function'
+              !ownsPlaceholder
+                ? localizeMessage(editor.i18n, coreMessages.placeholderDefault).text
+                : typeof this.options.placeholder === 'function'
                 ? this.options.placeholder({ node, pos })
                 : this.options.placeholder;
 

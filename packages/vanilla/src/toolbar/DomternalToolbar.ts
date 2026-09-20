@@ -2,6 +2,7 @@ import {
   ToolbarController,
   positionFloatingOnce,
   refocusEditorAfterCommand,
+  coreMessages,
 } from '@domternal/core';
 import type {
   Editor,
@@ -9,14 +10,15 @@ import type {
   ToolbarButton,
   ToolbarControllerEditor,
   ToolbarDropdown,
-  ToolbarItem,
   ToolbarLayoutEntry,
+  ToolbarGroup,
 } from '@domternal/core';
 import { assertBrowser } from '../shared/isBrowser.js';
 import { getTooltip } from './tooltip.js';
 import { createIconCache, DROPDOWN_CARET } from './iconCache.js';
 import type { IconCache } from './iconCache.js';
 import { getComputedStyleAtCursor, getInlineStyleAtCursor } from './computedStyle.js';
+import { patchIconText, setPresentationLanguage } from '../shared/presentation.js';
 
 export interface DomternalToolbarOptions {
   /** Editor instance the toolbar binds to. */
@@ -104,7 +106,8 @@ export class DomternalToolbar extends EventTarget {
   /** Maps top-level button/dropdown name -> rendered trigger element. */
   #buttonEls = new Map<string, HTMLButtonElement>();
   /** Trigger markup last written, so a re-render does not rewrite it blindly. */
-  #triggerHtml = new WeakMap<Element, string>();
+  #structureKey = '';
+  #pointerDown = false;
 
   /** Rendered dropdown panel elements (created lazily when opened). */
   #dropdownPanelEl: HTMLElement | null = null;
@@ -138,7 +141,6 @@ export class DomternalToolbar extends EventTarget {
     // Host setup
     this.host.classList.add('dm-toolbar');
     this.host.setAttribute('role', 'toolbar');
-    this.host.setAttribute('aria-label', 'Editor formatting');
     this.host.setAttribute('data-dm-editor-ui', '');
 
     // Controller
@@ -212,6 +214,14 @@ export class DomternalToolbar extends EventTarget {
 
   #attachListeners(): void {
     const { signal } = this.#abortCtl;
+    this.host.addEventListener('pointerdown', () => { this.#pointerDown = true; }, { signal });
+    const releasePointer = (): void => {
+      if (!this.#pointerDown) return;
+      this.#pointerDown = false;
+      this.#scheduleRender();
+    };
+    document.addEventListener('pointerup', releasePointer, { signal });
+    document.addEventListener('pointercancel', releasePointer, { signal });
 
     // Outside-click closes any open dropdown
     document.addEventListener(
@@ -277,16 +287,33 @@ export class DomternalToolbar extends EventTarget {
 
   #render(): void {
     const groups = this.#controller.groups;
+    const message = this.#editor.i18n.resolve(coreMessages.toolbarLabel);
+    this.host.setAttribute('aria-label', message.text);
+    setPresentationLanguage(this.host, message.language);
     const groupsChanged = groups !== this.#lastGroupsRef;
     if (groupsChanged) {
-      this.#renderGroupsStructure(groups);
+      const structureKey = JSON.stringify(groups.map((group) => [group.name, group.items.map((item) =>
+        item.type === 'dropdown'
+          ? [item.type, item.name, item.layout, item.displayMode, item.items.map((sub) => [sub.name, Boolean(sub.color)])]
+          : [item.type, item.name]) ]));
+      if (this.#lastGroupsRef === null || structureKey !== this.#structureKey) {
+        if (this.#pointerDown) return;
+        this.#renderGroupsStructure(groups);
+        this.#structureKey = structureKey;
+      } else {
+        const elements = this.host.querySelectorAll<HTMLElement>('.dm-toolbar-group');
+        groups.forEach((group, index) => {
+          const element = elements[index];
+          if (element) this.#updateGroupPresentation(element, group);
+        });
+      }
       this.#lastGroupsRef = groups;
     }
     this.#updateButtonStates();
     this.#renderDropdown();
   }
 
-  #renderGroupsStructure(groups: readonly { name: string; items: ToolbarItem[] }[]): void {
+  #renderGroupsStructure(groups: readonly ToolbarGroup[]): void {
     // Wipe and rebuild structure. Button refs are tracked so subsequent
     // state updates target individual DOM nodes (no full rebuild per tx).
     // Also drop any open dropdown panel reference - replaceChildren() removed
@@ -308,7 +335,7 @@ export class DomternalToolbar extends EventTarget {
       const groupEl = document.createElement('div');
       groupEl.className = 'dm-toolbar-group';
       groupEl.setAttribute('role', 'group');
-      groupEl.setAttribute('aria-label', group.name || 'Tools');
+      this.#updateGroupPresentation(groupEl, group);
 
       for (const item of group.items) {
         if (item.type === 'button') {
@@ -325,12 +352,19 @@ export class DomternalToolbar extends EventTarget {
     });
   }
 
+  #updateGroupPresentation(element: HTMLElement, group: ToolbarGroup): void {
+    const fallback = this.#editor.i18n.resolve(coreMessages.toolsGroup);
+    element.setAttribute('aria-label', group.label ?? (group.name || fallback.text));
+    setPresentationLanguage(element, group.labelLanguage ?? (group.name ? undefined : fallback.language));
+  }
+
   #createButton(item: ToolbarButton): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dm-toolbar-button';
     btn.innerHTML = this.#iconCache.getIcon(item.icon);
     btn.setAttribute('aria-label', item.label);
+    if (typeof item.command === 'string') btn.setAttribute('data-dm-command', item.command);
     btn.title = getTooltip(item);
     if (item.style) btn.setAttribute('style', item.style);
 
@@ -352,9 +386,7 @@ export class DomternalToolbar extends EventTarget {
     btn.setAttribute('aria-label', dd.label);
     btn.title = dd.label;
     btn.setAttribute('data-dropdown', dd.name);
-    const triggerHtml = this.#resolveDropdownTriggerHtml(dd);
-    this.#triggerHtml.set(btn, triggerHtml);
-    btn.innerHTML = triggerHtml;
+    this.#updateTriggerContent(btn, dd);
 
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
     btn.addEventListener('click', () => { this.#onDropdownToggle(dd); });
@@ -365,8 +397,10 @@ export class DomternalToolbar extends EventTarget {
     return wrapper;
   }
 
-  #resolveDropdownTriggerHtml(dd: ToolbarDropdown): string {
+  #updateTriggerContent(button: HTMLButtonElement, dd: ToolbarDropdown): void {
     const activeItem = dd.items.find((sub) => this.#controller.activeMap.get(sub.name));
+    let labelLanguage = activeItem ? activeItem.labelLanguage : dd.labelLanguage;
+    let label = dd.dynamicLabel ? activeItem?.label ?? dd.dynamicLabelFallback ?? null : null;
 
     // Dynamic-label dropdown reading computed style at cursor (e.g. font-size)
     if (dd.dynamicLabel && !activeItem && dd.computedStyleProperty) {
@@ -381,11 +415,27 @@ export class DomternalToolbar extends EventTarget {
         computed = getComputedStyleAtCursor(this.#editor, dd.computedStyleProperty);
       }
       if (computed) {
-        return `<span class="dm-toolbar-trigger-label">${computed}</span>${DROPDOWN_CARET}`;
+        label = computed;
+        labelLanguage = undefined;
       }
     }
-
-    return this.#iconCache.getDropdownTriggerHtml(dd, activeItem);
+    if (dd.layout === 'grid') {
+      patchIconText(button, this.#iconCache.getIcon(dd.icon), null, {
+        caret: DROPDOWN_CARET,
+        color: activeItem?.color ?? dd.defaultIndicatorColor ?? null,
+      });
+    } else {
+      const icon = dd.dynamicIcon && activeItem ? activeItem.icon : dd.icon;
+      const triggerIcon = label === null && dd.dynamicLabel
+        ? `<span class="dm-toolbar-trigger-label">${this.#iconCache.getIcon(icon)}</span>`
+        : this.#iconCache.getIcon(icon);
+      patchIconText(button, label === null ? triggerIcon : '', label, {
+        caret: DROPDOWN_CARET,
+        textClass: 'dm-toolbar-trigger-label',
+      });
+      const text = button.querySelector<HTMLElement>('.dm-toolbar-trigger-label');
+      if (text) setPresentationLanguage(text, labelLanguage);
+    }
   }
 
   #updateButtonStates(): void {
@@ -406,6 +456,11 @@ export class DomternalToolbar extends EventTarget {
   #updateButton(item: ToolbarButton, focusedIndex: number): void {
     const btn = this.#buttonEls.get(item.name);
     if (!btn) return;
+    btn.setAttribute('aria-label', item.label);
+    if (typeof item.command === 'string') btn.setAttribute('data-dm-command', item.command);
+    else btn.removeAttribute('data-dm-command');
+    btn.title = getTooltip(item);
+    setPresentationLanguage(btn, item.labelLanguage);
     const isActive = this.#controller.activeMap.get(item.name) ?? false;
     const isDisabled = this.#controller.disabledMap.get(item.name) ?? false;
     const flat = this.#controller.getFlatIndex(item.name);
@@ -428,6 +483,9 @@ export class DomternalToolbar extends EventTarget {
   #updateDropdownTrigger(dd: ToolbarDropdown, focusedIndex: number): void {
     const btn = this.#buttonEls.get(dd.name);
     if (!btn) return;
+    btn.setAttribute('aria-label', dd.label);
+    btn.title = dd.label;
+    setPresentationLanguage(btn, dd.labelLanguage);
 
     const isDisabled = this.#controller.disabledMap.get(dd.name) ?? false;
     const isOpen = this.#controller.openDropdown === dd.name;
@@ -443,15 +501,8 @@ export class DomternalToolbar extends EventTarget {
     btn.setAttribute('aria-expanded', String(isOpen));
     btn.tabIndex = flat === focusedIndex ? 0 : -1;
 
-    // Trigger HTML follows the cursor (dynamicLabel/dynamicIcon). Compared
-    // against what was last WRITTEN: `btn.innerHTML` returns the browser's
-    // re-serialisation, so the old guard never held and every render replaced
-    // the glyph under the pointer, killing the press.
-    const newHtml = this.#resolveDropdownTriggerHtml(dd);
-    if (this.#triggerHtml.get(btn) !== newHtml) {
-      this.#triggerHtml.set(btn, newHtml);
-      btn.innerHTML = newHtml;
-    }
+    // Patch dynamic labels independently of icon nodes to preserve a press.
+    this.#updateTriggerContent(btn, dd);
   }
 
   #renderDropdown(): void {
@@ -475,7 +526,18 @@ export class DomternalToolbar extends EventTarget {
     if (!dd) return;
 
     // If panel already shows this dropdown, do nothing
-    if (currentPanel?.dataset['dropdownPanel'] === openName) return;
+    if (currentPanel?.dataset['dropdownPanel'] === openName) {
+      for (const sub of dd.items) {
+        const button = Array.from(currentPanel.querySelectorAll<HTMLButtonElement>('[data-dropdown-item]'))
+          .find((entry) => entry.dataset['dropdownItem'] === sub.name);
+        if (!button) continue;
+        button.setAttribute('aria-label', sub.label);
+        button.title = getTooltip(sub);
+        setPresentationLanguage(button, sub.labelLanguage);
+        if (!sub.color) this.#updateItemContent(button, sub, dd.displayMode);
+      }
+      return;
+    }
 
     // Replace any prior panel (shouldn't happen but be safe)
     this.#cleanupFloating?.();
@@ -516,6 +578,8 @@ export class DomternalToolbar extends EventTarget {
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'dm-color-swatch';
+          btn.dataset['dropdownItem'] = sub.name;
+          setPresentationLanguage(btn, sub.labelLanguage);
           if (this.#controller.activeMap.get(sub.name)) {
             btn.classList.add('dm-color-swatch--active');
           }
@@ -531,11 +595,13 @@ export class DomternalToolbar extends EventTarget {
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'dm-color-palette-reset';
+          btn.dataset['dropdownItem'] = sub.name;
+          setPresentationLanguage(btn, sub.labelLanguage);
           btn.setAttribute('role', 'menuitem');
           btn.tabIndex = -1;
           btn.setAttribute('aria-label', sub.label);
           btn.title = getTooltip(sub);
-          btn.innerHTML = this.#iconCache.getItemContent(sub.icon, sub.label);
+          this.#updateItemContent(btn, sub);
           btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
           btn.addEventListener('click', (e) => { this.#onDropdownItemClick(sub, e); });
           panel.appendChild(btn);
@@ -552,6 +618,8 @@ export class DomternalToolbar extends EventTarget {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'dm-toolbar-dropdown-item';
+      btn.dataset['dropdownItem'] = sub.name;
+      setPresentationLanguage(btn, sub.labelLanguage);
       if (this.#controller.activeMap.get(sub.name)) {
         btn.classList.add('dm-toolbar-dropdown-item--active');
       }
@@ -559,13 +627,30 @@ export class DomternalToolbar extends EventTarget {
       btn.tabIndex = -1;
       btn.setAttribute('aria-label', sub.label);
       btn.title = getTooltip(sub);
-      btn.innerHTML = this.#iconCache.getItemContent(sub.icon, sub.label, dd.displayMode);
+      this.#updateItemContent(btn, sub, dd.displayMode);
       if (sub.style) btn.setAttribute('style', sub.style);
       btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
       btn.addEventListener('click', (e) => { this.#onDropdownItemClick(sub, e); });
       panel.appendChild(btn);
     }
     return panel;
+  }
+
+  #updateItemContent(button: HTMLButtonElement, item: ToolbarButton, mode?: 'icon-text' | 'text' | 'icon'): void {
+    patchIconText(button, mode === 'text' ? '' : this.#iconCache.getIcon(item.icon), mode === 'icon' ? null : item.label);
+  }
+
+  #findButton(name: string): ToolbarButton | undefined {
+    for (const group of this.#controller.groups) {
+      for (const item of group.items) {
+        if (item.type === 'button' && item.name === name) return item;
+        if (item.type === 'dropdown') {
+          const child = item.items.find((sub) => sub.name === name);
+          if (child) return child;
+        }
+      }
+    }
+    return undefined;
   }
 
   #findDropdown(name: string): ToolbarDropdown | null {
@@ -582,6 +667,9 @@ export class DomternalToolbar extends EventTarget {
   // === Event handlers ===
 
   #onButtonClick(item: ToolbarButton, event: MouseEvent): void {
+    const current = this.#findButton(item.name);
+    if (!current) return;
+    item = current;
     if (this.#controller.openDropdown) {
       this.closeDropdown();
     }
@@ -624,6 +712,9 @@ export class DomternalToolbar extends EventTarget {
   }
 
   #onDropdownItemClick(item: ToolbarButton, event: MouseEvent): void {
+    const current = this.#findButton(item.name);
+    if (!current) return;
+    item = current;
     let anchor: HTMLElement | undefined;
     if (item.emitEvent) {
       const wrapper = (event.target as HTMLElement).closest('.dm-toolbar-dropdown-wrapper');

@@ -8,6 +8,7 @@ import {
   resolveBubbleNames,
   positionFloatingOnce,
   refocusEditorAfterCommand,
+  coreMessages,
 } from '@domternal/core';
 import { resolveIcon } from '../shared/iconRenderer.js';
 import type {
@@ -19,6 +20,7 @@ import type {
   PluginKey,
 } from '@domternal/core';
 import { assertBrowser } from '../shared/isBrowser.js';
+import { patchIconText, setPresentationLanguage } from '../shared/presentation.js';
 import { createPluginKey } from '../shared/pluginKey.js';
 import type { CustomContentOption } from '../shared/types.js';
 import type { BubbleContexts, BubbleMenuItem, BubbleItemMaps } from '@domternal/core';
@@ -141,6 +143,7 @@ export class DomternalBubbleMenu extends EventTarget {
   #effectiveContexts: Record<string, string[] | true | null> | undefined;
   #defaultItemList: BubbleMenuItem[] = [];
   #transactionHandler: (() => void) | null = null;
+  #unsubscribeI18n: (() => void) | null = null;
 
   // Live state
   #resolvedItems: BubbleMenuItem[] = [];
@@ -197,7 +200,6 @@ export class DomternalBubbleMenu extends EventTarget {
     // Host setup
     this.host.classList.add('dm-bubble-menu');
     this.host.setAttribute('role', 'toolbar');
-    this.host.setAttribute('aria-label', 'Text formatting');
 
     this.#init();
   }
@@ -308,6 +310,8 @@ export class DomternalBubbleMenu extends EventTarget {
     this.#destroyed = true;
 
     cancelAnimationFrame(this.#renderRaf);
+    this.#unsubscribeI18n?.();
+    this.#unsubscribeI18n = null;
     this.#detachDropdown();
 
     if (this.#transactionHandler) {
@@ -378,6 +382,18 @@ export class DomternalBubbleMenu extends EventTarget {
       this.#scheduleRender();
     };
     ed.on('transaction', this.#transactionHandler);
+
+    this.#unsubscribeI18n = ed.i18n.subscribe(() => {
+      if (this.#destroyed || !this.#maps) return;
+      // The visibility predicate retains this object, so update its fields.
+      Object.assign(this.#maps, buildBubbleItemMaps(ed));
+      this.#defaultItemList = resolveBubbleNames(
+        this.#explicitItems ?? ['bold', 'italic', 'underline'],
+        this.#maps.itemMap,
+        this.#maps.dropdownMap,
+      );
+      this.#transactionHandler?.();
+    });
 
     // Initial paint
     this.#render();
@@ -482,6 +498,9 @@ export class DomternalBubbleMenu extends EventTarget {
    * state in place otherwise, as the toolbar does.
    */
   #render(): void {
+    const label = this.#editor.i18n.resolve(coreMessages.bubbleMenuLabel);
+    this.host.setAttribute('aria-label', label.text);
+    setPresentationLanguage(this.host, label.language);
     // A dropdown whose trigger left the item list cannot stay open.
     if (this.#openDropdown !== null) {
       const stillExists = this.#resolvedItems.some(
@@ -569,12 +588,17 @@ export class DomternalBubbleMenu extends EventTarget {
     if (isActive) btn.classList.add('dm-toolbar-button--active');
     btn.disabled = isDisabled;
     btn.setAttribute('aria-label', item.label);
+    if (typeof item.command === 'string') btn.setAttribute('data-dm-command', item.command);
+    setPresentationLanguage(btn, item.labelLanguage);
     btn.setAttribute('aria-pressed', String(isActive));
     btn.title = item.label;
     this.#setIconHtml(btn, resolveIcon(item.icon, this.#icons));
 
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
-    btn.addEventListener('click', (e) => { this.#onButtonClick(item, e); });
+    btn.addEventListener('click', (e) => {
+      const current = this.#findButton(item.name);
+      if (current) this.#onButtonClick(current, e);
+    });
     this.#buttonEls.set(item.name, btn);
     return btn;
   }
@@ -598,6 +622,7 @@ export class DomternalBubbleMenu extends EventTarget {
     trigger.setAttribute('aria-haspopup', 'true');
     trigger.setAttribute('aria-expanded', String(this.#openDropdown === dd.name));
     trigger.setAttribute('aria-label', dd.label);
+    setPresentationLanguage(trigger, dd.labelLanguage);
     trigger.title = dd.label;
     trigger.dataset['dropdown'] = dd.name;
     this.#setIconHtml(trigger, triggerHtml);
@@ -619,17 +644,20 @@ export class DomternalBubbleMenu extends EventTarget {
 
     for (const sub of dd.items) {
       const subActive = this.#activeMap.get(sub.name) ?? false;
-      const subHtml = `${resolveIcon(sub.icon, this.#icons)} ${sub.label}`;
       const subBtn = document.createElement('button');
       subBtn.type = 'button';
       subBtn.className = 'dm-toolbar-dropdown-item';
       if (subActive) subBtn.classList.add('dm-toolbar-dropdown-item--active');
       subBtn.setAttribute('role', 'menuitem');
       subBtn.setAttribute('aria-label', sub.label);
+      setPresentationLanguage(subBtn, sub.labelLanguage);
       subBtn.dataset['dropdownItem'] = sub.name;
-      subBtn.innerHTML = subHtml;
+      patchIconText(subBtn, resolveIcon(sub.icon, this.#icons), sub.label);
       subBtn.addEventListener('mousedown', (e) => { e.preventDefault(); });
-      subBtn.addEventListener('click', () => { this.#onDropdownItemClick(sub); });
+      subBtn.addEventListener('click', () => {
+        const current = this.#findButton(sub.name);
+        if (current) this.#onDropdownItemClick(current);
+      });
       panel.appendChild(subBtn);
     }
     return panel;
@@ -641,8 +669,7 @@ export class DomternalBubbleMenu extends EventTarget {
     btn.type = 'button';
     btn.className = 'dm-toolbar-button dm-ncp-trigger';
     if (t.hasAnyColor) btn.classList.add('dm-toolbar-button--active');
-    btn.title = 'Text and background color';
-    btn.setAttribute('aria-label', 'Text and background color');
+    this.#setTrailingPresentation(btn, 'notionColorLabel');
     btn.setAttribute('aria-haspopup', 'dialog');
 
     const glyph = document.createElement('span');
@@ -668,10 +695,7 @@ export class DomternalBubbleMenu extends EventTarget {
     btn.type = 'button';
     btn.className = 'dm-toolbar-button';
     btn.disabled = t.blockMenuButtonDisabled;
-    btn.title = t.blockMenuButtonDisabled
-      ? 'Block actions (select within a single block)'
-      : 'More options';
-    btn.setAttribute('aria-label', 'More options');
+    this.#setTrailingPresentation(btn, 'moreOptions', t.blockMenuButtonDisabled);
     btn.setAttribute('aria-haspopup', 'menu');
     btn.innerHTML = resolveIcon('dotsThree', this.#icons);
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
@@ -693,6 +717,7 @@ export class DomternalBubbleMenu extends EventTarget {
 
     const t = this.#trailing;
     if (this.#colorTriggerEl) {
+      this.#setTrailingPresentation(this.#colorTriggerEl, 'notionColorLabel');
       this.#colorTriggerEl.classList.toggle('dm-toolbar-button--active', t.hasAnyColor);
       const glyph = this.#colorTriggerEl.querySelector<HTMLElement>('.dm-ncp-trigger-glyph');
       if (glyph) glyph.style.color = t.currentTextColorVar ?? '';
@@ -701,19 +726,31 @@ export class DomternalBubbleMenu extends EventTarget {
     }
     if (this.#blockMenuTriggerEl) {
       this.#blockMenuTriggerEl.disabled = t.blockMenuButtonDisabled;
-      this.#blockMenuTriggerEl.title = t.blockMenuButtonDisabled
-        ? 'Block actions (select within a single block)'
-        : 'More options';
+      this.#setTrailingPresentation(this.#blockMenuTriggerEl, 'moreOptions', t.blockMenuButtonDisabled);
     }
   }
 
   #updateButton(item: ToolbarButton, btn: HTMLButtonElement): void {
+    btn.setAttribute('aria-label', item.label);
+    if (typeof item.command === 'string') btn.setAttribute('data-dm-command', item.command);
+    else btn.removeAttribute('data-dm-command');
+    btn.title = item.label;
+    setPresentationLanguage(btn, item.labelLanguage);
     const isActive = this.#activeMap.get(item.name) ?? false;
     const isDisabled = this.#disabledMap.get(item.name) ?? false;
     btn.classList.toggle('dm-toolbar-button--active', isActive);
     btn.disabled = isDisabled;
     btn.setAttribute('aria-pressed', String(isActive));
     this.#setIconHtml(btn, resolveIcon(item.icon, this.#icons));
+  }
+
+  #setTrailingPresentation(button: HTMLButtonElement, key: 'notionColorLabel' | 'moreOptions', disabled = false): void {
+    const label = key === 'notionColorLabel'
+      ? this.#editor.i18n.resolve(coreMessages.notionColorLabel)
+      : this.#editor.i18n.resolve(coreMessages.moreOptions);
+    button.setAttribute('aria-label', label.text);
+    button.title = disabled ? this.#editor.i18n.t(coreMessages.blockActionsSelectionHint) : label.text;
+    setPresentationLanguage(button, label.language);
   }
 
   /** Writes icon markup only when it differs from what was written last. */
@@ -724,6 +761,9 @@ export class DomternalBubbleMenu extends EventTarget {
   }
 
   #updateDropdownTrigger(dd: ToolbarDropdown, trigger: HTMLButtonElement): void {
+    trigger.setAttribute('aria-label', dd.label);
+    trigger.title = dd.label;
+    setPresentationLanguage(trigger, dd.labelLanguage);
     const dropdownActive = dd.items.some((sub) => this.#activeMap.get(sub.name) ?? false);
     const activeChild = dd.dynamicIcon
       ? dd.items.find((sub) => this.#activeMap.get(sub.name) ?? false)
@@ -755,6 +795,11 @@ export class DomternalBubbleMenu extends EventTarget {
           'dm-toolbar-dropdown-item--active',
           this.#activeMap.get(sub.name) ?? false,
         );
+        if (subBtn) {
+          subBtn.setAttribute('aria-label', sub.label);
+          setPresentationLanguage(subBtn, sub.labelLanguage);
+          patchIconText(subBtn, resolveIcon(sub.icon, this.#icons), sub.label);
+        }
       }
       return;
     }
@@ -769,6 +814,17 @@ export class DomternalBubbleMenu extends EventTarget {
   }
 
   // === Event handlers ===
+
+  #findButton(name: string): ToolbarButton | undefined {
+    for (const item of this.#resolvedItems) {
+      if (item.type === 'button' && item.name === name) return item;
+      if (item.type === 'dropdown') {
+        const sub = item.items.find((entry) => entry.name === name);
+        if (sub) return sub;
+      }
+    }
+    return undefined;
+  }
 
   #onButtonClick(item: ToolbarButton, event: MouseEvent): void {
     if (this.#openDropdown) this.closeDropdown();

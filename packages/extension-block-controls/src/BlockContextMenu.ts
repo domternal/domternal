@@ -7,6 +7,7 @@
  * styling: `role="menu"`, `role="menuitem"`, `data-show`, positionFloatingOnce.
  */
 import { Extension, defaultIcons, liftCurrentListItem, positionFloatingOnce, stripInlineColorConflicts, writeToClipboard, createAdoptablePluginView } from '@domternal/core';
+import { blockControlsMessages } from './messages.js';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey, TextSelection, EditorState } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -18,6 +19,7 @@ import {
   turnIntoBlock,
 } from './helpers/blockOperations.js';
 import { turnIntoWrapper, type WrapperCommand } from './helpers/turnIntoWrapper.js';
+import { setLabelText } from './helpers/setLabelText.js';
 
 /**
  * Subset of `uniqueID` options we read. Avoids importing `UniqueIDOptions`
@@ -72,6 +74,8 @@ export interface BlockMenuItem {
   /** Stable across renders; used for dedupe and as a test handle. */
   id: string;
   label: string;
+  /** Language of the label when supplied by a translation resolver. */
+  labelLanguage?: string;
   /** Key into the shared icon set, resolved the same way built-in items are. */
   icon: string;
   group: BlockMenuItemGroup;
@@ -122,6 +126,8 @@ const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 export interface TurnIntoTarget {
   /** Display label, e.g. "Heading 1". */
   label: string;
+  /** Language of the label when supplied by a translation resolver. */
+  labelLanguage?: string;
   /** Icon key resolved against `defaultIcons`. */
   icon: string;
   /** Schema node name, e.g. "heading", "paragraph", "blockquote". */
@@ -187,6 +193,8 @@ export interface CreateBlockContextMenuPluginOptions {
   editor: Editor;
   turnIntoEnabled: boolean;
   turnIntoTargets: TurnIntoTarget[];
+  /** Translate built-in targets only when the extension owns the option. */
+  localizeDefaultTurnIntoTargets?: boolean;
   copyLinkEnabled: boolean;
   onCopyLink: (blockId: string, editor: Editor) => string;
   blockColorEnabled: boolean;
@@ -212,6 +220,9 @@ interface BlockContextMenuOpenDetail {
  * keyed by absolute position, not class).
  */
 function matchingSelectorFor(anchor: HTMLElement): string | null {
+  for (const className of ['dm-bcm-trigger', 'dm-block-handle-drag']) {
+    if (anchor.classList.contains(className)) return `button.${className}`;
+  }
   const ariaLabel = anchor.getAttribute('aria-label');
   if (ariaLabel) {
     const escaped = ariaLabel.replace(/"/g, '\\"');
@@ -244,14 +255,12 @@ export function createBlockContextMenuPlugin(
     : null;
 
   /**
-   * Items contributed by other extensions, collected once for the same reason
-   * the optional-extension reads above are: extensions are immutable for the
-   * editor's lifetime. Sorted by (group, order, registration) so equal orders
-   * stay in a deterministic sequence rather than depending on collection order.
-   * `isAvailable` and `isEnabled` are evaluated per OPEN, not here, because
-   * they depend on the block the menu was opened on.
+   * Re-read contributed presentation on locale changes. Stable item IDs retain
+   * rendered buttons, focus and pending pointer interactions. Sorting by group,
+   * order and registration preserves deterministic order. Availability is
+   * evaluated when opening; enabled state also refreshes with translated copy.
    */
-  const contributedItems: BlockMenuItem[] = editor.extensionManager.extensions
+  const collectContributedItems = (): BlockMenuItem[] => editor.extensionManager.extensions
     .flatMap((ext) => {
       const add = (ext as unknown as { config: { addBlockMenuItems?: () => BlockMenuItem[] } })
         .config.addBlockMenuItems;
@@ -272,6 +281,7 @@ export function createBlockContextMenuPlugin(
       return orderDelta !== 0 ? orderDelta : a.index - b.index;
     })
     .map(({ item }) => item);
+  let contributedItems = collectContributedItems();
 
   const blockColorExt = editor.extensionManager.extensions.find((ext) => ext.name === 'blockColor');
   const blockColorOpts = blockColorExt
@@ -285,8 +295,47 @@ export function createBlockContextMenuPlugin(
   const root = document.createElement('div');
   root.className = 'dm-block-context-menu';
   root.setAttribute('role', 'menu');
-  root.setAttribute('aria-label', 'Block options');
   root.setAttribute('data-dm-editor-ui', '');
+
+  interface Copy { text: string; language?: string | undefined }
+  type Label = string | (() => Copy);
+  let labelUpdates: (() => void)[] = [];
+  const bindLabel = (element: HTMLElement, label: Label, textElement?: HTMLElement, aria = true): void => {
+    const update = (): void => {
+      const revision = editor.i18n.getSnapshot().revision;
+      const copy = typeof label === 'string' ? { text: label } : label();
+      if (!labelUpdates.includes(update)) return;
+      if (revision !== editor.i18n.getSnapshot().revision) { update(); return; }
+      if (aria) element.setAttribute('aria-label', copy.text);
+      element.lang = copy.language ?? '';
+      if (textElement) setLabelText(textElement, copy.text);
+    };
+    labelUpdates.push(update);
+    update();
+  };
+  const refreshLabels = (): void => {
+    const revision = editor.i18n.getSnapshot().revision;
+    const label = editor.i18n.resolve(blockControlsMessages.contextMenu);
+    const items = collectContributedItems();
+    if (revision !== editor.i18n.getSnapshot().revision) { refreshLabels(); return; }
+    root.setAttribute('aria-label', label.text);
+    root.lang = label.language;
+    contributedItems = items;
+    for (const update of labelUpdates) update();
+  };
+  const targetLabel = (target: TurnIntoTarget): Copy => {
+    if (!options.localizeDefaultTurnIntoTargets) return { text: target.label, language: target.labelLanguage };
+    switch (target.nodeType) {
+      case 'paragraph': return editor.i18n.resolve(blockControlsMessages.paragraph);
+      case 'heading': return editor.i18n.resolve(blockControlsMessages.heading, { level: Number(target.attrs?.['level'] ?? 1) });
+      case 'bulletList': return editor.i18n.resolve(blockControlsMessages.bulletList);
+      case 'orderedList': return editor.i18n.resolve(blockControlsMessages.orderedList);
+      case 'taskList': return editor.i18n.resolve(blockControlsMessages.taskList);
+      case 'blockquote': return editor.i18n.resolve(blockControlsMessages.quote);
+      case 'codeBlock': return editor.i18n.resolve(blockControlsMessages.codeBlock);
+      default: return { text: target.label, language: target.labelLanguage };
+    }
+  };
 
   let editorEl: HTMLElement | null = null;
   let cleanupFloating: (() => void) | null = null;
@@ -491,7 +540,8 @@ export function createBlockContextMenuPlugin(
    * source is neither a textblock nor a textblock-first wrapper.
    */
   const renderItems = (blockPos: number): void => {
-    root.innerHTML = '';
+    labelUpdates = [];
+    root.replaceChildren();
     menuItemButtons = [];
 
     const node = editor.view.state.doc.nodeAt(blockPos);
@@ -512,11 +562,11 @@ export function createBlockContextMenuPlugin(
     primaryGroup.setAttribute('role', 'group');
 
     primaryGroup.appendChild(
-      makeItem('Delete', 'trash', runDelete),
+      makeItem(() => editor.i18n.resolve(blockControlsMessages.delete), 'trash', runDelete),
     );
     if (node.type.name !== 'horizontalRule') {
       primaryGroup.appendChild(
-        makeItem('Duplicate', 'copy', runDuplicate),
+        makeItem(() => editor.i18n.resolve(blockControlsMessages.duplicate), 'copy', runDuplicate),
       );
     }
     // Copy link: only when enabled, UniqueID is loaded, and the block has an
@@ -525,7 +575,7 @@ export function createBlockContextMenuPlugin(
       const id = (node.attrs as Record<string, unknown>)[uniqueIDAttrName];
       if (typeof id === 'string' && id.length > 0) {
         primaryGroup.appendChild(
-          makeItem('Copy link', 'link', () => { runCopyLink(id); }),
+          makeItem(() => editor.i18n.resolve(blockControlsMessages.copyLink), 'link', () => { runCopyLink(id); }),
         );
       }
     }
@@ -537,7 +587,7 @@ export function createBlockContextMenuPlugin(
     if (blockColorEnabled && blockColorTypes?.includes(node.type.name)) {
       const label = document.createElement('div');
       label.className = 'dm-block-context-menu-group-label';
-      label.textContent = 'Colors';
+      bindLabel(label, () => editor.i18n.resolve(blockControlsMessages.colors), label, false);
       root.appendChild(label);
 
       const currentBg = (node.attrs as Record<string, unknown>)['bgColor'] as string | null;
@@ -545,7 +595,7 @@ export function createBlockContextMenuPlugin(
 
       root.appendChild(
         buildSwatchRow(
-          'Text color',
+          () => editor.i18n.resolve(blockControlsMessages.textColor),
           'text',
           blockTextPalette,
           currentText,
@@ -554,7 +604,7 @@ export function createBlockContextMenuPlugin(
       );
       root.appendChild(
         buildSwatchRow(
-          'Background',
+          () => editor.i18n.resolve(blockControlsMessages.background),
           'bg',
           blockBgPalette,
           currentBg,
@@ -638,17 +688,17 @@ export function createBlockContextMenuPlugin(
       if (eligible.length > 0) {
         const label = document.createElement('div');
         label.className = 'dm-block-context-menu-group-label';
-        label.textContent = 'Turn into';
+        bindLabel(label, () => editor.i18n.resolve(blockControlsMessages.turnInto), label, false);
         root.appendChild(label);
 
         const group = document.createElement('div');
         group.className = 'dm-block-context-menu-group';
         group.setAttribute('role', 'group');
-        group.setAttribute('aria-label', 'Turn into');
+        bindLabel(group, () => editor.i18n.resolve(blockControlsMessages.turnInto));
 
         for (const target of eligible) {
           group.appendChild(
-            makeItem(target.label, target.icon, () => { runTurnInto(target); }),
+            makeItem(() => targetLabel(target), target.icon, () => { runTurnInto(target); }),
           );
         }
         root.appendChild(group);
@@ -668,7 +718,7 @@ export function createBlockContextMenuPlugin(
    */
   const createMenuButton = (config: {
     className: string;
-    ariaLabel: string;
+    ariaLabel: Label;
     onClick: () => void;
     attributes?: Record<string, string>;
   }): HTMLButtonElement => {
@@ -676,7 +726,7 @@ export function createBlockContextMenuPlugin(
     btn.type = 'button';
     btn.className = config.className;
     btn.setAttribute('role', 'menuitem');
-    btn.setAttribute('aria-label', config.ariaLabel);
+    bindLabel(btn, config.ariaLabel);
     if (config.attributes) {
       for (const [k, v] of Object.entries(config.attributes)) {
         btn.setAttribute(k, v);
@@ -713,10 +763,10 @@ export function createBlockContextMenuPlugin(
     container.setAttribute('role', 'group');
 
     for (const item of items) {
-      const enabled = item.isEnabled?.(context) ?? true;
-      const disabledReason = enabled === true ? null : enabled.reason;
+      const currentItem = (): BlockMenuItem => contributedItems.find(candidate => candidate.id === item.id) ?? item;
+      let disabledReason: string | null = null;
       const btn = makeItem(
-        item.label,
+        () => ({ text: currentItem().label, language: currentItem().labelLanguage }),
         item.icon,
         () => {
           if (disabledReason !== null) return;
@@ -724,15 +774,24 @@ export function createBlockContextMenuPlugin(
           // Deliberately NOT refocusing the editor the way runAndClose does:
           // a contributed item commonly opens a surface of its own (a comment
           // composer) that wants the focus for itself.
-          item.run(context);
+          currentItem().run(context);
         },
         { 'data-block-menu-item': item.id }
       );
-      if (disabledReason !== null) {
-        btn.setAttribute('aria-disabled', 'true');
-        btn.classList.add('dm-block-context-menu-item--disabled');
-        btn.title = disabledReason;
-      }
+      const updateEnabled = (): void => {
+        const enabled = currentItem().isEnabled?.(context) ?? true;
+        disabledReason = enabled === true ? null : enabled.reason;
+        btn.classList.toggle('dm-block-context-menu-item--disabled', disabledReason !== null);
+        if (disabledReason !== null) {
+          btn.setAttribute('aria-disabled', 'true');
+          btn.title = disabledReason;
+        } else {
+          btn.removeAttribute('aria-disabled');
+          btn.removeAttribute('title');
+        }
+      };
+      labelUpdates.push(updateEnabled);
+      updateEnabled();
       container.appendChild(btn);
     }
     root.appendChild(container);
@@ -740,7 +799,7 @@ export function createBlockContextMenuPlugin(
 
   /** Builds a menuitem button (icon + label) and registers it for nav. */
   const makeItem = (
-    label: string,
+    label: Label,
     iconKey: string,
     onClick: () => void,
     attributes?: Record<string, string>,
@@ -762,7 +821,7 @@ export function createBlockContextMenuPlugin(
 
     const labelSpan = document.createElement('span');
     labelSpan.className = 'dm-block-context-menu-item-label';
-    labelSpan.textContent = label;
+    bindLabel(labelSpan, label, labelSpan, false);
 
     btn.appendChild(iconSpan);
     btn.appendChild(labelSpan);
@@ -779,9 +838,14 @@ export function createBlockContextMenuPlugin(
     current: string | null,
     onClick: (c: string | null) => void,
   ): HTMLButtonElement => {
-    const ariaLabel = color === null
-      ? (variant === 'bg' ? 'No background' : 'Default text color')
-      : `${variant === 'bg' ? 'Background' : 'Text color'}: ${color}`;
+    const ariaLabel = (): Copy => {
+      if (color === null) return variant === 'bg'
+        ? editor.i18n.resolve(blockControlsMessages.clearBackground)
+        : editor.i18n.resolve(blockControlsMessages.clearText);
+      return variant === 'bg'
+        ? editor.i18n.resolve(blockControlsMessages.backgroundSwatch, { color })
+        : editor.i18n.resolve(blockControlsMessages.textSwatch, { color });
+    };
     const isPressed = (current === color || (color === null && !current));
     return createMenuButton({
       className: `dm-block-color-swatch dm-block-color-swatch--${variant}`,
@@ -796,7 +860,7 @@ export function createBlockContextMenuPlugin(
 
   /** Builds a labelled swatch row (text or background), led by a "clear" swatch. */
   const buildSwatchRow = (
-    rowLabel: string,
+    rowLabel: Label,
     variant: 'bg' | 'text',
     palette: string[],
     current: string | null,
@@ -805,11 +869,11 @@ export function createBlockContextMenuPlugin(
     const row = document.createElement('div');
     row.className = 'dm-block-color-row';
     row.setAttribute('role', 'group');
-    row.setAttribute('aria-label', rowLabel);
+    bindLabel(row, rowLabel);
 
     const visuallyHidden = document.createElement('span');
     visuallyHidden.className = 'dm-block-color-row-label';
-    visuallyHidden.textContent = rowLabel;
+    bindLabel(visuallyHidden, rowLabel, visuallyHidden, false);
     row.appendChild(visuallyHidden);
 
     row.appendChild(makeSwatch(variant, null, current, onClick));
@@ -976,6 +1040,8 @@ export function createBlockContextMenuPlugin(
       editorEl = editorView.dom.closest('.dm-editor');
       if (!editorEl) return { destroy: () => { /* noop */ } };
 
+      refreshLabels();
+      const unsubscribeI18n = editor.i18n.subscribe(refreshLabels);
       editorEl.appendChild(root);
       hide();
 
@@ -986,6 +1052,8 @@ export function createBlockContextMenuPlugin(
 
       return {
         destroy: () => {
+          unsubscribeI18n();
+          labelUpdates = [];
           hide();
           editorEl?.removeEventListener('dm:block-context-menu-open', onOpen);
           editorEl?.removeEventListener('dm:dismiss-overlays', onDismiss);
@@ -1024,6 +1092,7 @@ export const BlockContextMenu = Extension.create<BlockContextMenuOptions>({
         editor,
         turnIntoEnabled: opts.turnIntoEnabled ?? true,
         turnIntoTargets: opts.turnIntoTargets ?? DEFAULT_TURN_INTO,
+        localizeDefaultTurnIntoTargets: !this.isOptionExplicit('turnIntoTargets'),
         copyLinkEnabled: opts.copyLinkEnabled ?? true,
         onCopyLink: opts.onCopyLink ?? defaultCopyLinkUrl,
         blockColorEnabled: opts.blockColorEnabled ?? true,

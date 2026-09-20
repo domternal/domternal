@@ -7,6 +7,7 @@
  *
  * This is a zero-dependency implementation - no external suggestion library needed.
  */
+import type { I18nService } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
@@ -20,6 +21,10 @@ export const emojiSuggestionPluginKey = new PluginKey<SuggestionState>(
 );
 
 export interface SuggestionProps {
+  /** Optional per-editor localization for built-in and custom renderers. */
+  i18n?: I18nService | undefined;
+  /** A locale update retains the current query, results and active item. */
+  updateReason?: 'locale';
   /** Current query string (text after trigger char). */
   query: string;
   /** Document range of the trigger + query (for replacement). */
@@ -59,6 +64,7 @@ export interface SuggestionOptions {
 }
 
 interface SuggestionPluginOptions extends SuggestionOptions {
+  i18n?: I18nService | undefined;
   editor: unknown;
   nodeType: NodeType | null;
   storage: EmojiStorage;
@@ -178,72 +184,90 @@ export function createSuggestionPlugin(
       },
     },
 
-    view() {
-      return {
-        update(view: EditorView) {
-          const state = emojiSuggestionPluginKey.getState(view.state);
-          if (!state) return;
-
-          if (state.active && state.range) {
-            const items = getItems
-              ? getItems({ query: state.query })
-              : storage.searchEmoji(state.query);
-
-            const command = (item: EmojiItem): void => {
-              if (!state.range) return;
-
-              const { tr } = view.state;
-
-              if (plainText) {
-                tr.replaceWith(
-                  state.range.from,
-                  state.range.to,
-                  view.state.schema.text(item.emoji),
-                );
-              } else if (nodeType) {
-                const node = nodeType.create({ name: item.name });
-                tr.replaceWith(state.range.from, state.range.to, node);
-              }
-
-              // Add a space after the emoji
-              tr.insertText(' ');
-              view.dispatch(tr);
-
-              storage.addFrequentlyUsed(item.name);
-            };
-
-            const clientRect = (): DOMRect | null => {
-              if (!state.range) return null;
-              try {
-                const coords = view.coordsAtPos(state.range.from);
-                return new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top);
-              } catch {
-                return null;
-              }
-            };
-
-            const props: SuggestionProps = {
-              query: state.query,
-              range: state.range,
-              items,
-              command,
-              clientRect,
-              element: view.dom,
-            };
-
-            if (!renderer && getRender) {
-              renderer = getRender();
-              renderer.onStart(props);
-            } else if (renderer) {
-              renderer.onUpdate(props);
-            }
-          } else if (renderer) {
-            renderer.onExit();
-            renderer = null;
+    view(initialView) {
+      let previousState: SuggestionState | undefined;
+      let currentProps: SuggestionProps | null = null;
+      let localeRevision = options.i18n?.getSnapshot().revision;
+      const update = (view: EditorView): void => {
+        const state = emojiSuggestionPluginKey.getState(view.state);
+        if (!state) return;
+        const nextRevision = options.i18n?.getSnapshot().revision;
+        if (state === previousState) {
+          if (nextRevision !== localeRevision && currentProps && renderer) {
+            localeRevision = nextRevision;
+            renderer.onUpdate({ ...currentProps, updateReason: 'locale' });
           }
-        },
+          return;
+        }
+        previousState = state;
+        localeRevision = nextRevision;
 
+        if (state.active && state.range) {
+          const items = getItems
+            ? getItems({ query: state.query })
+            : storage.searchEmoji(state.query);
+
+          const command = (item: EmojiItem): void => {
+            if (!state.range) return;
+
+            const { tr } = view.state;
+
+            if (plainText) {
+              tr.replaceWith(
+                state.range.from,
+                state.range.to,
+                view.state.schema.text(item.emoji),
+              );
+            } else if (nodeType) {
+              const node = nodeType.create({ name: item.name });
+              tr.replaceWith(state.range.from, state.range.to, node);
+            }
+
+            // Add a space after the emoji
+            tr.insertText(' ');
+            view.dispatch(tr);
+
+            storage.addFrequentlyUsed(item.name);
+          };
+
+          const clientRect = (): DOMRect | null => {
+            if (!state.range) return null;
+            try {
+              const coords = view.coordsAtPos(state.range.from);
+              return new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top);
+            } catch {
+              return null;
+            }
+          };
+
+          const props: SuggestionProps = {
+            i18n: options.i18n,
+            query: state.query,
+            range: state.range,
+            items,
+            command,
+            clientRect,
+            element: view.dom,
+          };
+
+          currentProps = props;
+          if (!renderer && getRender) {
+            renderer = getRender();
+            renderer.onStart(props);
+          } else if (renderer) {
+            renderer.onUpdate(props);
+          }
+        } else if (renderer) {
+          currentProps = null;
+          renderer.onExit();
+          renderer = null;
+        }
+      };
+      const unsubscribeI18n = options.i18n?.subscribe(() => { update(initialView); });
+      return {
+        update,
         destroy() {
+          unsubscribeI18n?.();
           if (renderer) {
             renderer.onExit();
             renderer = null;

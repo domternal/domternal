@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * FontFamily Extension
  *
@@ -107,8 +110,9 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
         type: 'dropdown',
         name: 'fontFamily',
         icon: 'textAa',
-        label: 'Font Family',
+        ...localizedLabel(this.editor?.i18n, coreMessages.fontFamily),
         group: 'textStyle',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupTextStyle),
         priority: 150,
         displayMode: 'text',
         dynamicLabel: true,

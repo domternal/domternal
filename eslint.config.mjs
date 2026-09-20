@@ -105,6 +105,8 @@ export default defineConfig(
       // so the project service here has no tsconfig that covers them.
       'tests/consumer-types/consumer.ts',
       'tests/consumer-types/consumer-cjs.cts',
+      'tests/consumer-types/german-locales.ts',
+      'tests/consumer-types/german-locales.cts',
     ],
   }
 );

@@ -1,3 +1,4 @@
+import { useDemoI18n } from './demo-language.js';
 import { useEffect } from 'react';
 import { useEditor, DomternalToolbar } from '@domternal/react';
 import {
@@ -23,7 +24,8 @@ const initialContent = `
 `;
 
 export function NodeViewDemo() {
-  const { editor, editorRef } = useEditor({ extensions, content: initialContent });
+  const i18n = useDemoI18n();
+  const { editor, editorRef } = useEditor({ i18n, extensions, content: initialContent });
 
   // Expose editor on window for E2E test access
   useEffect(() => {

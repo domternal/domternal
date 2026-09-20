@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { I18nOptions } from '@domternal/core';
 import { h, defineComponent } from 'vue';
 import { Domternal, useCurrentEditor } from '@domternal/vue';
 import {
@@ -13,6 +14,8 @@ import {
   LinkPopover,
   SelectionDecoration,
 } from '@domternal/core';
+
+defineProps<{ i18n: I18nOptions }>();
 
 const extensions = [
   Bold, Italic, Underline, Strike, Heading, BulletList, OrderedList,
@@ -41,7 +44,7 @@ const EditorProbe = defineComponent({
   <div class="compound-demo" data-demo="compound">
     <h2>Compound Component Demo (&lt;Domternal&gt; with namespaced subcomponents)</h2>
 
-    <Domternal :extensions="extensions" content="<p>Compound root provides editor via inject</p>">
+    <Domternal :i18n="i18n" :extensions="extensions" content="<p>Compound root provides editor via inject</p>">
       <Domternal.Toolbar />
       <Domternal.Content />
       <Domternal.BubbleMenu :contexts="{ text: ['bold', 'italic', 'underline'] }" />

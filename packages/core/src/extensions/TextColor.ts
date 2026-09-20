@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * TextColor Extension
  *
@@ -173,8 +176,9 @@ export const TextColor = Extension.create<TextColorOptions>({
         type: 'dropdown',
         name: 'textColor',
         icon: 'textAUnderline',
-        label: 'Text Color',
+        ...localizedLabel(this.editor?.i18n, coreMessages.textColor),
         group: 'textStyle',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupTextStyle),
         priority: 200,
         layout: 'grid',
         gridColumns: this.options.columns,
@@ -185,7 +189,7 @@ export const TextColor = Extension.create<TextColorOptions>({
             name: 'unsetTextColor',
             command: 'unsetTextColor',
             icon: 'prohibit',
-            label: 'Default',
+            ...localizedLabel(this.editor?.i18n, coreMessages.textColorDefault),
           },
           ...this.options.colors.map((color, i) => ({
             type: 'button' as const,

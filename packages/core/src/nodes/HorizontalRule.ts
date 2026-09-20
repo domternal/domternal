@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedDescription, localizedGroup, messageAliases } from '../messages/presentation.js';
 /**
  * HorizontalRule Node
  *
@@ -110,8 +113,9 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
         name: 'horizontalRule',
         command: 'setHorizontalRule',
         icon: 'minus',
-        label: 'Horizontal Rule',
+        ...localizedLabel(this.editor?.i18n, coreMessages.horizontalRule),
         group: 'blocks',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupBlocks),
         priority: 130,
       },
     ];
@@ -121,12 +125,13 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
     return [
       {
         name: 'horizontal-rule',
-        label: 'Divider',
-        description: 'Insert a horizontal rule',
+        ...localizedLabel(this.editor?.i18n, coreMessages.divider),
+        ...localizedDescription(this.editor?.i18n, coreMessages.dividerDescription),
         icon: 'minus',
         group: 'Basic',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupBasic),
         priority: 150,
-        keywords: ['divider', 'hr', 'line', 'separator', 'horizontal rule'],
+        keywords: messageAliases(this.editor?.i18n, coreMessages.divider),
         shortcut: '--- ',
         command: 'setHorizontalRule',
       },

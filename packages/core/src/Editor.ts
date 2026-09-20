@@ -18,6 +18,8 @@ import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
+import { I18nService } from './i18n/index.js';
+import { coreMessages } from './messages/core.js';
 import {
   focus as focusCommand,
   blur as blurCommand,
@@ -79,6 +81,9 @@ interface EditorDomContext {
  * ```
  */
 export class Editor extends EventEmitter<EditorEvents> {
+  /** Per-editor UI translations. Changes never modify document content. */
+  readonly i18n: I18nService;
+
   /**
    * Editor configuration options
    */
@@ -131,6 +136,10 @@ export class Editor extends EventEmitter<EditorEvents> {
   private _presetClassHost: Element | null = null;
 
   private _domContext: EditorDomContext | null = null;
+
+  private _localeRepaintPending = false;
+  private _localeRepaintQueued = false;
+  private _isLocaleRepainting = false;
 
   /**
    * Creates a new Editor instance
@@ -185,6 +194,15 @@ export class Editor extends EventEmitter<EditorEvents> {
       ...options,
     };
 
+    this.i18n = new I18nService(options.i18n);
+    // Subscribe before extensions so their UI observes freshly resolved items.
+    this.i18n.subscribe(() => {
+      // Both fields are unset while beforeCreate hooks run.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      this._extensionManager?.invalidateLocalizedItems();
+      this._localeRepaintPending = true;
+      this.repaintLocalizedView();
+    });
     this.createEditor();
   }
 
@@ -717,6 +735,9 @@ export class Editor extends EventEmitter<EditorEvents> {
       return;
     }
 
+    this._localeRepaintPending = false;
+    this.view.dom.removeEventListener('compositionend', this.queueLocalizedViewRepaint);
+
     // Clear autofocus timer if pending
     if (this._autofocusTimer) {
       clearTimeout(this._autofocusTimer);
@@ -738,6 +759,7 @@ export class Editor extends EventEmitter<EditorEvents> {
 
     // Destroy managers
     this._extensionManager.destroy();
+    this.i18n.destroy();
 
     // Clear all event listeners
     this.removeAllListeners();
@@ -746,6 +768,37 @@ export class Editor extends EventEmitter<EditorEvents> {
   }
 
   // === Private Methods ===
+
+  private repaintLocalizedView(): void {
+    // A view refresh with stored marks can terminate an active IME composition.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (this._isDestroyed || this._isViewConstructing || this._isLocaleRepainting || !this.view || this.view.composing) return;
+    this._isLocaleRepainting = true;
+    try {
+      do {
+        const revision = this.i18n.getSnapshot().revision;
+        this._localeRepaintPending = false;
+        this.view.setProps({});
+        // A resolver can publish new wording before the outer DOM paint finishes.
+        // Finish that paint first, then apply the newest revision synchronously.
+        // setProps callbacks can destroy the editor or begin composition.
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (!this._isDestroyed && revision !== this.i18n.getSnapshot().revision) this._localeRepaintPending = true;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      } while (this._localeRepaintPending && !this._isDestroyed && !this.view.composing);
+    } finally {
+      this._isLocaleRepainting = false;
+    }
+  }
+
+  private readonly queueLocalizedViewRepaint = (): void => {
+    if (!this._localeRepaintPending || this._localeRepaintQueued) return;
+    this._localeRepaintQueued = true;
+    queueMicrotask(() => {
+      this._localeRepaintQueued = false;
+      if (this._localeRepaintPending) this.repaintLocalizedView();
+    });
+  };
 
   /**
    * Builds a clipboardSerializer that applies a transform function to HTML on copy/cut.
@@ -844,7 +897,7 @@ export class Editor extends EventEmitter<EditorEvents> {
       attributes: () => ({
         role: 'textbox',
         'aria-multiline': 'true',
-        'aria-label': this.options.ariaLabel ?? 'Rich text editor',
+        'aria-label': this.options.ariaLabel ?? this.i18n.t(coreMessages.editorLabel),
         ...((this.options.editable ?? true) ? {} : { 'aria-readonly': 'true' }),
       }),
       ...(Object.keys(nodeViews).length > 0 ? { nodeViews } : {}),
@@ -872,6 +925,9 @@ export class Editor extends EventEmitter<EditorEvents> {
       },
     });
     this._isViewConstructing = false;
+    // Register after ProseMirror so its composition handler flushes pending input first.
+    this.view.dom.addEventListener('compositionend', this.queueLocalizedViewRepaint);
+    if (this._localeRepaintPending) this.repaintLocalizedView();
 
     // 7.5. preset: 'notion' paints the theme class on the `.dm-editor` host,
     // so one option covers styling and behavior; consumers stop writing the
@@ -949,6 +1005,7 @@ export class Editor extends EventEmitter<EditorEvents> {
 
     // 2. Update view
     this.view.updateState(newState);
+    if (!this.view.composing) this._localeRepaintPending = false;
 
     // 3. Emit transaction event (fires for EVERY transaction)
     this.emit('transaction', { editor: this, transaction });

@@ -8,7 +8,7 @@
     "pnpm": ">=10.34.4 <11"
   },
   "scripts": {
-    "build": "nx run-many --target=build --all",
+    "build": "pnpm locales:generate && nx run-many --target=build --all",
     "dev": "nx run-many --target=dev --all",
     "test": "nx run-many --target=test --all",
     "test:coverage": "nx run-many --target=test --all -- --coverage",
@@ -38,7 +38,11 @@
     "test:pm-ranges:unit": "node --test tests/pm-ranges/check.test.mjs",
     "test:pm-ranges": "node --test tests/pm-ranges/check.test.mjs && node tests/pm-ranges/check.mjs",
     "test:frozen-contract": "node --test tests/frozen-contract/check.test.mjs && node tests/frozen-contract/check.mjs",
-    "test:externals": "node --test tests/externals/check.test.mjs && node tests/externals/check.mjs"
+    "test:externals": "node --test tests/externals/check.test.mjs && node tests/externals/check.mjs",
+    "test:i18n": "node --test tests/i18n/*.test.mjs && node tests/i18n/check.mjs && pnpm locales:check",
+    "i18n:update": "node tests/i18n/check.mjs --update",
+    "locales:generate": "node tests/i18n/generate-locales.mjs",
+    "locales:check": "node tests/i18n/generate-locales.mjs --check && tsc --noEmit --project locales/tsconfig.json"
   },
   "repository": {
     "type": "git",

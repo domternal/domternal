@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { I18nOptions } from '@domternal/core';
 import { watch, onBeforeUnmount } from 'vue';
 import { useEditor } from '@domternal/vue';
 import { StarterKit, type AnyExtension } from '@domternal/core';
@@ -15,6 +16,8 @@ import { StarterKit, type AnyExtension } from '@domternal/core';
  * E2E hook: `window.__TAB_EDITORS__` = [defaultEditor, optInEditor].
  */
 
+const props = defineProps<{ i18n: I18nOptions }>();
+
 const CONTENT =
   '<ul><li><p>Bullet one</p></li><li><p>Bullet two</p></li></ul>' +
   '<p>Para after list</p>' +
@@ -23,8 +26,14 @@ const CONTENT =
 const DEFAULT_EXT: AnyExtension[] = [StarterKit];
 const OPT_IN_EXT: AnyExtension[] = [StarterKit.configure({ listIndent: true }) as AnyExtension];
 
-const { editor: editorA, editorRef: editorRefA } = useEditor({ extensions: DEFAULT_EXT, content: CONTENT });
-const { editor: editorB, editorRef: editorRefB } = useEditor({ extensions: OPT_IN_EXT, content: CONTENT });
+const { editor: editorA, editorRef: editorRefA } = useEditor({
+  get i18n() { return props.i18n; },
+  extensions: DEFAULT_EXT, content: CONTENT,
+});
+const { editor: editorB, editorRef: editorRefB } = useEditor({
+  get i18n() { return props.i18n; },
+  extensions: OPT_IN_EXT, content: CONTENT,
+});
 
 function writeGlobal(): void {
   const w = window as unknown as Record<string, unknown>;

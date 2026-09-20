@@ -1,3 +1,4 @@
+import { useDemoI18n } from './demo-language.js';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -212,7 +213,9 @@ export function NotionDemo({ scrollable = false }: NotionDemoProps): ReactNode {
     [scrollable, pageEl],
   );
 
+  const i18n = useDemoI18n();
   const { editor, editorRef } = useEditor({
+    i18n,
     extensions,
     content: NOTION_DEMO_CONTENT,
     // Paints dm-notion-mode on the wrapper and switches preset-aware

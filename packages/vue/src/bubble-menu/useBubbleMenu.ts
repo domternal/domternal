@@ -121,6 +121,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
   let currentResolvedItems: BubbleMenuItem[] = [];
 
   let initialized = false;
+  let unsubscribeI18n: (() => void) | undefined;
   let stopEditorWatch: (() => void) | null = null;
   // Init when both editor is ready AND the component has mounted (menuRef
   // populated). onMounted guarantees DOM; then wait for editor if needed.
@@ -140,12 +141,10 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
     const hasNotionColorPicker = exts.some((e) => e.name === 'notionColorPicker');
     const hasBlockContextMenu = exts.some((e) => e.name === 'blockContextMenu');
 
-    /* One pipeline, built once per editor. Every renderer asks core the same
-       question, so none of them answers it. */
     maps = buildBubbleItemMaps(ed);
 
     // Generate shouldShow function
-    const shouldShowFn =
+    let shouldShowFn =
       shouldShow ?? createBubbleShouldShow(maps, contexts);
 
     // Register plugin
@@ -153,7 +152,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       pluginKey,
       editor: ed,
       element: menuRef.value,
-      shouldShow: shouldShowFn,
+      shouldShow: (props) => shouldShowFn(props),
       placement,
       offset,
       updateDelay,
@@ -168,7 +167,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       resolvedItems.value = newItems;
     };
 
-    const fallbackItems = resolveBubbleNames(
+    let fallbackItems = resolveBubbleNames(
       items ?? ['bold', 'italic', 'underline'],
       maps.itemMap,
       maps.dropdownMap,
@@ -270,6 +269,12 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       activeVersion.value++;
     };
     ed.on('transaction', transactionHandler);
+    unsubscribeI18n = ed.i18n.subscribe(() => {
+      maps = buildBubbleItemMaps(ed);
+      shouldShowFn = shouldShow ?? createBubbleShouldShow(maps, contexts);
+      fallbackItems = resolveBubbleNames(items ?? ['bold', 'italic', 'underline'], maps.itemMap, maps.dropdownMap);
+      transactionHandler();
+    });
     updateStates(ed);
     syncTrailingState(ed);
 
@@ -295,6 +300,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
   });
 
   onScopeDispose(() => {
+    unsubscribeI18n?.();
     stopEditorWatch?.();
     if (initializedEditor && initializedHandler) {
       initializedEditor.off('transaction', initializedHandler);

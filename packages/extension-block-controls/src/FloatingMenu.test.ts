@@ -13,7 +13,7 @@ import {
   hideFloatingMenu,
   FLOATING_MENU_META,
 } from './FloatingMenu.js';
-import { Document, Text, Paragraph, Editor } from '@domternal/core';
+import { Document, Text, Paragraph, Editor, I18nService } from '@domternal/core';
 import * as core from '@domternal/core';
 
 describe('FloatingMenu', () => {
@@ -67,6 +67,7 @@ describe('FloatingMenu', () => {
 
       // Mock the editor
       const mockEditor = {
+        i18n: new I18nService(),
         view: { coordsAtPos: () => ({ left: 0, top: 0, bottom: 0 }) },
         state: {
           selection: {
@@ -84,6 +85,8 @@ describe('FloatingMenu', () => {
 
       expect(Array.isArray(plugins)).toBe(true);
       expect(plugins?.length).toBeGreaterThan(0);
+      expect(element.getAttribute('aria-label')).toBe('Insert block');
+      mockEditor.i18n.destroy();
     });
   });
 

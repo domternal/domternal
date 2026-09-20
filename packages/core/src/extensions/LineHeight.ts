@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * LineHeight Extension
  *
@@ -135,8 +138,9 @@ export const LineHeight = Extension.create<LineHeightOptions>({
         type: 'dropdown',
         name: 'lineHeight',
         icon: 'lineSpacing',
-        label: 'Line Height',
+        ...localizedLabel(this.editor?.i18n, coreMessages.lineHeight),
         group: 'textStyle',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupTextStyle),
         priority: 50,
         displayMode: 'text',
         dynamicLabel: true,
@@ -156,7 +160,7 @@ export const LineHeight = Extension.create<LineHeightOptions>({
             name: 'unsetLineHeight',
             command: 'unsetLineHeight',
             icon: 'lineSpacing',
-            label: 'Default',
+            ...localizedLabel(this.editor?.i18n, coreMessages.lineHeightDefault),
           },
         ],
       },

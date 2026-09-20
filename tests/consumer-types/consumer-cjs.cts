@@ -36,6 +36,72 @@ import toc = require('@domternal/extension-toc');
 
 declare const editor: core.Editor;
 
+declare module '@domternal/core' {
+  interface MessageParameters {
+    'app.itemCount': { count: number };
+  }
+  interface SearchableMessages {
+    'app.itemCount': true;
+  }
+}
+// Every built-in definition must retain its public parameter augmentation in dist.
+type PublishedCoreMessages = core.CompleteMessages<typeof core.coreMessages>;
+const builtinTranslations: core.Messages = {
+  'core.toolbar.italic': 'Kursiv',
+  'core.group.insert': 'Einfügen',
+  'core.group.media': 'Medien',
+  'core.group.advanced': 'Erweitert',
+  'core.heading.level': ({ level }) => `Überschrift ${String(level)}`,
+};
+editor.i18n.set({
+  messages: builtinTranslations,
+  searchAliases: { 'core.floating.quote': ['Zitat'], 'core.heading.level': ['Überschrift'] },
+});
+editor.i18n.t(core.coreMessages.italic);
+editor.i18n.t(core.coreMessages.groupInsert);
+editor.i18n.t(core.coreMessages.headingLevel, { level: 2 });
+// @ts-expect-error Built-in dynamic parameters remain checked after declaration bundling.
+editor.i18n.t(core.coreMessages.headingLevel, { level: 'two' });
+// @ts-expect-error Dynamic built-in messages require their parameters.
+editor.i18n.t(core.coreMessages.headingLevel);
+// @ts-expect-error Only declared searchable messages accept aliases.
+editor.i18n.set({ searchAliases: { 'core.group.insert': ['Einfügen'] } });
+
+core.resolveColorName(editor.i18n, 'blue');
+core.resolveColorSwatch(editor.i18n, 'blue', 'bg');
+core.resolveEmojiCategory(editor.i18n, 'Objects');
+core.resolveEmojiLabel(editor.i18n, { name: 'smile', label: 'Custom', labelLanguage: 'en' });
+core.matchesEmojiPresentation(editor.i18n, { name: 'smile', searchAliases: ['happy'] }, 'happy');
+editor.i18n.t(core.coreMessages.emojiItemName, { name: 'smile' });
+// @ts-expect-error Emoji display lookup preserves its stable string identity contract.
+editor.i18n.t(core.coreMessages.emojiItemName, { name: 1 });
+// @ts-expect-error Swatch variants are a finite presentation choice.
+core.resolveColorSwatch(editor.i18n, 'blue', 'invalid');
+
+core.observeI18nPresentation(editor.i18n, () => document.body, () => undefined)();
+
+editor.i18n.t(emoji.emojiMessages.suggestionEmpty);
+editor.i18n.set({ messages: { 'emoji.insert': 'Insert emoji', 'emoji.suggestion.label': 'Suggestions' } });
+
+const itemCountMessage = core.defineMessage({
+  id: 'app.itemCount',
+  defaultValue: ({ count }, context) => `${context.number(count)} items`,
+  description: 'A consumer-owned item count.',
+  owner: 'app',
+});
+const selectedMessages: core.CompleteMessages<{ itemCount: typeof itemCountMessage }> = {
+  'app.itemCount': ({ count }) => String(count),
+};
+const partialMessages: core.Messages = { 'core.toolbar.bold': 'Fett', ...selectedMessages };
+editor.i18n.set({ locale: 'de', messages: partialMessages, searchAliases: { 'app.itemCount': ['items'] } });
+editor.i18n.t(itemCountMessage, { count: 2 });
+// @ts-expect-error The CommonJS declaration graph must retain parameter types.
+editor.i18n.t(itemCountMessage, { count: 'two' });
+// @ts-expect-error A parameterized message cannot omit parameters.
+editor.i18n.t(itemCountMessage);
+// @ts-expect-error Unknown built-in IDs remain errors in CommonJS consumers.
+editor.i18n.set({ messages: { 'core.toolbar.bodl': 'Fett' } });
+
 /*
  * One command per package that augments `RawCommands`, which is every package
  * above except extension-block-controls: its augmentation carries extension

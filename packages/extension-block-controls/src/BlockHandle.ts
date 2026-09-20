@@ -16,6 +16,7 @@
  * a `dm-editor--has-block-handle` class so the theme can widen `.ProseMirror`
  * padding-left for gutter space inside the `overflow:hidden` wrapper.
  */
+import { blockControlsMessages } from './messages.js';
 import { Extension, defaultIcons, createAdoptablePluginView } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
@@ -863,15 +864,24 @@ export function createBlockHandlePlugin(
   const dragBtn = document.createElement('button');
   dragBtn.type = 'button';
   dragBtn.className = 'dm-block-handle-btn dm-block-handle-drag';
-  dragBtn.setAttribute('aria-label', 'Drag to reorder, click for options');
   dragBtn.setAttribute('draggable', 'true');
   dragBtn.innerHTML = defaultIcons['dotsSixVertical'] ?? '';
 
   const plusBtn = document.createElement('button');
   plusBtn.type = 'button';
   plusBtn.className = 'dm-block-handle-btn dm-block-handle-plus';
-  plusBtn.setAttribute('aria-label', 'Add block below');
   plusBtn.innerHTML = defaultIcons['plus'] ?? '';
+
+  const refreshLabels = (): void => {
+    const revision = editor.i18n.getSnapshot().revision;
+    const drag = editor.i18n.resolve(blockControlsMessages.dragHandle);
+    const add = editor.i18n.resolve(blockControlsMessages.addBlock);
+    if (revision !== editor.i18n.getSnapshot().revision) { refreshLabels(); return; }
+    dragBtn.setAttribute('aria-label', drag.text);
+    dragBtn.lang = drag.language;
+    plusBtn.setAttribute('aria-label', add.text);
+    plusBtn.lang = add.language;
+  };
 
   // Notion's order: [+][⋮⋮] with the drag grip adjacent to the block it
   // moves; the plus is the outer, peripheral action.
@@ -1803,6 +1813,8 @@ export function createBlockHandlePlugin(
         return { destroy: () => { /* noop */ } };
       }
 
+      refreshLabels();
+      const unsubscribeI18n = editor.i18n.subscribe(refreshLabels);
       editorEl.classList.add('dm-editor--has-block-handle');
       editorEl.appendChild(root);
       if (dropIndicator) {
@@ -1856,6 +1868,7 @@ export function createBlockHandlePlugin(
           }
         },
         destroy: () => {
+          unsubscribeI18n();
           clearHideTimer();
           // If destroyed mid-drag, stop the RAF loop and drop the document-level
           // dragover listener immediately.

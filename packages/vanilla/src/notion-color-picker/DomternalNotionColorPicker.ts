@@ -1,4 +1,4 @@
-import { positionFloating } from '@domternal/core';
+import { coreMessages, resolveColorName, resolveColorSwatch, positionFloating } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { assertBrowser } from '../shared/isBrowser.js';
 
@@ -18,22 +18,6 @@ function paletteFromExtensionOptions(options: unknown): string[] {
   }
   return [...palette];
 }
-
-/**
- * Display labels for the named-token palette. Used in tooltips / aria labels;
- * unknown tokens fall back to a title-cased version of the raw key.
- */
-const TOKEN_LABELS: Record<string, string> = {
-  gray: 'Gray',
-  brown: 'Brown',
-  orange: 'Orange',
-  yellow: 'Yellow',
-  green: 'Green',
-  blue: 'Blue',
-  purple: 'Purple',
-  pink: 'Pink',
-  red: 'Red',
-};
 
 export interface DomternalNotionColorPickerOptions {
   /** The editor instance the picker binds to. */
@@ -112,6 +96,7 @@ export class DomternalNotionColorPicker extends EventTarget {
 
   #editor: Editor;
   #destroyed = false;
+  #unsubscribeI18n: () => void;
 
   #isOpen = false;
   #anchor: HTMLElement | null = null;
@@ -148,6 +133,7 @@ export class DomternalNotionColorPicker extends EventTarget {
     }
 
     this.#editor = options.editor;
+    this.#unsubscribeI18n = this.#editor.i18n.subscribe(() => { this.#updateLabels(); });
     this.#host = this.#editor.view.dom.closest<HTMLElement>('.dm-editor');
 
     // Read palette from extension options (immutable per editor lifetime)
@@ -278,12 +264,13 @@ export class DomternalNotionColorPicker extends EventTarget {
 
   /** Display label for a palette token (title-case fallback). */
   tokenLabel(token: string): string {
-    return TOKEN_LABELS[token] ?? token.charAt(0).toUpperCase() + token.slice(1);
+    return resolveColorName(this.#editor.i18n, token).text;
   }
 
   destroy(): void {
     if (this.#destroyed) return;
     this.#destroyed = true;
+    this.#unsubscribeI18n();
 
     this.#detachGlobalListeners();
     this.#cleanupFloating?.();
@@ -374,6 +361,7 @@ export class DomternalNotionColorPicker extends EventTarget {
       // Refresh content (active classes) in case panel was reused.
       this.#panel.replaceChildren(...this.#renderSections());
     }
+    this.#updateLabels();
     // Append (or re-append) panel to host
     this.#host.appendChild(this.#panel);
   }
@@ -384,19 +372,18 @@ export class DomternalNotionColorPicker extends EventTarget {
     panel.setAttribute('data-show', '');
     panel.setAttribute('data-dm-editor-ui', '');
     panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-label', 'Text and background color');
     panel.setAttribute('aria-modal', 'false');
     panel.addEventListener('keydown', (e) => {
       this.#onPanelKeydown(e);
     });
     panel.append(...this.#renderSections());
+    this.#updateLabels(panel);
     return panel;
   }
 
   #renderSections(): Node[] {
     return [
       this.#createSection({
-        label: 'Text color',
         variant: 'text',
         activeToken: this.#currentTextToken,
         onApply: (t) => {
@@ -404,7 +391,6 @@ export class DomternalNotionColorPicker extends EventTarget {
         },
       }),
       this.#createSection({
-        label: 'Background color',
         variant: 'bg',
         activeToken: this.#currentBgToken,
         onApply: (t) => {
@@ -415,17 +401,16 @@ export class DomternalNotionColorPicker extends EventTarget {
   }
 
   #createSection(opts: {
-    label: string;
     variant: 'text' | 'bg';
     activeToken: string | null;
     onApply: (token: string | null) => void;
   }): HTMLDivElement {
     const section = document.createElement('div');
     section.className = 'dm-ncp-section';
+    section.dataset['variant'] = opts.variant;
 
     const heading = document.createElement('div');
     heading.className = 'dm-ncp-label';
-    heading.textContent = opts.label;
     section.appendChild(heading);
 
     const grid = document.createElement('div');
@@ -436,7 +421,6 @@ export class DomternalNotionColorPicker extends EventTarget {
       this.#createSwatch({
         token: null,
         variant: opts.variant,
-        label: opts.variant === 'text' ? 'Default text color' : 'Default background',
         activeToken: opts.activeToken,
         onApply: opts.onApply,
       })
@@ -444,13 +428,10 @@ export class DomternalNotionColorPicker extends EventTarget {
 
     // Named token swatches
     for (const t of this.#palette) {
-      const label =
-        opts.variant === 'text' ? `${this.tokenLabel(t)} text` : `${this.tokenLabel(t)} background`;
       grid.appendChild(
         this.#createSwatch({
           token: t,
           variant: opts.variant,
-          label,
           activeToken: opts.activeToken,
           onApply: opts.onApply,
         })
@@ -464,7 +445,6 @@ export class DomternalNotionColorPicker extends EventTarget {
   #createSwatch(opts: {
     token: string | null;
     variant: 'text' | 'bg';
-    label: string;
     activeToken: string | null;
     onApply: (token: string | null) => void;
   }): HTMLButtonElement {
@@ -474,13 +454,6 @@ export class DomternalNotionColorPicker extends EventTarget {
     if (opts.activeToken === opts.token) swatch.classList.add('dm-ncp-active');
     swatch.setAttribute('aria-pressed', String(opts.activeToken === opts.token));
     swatch.dataset['color'] = opts.token ?? 'null';
-    swatch.title =
-      opts.token === null
-        ? opts.variant === 'text'
-          ? 'Default text color'
-          : 'Default background'
-        : this.tokenLabel(opts.token);
-    swatch.setAttribute('aria-label', opts.label);
     swatch.addEventListener('mousedown', (e) => {
       e.preventDefault();
     });
@@ -488,6 +461,33 @@ export class DomternalNotionColorPicker extends EventTarget {
       opts.onApply(opts.token);
     });
     return swatch;
+  }
+
+  #updateLabels(panel = this.#panel): void {
+    if (!panel) return;
+    const i18n = this.#editor.i18n;
+    const label = i18n.resolve(coreMessages.notionColorLabel);
+    panel.setAttribute('aria-label', label.text);
+    panel.lang = label.language;
+    for (const section of Array.from(panel.querySelectorAll<HTMLElement>('.dm-ncp-section'))) {
+      const variant = section.dataset['variant'] === 'text' ? 'text' : 'bg';
+      const heading = section.querySelector<HTMLElement>('.dm-ncp-label');
+      const headingLabel = variant === 'text'
+        ? i18n.resolve(coreMessages.colorText) : i18n.resolve(coreMessages.colorBackground);
+      if (heading) {
+        heading.textContent = headingLabel.text;
+        heading.lang = headingLabel.language;
+      }
+      for (const swatch of Array.from(section.querySelectorAll<HTMLButtonElement>('.dm-ncp-swatch'))) {
+        const token = swatch.dataset['color'] === 'null' ? null : (swatch.dataset['color'] ?? null);
+        const swatchLabel = resolveColorSwatch(i18n, token, variant);
+        swatch.setAttribute('aria-label', swatchLabel.text);
+        swatch.title = token !== null && variant === 'text'
+          ? this.tokenLabel(token) : swatchLabel.text;
+        if (swatchLabel.language) swatch.lang = swatchLabel.language;
+        else swatch.removeAttribute('lang');
+      }
+    }
   }
 
   /** Update only active-class state without rebuilding DOM. */

@@ -1,8 +1,9 @@
-import { positionFloatingOnce } from '@domternal/core';
-import type { Editor } from '@domternal/core';
+import { positionFloatingOnce, coreMessages, observeI18nPresentation, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation } from '@domternal/core';
+import type { Editor, EmojiPresentationItem, PickerLabel } from '@domternal/core';
+import { setPresentationLanguage } from '../shared/presentation.js';
 import { assertBrowser } from '../shared/isBrowser.js';
 
-export interface EmojiPickerItem {
+export interface EmojiPickerItem extends EmojiPresentationItem {
   emoji: string;
   name: string;
   group: string;
@@ -78,6 +79,8 @@ export class DomternalEmojiPicker extends EventTarget {
     return this.#activeCategory;
   }
 
+  #unsubscribeI18n: () => void;
+  #itemsByName = new Map<string, EmojiPickerItem>();
   #editor: Editor;
   #emojis: EmojiPickerItem[];
   #categories: Map<string, EmojiPickerItem[]>;
@@ -116,6 +119,7 @@ export class DomternalEmojiPicker extends EventTarget {
     this.host = host;
     this.#editor = options.editor;
     this.#emojis = options.emojis;
+    this.#unsubscribeI18n = observeI18nPresentation(this.#editor.i18n, () => this.host, () => { this.#refreshLocale(); });
 
     // Group emojis by their `group` property (immutable per construction).
     this.#categories = new Map<string, EmojiPickerItem[]>();
@@ -193,6 +197,7 @@ export class DomternalEmojiPicker extends EventTarget {
   destroy(): void {
     if (this.#destroyed) return;
     this.#destroyed = true;
+    this.#unsubscribeI18n();
 
     this.#detachGlobalListeners();
     this.#cleanupFloating?.();
@@ -212,11 +217,6 @@ export class DomternalEmojiPicker extends EventTarget {
   }
 
   // === Internal ===
-
-  /** Title-cased emoji name for tooltip/aria-label (replaces underscores). */
-  #formatName(name: string): string {
-    return name.replace(/_/g, ' ');
-  }
 
   /** Display glyph for a category tab. Falls back to first character. */
   #categoryIcon(cat: string): string {
@@ -243,10 +243,16 @@ export class DomternalEmojiPicker extends EventTarget {
     if (!query) return [];
     const storage = this.#getEmojiStorage();
     const searchFn = storage?.['searchEmoji'] as ((q: string) => EmojiPickerItem[]) | undefined;
-    if (searchFn) return searchFn(query);
-    return this.#emojis.filter(
+    const matches = searchFn ? searchFn(query) : this.#emojis.filter(
       (item) => item.name.includes(query) || item.group.toLowerCase().includes(query)
     );
+    const displayMatches = this.#emojis.filter((item) => matchesEmojiPresentation(this.#editor.i18n, item, query)
+      || resolveEmojiCategory(this.#editor.i18n, item.group).text.toLowerCase().includes(query));
+    const result = new Map(matches.map((item) => [item.name, item]));
+    for (const item of displayMatches) {
+      if (!result.has(item.name)) result.set(item.name, item);
+    }
+    return [...result.values()];
   }
 
   #getFrequentlyUsed(): EmojiPickerItem[] {
@@ -272,11 +278,13 @@ export class DomternalEmojiPicker extends EventTarget {
     } else {
       this.#panel.replaceChildren(...this.#renderPanelChildren());
     }
+    this.#patchLabels();
   }
 
   #createPanel(): HTMLDivElement {
     const panel = document.createElement('div');
     panel.className = 'dm-emoji-picker';
+    panel.setAttribute('role', 'dialog');
     panel.append(...this.#renderPanelChildren());
     return panel;
   }
@@ -290,9 +298,11 @@ export class DomternalEmojiPicker extends EventTarget {
     wrapper.className = 'dm-emoji-picker-search';
     const input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = 'Search emoji...';
+    input.placeholder = this.#editor.i18n.t(coreMessages.emojiSearchPlaceholder);
     input.value = this.#searchQuery;
-    input.setAttribute('aria-label', 'Search emoji');
+    const label = this.#editor.i18n.resolve(coreMessages.emojiSearchLabel);
+    input.setAttribute('aria-label', label.text);
+    input.lang = label.language;
     input.addEventListener('input', (e) => {
       this.#searchQuery = (e.target as HTMLInputElement).value;
       this.#refreshGrid();
@@ -308,6 +318,8 @@ export class DomternalEmojiPicker extends EventTarget {
     const tabs = document.createElement('div');
     tabs.className = 'dm-emoji-picker-tabs';
     tabs.setAttribute('role', 'tablist');
+    const label = this.#editor.i18n.resolve(coreMessages.emojiCategories);
+    tabs.setAttribute('aria-label', label.text); tabs.lang = label.language;
     for (const cat of this.#categoryNames) {
       const tab = document.createElement('button');
       tab.type = 'button';
@@ -317,8 +329,8 @@ export class DomternalEmojiPicker extends EventTarget {
       }
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(this.#activeCategory === cat));
-      tab.title = cat;
-      tab.setAttribute('aria-label', cat);
+      tab.dataset['category'] = cat;
+      this.#patchControlLabel(tab, resolveEmojiCategory(this.#editor.i18n, cat));
       tab.textContent = this.#categoryIcon(cat);
       tab.addEventListener('mousedown', (e) => {
         e.preventDefault();
@@ -346,7 +358,8 @@ export class DomternalEmojiPicker extends EventTarget {
       if (filtered.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'dm-emoji-picker-empty';
-        empty.textContent = 'No emoji found';
+        const label = this.#editor.i18n.resolve(coreMessages.emojiEmpty);
+        empty.textContent = label.text; empty.lang = label.language;
         grid.appendChild(empty);
       } else {
         for (const item of filtered) {
@@ -361,7 +374,8 @@ export class DomternalEmojiPicker extends EventTarget {
     if (freq.length) {
       const freqLabel = document.createElement('div');
       freqLabel.className = 'dm-emoji-picker-category-label';
-      freqLabel.textContent = 'Frequently Used';
+      const label = this.#editor.i18n.resolve(coreMessages.emojiFrequentlyUsed);
+      freqLabel.textContent = label.text; freqLabel.lang = label.language;
       grid.appendChild(freqLabel);
       for (const item of freq) {
         grid.appendChild(this.#createSwatch(item));
@@ -372,7 +386,8 @@ export class DomternalEmojiPicker extends EventTarget {
       const label = document.createElement('div');
       label.className = 'dm-emoji-picker-category-label';
       label.dataset['category'] = cat;
-      label.textContent = cat;
+      const display = resolveEmojiCategory(this.#editor.i18n, cat);
+      label.textContent = display.text; setPresentationLanguage(label, display.language);
       grid.appendChild(label);
       const items = this.#categories.get(cat) ?? [];
       for (const item of items) {
@@ -387,8 +402,9 @@ export class DomternalEmojiPicker extends EventTarget {
     btn.type = 'button';
     btn.className = 'dm-emoji-swatch';
     btn.tabIndex = -1;
-    btn.title = this.#formatName(item.name);
-    btn.setAttribute('aria-label', this.#formatName(item.name));
+    this.#itemsByName.set(item.name, item);
+    btn.dataset['emojiName'] = item.name;
+    this.#patchControlLabel(btn, resolveEmojiLabel(this.#editor.i18n, item));
     btn.textContent = item.emoji;
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -397,6 +413,73 @@ export class DomternalEmojiPicker extends EventTarget {
       this.#selectEmoji(item);
     });
     return btn;
+  }
+
+  #patchControlLabel(element: HTMLElement, label: PickerLabel): void {
+    element.title = label.text;
+    element.setAttribute('aria-label', label.text);
+    setPresentationLanguage(element, label.language);
+  }
+
+  #patchLabels(): void {
+    const panel = this.#panel;
+    if (!panel) return;
+    const i18n = this.#editor.i18n;
+    const label = i18n.resolve(coreMessages.emojiPickerLabel);
+    panel.setAttribute('aria-label', label.text); panel.lang = label.language;
+    const search = panel.querySelector<HTMLInputElement>('input');
+    if (search) {
+      const searchLabel = i18n.resolve(coreMessages.emojiSearchLabel);
+      search.placeholder = i18n.t(coreMessages.emojiSearchPlaceholder);
+      search.setAttribute('aria-label', searchLabel.text); search.lang = searchLabel.language;
+    }
+    const tabs = panel.querySelector<HTMLElement>('.dm-emoji-picker-tabs');
+    if (tabs) {
+      const categoriesLabel = i18n.resolve(coreMessages.emojiCategories);
+      tabs.setAttribute('aria-label', categoriesLabel.text); tabs.lang = categoriesLabel.language;
+    }
+    for (const tab of Array.from(panel.querySelectorAll<HTMLElement>('.dm-emoji-picker-tab'))) {
+      this.#patchControlLabel(tab, resolveEmojiCategory(i18n, tab.dataset['category'] ?? ''));
+    }
+    for (const heading of Array.from(panel.querySelectorAll<HTMLElement>('.dm-emoji-picker-category-label'))) {
+      const category = heading.dataset['category'];
+      const headingLabel = category === undefined
+        ? i18n.resolve(coreMessages.emojiFrequentlyUsed) : resolveEmojiCategory(i18n, category);
+      heading.textContent = headingLabel.text; setPresentationLanguage(heading, headingLabel.language);
+    }
+    for (const swatch of Array.from(panel.querySelectorAll<HTMLElement>('.dm-emoji-swatch'))) {
+      const item = this.#itemsByName.get(swatch.dataset['emojiName'] ?? '');
+      if (item) this.#patchControlLabel(swatch, resolveEmojiLabel(i18n, item));
+    }
+    const empty = panel.querySelector<HTMLElement>('.dm-emoji-picker-empty');
+    if (empty) {
+      const emptyLabel = i18n.resolve(coreMessages.emojiEmpty);
+      empty.textContent = emptyLabel.text; empty.lang = emptyLabel.language;
+    }
+  }
+
+  #refreshLocale(): void {
+    if (!this.#panel) return;
+    if (this.#searchQuery) {
+      const grid = this.#panel.querySelector<HTMLElement>('.dm-emoji-picker-grid');
+      if (grid) {
+        const active = document.activeElement;
+        const hadGridFocus = !!active && grid.contains(active);
+        const previous = new Map(Array.from(grid.querySelectorAll<HTMLButtonElement>('.dm-emoji-swatch'))
+          .map((button) => [button.dataset['emojiName'], button]));
+        const wanted = Array.from(this.#renderGrid().children).map((node) =>
+          node instanceof HTMLButtonElement ? (previous.get(node.dataset['emojiName']) ?? node) : node);
+        wanted.forEach((node, index) => {
+          if (grid.children[index] !== node) grid.insertBefore(node, grid.children[index] ?? null);
+        });
+        while (grid.children.length > wanted.length) grid.lastElementChild?.remove();
+        if (hadGridFocus && active instanceof HTMLElement && document.activeElement !== active) {
+          if (grid.contains(active)) active.focus({ preventScroll: true });
+          else this.#panel.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+        }
+      }
+    }
+    this.#patchLabels();
   }
 
   /**

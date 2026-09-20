@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedDescription, localizedGroup, messageAliases } from '../messages/presentation.js';
 /**
  * CodeBlock Node
  *
@@ -164,9 +167,10 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
         command: 'toggleCodeBlock',
         isActive: 'codeBlock',
         icon: 'codeBlock',
-        label: 'Code Block',
+        ...localizedLabel(this.editor?.i18n, coreMessages.codeBlock),
         shortcut: 'Mod-Alt-C',
         group: 'blocks',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupBlocks),
         priority: 140,
       },
     ];
@@ -176,12 +180,13 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
     return [
       {
         name: 'code-block',
-        label: 'Code block',
-        description: 'Capture a code snippet',
+        ...localizedLabel(this.editor?.i18n, coreMessages.insertCodeBlock),
+        ...localizedDescription(this.editor?.i18n, coreMessages.codeBlockDescription),
         icon: 'codeBlock',
         group: 'Basic',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupBasic),
         priority: 160,
-        keywords: ['code', 'snippet', 'pre'],
+        keywords: messageAliases(this.editor?.i18n, coreMessages.insertCodeBlock),
         shortcut: '``` ',
         command: 'toggleCodeBlock',
       },

@@ -19,6 +19,7 @@ import {
   type RefObject,
 } from 'react';
 import type { Editor } from '@domternal/core';
+import { resolveColorName } from '@domternal/core';
 
 interface NotionColorPickerStorage {
   isOpen: boolean;
@@ -36,22 +37,6 @@ function paletteFromExtensionOptions(options: unknown): string[] {
   }
   return [...palette];
 }
-
-/**
- * Display labels for the named-token palette. Used in tooltips / aria labels;
- * unknown tokens fall back to a title-cased version of the raw key.
- */
-const TOKEN_LABELS: Record<string, string> = {
-  gray: 'Gray',
-  brown: 'Brown',
-  orange: 'Orange',
-  yellow: 'Yellow',
-  green: 'Green',
-  blue: 'Blue',
-  purple: 'Purple',
-  pink: 'Pink',
-  red: 'Red',
-};
 
 export interface UseNotionColorPickerOptions {
   editor: Editor | null;
@@ -88,6 +73,8 @@ export function useNotionColorPicker(
   options: UseNotionColorPickerOptions
 ): UseNotionColorPickerResult {
   const { editor } = options;
+  const [, setLocaleRevision] = useState(0);
+  useEffect(() => editor?.i18n.subscribe(() => { setLocaleRevision((value) => value + 1); }), [editor]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -290,8 +277,8 @@ export function useNotionColorPicker(
   );
 
   const tokenLabel = useCallback((token: string): string => {
-    return TOKEN_LABELS[token] ?? token.charAt(0).toUpperCase() + token.slice(1);
-  }, []);
+    return resolveColorName(editor?.i18n, token).text;
+  }, [editor]);
 
   /**
    * Arrow / Home / End nav across the 5-column swatch grid. Sequential focus

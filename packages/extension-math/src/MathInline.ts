@@ -4,7 +4,8 @@
  * the injected renderer. Authoring: the `insertMathInline` command, the `$...$`
  * input rule, and slash/toolbar items.
  */
-import { Node } from '@domternal/core';
+import { Node, localizeMessage, localizedLabel, coreMessages } from '@domternal/core';
+import { mathMessages } from './messages.js';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { InputRule } from '@domternal/pm/inputrules';
 import { NodeSelection, TextSelection } from '@domternal/pm/state';
@@ -79,6 +80,7 @@ export const MathInline = Node.create<MathOptions>({
       renderer: this.options.renderer,
       displayMode: false,
       editKey: mathEditPluginKey,
+      ...(this.editor?.i18n ? { i18n: this.editor.i18n } : {}),
     });
   },
 
@@ -147,14 +149,17 @@ export const MathInline = Node.create<MathOptions>({
   },
 
   addToolbarItems(): ToolbarItem[] {
+    const i18n = this.editor?.i18n;
+    const group = localizeMessage(i18n, coreMessages.groupInsert);
     return [
       {
         type: 'button',
         name: 'mathInline',
         command: 'insertMathInline',
         icon: 'radical',
-        label: 'Inline equation',
+        ...localizedLabel(i18n, mathMessages.inline),
         group: 'insert',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 45,
         // Also surfaced as a selection action in the bubble menu (Notion-style:
         // turn selected text into an equation); see defaultBubbleContexts. Stays
@@ -165,15 +170,19 @@ export const MathInline = Node.create<MathOptions>({
   },
 
   addFloatingMenuItems(): FloatingMenuItem[] {
+    const i18n = this.editor?.i18n;
+    const group = localizeMessage(i18n, coreMessages.groupAdvanced);
+    const description = localizeMessage(i18n, mathMessages.inlineDescription);
     return [
       {
         name: 'mathInline',
-        label: 'Inline equation',
-        description: 'Insert an inline LaTeX formula',
+        ...localizedLabel(i18n, mathMessages.inline),
+        description: description.text, descriptionLanguage: description.language,
         icon: 'radical',
         group: 'Advanced',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 80,
-        keywords: ['math', 'latex', 'equation', 'formula', 'inline'],
+        keywords: [...(i18n?.getSearchAliases(mathMessages.inline) ?? mathMessages.inline.technicalAliases ?? [])],
         command: 'insertMathInline',
       },
     ];

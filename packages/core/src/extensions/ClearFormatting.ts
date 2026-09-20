@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * ClearFormatting Extension
  *
@@ -33,8 +36,9 @@ export const ClearFormatting = Extension.create({
         name: 'clearFormatting',
         command: 'unsetAllMarks',
         icon: 'textTSlash',
-        label: 'Clear Formatting',
+        ...localizedLabel(this.editor?.i18n, coreMessages.clearFormatting),
         group: 'utilities',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupUtilities),
         priority: 200,
       },
     ];

@@ -24,3 +24,5 @@ export type { FloatingTocOutlineOptions } from './FloatingTocOutline.js';
 
 export { TableOfContentsBlock } from './TableOfContentsBlock.js';
 export type { TableOfContentsBlockOptions } from './TableOfContentsBlock.js';
+
+export { tocMessages } from './messages.js';

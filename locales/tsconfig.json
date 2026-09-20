@@ -1,0 +1,51 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "es2022",
+      "dom"
+    ],
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@domternal/core": [
+        "../packages/core/src/index.ts"
+      ],
+      "@domternal/extension-block-controls": [
+        "../packages/extension-block-controls/src/index.ts"
+      ],
+      "@domternal/extension-table": [
+        "../packages/extension-table/src/index.ts"
+      ],
+      "@domternal/extension-image": [
+        "../packages/extension-image/src/index.ts"
+      ],
+      "@domternal/extension-details": [
+        "../packages/extension-details/src/index.ts"
+      ],
+      "@domternal/extension-emoji": [
+        "../packages/extension-emoji/src/index.ts"
+      ],
+      "@domternal/extension-math": [
+        "../packages/extension-math/src/index.ts"
+      ],
+      "@domternal/extension-mention": [
+        "../packages/extension-mention/src/index.ts"
+      ],
+      "@domternal/extension-toc": [
+        "../packages/extension-toc/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "./*.ts"
+  ]
+}

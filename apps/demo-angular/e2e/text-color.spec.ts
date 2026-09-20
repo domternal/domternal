@@ -201,6 +201,25 @@ test.describe('TextColor - color indicator bar', () => {
 
     await expect(page.locator(dropdownTrigger)).not.toHaveClass(/active/);
   });
+
+  test('configured indicator color cannot inject HTML into the trigger', async ({ page }) => {
+    await page.evaluate(() => {
+      const toolbar = document.querySelector('domternal-toolbar');
+      const component = (window as any).ng?.getComponent?.(toolbar);
+      const groups = component?.groups?.();
+      const dropdown = groups
+        ?.flatMap((group: any) => group.items)
+        .find((item: any) => item.type === 'dropdown' && item.label === 'Text Color');
+
+      if (!component || !groups || !dropdown) throw new Error('Text Color dropdown was not found');
+      dropdown.defaultIndicatorColor = 'red"></span><img data-color-injection src=x>';
+      component.groups.set([...groups]);
+      component.activeVersion.update((version: number) => version + 1);
+    });
+
+    await expect(page.locator('[data-color-injection]')).toHaveCount(0);
+    await expect(page.locator(dropdownTrigger + ' .dm-toolbar-color-indicator')).toHaveCount(1);
+  });
 });
 
 // ─── Set color via toolbar ────────────────────────────────────────────

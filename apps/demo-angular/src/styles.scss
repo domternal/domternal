@@ -37,6 +37,7 @@ body.dm-theme-dark {
 
 .demo > h1 {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -53,6 +54,33 @@ body.dm-theme-dark {
 
 .theme-toggle:hover {
   background: rgba(0, 0, 0, 0.05);
+}
+
+.language-select {
+  min-height: 32px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.375rem;
+  background: #fff;
+  color: inherit;
+  font: 500 0.875rem/1.4 system-ui, sans-serif;
+  cursor: pointer;
+  color-scheme: light;
+
+  &:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+}
+
+body.dm-theme-dark .language-select {
+  border-color: #555;
+  background: #2a2a2a;
+  color-scheme: dark;
+
+  &:focus-visible {
+    outline-color: #a5b4fc;
+  }
 }
 
 // Dark mode overrides for demo elements

@@ -1,3 +1,4 @@
+import type { I18nOptions } from '@domternal/core';
 import {
   DomternalEditor,
   DomternalToolbar,
@@ -120,6 +121,7 @@ const TOOLBAR_LAYOUT: ToolbarLayoutEntry[] = [
 ];
 
 export interface EditorDemoOptions {
+  i18n?: I18nOptions;
   useLayout: boolean;
 }
 
@@ -175,6 +177,7 @@ export class EditorDemo {
 
     // Editor + UI wrappers
     this.#editorWrapper = new DomternalEditor(editorHost, {
+      i18n: options.i18n ?? {},
       extensions: buildExtensions(),
       content: DEMO_CONTENT,
     });
@@ -265,6 +268,10 @@ export class EditorDemo {
   setUseLayout(useLayout: boolean): void {
     if (this.#destroyed) return;
     this.#toolbar.setLayout(useLayout ? TOOLBAR_LAYOUT : undefined);
+  }
+
+  setI18n(i18n: I18nOptions): void {
+    if (!this.#destroyed) this.#editorWrapper.editor.i18n.set(i18n);
   }
 
   destroy(): void {

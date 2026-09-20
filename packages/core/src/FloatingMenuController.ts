@@ -19,6 +19,7 @@
 import type { Editor } from './Editor.js';
 import type { FloatingMenuItem, FloatingMenuItemsOverride } from './types/FloatingMenu.js';
 import { groupFloatingMenuItems, type FloatingMenuGroup } from './utils/groupFloatingMenuItems.js';
+import { observeI18nPresentation } from './utils/observeI18nPresentation.js';
 
 export type { FloatingMenuGroup };
 
@@ -69,6 +70,7 @@ export class FloatingMenuController {
   private onChange: () => void;
   private override: FloatingMenuItemsOverride | undefined;
   private transactionHandler: (() => void) | null = null;
+  private unsubscribeI18n: (() => void) | null = null;
 
   private _groups: FloatingMenuGroup[] = [];
   private _flatItems: FloatingMenuItem[] = [];
@@ -217,16 +219,38 @@ export class FloatingMenuController {
 
   // === Lifecycle ===
 
-  /** Subscribes to editor transactions for disabled-state tracking. */
-  subscribe(): void {
+  /**
+   * Subscribes to editor transactions for disabled-state tracking.
+   * A presentation root defers locale rebuilds until a native activation or
+   * composition finishes. Disabled states and keyboard navigation stay immediate.
+   * Without a root, locale rebuilds remain immediate for headless consumers.
+   */
+  subscribe(getPresentationRoot?: () => HTMLElement | null | undefined): void {
+    if (this.transactionHandler) return;
     this.transactionHandler = () => {
       this.updateDisabledStates();
     };
     this.editor.on('transaction', this.transactionHandler);
+    const updatePresentation = (): void => {
+      const focusedName = this.focusedItem()?.name;
+      const focusedIndex = this._focusedIndex;
+      this.rebuild();
+      const index = focusedName === undefined ? -1 : this.getFlatIndex(focusedName);
+      this._focusedIndex = index >= 0 ? index : Math.min(focusedIndex, this._flatItems.length - 1);
+      this.onChange();
+    };
+    // Older standalone controller adapters may not expose localization yet.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (!this.editor.i18n) return;
+    this.unsubscribeI18n = getPresentationRoot
+      ? observeI18nPresentation(this.editor.i18n, getPresentationRoot, updatePresentation)
+      : this.editor.i18n.subscribe(updatePresentation);
   }
 
   /** Unsubscribes and clears internal state. */
   destroy(): void {
+    this.unsubscribeI18n?.();
+    this.unsubscribeI18n = null;
     if (this.transactionHandler) {
       this.editor.off('transaction', this.transactionHandler);
       this.transactionHandler = null;

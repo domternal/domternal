@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * Highlight Extension
  *
@@ -257,9 +260,10 @@ export const Highlight = Extension.create<HighlightOptions>({
           command: 'toggleHighlight',
           isActive: { name: 'textStyle', attributes: { backgroundColor: defaultColor } },
           icon: 'highlighterCircle',
-          label: 'Highlight',
+          ...localizedLabel(this.editor?.i18n, coreMessages.highlight),
           shortcut: 'Mod-Shift-H',
           group: 'format',
+          ...localizedGroup(this.editor?.i18n, coreMessages.groupFormat),
           priority: 150,
         },
       ];
@@ -270,8 +274,9 @@ export const Highlight = Extension.create<HighlightOptions>({
         type: 'dropdown',
         name: 'highlight',
         icon: 'highlighterCircle',
-        label: 'Highlight',
+        ...localizedLabel(this.editor?.i18n, coreMessages.highlight),
         group: 'format',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupFormat),
         priority: 150,
         layout: 'grid',
         gridColumns: this.options.columns,
@@ -281,7 +286,7 @@ export const Highlight = Extension.create<HighlightOptions>({
             name: 'unsetHighlight',
             command: 'unsetHighlight',
             icon: 'prohibit',
-            label: 'No highlight',
+            ...localizedLabel(this.editor?.i18n, coreMessages.noHighlight),
           },
           ...this.options.colors.map((color, i) => ({
             type: 'button' as const,

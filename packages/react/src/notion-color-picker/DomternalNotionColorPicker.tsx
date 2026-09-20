@@ -18,7 +18,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@domternal/core';
-import { positionFloating } from '@domternal/core';
+import { coreMessages, localizeMessage, resolveColorSwatch, positionFloating } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useNotionColorPicker, type UseNotionColorPickerResult } from './useNotionColorPicker.js';
 
@@ -82,18 +82,25 @@ export function DomternalNotionColorPicker({
 
   if (!isOpen || !hostEl) return null;
 
+  const i18n = editor?.i18n;
+  const panelLabel = localizeMessage(i18n, coreMessages.notionColorLabel);
+  const textLabel = localizeMessage(i18n, coreMessages.colorText);
+  const backgroundLabel = localizeMessage(i18n, coreMessages.colorBackground);
+  const defaultText = resolveColorSwatch(i18n, null, 'text');
+  const defaultBackground = resolveColorSwatch(i18n, null, 'bg');
   const defaultContent = (
     <>
       <div className="dm-ncp-section">
-        <div className="dm-ncp-label">Text color</div>
+        <div className="dm-ncp-label" lang={textLabel.language}>{textLabel.text}</div>
         <div className="dm-ncp-grid">
           <button
             type="button"
             className={`dm-ncp-swatch dm-ncp-swatch--text${currentTextToken === null ? ' dm-ncp-active' : ''}`}
             aria-pressed={currentTextToken === null}
             data-color="null"
-            title="Default text color"
-            aria-label="Default text color"
+            title={defaultText.text}
+            lang={defaultText.language}
+            aria-label={defaultText.text}
             onMouseDown={(e) => { e.preventDefault(); }}
             onClick={() => { applyText(null); }}
           />
@@ -105,7 +112,8 @@ export function DomternalNotionColorPicker({
               aria-pressed={currentTextToken === t}
               data-color={t}
               title={tokenLabel(t)}
-              aria-label={`${tokenLabel(t)} text`}
+              aria-label={resolveColorSwatch(i18n, t, 'text').text}
+              lang={resolveColorSwatch(i18n, t, 'text').language}
               onMouseDown={(e) => { e.preventDefault(); }}
               onClick={() => { applyText(t); }}
             />
@@ -113,15 +121,16 @@ export function DomternalNotionColorPicker({
         </div>
       </div>
       <div className="dm-ncp-section">
-        <div className="dm-ncp-label">Background color</div>
+        <div className="dm-ncp-label" lang={backgroundLabel.language}>{backgroundLabel.text}</div>
         <div className="dm-ncp-grid">
           <button
             type="button"
             className={`dm-ncp-swatch dm-ncp-swatch--bg${currentBgToken === null ? ' dm-ncp-active' : ''}`}
             aria-pressed={currentBgToken === null}
             data-color="null"
-            title="Default background"
-            aria-label="Default background"
+            title={defaultBackground.text}
+            lang={defaultBackground.language}
+            aria-label={defaultBackground.text}
             onMouseDown={(e) => { e.preventDefault(); }}
             onClick={() => { applyBg(null); }}
           />
@@ -132,8 +141,9 @@ export function DomternalNotionColorPicker({
               className={`dm-ncp-swatch dm-ncp-swatch--bg${currentBgToken === t ? ' dm-ncp-active' : ''}`}
               aria-pressed={currentBgToken === t}
               data-color={t}
-              title={`${tokenLabel(t)} background`}
-              aria-label={`${tokenLabel(t)} background`}
+              title={resolveColorSwatch(i18n, t, 'bg').text}
+              lang={resolveColorSwatch(i18n, t, 'bg').language}
+              aria-label={resolveColorSwatch(i18n, t, 'bg').text}
               onMouseDown={(e) => { e.preventDefault(); }}
               onClick={() => { applyBg(t); }}
             />
@@ -154,7 +164,8 @@ export function DomternalNotionColorPicker({
       data-show
       data-dm-editor-ui
       role="dialog"
-      aria-label="Text and background color"
+      aria-label={panelLabel.text}
+      lang={panelLabel.language}
       aria-modal="false"
       onKeyDown={onPanelKeydown}
     >

@@ -84,3 +84,5 @@ export { createSlashSuggestionRenderer } from './createSlashSuggestionRenderer.j
 // SmartPaste - preserves block formatting when pasting at inline positions
 export { SmartPaste } from './SmartPaste.js';
 export type { SmartPasteOptions } from './SmartPaste.js';
+
+export { blockControlsMessages } from './messages.js';

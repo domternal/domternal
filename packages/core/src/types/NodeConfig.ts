@@ -8,6 +8,7 @@
 import type { Node as PMNode, DOMOutputSpec, NodeType } from '@domternal/pm/model';
 import type { EditorState, Plugin } from '@domternal/pm/state';
 import type { EditorView, NodeViewConstructor } from '@domternal/pm/view';
+import type { I18nService } from '../i18n/index.js';
 import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
 import type { EditorPreset } from './EditorOptions.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
@@ -17,6 +18,7 @@ import type { AttributeSpecs } from './AttributeSpec.js';
  * Includes schema with nodes for NodeType getter
  */
 export interface NodeEditorContext {
+  readonly i18n?: I18nService;
   readonly state: EditorState;
   readonly view: EditorView;
   readonly schema: {

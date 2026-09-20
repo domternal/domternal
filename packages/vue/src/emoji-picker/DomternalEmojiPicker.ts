@@ -1,6 +1,7 @@
 import { computed, defineComponent, h } from 'vue';
 import type { PropType } from 'vue';
 import type { Editor } from '@domternal/core';
+import { coreMessages, localizeMessage, resolveEmojiCategory, resolveEmojiLabel } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useEmojiPicker, type EmojiPickerItem } from './useEmojiPicker.js';
 
@@ -20,10 +21,6 @@ function categoryIcon(cat: string): string {
   return CATEGORY_ICONS[cat] ?? cat.charAt(0);
 }
 
-function formatName(name: string): string {
-  return name.replace(/_/g, ' ');
-}
-
 export interface DomternalEmojiPickerProps {
   editor?: Editor;
   emojis: EmojiPickerItem[];
@@ -39,6 +36,7 @@ export const DomternalEmojiPicker = defineComponent({
     const { editor: contextEditor } = useCurrentEditor();
 
     const {
+      localeRevision,
       isOpen,
       searchQuery,
       activeCategory,
@@ -102,15 +100,18 @@ export const DomternalEmojiPicker = defineComponent({
     }
 
     function renderEmojiButton(item: EmojiPickerItem): ReturnType<typeof h> {
+      const label = resolveEmojiLabel((props.editor ?? contextEditor.value)?.i18n, item);
       return h(
         'button',
         {
           key: item.name,
           type: 'button',
           class: 'dm-emoji-swatch',
+          'data-emoji-name': item.name,
           tabindex: -1,
-          title: formatName(item.name),
-          'aria-label': formatName(item.name),
+          title: label.text,
+          lang: label.language,
+          'aria-label': label.text,
           onMousedown: (e: MouseEvent) => {
             e.preventDefault();
           },
@@ -123,18 +124,26 @@ export const DomternalEmojiPicker = defineComponent({
     }
 
     return () => {
+      void localeRevision.value;
+      const i18n = (props.editor ?? contextEditor.value)?.i18n;
+      const label = localizeMessage(i18n, coreMessages.emojiPickerLabel);
+      const searchLabel = localizeMessage(i18n, coreMessages.emojiSearchLabel);
+      const categoriesLabel = localizeMessage(i18n, coreMessages.emojiCategories);
+      const emptyLabel = localizeMessage(i18n, coreMessages.emojiEmpty);
+      const frequentLabel = localizeMessage(i18n, coreMessages.emojiFrequentlyUsed);
       if (!isOpen.value) {
         return h('div', { ref: pickerRef, class: 'dm-emoji-picker-host' });
       }
 
       return h('div', { ref: pickerRef, class: 'dm-emoji-picker-host' }, [
-        h('div', { class: 'dm-emoji-picker' }, [
+        h('div', { class: 'dm-emoji-picker', role: 'dialog', 'aria-label': label.text, lang: label.language }, [
           // Search
           h('div', { class: 'dm-emoji-picker-search' }, [
             h('input', {
               type: 'text',
-              placeholder: 'Search emoji...',
-              'aria-label': 'Search emoji',
+              placeholder: localizeMessage(i18n, coreMessages.emojiSearchPlaceholder).text,
+              'aria-label': searchLabel.text,
+              lang: searchLabel.language,
               value: searchQuery.value,
               onInput: onSearch,
               onKeydown: (e: KeyboardEvent) => {
@@ -146,7 +155,7 @@ export const DomternalEmojiPicker = defineComponent({
           // Category tabs
           h(
             'div',
-            { class: 'dm-emoji-picker-tabs', role: 'tablist' },
+            { class: 'dm-emoji-picker-tabs', role: 'tablist', 'aria-label': categoriesLabel.text, lang: categoriesLabel.language },
             categoryNames.value.map((cat) =>
               h(
                 'button',
@@ -159,8 +168,9 @@ export const DomternalEmojiPicker = defineComponent({
                   ],
                   role: 'tab',
                   'aria-selected': activeCategory.value === cat,
-                  title: cat,
-                  'aria-label': cat,
+                  title: resolveEmojiCategory(i18n, cat).text,
+                  lang: resolveEmojiCategory(i18n, cat).language,
+                  'aria-label': resolveEmojiCategory(i18n, cat).text,
                   onMousedown: (e: MouseEvent) => {
                     e.preventDefault();
                   },
@@ -180,12 +190,12 @@ export const DomternalEmojiPicker = defineComponent({
             searchQuery.value
               ? filteredEmojis.value.length > 0
                 ? filteredEmojis.value.map(renderEmojiButton)
-                : [h('div', { class: 'dm-emoji-picker-empty' }, 'No emoji found')]
+                : [h('div', { class: 'dm-emoji-picker-empty', lang: emptyLabel.language }, emptyLabel.text)]
               : [
                   // Frequently used
                   ...(frequentlyUsed.value.length > 0
                     ? [
-                        h('div', { class: 'dm-emoji-picker-category-label' }, 'Frequently Used'),
+                        h('div', { class: 'dm-emoji-picker-category-label', lang: frequentLabel.language }, frequentLabel.text),
                         ...frequentlyUsed.value.map(renderEmojiButton),
                       ]
                     : []),
@@ -197,8 +207,9 @@ export const DomternalEmojiPicker = defineComponent({
                         key: `label-${cat}`,
                         class: 'dm-emoji-picker-category-label',
                         'data-category': cat,
+                        lang: resolveEmojiCategory(i18n, cat).language,
                       },
-                      cat
+                      resolveEmojiCategory(i18n, cat).text
                     ),
                     ...(categories.value.get(cat) ?? []).map(renderEmojiButton),
                   ]),

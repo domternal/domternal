@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true
   },
-  "include": ["consumer-cjs.cts"]
+  "include": ["consumer-cjs.cts", "german-locales.cts"]
 }

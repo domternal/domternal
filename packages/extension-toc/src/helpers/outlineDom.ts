@@ -5,14 +5,34 @@
  * lives here as a single source of truth.
  */
 import type { HeadingEntry } from '../types.js';
+import { localizeMessage } from '@domternal/core';
+import type { I18nService } from '@domternal/core';
+import { tocMessages } from '../messages.js';
+
+/** Preserve the text target of a pointer press while refreshing its wording. */
+export function setLabelText(element: HTMLElement, value: string): void {
+  const text = element.firstChild;
+  if (text?.nodeType === 3 && text === element.lastChild) {
+    if (text.nodeValue !== value) text.nodeValue = value;
+  } else {
+    element.textContent = value;
+  }
+}
 
 /**
  * Display text for a heading entry. Falls back to a level-tagged
  * placeholder when the heading is empty so the outline always has a
  * non-empty label (and an accessible aria-label).
  */
-export function getHeadingLabel(entry: HeadingEntry): string {
-  return entry.textContent.trim() || `Heading level ${String(entry.level)}`;
+export function getHeadingLabel(entry: HeadingEntry, i18n?: I18nService): string {
+  return getHeadingCopy(entry, i18n).text;
+}
+
+/** User-authored headings retain their content language; only the empty fallback is UI copy. */
+export function getHeadingCopy(entry: HeadingEntry, i18n?: I18nService): { text: string; language: string } {
+  const text = entry.textContent.trim();
+  if (text) return { text, language: entry.domNode?.closest('[lang]')?.getAttribute('lang') ?? '' };
+  return localizeMessage(i18n, tocMessages.headingFallback, { level: entry.level });
 }
 
 /**

@@ -1,10 +1,17 @@
 import { defaultIcons } from '@domternal/core';
 import type { IconSet, ToolbarButton, ToolbarDropdown } from '@domternal/core';
+import { escapePresentationText, safeIndicatorColor } from '../shared/presentation.js';
 
 export const DROPDOWN_CARET =
   '<svg class="dm-dropdown-caret" width="10" height="10" viewBox="0 0 10 10">' +
   '<path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+/**
+ * Cached toolbar HTML helpers.
+ *
+ * IconSet values are trusted, developer-authored SVG markup. Text and color
+ * arguments are treated as data and escaped or validated before composition.
+ */
 export interface IconCache {
   resolveSvg: (name: string) => string;
   getIcon: (name: string) => string;
@@ -16,11 +23,12 @@ export interface IconCache {
 }
 
 /**
- * Resolve + cache toolbar icons. Mirrors Vue's `useToolbarIcons` logic
- * verbatim - same cache keys, same fallback order (consumer `IconSet` ->
- * `defaultIcons`), same dropdown trigger HTML composition.
+ * Resolve and cache toolbar icons with the same fallback order as the other
+ * wrappers: consumer `IconSet` first, then `defaultIcons`.
  *
  * Cache is invalidated when consumer swaps `IconSet`.
+ *
+ * @param initialIcons Trusted, developer-authored SVG constants.
  */
 export function createIconCache(initialIcons: IconSet | undefined): IconCache {
   const cache = new Map<string, string>();
@@ -57,8 +65,14 @@ export function createIconCache(initialIcons: IconSet | undefined): IconCache {
     const key = `tl:${label}:${isIcon ? '1' : '0'}`;
     let cached = cache.get(key);
     if (cached === undefined) {
-      const content = isIcon ? resolveSvg(label) : label;
-      cached = `<span class="dm-toolbar-trigger-label">${content}</span>${DROPDOWN_CARET}`;
+      if (isIcon) {
+        const trustedIcon = resolveSvg(label);
+        // IconSet values are developer-authored SVG by public API contract.
+        // codeql[js/html-constructed-from-input]
+        cached = `<span class="dm-toolbar-trigger-label">${trustedIcon}</span>${DROPDOWN_CARET}`;
+      } else {
+        cached = `<span class="dm-toolbar-trigger-label">${escapePresentationText(label)}</span>${DROPDOWN_CARET}`;
+      }
       cache.set(key, cached);
     }
     return cached;
@@ -69,6 +83,8 @@ export function createIconCache(initialIcons: IconSet | undefined): IconCache {
     const key = `t:${iconName}`;
     let cached = cache.get(key);
     if (cached === undefined) {
+      // IconSet values are developer-authored SVG by public API contract.
+      // codeql[js/html-constructed-from-input]
       cached = resolveSvg(iconName) + DROPDOWN_CARET;
       cache.set(key, cached);
     }
@@ -86,11 +102,16 @@ export function createIconCache(initialIcons: IconSet | undefined): IconCache {
     let cached = cache.get(key);
     if (cached === undefined) {
       if (mode === 'text') {
-        cached = label;
+        cached = escapePresentationText(label);
       } else if (mode === 'icon') {
         cached = resolveSvg(iconName);
       } else {
-        cached = resolveSvg(iconName) + ' ' + label;
+        const trustedIcon = resolveSvg(iconName);
+        const escapedLabel = escapePresentationText(label);
+        // IconSet values are developer-authored SVG by public API contract.
+        // The label is escaped before it is appended.
+        // codeql[js/html-constructed-from-input]
+        cached = trustedIcon + ' ' + escapedLabel;
       }
       cache.set(key, cached);
     }
@@ -104,14 +125,18 @@ export function createIconCache(initialIcons: IconSet | undefined): IconCache {
     checkInvalidation();
 
     if (dropdown.layout === 'grid') {
-      const color = activeItem?.color ?? dropdown.defaultIndicatorColor ?? null;
+      const color = safeIndicatorColor(activeItem?.color ?? dropdown.defaultIndicatorColor);
       const key = `tr:${dropdown.icon}:${color ?? ''}`;
       let cached = cache.get(key);
       if (cached === undefined) {
-        cached = resolveSvg(dropdown.icon) + DROPDOWN_CARET;
-        if (color) {
-          cached += `<span class="dm-toolbar-color-indicator" style="background-color: ${color}"></span>`;
-        }
+        const trustedIcon = resolveSvg(dropdown.icon);
+        const indicator = color
+          ? `<span class="dm-toolbar-color-indicator" style="background-color: ${escapePresentationText(color)}"></span>`
+          : '';
+        // IconSet values are developer-authored SVG by public API contract.
+        // The optional indicator contains only validated, escaped color data.
+        // codeql[js/html-constructed-from-input]
+        cached = trustedIcon + DROPDOWN_CARET + indicator;
         cache.set(key, cached);
       }
       return cached;

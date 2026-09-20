@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * TextAlign Extension
  *
@@ -115,8 +118,9 @@ export const TextAlign = Extension.create<TextAlignOptions>({
         type: 'dropdown',
         name: 'textAlign',
         icon: 'textAlignLeft',
-        label: 'Text Alignment',
+        ...localizedLabel(this.editor?.i18n, coreMessages.textAlignment),
         group: 'alignment',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupAlignment),
         priority: 200,
         dynamicIcon: true,
         items: [
@@ -127,7 +131,7 @@ export const TextAlign = Extension.create<TextAlignOptions>({
             commandArgs: ['left'],
             isActive: makeActive('left'),
             icon: 'textAlignLeft',
-            label: 'Align Left',
+            ...localizedLabel(this.editor?.i18n, coreMessages.alignLeft),
             shortcut: 'Mod-Shift-L',
           },
           {
@@ -137,7 +141,7 @@ export const TextAlign = Extension.create<TextAlignOptions>({
             commandArgs: ['center'],
             isActive: makeActive('center'),
             icon: 'textAlignCenter',
-            label: 'Align Center',
+            ...localizedLabel(this.editor?.i18n, coreMessages.alignCenter),
             shortcut: 'Mod-Shift-E',
           },
           {
@@ -147,7 +151,7 @@ export const TextAlign = Extension.create<TextAlignOptions>({
             commandArgs: ['right'],
             isActive: makeActive('right'),
             icon: 'textAlignRight',
-            label: 'Align Right',
+            ...localizedLabel(this.editor?.i18n, coreMessages.alignRight),
             shortcut: 'Mod-Shift-R',
           },
           {
@@ -157,7 +161,7 @@ export const TextAlign = Extension.create<TextAlignOptions>({
             commandArgs: ['justify'],
             isActive: makeActive('justify'),
             icon: 'textAlignJustify',
-            label: 'Justify',
+            ...localizedLabel(this.editor?.i18n, coreMessages.justify),
             shortcut: 'Mod-Shift-J',
           },
         ],

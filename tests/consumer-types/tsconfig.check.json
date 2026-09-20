@@ -11,5 +11,5 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true
   },
-  "include": ["consumer.ts"]
+  "include": ["consumer.ts", "german-locales.ts"]
 }

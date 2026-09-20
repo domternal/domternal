@@ -124,12 +124,10 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
     const hasNotionColorPicker = exts.some((e) => e.name === 'notionColorPicker');
     const hasBlockContextMenu = exts.some((e) => e.name === 'blockContextMenu');
 
-    /* One pipeline, built once per editor. Every renderer asks core the same
-       question, so none of them answers it. */
-    const maps = buildBubbleItemMaps(editor);
+    let maps = buildBubbleItemMaps(editor);
 
     // Generate shouldShow function
-    const shouldShowFn =
+    let shouldShowFn =
       shouldShow ?? createBubbleShouldShow(maps, contexts);
 
     // Register plugin
@@ -138,7 +136,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       pluginKey,
       editor,
       element: menuRef.current,
-      shouldShow: shouldShowFn,
+      shouldShow: (props) => shouldShowFn(props),
       placement,
       offset,
       updateDelay,
@@ -153,7 +151,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       setResolvedItems(newItems);
     };
 
-    const fallbackItems = resolveBubbleNames(
+    let fallbackItems = resolveBubbleNames(
       items ?? ['bold', 'italic', 'underline'],
       maps.itemMap,
       maps.dropdownMap,
@@ -256,10 +254,17 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       setActiveVersion(v => v + 1);
     };
     editor.on('transaction', transactionHandler);
+    const unsubscribeI18n = editor.i18n.subscribe(() => {
+      maps = buildBubbleItemMaps(editor);
+      shouldShowFn = shouldShow ?? createBubbleShouldShow(maps, contexts);
+      fallbackItems = resolveBubbleNames(items ?? ['bold', 'italic', 'underline'], maps.itemMap, maps.dropdownMap);
+      transactionHandler();
+    });
     updateStates(editor);
     syncTrailingState(editor);
 
     return () => {
+      unsubscribeI18n();
       editor.off('transaction', transactionHandler);
       if (!editor.isDestroyed) {
         editor.unregisterPlugin(pluginKey);

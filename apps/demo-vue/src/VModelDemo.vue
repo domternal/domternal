@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { I18nOptions } from '@domternal/core';
 import { ref, watch } from 'vue';
 import { DomternalEditor } from '@domternal/vue';
 import {
@@ -11,6 +12,8 @@ import {
   OrderedList,
   SelectionDecoration,
 } from '@domternal/core';
+
+defineProps<{ i18n: I18nOptions }>();
 
 const extensions = [Bold, Italic, Underline, Strike, Heading, BulletList, OrderedList, SelectionDecoration];
 
@@ -42,7 +45,7 @@ function clearContent() {
       <span data-testid="update-count">Updates: {{ updateCount }}</span>
     </div>
 
-    <DomternalEditor v-model="content" :extensions="extensions" output-format="html" />
+    <DomternalEditor :i18n="i18n" v-model="content" :extensions="extensions" output-format="html" />
 
     <h3>Parent state (bound via v-model)</h3>
     <pre class="output" data-testid="vmodel-output">{{ content }}</pre>

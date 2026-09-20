@@ -2,6 +2,7 @@ BlockCandidate
 BlockContextMenu
 BlockContextMenuOptions
 blockContextMenuPluginKey
+blockControlsMessages
 BlockHandle
 BlockHandleOptions
 blockHandlePluginKey

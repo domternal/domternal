@@ -19,6 +19,7 @@ import {
   createFloatingMenuPlugin,
   defaultIcons,
   refocusEditorAfterCommand,
+  coreMessages,
 } from '@domternal/core';
 import type {
   Editor,
@@ -45,18 +46,19 @@ import type {
       #menuEl
       class="dm-floating-menu"
       role="menu"
-      aria-label="Insert block"
+      [attr.aria-label]="menuMessage().text"
+      [attr.lang]="menuMessage().language"
       data-dm-editor-ui=""
       (keydown)="onKeyDown($event)"
     >
       @for (group of groups(); track group.name || $index; let gi = $index) {
         @if (group.name) {
-          <div class="dm-floating-menu-group-label" [id]="'dm-fm-g' + gi">{{ group.name }}</div>
+          <div class="dm-floating-menu-group-label" [id]="groupPrefix + gi" [attr.lang]="group.labelLanguage ?? ''">{{ group.label ?? group.name }}</div>
         }
         <div
           class="dm-floating-menu-group"
           role="group"
-          [attr.aria-labelledby]="group.name ? 'dm-fm-g' + gi : null"
+          [attr.aria-labelledby]="group.name ? groupPrefix + gi : null"
         >
           @for (item of group.items; track item.name) {
             <button
@@ -77,11 +79,11 @@ import type {
               }
               @if (item.description) {
                 <span class="dm-floating-menu-item-text">
-                  <span class="dm-floating-menu-item-label">{{ item.label }}</span>
-                  <span class="dm-floating-menu-item-description">{{ item.description }}</span>
+                  <span class="dm-floating-menu-item-label" [attr.lang]="item.labelLanguage ?? ''">{{ item.label }}</span>
+                  <span class="dm-floating-menu-item-description" [attr.lang]="item.descriptionLanguage ?? ''">{{ item.description }}</span>
                 </span>
               } @else {
-                <span class="dm-floating-menu-item-label">{{ item.label }}</span>
+                <span class="dm-floating-menu-item-label" [attr.lang]="item.labelLanguage ?? ''">{{ item.label }}</span>
               }
               @if (item.shortcut) {
                 <span class="dm-floating-menu-item-shortcut" aria-hidden="true">{{ item.shortcut }}</span>
@@ -115,6 +117,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
   private ngZone = inject(NgZone);
   private sanitizer = inject(DomSanitizer);
   private pluginKey: PluginKey;
+  readonly groupPrefix: string;
 
   private controller: FloatingMenuController | null = null;
 
@@ -122,6 +125,11 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
   // re-run @for tracking. OnPush components need explicit change triggers.
   private version = signal(0);
   private iconCache = new Map<string, SafeHtml>();
+
+  readonly menuMessage = computed(() => {
+    this.version();
+    return this.editor().i18n.resolve(coreMessages.floatingMenuLabel);
+  });
 
   readonly groups = computed(() => {
     // Read version to subscribe to controller updates.
@@ -147,6 +155,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
     const suffix =
       cryptoRef?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8);
     this.pluginKey = new PluginKey('angularFloatingMenu-' + suffix);
+    this.groupPrefix = 'dm-fm-' + suffix + '-g';
 
     afterNextRender(() => {
       const editor = this.editor();
@@ -173,7 +182,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
         },
         this.items(),
       );
-      controller.subscribe();
+      controller.subscribe(() => this.menuEl().nativeElement);
       this.controller = controller;
       // Controller is a plain field, not a signal - bumping `version` is
       // what tells the `groups`/`focusedIndex` computeds to re-evaluate

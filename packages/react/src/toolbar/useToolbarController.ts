@@ -58,7 +58,7 @@ export function useToolbarController(
       if (!controller) return;
 
       const controllerGroups = controller.groups;
-      setGroups(prev => prev.length !== controllerGroups.length ? controllerGroups : prev);
+      setGroups(prev => prev !== controllerGroups ? controllerGroups : prev);
       setFocusedIndex(controller.focusedIndex);
       setOpenDropdown(controller.openDropdown);
       setActiveVersion(v => v + 1);

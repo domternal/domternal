@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * Italic Mark
  *
@@ -104,9 +107,10 @@ export const Italic = Mark.create<ItalicOptions>({
         command: 'toggleItalic',
         isActive: 'italic',
         icon: 'textItalic',
-        label: 'Italic',
+        ...localizedLabel(this.editor?.i18n, coreMessages.italic),
         shortcut: 'Mod-I',
         group: 'format',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupFormat),
         priority: 190,
       },
     ];

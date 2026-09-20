@@ -13,6 +13,7 @@
 import { ref, shallowRef, watch } from 'vue';
 import type { Ref, ShallowRef } from 'vue';
 import type { Editor } from '@domternal/core';
+import { resolveColorName } from '@domternal/core';
 
 interface NotionColorPickerStorage {
   isOpen: boolean;
@@ -30,22 +31,6 @@ function paletteFromExtensionOptions(options: unknown): string[] {
   }
   return [...palette];
 }
-
-/**
- * Display labels for the named-token palette. Used in tooltips / aria labels;
- * unknown tokens fall back to a title-cased version of the raw key.
- */
-const TOKEN_LABELS: Record<string, string> = {
-  gray: 'Gray',
-  brown: 'Brown',
-  orange: 'Orange',
-  yellow: 'Yellow',
-  green: 'Green',
-  blue: 'Blue',
-  purple: 'Purple',
-  pink: 'Pink',
-  red: 'Red',
-};
 
 export interface UseNotionColorPickerOptions {
   editor: ShallowRef<Editor | null>;
@@ -263,7 +248,7 @@ export function useNotionColorPicker(
   };
 
   const tokenLabel = (token: string): string => {
-    return TOKEN_LABELS[token] ?? token.charAt(0).toUpperCase() + token.slice(1);
+    return resolveColorName(editor.value?.i18n, token).text;
   };
 
   /**

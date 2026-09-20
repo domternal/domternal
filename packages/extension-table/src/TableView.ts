@@ -28,7 +28,10 @@ import {
   isInTable,
   selectedRect,
 } from '@domternal/pm/tables';
-import { positionFloating, positionFloatingOnce } from '@domternal/core';
+import { positionFloating, positionFloatingOnce, localizeMessage, observeI18nPresentation } from '@domternal/core';
+
+import type { I18nService, ResolvedMessage } from '@domternal/core';
+import { tableMessages } from './messages.js';
 
 import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 
@@ -62,6 +65,9 @@ export class TableView implements NodeView {
   colgroup: HTMLTableColElement;
   contentDOM: HTMLElement;
 
+  private readonly localizedElements = new Map<HTMLElement, () => void>();
+  private unsubscribeI18n: (() => void) | undefined;
+
   private wrapper: HTMLElement;
   private colHandle: HTMLButtonElement;
   private rowHandle: HTMLButtonElement;
@@ -93,7 +99,7 @@ export class TableView implements NodeView {
   private boundDocMouseDown: (e: MouseEvent) => void;
   private boundDocKeyDown: (e: KeyboardEvent) => void;
 
-  constructor(node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100, constrainToContainer = true) {
+  constructor(node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100, constrainToContainer = true, private readonly i18n?: I18nService) {
     this.node = node;
     this.cellMinWidth = cellMinWidth;
     this.defaultCellMinWidth = defaultCellMinWidth;
@@ -112,7 +118,7 @@ export class TableView implements NodeView {
     tableViewMap.set(this.dom, this);
 
     // Create column handle
-    this.colHandle = this.createHandle('dm-table-col-handle', 'Column options', DOTS_H);
+    this.colHandle = this.createHandle('dm-table-col-handle', () => localizeMessage(this.i18n, tableMessages.columnOptions), DOTS_H);
     this.colHandle.addEventListener('click', (e) => {
       e.stopPropagation();
       this.onColClick();
@@ -120,7 +126,7 @@ export class TableView implements NodeView {
     this.dom.appendChild(this.colHandle);
 
     // Create row handle
-    this.rowHandle = this.createHandle('dm-table-row-handle', 'Row options', DOTS_V);
+    this.rowHandle = this.createHandle('dm-table-row-handle', () => localizeMessage(this.i18n, tableMessages.rowOptions), DOTS_V);
     this.rowHandle.addEventListener('click', (e) => {
       e.stopPropagation();
       this.onRowClick();
@@ -135,7 +141,7 @@ export class TableView implements NodeView {
     this.cellHandle = document.createElement('button');
     this.cellHandle.type = 'button';
     this.cellHandle.className = 'dm-table-cell-handle';
-    this.cellHandle.setAttribute('aria-label', 'Cell options');
+    this.bindLabel(this.cellHandle, () => localizeMessage(this.i18n, tableMessages.cellOptions));
     this.cellHandle.innerHTML = CELL_ICON;
     this.cellHandle.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -173,6 +179,9 @@ export class TableView implements NodeView {
     this.colHandle.addEventListener('mouseenter', this.boundCancelHide);
     this.rowHandle.addEventListener('mouseenter', this.boundCancelHide);
     this.cellHandle.addEventListener('mouseenter', this.boundCancelHide);
+    this.unsubscribeI18n = i18n ? observeI18nPresentation(i18n, () => this.dropdown, () => {
+      for (const update of this.localizedElements.values()) update();
+    }) : undefined;
   }
 
   // ─── NodeView interface ───────────────────────────────────────────────
@@ -197,6 +206,8 @@ export class TableView implements NodeView {
   }
 
   destroy(): void {
+    this.unsubscribeI18n?.();
+    this.localizedElements.clear();
     this.dom.removeEventListener('mousemove', this.boundMouseMove);
     this.dom.removeEventListener('mouseleave', this.boundMouseLeave);
     this.colHandle.removeEventListener('mouseenter', this.boundCancelHide);
@@ -226,13 +237,29 @@ export class TableView implements NodeView {
     return false;
   }
 
+  /** Patch presentation only, retaining the target element and its interaction state. */
+  private bindLabel(element: HTMLElement, resolve: () => ResolvedMessage, textElement?: HTMLElement, aria = true): void {
+    const text = textElement?.appendChild(textElement.ownerDocument.createTextNode(''));
+    const update = (): void => {
+      const revision = this.i18n?.getSnapshot().revision;
+      const message = resolve();
+      if (this.localizedElements.get(element) !== update) return;
+      if (revision !== this.i18n?.getSnapshot().revision) { update(); return; }
+      if (aria) element.setAttribute('aria-label', message.text);
+      element.lang = message.language;
+      if (text && text.data !== message.text) text.data = message.text;
+    };
+    this.localizedElements.set(element, update);
+    update();
+  }
+
   // ─── Handle creation ──────────────────────────────────────────────────
 
-  private createHandle(className: string, label: string, icon: string): HTMLButtonElement {
+  private createHandle(className: string, label: () => ResolvedMessage, icon: string): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.className = className;
     btn.type = 'button';
-    btn.setAttribute('aria-label', label);
+    this.bindLabel(btn, label);
     btn.innerHTML = icon;
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault(); // prevent editor blur
@@ -247,7 +274,7 @@ export class TableView implements NodeView {
     const toolbar = document.createElement('div');
     toolbar.className = 'dm-table-cell-toolbar';
     toolbar.setAttribute('role', 'toolbar');
-    toolbar.setAttribute('aria-label', 'Cell formatting');
+    this.bindLabel(toolbar, () => localizeMessage(this.i18n, tableMessages.cellFormatting));
     toolbar.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -266,7 +293,7 @@ export class TableView implements NodeView {
     );
 
     // Color button (with dropdown)
-    this.colorBtn = this.createToolbarButton(ICON_COLOR, 'Cell color', CHEVRON_DOWN);
+    this.colorBtn = this.createToolbarButton(ICON_COLOR, () => localizeMessage(this.i18n, tableMessages.cellColor), CHEVRON_DOWN);
     this.colorBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.colorBtn) this.showColorDropdown(this.colorBtn);
@@ -274,7 +301,7 @@ export class TableView implements NodeView {
     toolbar.appendChild(this.colorBtn);
 
     // Alignment button (with dropdown)
-    this.alignBtn = this.createToolbarButton(ICON_ALIGNMENT, 'Alignment', CHEVRON_DOWN);
+    this.alignBtn = this.createToolbarButton(ICON_ALIGNMENT, () => localizeMessage(this.i18n, tableMessages.alignment), CHEVRON_DOWN);
     this.alignBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.alignBtn) this.showAlignmentDropdown(this.alignBtn);
@@ -287,7 +314,7 @@ export class TableView implements NodeView {
     toolbar.appendChild(sep1);
 
     // Merge cells button
-    this.mergeBtn = this.createToolbarButton(ICON_MERGE, 'Merge cells');
+    this.mergeBtn = this.createToolbarButton(ICON_MERGE, () => localizeMessage(this.i18n, tableMessages.mergeCells));
     this.mergeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       mergeCells(this.view.state, this.view.dispatch);
@@ -295,7 +322,7 @@ export class TableView implements NodeView {
     toolbar.appendChild(this.mergeBtn);
 
     // Split cell button
-    this.splitBtn = this.createToolbarButton(ICON_SPLIT, 'Split cell');
+    this.splitBtn = this.createToolbarButton(ICON_SPLIT, () => localizeMessage(this.i18n, tableMessages.splitCell));
     this.splitBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       splitCell(this.view.state, this.view.dispatch);
@@ -308,7 +335,7 @@ export class TableView implements NodeView {
     toolbar.appendChild(sep2);
 
     // Toggle header button (direct action, no dropdown)
-    this.headerBtn = this.createToolbarButton(ICON_HEADER, 'Toggle header cell');
+    this.headerBtn = this.createToolbarButton(ICON_HEADER, () => localizeMessage(this.i18n, tableMessages.toggleHeader));
     this.headerBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleHeaderCell(this.view.state, this.view.dispatch);
@@ -318,11 +345,11 @@ export class TableView implements NodeView {
     return toolbar;
   }
 
-  private createToolbarButton(icon: string, label: string, chevron?: string): HTMLButtonElement {
+  private createToolbarButton(icon: string, label: () => ResolvedMessage, chevron?: string): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dm-table-cell-toolbar-btn';
-    btn.setAttribute('aria-label', label);
+    this.bindLabel(btn, label);
     btn.innerHTML = icon + (chevron ? `<span class="dm-table-cell-toolbar-chevron">${chevron}</span>` : '');
     return btn;
   }
@@ -645,29 +672,36 @@ export class TableView implements NodeView {
     const dropdown = document.createElement('div');
     dropdown.className = 'dm-table-controls-dropdown';
     dropdown.setAttribute('role', 'menu');
-    dropdown.setAttribute('aria-label', type === 'row' ? 'Row options' : 'Column options');
+    this.bindLabel(dropdown, () => type === 'row'
+      ? localizeMessage(this.i18n, tableMessages.rowOptions)
+      : localizeMessage(this.i18n, tableMessages.columnOptions));
     dropdown.addEventListener('mouseenter', this.boundCancelHide);
     dropdown.addEventListener('mousedown', (e) => { e.preventDefault(); });
 
-    const items: { icon: string; label: string; action: () => void }[] =
+    const items: { icon: string; label: () => ResolvedMessage; action: () => void }[] =
       type === 'row'
         ? [
-            { icon: ICON_ROW_PLUS_TOP, label: 'Insert Row Above', action: () => { this.execRowCmd(addRowBefore); } },
-            { icon: ICON_ROW_PLUS_BOTTOM, label: 'Insert Row Below', action: () => { this.execRowCmd(addRowAfter); } },
-            { icon: ICON_DELETE_ROW, label: 'Delete Row', action: () => { this.execRowCmd(deleteRow); } },
+            { icon: ICON_ROW_PLUS_TOP, label: () => localizeMessage(this.i18n, tableMessages.insertRowAbove), action: () => { this.execRowCmd(addRowBefore); } },
+            { icon: ICON_ROW_PLUS_BOTTOM, label: () => localizeMessage(this.i18n, tableMessages.insertRowBelow), action: () => { this.execRowCmd(addRowAfter); } },
+            { icon: ICON_DELETE_ROW, label: () => localizeMessage(this.i18n, tableMessages.deleteRow), action: () => { this.execRowCmd(deleteRow); } },
           ]
         : [
-            { icon: ICON_COL_PLUS_LEFT, label: 'Insert Column Left', action: () => { this.execColCmd(addColumnBefore); } },
-            { icon: ICON_COL_PLUS_RIGHT, label: 'Insert Column Right', action: () => { this.execColCmd(addColumnAfter); } },
-            { icon: ICON_DELETE_COL, label: 'Delete Column', action: () => { this.execColCmd(deleteColumn); } },
+            { icon: ICON_COL_PLUS_LEFT, label: () => localizeMessage(this.i18n, tableMessages.insertColumnLeft), action: () => { this.execColCmd(addColumnBefore); } },
+            { icon: ICON_COL_PLUS_RIGHT, label: () => localizeMessage(this.i18n, tableMessages.insertColumnRight), action: () => { this.execColCmd(addColumnAfter); } },
+            { icon: ICON_DELETE_COL, label: () => localizeMessage(this.i18n, tableMessages.deleteColumn), action: () => { this.execColCmd(deleteColumn); } },
           ];
 
     for (const item of items) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.setAttribute('role', 'menuitem');
-      btn.setAttribute('aria-label', item.label);
-      btn.innerHTML = `<span class="dm-table-controls-dropdown-icon">${item.icon}</span>${item.label}`;
+      const icon = document.createElement('span');
+      icon.className = 'dm-table-controls-dropdown-icon';
+      icon.innerHTML = item.icon;
+      icon.setAttribute('aria-hidden', 'true');
+      const label = document.createElement('span');
+      btn.append(icon, label);
+      this.bindLabel(btn, item.label, label);
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         item.action();
@@ -702,7 +736,7 @@ export class TableView implements NodeView {
 
   private showColorDropdown(triggerBtn: HTMLButtonElement): void {
     this.openToolbarDropdown(triggerBtn, 'dm-table-controls-dropdown dm-table-cell-dropdown', (dropdown) => {
-      dropdown.setAttribute('aria-label', 'Cell background color');
+      this.bindLabel(dropdown, () => localizeMessage(this.i18n, tableMessages.backgroundColor));
       const palette = document.createElement('div');
       palette.className = 'dm-color-palette';
       palette.style.setProperty('--dm-palette-columns', '4');
@@ -711,10 +745,12 @@ export class TableView implements NodeView {
       resetBtn.type = 'button';
       resetBtn.className = 'dm-color-palette-reset';
       resetBtn.setAttribute('role', 'menuitem');
-      resetBtn.setAttribute('aria-label', 'Default color');
+      this.bindLabel(resetBtn, () => localizeMessage(this.i18n, tableMessages.defaultColor));
       resetBtn.innerHTML =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="14" height="14"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.56,87.56,0,0,1-20.41,56.28L71.72,60.41A88,88,0,0,1,216,128ZM40,128A87.56,87.56,0,0,1,60.41,71.72L184.28,195.59A88,88,0,0,1,40,128Z"/></svg>' +
-        ' Default';
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="14" height="14"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.56,87.56,0,0,1-20.41,56.28L71.72,60.41A88,88,0,0,1,216,128ZM40,128A87.56,87.56,0,0,1,60.41,71.72L184.28,195.59A88,88,0,0,1,40,128Z"/></svg>';
+      const resetLabel = document.createElement('span');
+      resetBtn.append(' ', resetLabel);
+      this.bindLabel(resetLabel, () => localizeMessage(this.i18n, tableMessages.defaultColorText), resetLabel, false);
       resetBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         // Refuse the edit if the editor went read-only while this was open.
@@ -729,7 +765,7 @@ export class TableView implements NodeView {
         swatch.className = 'dm-color-swatch';
         swatch.setAttribute('role', 'menuitem');
         swatch.style.backgroundColor = color;
-        swatch.setAttribute('aria-label', color);
+        this.bindLabel(swatch, () => localizeMessage(this.i18n, tableMessages.colorSwatch, { color }));
         swatch.addEventListener('click', (e) => {
           e.stopPropagation();
           if (this.view.editable) setCellAttr('background', color)(this.view.state, this.view.dispatch);
@@ -743,7 +779,7 @@ export class TableView implements NodeView {
 
   private showAlignmentDropdown(triggerBtn: HTMLButtonElement): void {
     this.openToolbarDropdown(triggerBtn, 'dm-table-controls-dropdown dm-table-cell-align-dropdown', (dropdown) => {
-      dropdown.setAttribute('aria-label', 'Cell alignment');
+      this.bindLabel(dropdown, () => localizeMessage(this.i18n, tableMessages.cellAlignment));
       // Read current alignment from the anchor cell in ProseMirror state (the
       // cell toolbar is only visible during CellSelection).
       const sel = this.view.state.selection as CellSelection;
@@ -751,16 +787,16 @@ export class TableView implements NodeView {
       const curTextAlign = (cellNode?.attrs['textAlign'] as string | undefined) ?? null;
       const curVerticalAlign = (cellNode?.attrs['verticalAlign'] as string | undefined) ?? null;
 
-      const hAligns: { value: string; label: string; icon: string }[] = [
-        { value: 'left', label: 'Align left', icon: ICON_ALIGN_LEFT },
-        { value: 'center', label: 'Align center', icon: ICON_ALIGN_CENTER },
-        { value: 'right', label: 'Align right', icon: ICON_ALIGN_RIGHT },
+      const hAligns: { value: string; label: () => ResolvedMessage; icon: string }[] = [
+        { value: 'left', label: () => localizeMessage(this.i18n, tableMessages.alignLeft), icon: ICON_ALIGN_LEFT },
+        { value: 'center', label: () => localizeMessage(this.i18n, tableMessages.alignCenter), icon: ICON_ALIGN_CENTER },
+        { value: 'right', label: () => localizeMessage(this.i18n, tableMessages.alignRight), icon: ICON_ALIGN_RIGHT },
       ];
 
-      const vAligns: { value: string; label: string; icon: string }[] = [
-        { value: 'top', label: 'Align top', icon: ICON_ALIGN_TOP },
-        { value: 'middle', label: 'Align middle', icon: ICON_ALIGN_MIDDLE },
-        { value: 'bottom', label: 'Align bottom', icon: ICON_ALIGN_BOTTOM },
+      const vAligns: { value: string; label: () => ResolvedMessage; icon: string }[] = [
+        { value: 'top', label: () => localizeMessage(this.i18n, tableMessages.alignTop), icon: ICON_ALIGN_TOP },
+        { value: 'middle', label: () => localizeMessage(this.i18n, tableMessages.alignMiddle), icon: ICON_ALIGN_MIDDLE },
+        { value: 'bottom', label: () => localizeMessage(this.i18n, tableMessages.alignBottom), icon: ICON_ALIGN_BOTTOM },
       ];
 
       for (const a of hAligns) {
@@ -786,13 +822,18 @@ export class TableView implements NodeView {
     });
   }
 
-  private createAlignItem(icon: string, label: string, active: boolean, onClick: () => void): HTMLButtonElement {
+  private createAlignItem(icon: string, label: () => ResolvedMessage, active: boolean, onClick: () => void): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dm-table-align-item' + (active ? ' dm-table-align-item--active' : '');
     btn.setAttribute('role', 'menuitem');
-    btn.setAttribute('aria-label', label);
-    btn.innerHTML = `<span class="dm-table-align-item-icon">${icon}</span><span>${label}</span>`;
+    const iconElement = document.createElement('span');
+    iconElement.className = 'dm-table-align-item-icon';
+    iconElement.innerHTML = icon;
+    iconElement.setAttribute('aria-hidden', 'true');
+    const labelElement = document.createElement('span');
+    btn.append(iconElement, labelElement);
+    this.bindLabel(btn, label, labelElement);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       onClick();
@@ -844,6 +885,9 @@ export class TableView implements NodeView {
     if (!this.dropdown) return;
     this.dropdownCleanup?.();
     this.dropdownCleanup = null;
+    for (const element of this.localizedElements.keys()) {
+      if (element === this.dropdown || this.dropdown.contains(element)) this.localizedElements.delete(element);
+    }
     this.dropdown.remove();
     this.dropdown = null;
     this.suppressCellToolbar = false;

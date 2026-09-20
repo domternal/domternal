@@ -4,14 +4,15 @@
  * heading list and the shared `activeId`. Clicks route to
  * `editor.commands.scrollToHeading`, same code path as the floating outline.
  */
-import { Node, splitListForInsert } from '@domternal/core';
+import { Node, splitListForInsert, localizeMessage, localizedLabel, coreMessages } from '@domternal/core';
 import type { Editor, FloatingMenuItem } from '@domternal/core';
 import type { NodeViewConstructor } from '@domternal/pm/view';
 import { TextSelection } from '@domternal/pm/state';
 import { navigateToc } from './helpers/tocTracking.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
-import { getHeadingLabel, setActiveMarker } from './helpers/outlineDom.js';
+import { getHeadingCopy, setActiveMarker, setLabelText } from './helpers/outlineDom.js';
 import type { TocStorage, HeadingEntry } from './types.js';
+import { tocMessages } from './messages.js';
 
 export interface TableOfContentsBlockOptions {
   /**
@@ -51,14 +52,12 @@ const ANCHOR_DATASET_KEY = 'tocAnchor';
 function renderBlockContent(
   wrapper: HTMLElement,
   content: HeadingEntry[],
-  emptyStateText: string,
 ): void {
   wrapper.replaceChildren();
 
   if (content.length === 0) {
     const empty = document.createElement('p');
     empty.className = EMPTY_CLASS;
-    empty.textContent = emptyStateText;
     wrapper.appendChild(empty);
     return;
   }
@@ -75,7 +74,6 @@ function renderBlockContent(
     link.className = LINK_CLASS;
     link.dataset['level'] = String(entry.level);
     link.dataset[ANCHOR_DATASET_KEY] = entry.id;
-    link.textContent = getHeadingLabel(entry);
 
     item.appendChild(link);
     list.appendChild(item);
@@ -105,6 +103,7 @@ function applyActiveLink(wrapper: HTMLElement, activeId: string | null): void {
 function makeNodeViewConstructor(
   editor: Editor,
   options: TableOfContentsBlockOptions,
+  localizeEmptyState: boolean,
 ): NodeViewConstructor {
   return () => {
     const dom = document.createElement('div');
@@ -122,13 +121,44 @@ function makeNodeViewConstructor(
 
     const storage = editor.storage['toc'] as TocStorage | undefined;
 
+    let refreshingLabels = false;
+    const refreshLabels = (): void => {
+      if (refreshingLabels) return;
+      refreshingLabels = true;
+      try {
+        let revision: number;
+        do {
+          revision = editor.i18n.getSnapshot().revision;
+          const empty = dom.querySelector<HTMLElement>(`.${EMPTY_CLASS}`);
+          if (empty) {
+            const copy = localizeEmptyState
+              ? editor.i18n.resolve(tocMessages.empty)
+              : { text: options.emptyStateText, language: '' };
+            setLabelText(empty, copy.text);
+            empty.lang = copy.language;
+          }
+          const entries = new Map((storage?.content ?? []).map(entry => [entry.id, entry]));
+          for (const link of Array.from(dom.querySelectorAll<HTMLElement>(`.${LINK_CLASS}`))) {
+            const entry = entries.get(link.dataset[ANCHOR_DATASET_KEY] ?? '');
+            if (!entry) continue;
+            const copy = getHeadingCopy(entry, editor.i18n);
+            setLabelText(link, copy.text);
+            link.lang = copy.language;
+          }
+        } while (revision !== editor.i18n.getSnapshot().revision);
+      } finally {
+        refreshingLabels = false;
+      }
+    };
+    const unsubscribeI18n = editor.i18n.subscribe(refreshLabels);
     let renderedContent: HeadingEntry[] | null = null;
     const refresh = (): void => {
       if (!storage) return;
       if (renderedContent !== storage.content) {
         renderedContent = storage.content;
-        renderBlockContent(dom, storage.content, options.emptyStateText);
+        renderBlockContent(dom, storage.content);
       }
+      refreshLabels();
       applyActiveLink(dom, storage.activeId);
     };
 
@@ -153,7 +183,8 @@ function makeNodeViewConstructor(
         '  import { TableOfContents } from "@domternal/extension-toc";\n' +
         '  extensions: [..., TableOfContents]',
       );
-      renderBlockContent(dom, [], options.emptyStateText);
+      renderBlockContent(dom, []);
+      refreshLabels();
     }
 
     // Resolve UniqueID's attrName once per NodeView mount. Falls back
@@ -197,6 +228,7 @@ function makeNodeViewConstructor(
       destroy: () => {
         dom.removeEventListener('click', onClick);
         unsubscribe?.();
+        unsubscribeI18n();
       },
     };
   };
@@ -238,19 +270,23 @@ export const TableOfContentsBlock = Node.create<TableOfContentsBlockOptions>({
     if (!editor) {
       throw new Error('TableOfContentsBlock.addNodeView called before editor was attached');
     }
-    return makeNodeViewConstructor(editor, this.options);
+    return makeNodeViewConstructor(editor, this.options, !this.isOptionExplicit('emptyStateText'));
   },
 
   addFloatingMenuItems(): FloatingMenuItem[] {
+    const i18n = this.editor?.i18n;
+    const description = localizeMessage(i18n, tocMessages.description);
+    const group = localizeMessage(i18n, coreMessages.groupAdvanced);
     return [
       {
         name: 'table-of-contents',
-        label: 'Table of contents',
-        description: 'List of headings on this page',
+        ...localizedLabel(i18n, tocMessages.insert),
+        description: description.text, descriptionLanguage: description.language,
         icon: 'listBullets',
         group: 'Advanced',
+        groupLabel: group.text, groupLabelLanguage: group.language,
         priority: 90,
-        keywords: ['toc', 'outline', 'contents'],
+        keywords: [...(i18n?.getSearchAliases(tocMessages.insert) ?? tocMessages.insert.technicalAliases ?? [])],
         // Function command: SlashCommand removes the typed `/toc`
         // range BEFORE invoking us (FloatingMenuController.executeItem
         // does the deleteRange). Insert the atom node at the cursor,

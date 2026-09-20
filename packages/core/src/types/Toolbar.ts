@@ -9,6 +9,10 @@
 /**
  * Maps icon names to SVG strings.
  *
+ * Values are inserted as raw SVG markup by the framework wrappers. Only use
+ * trusted, developer-authored constants. Never populate an IconSet from user
+ * input, persisted content, or an API response.
+ *
  * @example
  * const icons: IconSet = {
  *   textB: '<svg>...</svg>',
@@ -63,11 +67,17 @@ export interface ToolbarButton {
   /** Tooltip text and aria-label */
   label: string;
 
+  /** Language of the resolved label, when known. Independent of document language. */
+  labelLanguage?: string;
+
   /** Keyboard shortcut for display (e.g. "Mod-b") */
   shortcut?: string;
 
   /** Group name for visual grouping (separators between groups) */
   group?: string;
+  /** Localized display name, preserving group identity and ordering. */
+  groupLabel?: string;
+  groupLabelLanguage?: string;
 
   /** Sort order within group (higher = first). @default 100 */
   priority?: number;
@@ -130,11 +140,17 @@ export interface ToolbarDropdown {
   /** Tooltip text and aria-label */
   label: string;
 
+  /** Language of the resolved label, when known. */
+  labelLanguage?: string;
+
   /** Buttons shown in the dropdown panel */
   items: ToolbarButton[];
 
   /** Group name for visual grouping */
   group?: string;
+  /** Localized display name, preserving group identity and ordering. */
+  groupLabel?: string;
+  groupLabelLanguage?: string;
 
   /** Sort order within group (higher = first). @default 100 */
   priority?: number;

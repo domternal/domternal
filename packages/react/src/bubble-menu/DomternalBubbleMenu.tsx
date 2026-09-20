@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { BubbleContexts, Editor, BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown } from '@domternal/core';
-import { positionFloatingOnce, refocusEditorAfterCommand } from '@domternal/core';
+import { coreMessages, positionFloatingOnce, refocusEditorAfterCommand } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useInnerHtml } from '../useInnerHtml.js';
 import { useBubbleMenu } from './useBubbleMenu.js';
@@ -104,9 +104,12 @@ export function DomternalBubbleMenu({
      is appended before these, so nothing else is in a position to notice. */
   const showColor = trailing.showColorPickerButton && !trailing.isNodeSelection;
   const showBlock = trailing.showBlockMenuButton && !trailing.isNodeSelection;
+  const menuLabel = editor?.i18n.resolve(coreMessages.bubbleMenuLabel);
+  const colorLabel = editor?.i18n.resolve(coreMessages.notionColorLabel);
+  const moreLabel = editor?.i18n.resolve(coreMessages.moreOptions);
 
   return (
-    <div ref={menuRef} className="dm-bubble-menu" role="toolbar" aria-label="Text formatting">
+    <div ref={menuRef} className="dm-bubble-menu" role="toolbar" aria-label={menuLabel?.text} lang={menuLabel?.language}>
       {resolvedItems.map((item) => {
         if (item.type === 'separator') {
           return <span key={item.name} className="dm-toolbar-separator" role="separator" />;
@@ -140,6 +143,8 @@ export function DomternalBubbleMenu({
             disabled={isItemDisabled(btn)}
             title={btn.label}
             aria-label={btn.label}
+            data-dm-command={typeof btn.command === 'string' ? btn.command : undefined}
+            lang={btn.labelLanguage ?? ''}
             aria-pressed={active}
             dangerouslySetInnerHTML={innerHtml(getCachedHtml(btn.icon))}
             onMouseDown={(e) => { e.preventDefault(); }}
@@ -156,8 +161,9 @@ export function DomternalBubbleMenu({
             ref={colorBtnRef}
             type="button"
             className={`dm-toolbar-button dm-ncp-trigger${trailing.hasAnyColor ? ' dm-toolbar-button--active' : ''}`}
-            title="Text and background color"
-            aria-label="Text and background color"
+            title={colorLabel?.text}
+            aria-label={colorLabel?.text}
+            lang={colorLabel?.language}
             aria-haspopup="dialog"
             onMouseDown={(e) => { e.preventDefault(); }}
             onClick={() => { if (colorBtnRef.current) openColorPicker(colorBtnRef.current); }}
@@ -184,9 +190,10 @@ export function DomternalBubbleMenu({
             className="dm-toolbar-button"
             disabled={trailing.blockMenuButtonDisabled}
             title={trailing.blockMenuButtonDisabled
-              ? 'Block actions (select within a single block)'
-              : 'More options'}
-            aria-label="More options"
+              ? editor?.i18n.t(coreMessages.blockActionsSelectionHint)
+              : moreLabel?.text}
+            aria-label={moreLabel?.text}
+            lang={moreLabel?.language}
             aria-haspopup="menu"
             dangerouslySetInnerHTML={innerHtml(getCachedHtml('dotsThree'))}
             onMouseDown={(e) => { e.preventDefault(); }}
@@ -292,6 +299,7 @@ function BubbleDropdown({
         aria-expanded={isOpen}
         aria-haspopup="true"
         aria-label={dropdown.label}
+        lang={dropdown.labelLanguage ?? ''}
         title={dropdown.label}
         data-dropdown={dropdown.name}
         dangerouslySetInnerHTML={innerHtml(triggerHtml)}
@@ -308,7 +316,6 @@ function BubbleDropdown({
         >
           {dropdown.items.map((sub) => {
             const subActive = isItemActive(sub);
-            const subHtml = `${getCachedHtml(sub.icon)} ${sub.label}`;
             return (
               <button
                 key={sub.name}
@@ -316,10 +323,13 @@ function BubbleDropdown({
                 className={`dm-toolbar-dropdown-item${subActive ? ' dm-toolbar-dropdown-item--active' : ''}`}
                 role="menuitem"
                 aria-label={sub.label}
-                dangerouslySetInnerHTML={innerHtml(subHtml)}
+                lang={sub.labelLanguage ?? ''}
                 onMouseDown={(e) => { e.preventDefault(); }}
                 onClick={() => { executeSubItem(sub); }}
-              />
+              >
+                <span style={{ display: 'contents' }} aria-hidden="true" dangerouslySetInnerHTML={innerHtml(getCachedHtml(sub.icon))} />
+                {' '}{sub.label}
+              </button>
             );
           })}
         </div>

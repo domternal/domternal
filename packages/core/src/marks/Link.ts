@@ -1,3 +1,6 @@
+import { coreMessages } from '../messages/core.js';
+import { localizedLabel } from '../utils/localizeMessage.js';
+import { localizedGroup } from '../messages/presentation.js';
 /**
  * Hyperlink mark with `href` and `target` attributes.
  */
@@ -297,9 +300,10 @@ export const Link = Mark.create<LinkOptions>({
         emitEvent: 'linkEdit',
         isActive: 'link',
         icon: 'link',
-        label: 'Link',
+        ...localizedLabel(this.editor?.i18n, coreMessages.link),
         shortcut: 'Mod-K',
         group: 'format',
+        ...localizedGroup(this.editor?.i18n, coreMessages.groupFormat),
         priority: 120,
       },
     ];

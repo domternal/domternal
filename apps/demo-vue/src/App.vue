@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { DEMO_I18N, type DemoLanguage } from './demo-i18n.js';
 import EditorDemo from './EditorDemo.vue';
 import VModelDemo from './VModelDemo.vue';
 import CompoundDemo from './CompoundDemo.vue';
@@ -9,8 +10,14 @@ import MultiEditorDemo from './MultiEditorDemo.vue';
 import TabIndentDemo from './TabIndentDemo.vue';
 
 const isDark = ref(false);
+const language = ref<DemoLanguage>('en');
+const editorI18n = computed(() => DEMO_I18N[language.value]);
 const useLayout = ref(false);
 const demoMode = ref<'manual' | 'vmodel' | 'compound' | 'nodeview' | 'notion' | 'notion-scrollable' | 'multi' | 'tab'>('manual');
+
+function setLanguage(value: string): void {
+  if (value === 'en' || value === 'de') language.value = value;
+}
 
 function toggleTheme() {
   isDark.value = !isDark.value;
@@ -25,6 +32,16 @@ function toggleTheme() {
       <button type="button" class="theme-toggle" :title="isDark ? 'Switch to light' : 'Switch to dark'" @click="toggleTheme">
         {{ isDark ? '\u2600\uFE0F' : '\uD83C\uDF19' }}
       </button>
+      <select
+        class="language-select"
+        aria-label="Editor language"
+        data-testid="demo-language"
+        :value="language"
+        @change="setLanguage(($event.target as HTMLSelectElement).value)"
+      >
+        <option value="en" lang="en">English</option>
+        <option value="de" lang="de">Deutsch</option>
+      </select>
     </h1>
 
     <div class="demo-mode-toggle" data-testid="demo-mode-toggle">
@@ -98,14 +115,15 @@ function toggleTheme() {
          variants - mirrors the vanilla demo which destroys + recreates
          the NotionDemo on mode change. -->
     <NotionDemo
+      :i18n="editorI18n"
       v-if="demoMode === 'notion' || demoMode === 'notion-scrollable'"
       :key="demoMode"
       :scrollable="demoMode === 'notion-scrollable'"
     />
 
-    <MultiEditorDemo v-else-if="demoMode === 'multi'" />
+    <MultiEditorDemo :i18n="editorI18n" v-else-if="demoMode === 'multi'" />
 
-    <TabIndentDemo v-else-if="demoMode === 'tab'" />
+    <TabIndentDemo :i18n="editorI18n" v-else-if="demoMode === 'tab'" />
 
     <div v-else class="app-editor-demo">
       <template v-if="demoMode === 'manual'">
@@ -118,14 +136,14 @@ function toggleTheme() {
           </button>
         </div>
 
-        <EditorDemo :use-layout="useLayout" />
+        <EditorDemo :i18n="editorI18n" :use-layout="useLayout" />
       </template>
 
-      <VModelDemo v-else-if="demoMode === 'vmodel'" />
+      <VModelDemo :i18n="editorI18n" v-else-if="demoMode === 'vmodel'" />
 
-      <CompoundDemo v-else-if="demoMode === 'compound'" />
+      <CompoundDemo :i18n="editorI18n" v-else-if="demoMode === 'compound'" />
 
-      <NodeViewDemo v-else-if="demoMode === 'nodeview'" />
+      <NodeViewDemo :i18n="editorI18n" v-else-if="demoMode === 'nodeview'" />
     </div>
   </div>
 </template>

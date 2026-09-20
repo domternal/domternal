@@ -15,12 +15,14 @@
  */
 
 import type { ToolbarItem, ToolbarButton, ToolbarDropdown, ToolbarLayoutEntry } from './types/Toolbar.js';
+import type { I18nService } from './i18n/index.js';
 
 /**
  * Editor interface for ToolbarController.
  * Minimal surface to avoid circular dependency on Editor class.
  */
 export interface ToolbarControllerEditor {
+  readonly i18n?: I18nService;
   readonly toolbarItems: ToolbarItem[];
   readonly storage: Record<string, unknown>;
   /** Read-only editors disable every button without allowReadOnly. */
@@ -40,6 +42,8 @@ export interface ToolbarControllerEditor {
  */
 export interface ToolbarGroup {
   name: string;
+  label?: string;
+  labelLanguage?: string;
   items: ToolbarItem[];
 }
 
@@ -97,6 +101,7 @@ export class ToolbarController {
   private onChange: () => void;
   private _layout: ToolbarLayoutEntry[] | null;
   private transactionHandler: (() => void) | null = null;
+  private unsubscribeI18n: (() => void) | null = null;
 
   /** Grouped and sorted toolbar items */
   private _groups: ToolbarGroup[] = [];
@@ -264,10 +269,26 @@ export class ToolbarController {
    * Subscribes to editor transaction events for active state tracking.
    */
   subscribe(): void {
+    if (this.transactionHandler) {
+      this.updateActiveStates();
+      return;
+    }
     this.transactionHandler = () => {
       this.updateActiveStates();
     };
     this.editor.on('transaction', this.transactionHandler);
+    this.unsubscribeI18n = this.editor.i18n?.subscribe(() => {
+      const focusedName = this._flatButtons[this._focusedIndex]?.item.name;
+      const focusedIndex = this._focusedIndex;
+      this.rebuild();
+      const index = focusedName === undefined ? -1 : this.getFlatIndex(focusedName);
+      this._focusedIndex = index >= 0 ? index : Math.min(focusedIndex, this._flatButtons.length - 1);
+      if (this._openDropdown && !this._flatButtons.some(({ item }) => item.name === this._openDropdown)) {
+        this._openDropdown = null;
+      }
+      this.updateActiveStates();
+      this.onChange();
+    }) ?? null;
     this.updateActiveStates();
   }
 
@@ -275,6 +296,8 @@ export class ToolbarController {
    * Unsubscribes from editor events and cleans up.
    */
   destroy(): void {
+    this.unsubscribeI18n?.();
+    this.unsubscribeI18n = null;
     if (this.transactionHandler) {
       this.editor.off('transaction', this.transactionHandler);
       this.transactionHandler = null;
@@ -332,7 +355,15 @@ export class ToolbarController {
         const pb = b.priority ?? 100;
         return pb - pa;
       });
-      groups.push({ name, items: groupItems });
+      const presentation = groupItems.find((item) => item.type !== 'separator' && item.groupLabel !== undefined);
+      groups.push({
+        name,
+        items: groupItems,
+        ...(presentation && presentation.type !== 'separator' && presentation.groupLabel !== undefined
+          ? { label: presentation.groupLabel } : {}),
+        ...(presentation && presentation.type !== 'separator' && presentation.groupLabelLanguage !== undefined
+          ? { labelLanguage: presentation.groupLabelLanguage } : {}),
+      });
     }
 
     return groups;
