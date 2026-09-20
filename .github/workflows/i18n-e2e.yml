@@ -65,6 +65,8 @@ jobs:
           runner_pid=''
           monitor_pid=''
 
+          # ShellCheck cannot infer that traps invoke this function.
+          # shellcheck disable=SC2317
           cleanup() {
             local status=$?
             trap - EXIT INT TERM
