@@ -24,8 +24,8 @@ pnpm add @domternal/extension-emoji
 `@domternal/core` and `@domternal/pm` are peer dependencies (installed with the
 editor itself).
 
-Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
 
@@ -78,3 +78,11 @@ editor.commands.suggestEmoji();        // inserts the ':' trigger to open the pi
 For a custom picker, drive the headless plugin directly with `createSuggestionPlugin`
 and read its state via `emojiSuggestionPluginKey`. The `Emoji` storage also exposes
 `searchEmoji`, `findEmoji`, `getFrequentlyUsed`, and `addFrequentlyUsed`.
+
+## Localization
+
+This package exports `emojiMessages` for typed custom catalogs. Optional German UI
+messages are available from `@domternal/extension-emoji/locales/de` as `deMessages` and
+`deSearchAliases`. Merge them with the core and other enabled feature catalogs. Missing
+entries fall back to English. Emoji names, shortcodes, and custom dataset labels remain
+application-owned.

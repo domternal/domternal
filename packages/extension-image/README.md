@@ -31,8 +31,8 @@ handles, so [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)
 equivalent CSS of your own, is what makes placement and resizing visible in the editor.
 Exported HTML carries its own inline styles either way.
 
-Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
 
@@ -105,3 +105,11 @@ The user-facing counterpart to the commands above:
 - Selecting an image opens a bubble menu with placement controls, an "Edit alt text" action, and Delete. The menu offers exactly one placement set: wrapping (Inline / Float left / Center / Float right) under the classic preset, alignment (Align left / Align center / Align right) under `preset: 'notion'`, or whichever the `placement` option pins.
 - The main toolbar and the slash (floating) menu both expose an "Image" action that opens a popover with a URL field and a button to browse for a local file. Alt text is set afterward: the bubble menu's "Edit alt text" action reopens the same popover with a single alt field, pre-filled from the image.
 - When `uploadHandler` is set, pasting or dropping an image file uploads it through the handler and inserts the returned URL. Without an `uploadHandler`, pasted and dropped images are inlined as base64 `data:` URLs.
+
+## Localization
+
+This package exports `imageMessages` for typed custom catalogs. Optional German UI
+messages and search aliases are available from `@domternal/extension-image/locales/de`
+as `deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
+catalogs. Missing entries fall back to English. Image URLs, titles, and authored alt text
+are never translated.

@@ -22,8 +22,8 @@ pnpm add @domternal/extension-details
 
 `@domternal/core` and `@domternal/pm` are peer dependencies.
 
-Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
 
@@ -90,3 +90,10 @@ Adding `Details` also registers a toolbar button and a slash-menu entry
   from `@domternal/core` and fall through to the default handling without it
 - `Enter` on the last block of the content, when that block is empty, removes
   it and creates a block after the accordion, so a second `Enter` escapes
+
+## Localization
+
+This package exports `detailsMessages` for typed custom catalogs. Optional German UI
+messages and search aliases are available from `@domternal/extension-details/locales/de`
+as `deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
+catalogs. Missing entries fall back to English.

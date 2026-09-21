@@ -30,6 +30,7 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
 - **17,000+ automated test executions** - unit coverage and a Playwright matrix across four demo apps
 - **Light and dark theme** - 150+ CSS custom properties for full visual control
+- **Per-editor UI localization:** replace labels at creation or runtime, keep English fallback text, and opt into complete German catalogs
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
 
@@ -55,13 +56,45 @@ The example above wires the minimum schema by hand to show the headless model; i
 
 > **[Getting Started Guide](https://domternal.dev/v1/getting-started)** - headless core, themed UI with toolbar, and Angular/React/Vue component setup
 
+## Localization
+
+Every editor starts with English UI text and accepts its own `i18n` configuration. German
+catalogs are available as optional `/locales/de` imports from core and each extension that
+owns UI messages. Merge only the catalogs for the features you use:
+
+```ts
+import type { I18nOptions } from '@domternal/core';
+import {
+  deMessages as coreDe,
+  deSearchAliases as coreAliasesDe,
+} from '@domternal/core/locales/de';
+import {
+  deMessages as tableDe,
+  deSearchAliases as tableAliasesDe,
+} from '@domternal/extension-table/locales/de';
+
+const german = {
+  locale: 'de',
+  messages: { ...coreDe, ...tableDe },
+  searchAliases: { ...coreAliasesDe, ...tableAliasesDe },
+} satisfies I18nOptions;
+
+editor.i18n.set(german);
+```
+
+Missing messages fall back to English. Runtime language changes update Domternal's UI
+without translating or changing the document. Domternal does not add a language selector;
+your application chooses when to pass a new configuration. See the
+[localization guide](https://domternal.dev/v1/guides/i18n) for wrapper examples, partial
+catalogs, formatting, and custom translation resolvers.
+
 ## Version compatibility
 
-The 1.1.1 patch release fixes column insertion in resized tables. Existing editor APIs
-and saved document formats remain compatible.
-Upgrade installed `@domternal/*` packages together to 1.1.1: wrappers require core
-`>=1.1.0 <2.0.0`, and extensions require both core and pm in that range. See
-[CHANGELOG.md](CHANGELOG.md) for the release contents.
+The 1.2.0 minor release adds per-editor UI localization, live language changes, and
+optional German catalogs. Existing editor APIs and saved document formats remain
+compatible. Upgrade installed `@domternal/*` packages together to 1.2.0: wrappers
+require core `>=1.2.0 <2.0.0`, and extensions require both core and pm in that range.
+See [CHANGELOG.md](CHANGELOG.md) for the release contents.
 
 ## Packages
 

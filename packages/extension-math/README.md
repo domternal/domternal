@@ -22,8 +22,8 @@ pnpm add @domternal/extension-math katex
 supported range is `^0.16.0 || ^0.17.0`. You may swap it for any engine implementing the
 `MathRenderer` interface, since the package never imports KaTeX itself.
 
-Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
 
@@ -85,3 +85,10 @@ and is exported with its `mathEditPluginKey`, so a host can open the popover its
 dispatching `tr.setMeta(mathEditPluginKey, { pos, latex, displayMode })`. The
 `MATH_INLINE_NAME` and `MATH_BLOCK_NAME` node names and the option, renderer, and event
 types are exported too.
+
+## Localization
+
+This package exports `mathMessages` for typed custom catalogs. Optional German UI
+messages and search aliases are available from `@domternal/extension-math/locales/de` as
+`deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
+catalogs. Missing entries fall back to English. Authored LaTeX source remains unchanged.

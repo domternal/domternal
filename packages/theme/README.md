@@ -29,7 +29,7 @@ pnpm add @domternal/theme
 
 This package has no peer dependencies.
 
-This package is part of the coordinated Domternal 1.1.1 release.
+This package is part of the coordinated Domternal 1.2.0 release.
 Upgrade installed `@domternal/*` packages together.
 
 ## Usage
