@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.0 (2026-09-21)
+
+### Features
+
+- `EditorOptions.i18n` and the per-editor `editor.i18n` service add typed UI localization to core and all four wrappers. Applications can supply partial message maps or a resolver, replace them at runtime with `editor.i18n.set()`, refresh externally loaded resources, add localized search aliases, and format numbers, dates, times, relative times and plurals with a configured locale and time zone. Missing or invalid translations fall back to the owning package's English message without sharing locale state between editors. (#185)
+- Live locale changes update built-in toolbar, bubble and floating menus, placeholders, link and image popovers, color and emoji pickers, block controls and slash search, details, equations, mentions, tables and table-of-contents UI. The editor document, selection, history, undo stack, open controls, input drafts, active composition and in-flight mention or upload work stay intact; caller-authored labels and document content are never translated. (#185)
+- Complete German catalogs and translated search aliases ship as optional `*/locales/de` entry points for core, block controls, details, emoji, image, math, mention, table and table-of-contents. Catalogs are imported explicitly and remain outside the normal English bundles. Public message definitions and typed catalog helpers let applications override individual strings and extension authors add their own namespaced messages. (#185)
+
+### Fixes
+
+- Toolbar labels are rendered as text and color indicators are applied through DOM style APIs; legacy HTML-returning helpers escape labels and reject unsafe color syntax. Caller or translation text can no longer become executable markup, while custom `IconSet` SVG remains a trusted, developer-authored API input. (#185)
+- Locale updates keep the newest configuration during reentrant resolver, formatter and diagnostic callbacks, and preserve the original pressed target when translated text changes menu size during a pointer gesture. (#185)
+
+### Accessibility
+
+- Translated controls update their accessible names and `lang` metadata across the editor and all wrappers, including mixed translated, English-fallback and caller-provided labels. Focus, expanded state, keyboard selection and IME composition survive live language changes. (#185)
+
+### Docs
+
+- Package READMEs document per-editor localization, live updates, partial English fallback, German catalog imports and the trusted-only `IconSet` contract. The root bundle-size figures include the new localization runtime. (#185)
+
+### Internal
+
+- A central locale source and generated per-package entries keep maintained languages complete and package-owned; build, type, API, artifact and bundle checks reject stale, missing, foreign or oversized locale output. Browser coverage exercises localization across Angular, React, Vue and Vanilla in Chromium, Firefox and WebKit. (#185)
+
 ## 1.1.1 (2026-09-13)
 
 ### Fixes
