@@ -19,10 +19,10 @@ editor is created in `onMounted`. Requires Vue 3.3+ and the Composition API.
 pnpm add @domternal/vue @domternal/core @domternal/theme vue
 ```
 
-`vue` (>=3.3) and `@domternal/core` (>=1.1.0 <2.0.0) are peer dependencies. `@domternal/theme`
+`vue` (>=3.3) and `@domternal/core` (>=1.2.0 <2.0.0) are peer dependencies. `@domternal/theme`
 supplies the editor styles.
 
-This package is part of the coordinated Domternal 1.1.1 release.
+This package is part of the coordinated Domternal 1.2.0 release.
 Upgrade installed `@domternal/*` packages together.
 
 ## Usage
@@ -96,6 +96,7 @@ const isBold = useEditorState(editor, (ed) => ed.isActive('bold'));
 | `history` | `boolean` | `true` | Whether the built-in History extension is loaded. Turn it off when an extension brings its own undo. |
 | `content` | `Content` | `''` | Initial content, HTML string or JSON. |
 | `editable` | `boolean` | `true` | Whether the editor is editable. |
+| `i18n` | `I18nOptions` | `{}` | UI translations and formatting. Replacing the object updates the existing editor without changing authored content. |
 | `preset` | `'classic' \| 'notion'` | `'classic'` | `'notion'` paints `dm-notion-mode` on the `.dm-editor` host and switches preset-aware extensions to their Notion behavior. Create-time only. |
 | `autofocus` | `FocusPosition` | `false` | Where to place the caret on mount. |
 | `outputFormat` | `'html' \| 'json'` | `'html'` | Format used when comparing incoming content against the document. |
@@ -105,6 +106,16 @@ const isBold = useEditorState(editor, (ed) => ed.isActive('bold'));
 accepted alongside them. `<Domternal>` and `<DomternalEditor>` take the same options as props,
 except `history`: their prop lists are fixed, so `:history="false"` never reaches the composable.
 Call `useEditor({ history: false })` with `provideEditor` instead.
+
+Toolbar, bubble-menu, and floating-menu `icons` props accept raw SVG through `IconSet`.
+Use only trusted, developer-authored constants. Never build an `IconSet` from user input,
+persisted document content, or an API response.
+
+The wrapper has no locale subpath. Import `I18nOptions` from `@domternal/core`, and import
+`deMessages` and `deSearchAliases` from `@domternal/core/locales/de` for its built-in
+toolbar, menus, and pickers. Merge locale entries from any loaded extensions. Missing
+messages fall back to English. See the
+[i18n guide](https://domternal.dev/v1/guides/i18n) for complete examples.
 
 ## Exports
 

@@ -22,10 +22,10 @@ Lit, Web Components, or plain HTML - anywhere without a framework runtime.
 pnpm add @domternal/core @domternal/theme @domternal/vanilla
 ```
 
-`@domternal/core` (>=1.1.0 <2.0.0) is a peer dependency. `@domternal/theme` supplies the editor
+`@domternal/core` (>=1.2.0 <2.0.0) is a peer dependency. `@domternal/theme` supplies the editor
 styles (import it once in your app).
 
-This package is part of the coordinated Domternal 1.1.1 release.
+This package is part of the coordinated Domternal 1.2.0 release.
 Upgrade installed `@domternal/*` packages together.
 
 ## Usage
@@ -84,6 +84,7 @@ The matching mount points:
 | `history` | `boolean` | `true` | Whether the built-in History extension is loaded. Turn it off when an extension brings its own undo. |
 | `content` | `Content` | `''` | Initial content, HTML string or JSON. |
 | `editable` | `boolean` | `true` | Whether the editor is editable. |
+| `i18n` | `I18nOptions` | `{}` | Initial UI translations and formatting. Use `dm.editor.i18n.set()` for live replacement. |
 | `preset` | `'classic' \| 'notion'` | `'classic'` | `'notion'` paints `dm-notion-mode` on the `.dm-editor` host and switches preset-aware extensions to their Notion behavior. Create-time only. |
 | `autofocus` | `FocusPosition` | `false` | Where to place the caret on mount. |
 | `outputFormat` | `'html' \| 'json'` | `'html'` | Format hint for host frameworks comparing controlled content. Does not change editor behavior. |
@@ -91,6 +92,16 @@ The matching mount points:
 `onCreate`, `onUpdate`, `onSelectionChange`, `onFocus`, `onBlur`, and `onDestroy` callbacks are
 accepted alongside them, and the same moments are dispatched on the instance as `create`,
 `update`, `selectionchange`, `focus`, `blur`, and `destroy` `CustomEvent`s.
+
+Toolbar, bubble-menu, and floating-menu `icons` options accept raw SVG through `IconSet`.
+Use only trusted, developer-authored constants. Never build an `IconSet` from user input,
+persisted document content, or an API response.
+
+The wrapper has no locale subpath. Import `I18nOptions` from `@domternal/core`, and import
+`deMessages` and `deSearchAliases` from `@domternal/core/locales/de` for its built-in
+toolbar, menus, and pickers. Merge locale entries from any loaded extensions. Missing
+messages fall back to English, and changing the UI language does not change authored
+content. See the [i18n guide](https://domternal.dev/v1/guides/i18n) for complete examples.
 
 ## Exports
 

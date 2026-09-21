@@ -22,8 +22,8 @@ pnpm add @domternal/extension-block-controls
 `@domternal/core` and `@domternal/pm` are peer dependencies and are pulled in by any
 Domternal editor setup.
 
-Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
 
@@ -110,3 +110,11 @@ values must be trusted application constants, never user-supplied content.
   reference identity living outside the document, such as a comment thread anchor.
 - `dropZoneProviders` and `nested.anchorContainers` on `BlockHandle` are two more, both
   experimental and described under [Extensions](#extensions).
+
+## Localization
+
+This package exports `blockControlsMessages` for typed custom catalogs. Optional German
+UI messages are available from `@domternal/extension-block-controls/locales/de` as
+`deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
+catalogs. Missing entries fall back to English, while custom contributed item labels
+remain application-owned.

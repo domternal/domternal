@@ -26,8 +26,8 @@ pnpm add @domternal/extension-table
 `@domternal/core` and `@domternal/pm` are peer dependencies and are already
 present in any Domternal editor setup.
 
-Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
 
@@ -110,3 +110,10 @@ so you do not need a bare `prosemirror-tables` import.
 `Tab` and `Shift-Tab` stand down inside a `listItem` or `taskItem`, so list indentation
 keeps them. Arrow keys move between cells, and `Shift` with them extends a cell
 selection; both come from `prosemirror-tables`, not this keymap.
+
+## Localization
+
+This package exports `tableMessages` for typed custom catalogs. Optional German UI
+messages and search aliases are available from `@domternal/extension-table/locales/de` as
+`deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
+catalogs. Missing entries fall back to English.

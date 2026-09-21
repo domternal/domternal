@@ -19,7 +19,7 @@ emoji picker, and Notion color picker auto-render from the extensions you load.
 pnpm add @domternal/angular @domternal/core @domternal/theme
 ```
 
-`@angular/core` (>=17.1), `@angular/forms` (>=17.1), `@angular/platform-browser` (>=17.1), and `@domternal/core` (>=1.1.0 <2.0.0)
+`@angular/core` (>=17.1), `@angular/forms` (>=17.1), `@angular/platform-browser` (>=17.1), and `@domternal/core` (>=1.2.0 <2.0.0)
 are peer dependencies. Add the theme ([`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme))
 to your global stylesheet (e.g. `styles.scss`):
 
@@ -27,7 +27,7 @@ to your global stylesheet (e.g. `styles.scss`):
 @use '@domternal/theme';
 ```
 
-This package is part of the coordinated Domternal 1.1.1 release.
+This package is part of the coordinated Domternal 1.2.0 release.
 Upgrade installed `@domternal/*` packages together.
 
 ## Usage
@@ -83,6 +83,23 @@ float. `'classic'` is the default, and the input is read once, when the editor i
 <domternal-editor [extensions]="extensions" preset="notion" />
 ```
 
+### Localization
+
+Pass an `I18nOptions` object through the reactive `i18n` input. Replacing it updates
+the existing editor and its open UI without recreating the editor or changing authored
+content. The wrapper has no locale subpath: its built-in toolbar, menus, and pickers use
+`deMessages` and `deSearchAliases` from `@domternal/core/locales/de`. Merge locale entries
+from any loaded extensions. See the [i18n guide](https://domternal.dev/v1/guides/i18n)
+for the catalog shape, English fallback, and live language switching.
+
+```html
+<domternal-editor [extensions]="extensions" [i18n]="german" />
+```
+
+Toolbar, bubble-menu, and floating-menu `icons` inputs accept raw SVG through `IconSet`.
+Use only trusted, developer-authored constants. Never build an `IconSet` from user input,
+persisted document content, or an API response.
+
 ### Reactive forms
 
 `DomternalEditorComponent` is a `ControlValueAccessor`, so it binds directly to
@@ -115,11 +132,12 @@ All components are standalone (no NgModule). Import them directly from
 `@domternal/angular`:
 
 - `DomternalEditorComponent` (`<domternal-editor>`): the editor, with
-  `extensions` / `history` / `content` / `editable` / `preset` / `autofocus` /
-  `outputFormat` inputs (`extensions`, `content`, `editable`, and `outputFormat` are
-  reactive; the rest are read once at creation), `editorCreated`, `contentUpdated`,
-  `selectionChanged`, `focusChanged`, `blurChanged`, and `editorDestroyed` outputs, and
-  read-only `htmlContent`, `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals.
+  `extensions` / `history` / `content` / `editable` / `preset` / `i18n` /
+  `autofocus` / `outputFormat` inputs (`extensions`, `content`, `editable`, `i18n`, and
+  `outputFormat` are reactive; the rest are read once at creation), `editorCreated`,
+  `contentUpdated`, `selectionChanged`, `focusChanged`, `blurChanged`, and
+  `editorDestroyed` outputs, and read-only `htmlContent`, `jsonContent`, `isEmpty`,
+  `isFocused`, `isEditable` signals.
 - `DomternalToolbarComponent` (`<domternal-toolbar>`): auto-rendered formatting
   toolbar with keyboard navigation, custom `icons`, and `layout` overrides.
 - `DomternalBubbleMenuComponent` (`<domternal-bubble-menu>`): inline selection menu
@@ -132,5 +150,5 @@ All components are standalone (no NgModule). Import them directly from
   Notion-style text and background color palette.
 
 `DEFAULT_EXTENSIONS` (`[Document, Paragraph, Text, BaseKeymap, History]`) and the core
-`Editor` class plus `Content`, `AnyExtension`, `FocusPosition`, and `JSONContent` types
-are re-exported for convenience.
+`Editor` class plus `Content`, `AnyExtension`, `FocusPosition`, `I18nOptions`, `Messages`,
+and `JSONContent` types are re-exported for convenience.

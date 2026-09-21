@@ -29,8 +29,8 @@ also requires the `UniqueID` extension (from `@domternal/core`) to be loaded: it
 reads UniqueID's `id` attribute on headings as the navigation anchor and stays
 inert without it.
 
-Version 1.1.1 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.1.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
 
@@ -146,3 +146,10 @@ data layer and active-tracking rule.
 The tracker snapshot type is exported as `ActiveStateSnapshot`, with `activeId`
 and `scrolledOverIds`. The saved inline node remains `tableOfContents`; no
 document migration or change to `UniqueID` defaults is required.
+
+## Localization
+
+This package exports `tocMessages` for typed custom catalogs. Optional German UI messages
+and search aliases are available from `@domternal/extension-toc/locales/de` as
+`deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
+catalogs. Missing entries fall back to English. Authored heading text remains unchanged.

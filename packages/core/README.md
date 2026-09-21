@@ -29,8 +29,8 @@ the DOM, so it runs anywhere without it.
 pnpm add linkedom
 ```
 
-The 1.1.1 release installs `@domternal/pm` in the range `>=1.1.0 <2.0.0`.
-Upgrade installed `@domternal/*` packages together to 1.1.1.
+The 1.2.0 release installs `@domternal/pm` in the range `>=1.2.0 <2.0.0`.
+Upgrade installed `@domternal/*` packages together to 1.2.0.
 
 ### One copy of the core, and of ProseMirror
 
@@ -99,6 +99,52 @@ const editor = new Editor({
   extensions: [Document, Paragraph, Text, Bold, History],
 });
 ```
+
+Framework toolbar, bubble-menu, and floating-menu `icons` options accept `IconSet`
+values as raw SVG markup. Use only trusted, developer-authored constants. Never build an
+`IconSet` from user input, persisted document content, or an API response.
+
+## Localization
+
+Each editor owns an independent UI language configuration. English messages are built in;
+the optional German catalog is a separate import so it is included only when you use it.
+The core catalog also covers the built-in UI rendered by the Angular, React, Vue, and
+Vanilla wrappers.
+
+```ts
+import { Editor, StarterKit, type I18nOptions } from '@domternal/core';
+import {
+  deMessages,
+  deSearchAliases,
+} from '@domternal/core/locales/de';
+
+const german = {
+  locale: 'de',
+  messages: deMessages,
+  searchAliases: deSearchAliases,
+} satisfies I18nOptions;
+
+const editor = new Editor({
+  element: document.getElementById('editor')!,
+  extensions: [StarterKit],
+  i18n: german,
+});
+
+// Replace the language configuration on the existing editor.
+editor.i18n.set({ locale: 'en' });
+```
+
+Setting `locale: 'de'` selects German formatting and grammar but does not load German
+messages. Import and merge the `/locales/de` catalogs for every enabled extension whose
+UI you want to translate. A partial catalog is valid: missing or invalid messages fall
+back to the owning package's English text.
+
+`editor.i18n.set()` replaces the complete configuration. Include any messages, search
+aliases, resolver, time zone, and custom formatters you want to keep. The update changes
+Domternal's UI without translating or modifying the document, selection, or undo history.
+Domternal does not add a language selector; the application owns that control and the
+user's preference. See the [localization guide](https://domternal.dev/v1/guides/i18n)
+for partial catalogs, extension catalogs, wrapper APIs, and custom resolvers.
 
 ## Moving an existing editor
 
