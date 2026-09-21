@@ -3,7 +3,7 @@
  * Framework-agnostic ProseMirror editor engine
  */
 
-export const VERSION = '1.1.1';
+export const VERSION = '1.2.0';
 
 export * from './i18n/index.js';
 export type { MessageParameters, SearchableMessages } from './i18n/types.js';

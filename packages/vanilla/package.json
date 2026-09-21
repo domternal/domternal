@@ -1,6 +1,6 @@
 {
   "name": "@domternal/vanilla",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "MIT-licensed framework-free DOM components for the Domternal rich text editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
