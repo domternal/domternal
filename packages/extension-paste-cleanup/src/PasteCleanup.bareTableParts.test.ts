@@ -1,13 +1,15 @@
 /**
  * Bare table rows and cells pasted with PasteCleanup paste the table they paste without it, in a
- * paragraph and in a table, instead of one run of the cells' texts.
+ * paragraph and in a table, instead of one run of the cells' texts. An editor without tables
+ * pastes their texts, as it does without PasteCleanup, instead of refusing them as a table.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Document, Editor, Paragraph, Text } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { describeSlice, pasteClipboard, pastedSlice } from '@domternal/tests-clipboard-slices';
 import { Table, TableCell, TableHeader, TableRow } from '../../extension-table/dist/index.js';
 import { PasteCleanup } from './index.js';
+import type { PasteOperationResult } from './index.js';
 
 const editors: Editor[] = [];
 afterEach(() => { for (const editor of editors.splice(0)) editor.destroy(); });
@@ -50,6 +52,18 @@ describe('PasteCleanup and bare table rows and cells', () => {
       expect(cleaned.getJSON()).toEqual(plain.getJSON());
     });
   }
+
+  it('pastes the texts of bare rows into an editor without tables, as without PasteCleanup', async () => {
+    const results: PasteOperationResult[] = [];
+    const cleaned = new Editor({ content: '<p></p>', extensions: [Document, Paragraph, Text, PasteCleanup.configure({ onPasteResult: result => { results.push(result); } })] });
+    const plain = new Editor({ content: '<p></p>', extensions: [Document, Paragraph, Text] });
+    editors.push(cleaned, plain);
+    pasteClipboard(cleaned.view, { html: rows, text: 'fallback' });
+    pasteClipboard(plain.view, { html: rows, text: 'fallback' });
+    expect(cleaned.state.doc.toString()).toBe('doc(paragraph("rarbrcrd"))');
+    expect(cleaned.getJSON()).toEqual(plain.getJSON());
+    await vi.waitFor(() => { expect(results.map(result => result.status)).toEqual(['applied']); });
+  });
 
   it('keeps the paragraph after bare rows, which ProseMirror alone drops', () => {
     const editor = mount('<p></p>', true);

@@ -306,7 +306,8 @@ bare rows, bare cells, or rows after a caption or column group, are parsed
 again as a table's content and put in a table, as a browser and ProseMirror's
 own clipboard parse read them. Their cells stay cells instead of running
 together, and they paste the table they paste without PasteCleanup, into a
-paragraph or cell by cell into a table. The table counts toward
+paragraph or cell by cell into a table. In an editor without tables they paste
+their texts, as they do without PasteCleanup, instead of being refused as a table. The table counts toward
 `maxTableCells`, `maxNodes` and `maxDepth`. Content after the parts, such as a
 paragraph, stays after the table, where ProseMirror's parse alone drops it.
 Table parts after other content are left as the HTML parser reads them.

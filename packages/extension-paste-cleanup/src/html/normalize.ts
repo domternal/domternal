@@ -170,8 +170,11 @@ export function normalizeClipboardHTML(
   try {
     assertTagWork(html);
     let tree = parseBoundedHTML(html, limits);
-    // Before the table bounds, so the cells of bare rows count as the cells of a table.
-    if (startsWithTablePart(tree)) tree = wrapTableContent(parseBoundedHTML(html, limits, 'table'));
+    // Before the table bounds, so the cells of bare rows count as the cells of a table. A
+    // destination without tables keeps their texts, as its paste without cleanup does.
+    if (startsWithTablePart(tree) && destination?.(['table']).includes('table') !== true) {
+      tree = wrapTableContent(parseBoundedHTML(html, limits, 'table'));
+    }
     assertTableBounds(tree, limits.maxTableCells);
     let images = 0;
     let pixels = 0;

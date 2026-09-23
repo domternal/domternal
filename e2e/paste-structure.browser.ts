@@ -102,6 +102,15 @@ for (const framework of FRAMEWORKS) {
   });
 }
 
+for (const framework of FRAMEWORKS) {
+  test(`${framework} pastes the texts of bare table rows into an editor without tables, as it does without PasteCleanup`, async ({ page }) => {
+    // The minimal schema has no tables; the unit tests compare the paste without PasteCleanup.
+    await open(page, framework, { schema: 'capability-minimal' });
+    expect(await paste(page, '<p></p>', { html: ROWS, text: 'fallback' }))
+      .toEqual({ doc: 'doc(paragraph("rarbrcrd"))', valid: true, status: ['applied'] });
+  });
+}
+
 // Unit tests: packages/extension-paste-cleanup/src/html/blockBoxes.test.ts and src/PasteCleanup.blockBoxes.test.ts.
 const BLOCK_BOXES: Record<string, { html: string; doc: string }> = {
   'a definition list': { html: '<dl><dt>term</dt><dd>definition</dd></dl>', doc: 'doc(paragraph("term"), paragraph("definition"))' },
