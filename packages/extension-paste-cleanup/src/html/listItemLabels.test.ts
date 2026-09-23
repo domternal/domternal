@@ -32,4 +32,16 @@ describe('a list item whose content starts with a list', () => {
     expect(normalizePasteHTML(html).html)
       .toBe('<ul data-pm-slice="3 3 []"><li><ul><li>a</li></ul></li><li><p></p><ul><li>b</li></ul></li></ul>');
   });
+
+  it('leaves every item on the open start of a fragment with a slice marker, as deep as its open start counts', () => {
+    for (const html of [
+      '<ul data-pm-slice="7 3 []"><li><ul><li><ul><li><p>1</p></li><li><p>c2</p></li></ul></li></ul></li><li><p>a2</p></li></ul>',
+      '<ol data-pm-slice="7 3 []"><li><ol><li><ol><li><p>deep</p></li></ol></li></ol></li><li><p>top</p></li></ol>',
+    ]) expect(normalizePasteHTML(html).html, html).toBe(html);
+  });
+
+  it('gives an item below the open start of a fragment with a slice marker its label', () => {
+    expect(normalizePasteHTML('<ul data-pm-slice="1 1 []"><li><ul><li>a</li></ul></li></ul>').html)
+      .toBe('<ul data-pm-slice="1 1 []"><li><p></p><ul><li>a</li></ul></li></ul>');
+  });
 });

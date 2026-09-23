@@ -485,9 +485,12 @@ paragraph first, the label a Domternal list or task item starts with. ProseMirro
 parse cannot open such an item on its nested list: it closed the item empty, and the
 nested list and the later items pasted as lists of their own, bulleted even when the
 list was numbered. With the label the nested list stays in its item under an empty
-label, with or without SmartPaste, and also over the whole document. The first item
-of HTML with a `data-pm-slice` marker is left as written, since the marker's open
-depths count its levels, and Domternal's own copies paste as written. Into a
+label, with or without SmartPaste, and also over the whole document. The items on
+the open start of HTML with a `data-pm-slice` marker, as many levels down as the
+marker's open start counts, are left as written: a copy that starts in a nested item
+cut their labels, and the marker's open depths count the levels without them, so a
+copy that starts two or more levels deep still joins its first line to the paragraph
+at the caret, as without PasteCleanup. Domternal's own copies paste as written. Into a
 paragraph with text, ProseMirror's own paste still puts the nested list in a list of
 its own before the other items, which keep the outer list's kind, and over the whole
 document it can drop a quote around the list. Without PasteCleanup such an item

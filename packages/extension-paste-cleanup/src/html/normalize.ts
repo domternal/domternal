@@ -192,7 +192,7 @@ export function normalizeClipboardHTML(
       hoistListItemMarkers(tree);
       // After the markers moved, so the added item does not stop a list's items from agreeing on one.
       nestLeadingLists(tree);
-      labelListItems(tree, anchor !== undefined);
+      labelListItems(tree, anchor);
       quietImageBoxes(tree);
       resolveInlineInheritance(tree, {
         maxNodes: limits.maxNodes, maxDepth: limits.maxDepth, maxInputLength: limits.maxInputLength,

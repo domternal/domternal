@@ -448,6 +448,19 @@ for (const framework of FRAMEWORKS) {
   });
 }
 
+// A ProseMirror copy from inside the third level of a list to the end of the next top-level item.
+const DEEP_COPY = '<ul data-pm-slice="7 3 []"><li><ul><li><ul><li><p>1</p></li><li><p>c2</p></li></ul></li></ul></li><li><p>a2</p></li></ul>';
+for (const framework of FRAMEWORKS) {
+  test(`${framework} pastes a copy that starts items deep in a list as it does without PasteCleanup`, async ({ page }) => {
+    for (const cleanup of ['on', 'off']) {
+      await open(page, framework, { 'smart-paste': 'off', ...(cleanup === 'on' ? {} : { 'paste-cleanup': 'off' }) });
+      expect(await paste(page, '<p>x</p>', { html: DEEP_COPY, text: '1\nc2\na2' }, 'x'), `PasteCleanup ${cleanup}`).toMatchObject({
+        doc: 'doc(paragraph("x1"), bulletList(listItem(paragraph("c2"))), bulletList(listItem(paragraph("a2"))))', valid: true,
+      });
+    }
+  });
+}
+
 // Unit tests: packages/extension-paste-cleanup/src/html/editorChrome.test.ts and src/PasteCleanup.editorChrome.test.ts.
 const CHROME: Record<string, string> = {
   'a to-do list': '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>done</p></li><li data-type="taskItem" data-checked="false"><p>todo</p></li></ul>',
