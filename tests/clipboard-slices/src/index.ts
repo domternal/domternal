@@ -70,7 +70,9 @@ export function pasteClipboard(view: EditorView, content: ClipboardContent): Cli
 /**
  * The slice the editor's paste handlers receive for `content` at the current selection, after
  * everything a keyboard paste runs before them. Nothing is inserted: a direct `handlePaste`
- * prop, which runs before every plugin's, takes the paste.
+ * prop, which runs before every plugin's, takes the paste. Paste Cleanup still cleans the
+ * clipboard first and, since nothing lands, reports the attempt as `untracked`: a test that
+ * also observes paste results counts that result, or takes the slice before it observes.
  */
 export function pastedSlice(view: EditorView, content: ClipboardContent): Slice {
   let captured: Slice | undefined;
