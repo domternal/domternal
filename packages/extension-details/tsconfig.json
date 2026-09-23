@@ -13,6 +13,15 @@
   "references": [
     {
       "path": "../core"
+    },
+    {
+      "path": "../extension-block-controls"
+    },
+    {
+      "path": "../extension-paste-cleanup"
+    },
+    {
+      "path": "../extension-image"
     }
   ]
 }

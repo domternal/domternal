@@ -32,6 +32,9 @@
     },
     {
       "path": "../core"
+    },
+    {
+      "path": "../extension-mention"
     }
   ]
 }
