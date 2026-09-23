@@ -101,8 +101,13 @@ values must be trusted application constants, never user-supplied content.
   summary, whose parent takes no block beside it, is left to the textblock's owner or to
   ProseMirror's own paste, so the parent is not split in two: Details puts the blocks at the
   start of its content, which opens, and ProseMirror joins the text of one paragraph or
-  heading to the summary. It inserts whole blocks, so a pasted slice that
-  starts or ends inside a block first gets what its schema requires there: a list whose
+  heading to the summary. Text copied from inside a list item, quote, table cell or
+  details summary joins the caret's textblock through ProseMirror's paste, as it does
+  without SmartPaste, though the copy records the container around it; before, it landed
+  beside the textblock in a list, quote, table or details of its own. Into a list, the list
+  rules still keep a copied item's list and its marker, and HTML from outside an editor,
+  without that record, still pastes its blocks as blocks. It inserts whole blocks,
+  so a pasted slice that starts or ends inside a block first gets what its schema requires there: a list whose
   first item starts with a nested list, as a browser copies a selection that starts inside
   a nested item, keeps its nesting under an empty first item, and an empty item or quote
   at either edge stays an empty item or quote. A slice it cannot complete goes through

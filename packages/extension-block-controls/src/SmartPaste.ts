@@ -93,6 +93,12 @@ function handleSmartPaste(view: EditorView, event: ClipboardEvent, pasted: Slice
   // Strategy 1: list-slice into list ancestor, merge as siblings.
   if (tryPasteListSliceIntoList(view, event, slice)) return true;
 
+  // Text copied from inside a list item, quote, table cell or details summary is text, though the
+  // paste rebuilds the container the copy recorded around it: outside a list, where the rule above
+  // keeps a copied item's list and marker, it joins the caret's textblock through PM's paste, as it
+  // does without SmartPaste, instead of landing beside it in a list, quote, table or details.
+  if (isCopiedText(event, pasted)) return false;
+
   // Strategies 2-7: collapse range, then route by parent state + offset.
   const tr = state.tr;
   if (!selection.empty) tr.deleteSelection();
@@ -233,6 +239,29 @@ function completeNode(node: PMNode, openStart: number, openEnd: number): PMNode 
   if (!filled || !after) return null;
   const content = filled.append(after);
   return content.eq(node.content) ? node : node.copy(content);
+}
+
+// The context a ProseMirror copy records in its clipboard HTML: the nodes around the copied content.
+const SLICE_CONTEXT = /\bdata-pm-slice="\d+ \d+(?: -\d+)? (\[[^"]*\])"/;
+
+/**
+ * Whether the paste is text copied from inside a textblock that sits in other nodes: the clipboard
+ * HTML records those nodes as the slice's context, and the slice is one node open on both sides
+ * at each level down to the textblock, which is open on both sides too.
+ */
+function isCopiedText(event: ClipboardEvent, slice: Slice): boolean {
+  let html: string;
+  try { html = event.clipboardData?.getData('text/html') ?? ''; } catch { return false; }
+  const context = SLICE_CONTEXT.exec(html)?.[1];
+  if (context === undefined || context === '[]') return false;
+  let { content, openStart, openEnd } = slice;
+  for (let node = content.firstChild; content.childCount === 1 && node !== null && openStart > 0 && openEnd > 0; node = content.firstChild) {
+    if (node.isTextblock) return true;
+    content = node.content;
+    openStart--;
+    openEnd--;
+  }
+  return false;
 }
 
 /** True if any top-level slice child is a block other than `paragraph`. */

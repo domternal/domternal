@@ -227,6 +227,53 @@ function blocks(page: Page): Promise<string[]> {
   });
 }
 
+/**
+ * Seeds the document and copies its text from the start of the first `from` to the end of the
+ * first `to` with the keyboard, then puts the caret after the first `caret`, or at the end of the
+ * document for an empty one, and pastes with the keyboard, so the browser writes and reads the clipboard.
+ */
+async function copyAndPaste(page: Page, seed: string, from: string, to: string, caret: string): Promise<void> {
+  await page.evaluate(({ seed, from, to }) => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    if (!probe.editor.setContent(seed, false)) throw new Error('Could not seed the editor');
+    const at = (text: string, end: boolean): number => {
+      let found = -1;
+      probe.editor.state.doc.descendants((node, pos) => {
+        if (found < 0 && node.isText && node.text?.includes(text) === true) found = pos + node.text.indexOf(text) + (end ? text.length : 0);
+      });
+      return found;
+    };
+    probe.editor.view.focus();
+    probe.select(at(from, false), at(to, true));
+  }, { seed, from, to });
+  await page.keyboard.press('ControlOrMeta+c');
+  await page.evaluate(caret => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    // An empty caret text puts the caret in the document's last textblock, at its end.
+    let pos = caret === '' ? probe.editor.state.doc.content.size - 1 : -1;
+    probe.editor.state.doc.descendants((node, at) => {
+      if (pos < 0 && node.isText && node.text?.includes(caret) === true) pos = at + node.text.lastIndexOf(caret) + caret.length;
+    });
+    probe.editor.view.focus();
+    probe.select(pos);
+    probe.clearObservations();
+  }, caret);
+  await page.keyboard.press('ControlOrMeta+v');
+}
+
+// Unit tests: packages/extension-block-controls/src/SmartPaste.copiedText.test.ts.
+for (const framework of FRAMEWORKS) {
+  test(`${framework} joins text copied from inside a list item or quote to the paragraph it is pasted into`, async ({ page }) => {
+    for (const query of [{}, { 'paste-cleanup': 'off' }] as Record<string, string>[]) {
+      await open(page, framework, query);
+      for (const [source, block] of [['<ul><li><p>alpha beta</p></li></ul>', 'bulletList'], ['<blockquote><p>alpha beta</p></blockquote>', 'blockquote']] as const) {
+        await copyAndPaste(page, `${source}<p>x</p>`, 'beta', 'beta', 'x');
+        await expect.poll(() => blocks(page), `${source} ${JSON.stringify(query)}`).toEqual([`${block}: alpha beta`, 'paragraph: xbeta']);
+      }
+    }
+  });
+}
+
 // Unit tests: packages/extension-details/src/Details.pasteBody.test.ts.
 for (const framework of FRAMEWORKS) {
   test(`${framework} pastes blocks copied from a details body as blocks, not in a collapsed details`, async ({ page }) => {
