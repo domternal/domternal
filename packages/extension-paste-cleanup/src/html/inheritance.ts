@@ -1,5 +1,5 @@
 import type { Element, ElementContent, Properties, Root, RootContent, Text } from 'hast';
-import { readSafeStyles, serializeStyles } from './styles.js';
+import { readSafeStyles, serializeStyles, styleToRead } from './styles.js';
 import { envelopeTags } from './envelope.js';
 
 export interface InlineInheritanceOptions {
@@ -215,7 +215,7 @@ export function resolveInlineInheritance(
       const state: State = { ...inherited };
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
-      const { styles, removed, defaultColor } = readInheritanceStyles(child.properties.style, tag === 'img', tag);
+      const { styles, removed, defaultColor } = readInheritanceStyles(styleToRead(child), tag === 'img', tag);
       let unsupported = removed;
       // One adapted finding per discarded source property, reported on its declaring element.
       const adapted: string[] = [];

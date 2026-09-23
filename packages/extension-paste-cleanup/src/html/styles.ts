@@ -1,3 +1,4 @@
+import type { Element } from 'hast';
 import { validListStyle } from './listStyles.js';
 
 const color = /^(?:#[\da-f]{3,8}|[a-z]{1,24}|rgba?\([\d.% ,]+\)|hsla?\([\d.% ,]+\))$/i;
@@ -153,6 +154,17 @@ export function readSafeStyles(value: unknown, imagePlacement = false, tag = '')
     styles.set(name, placement === undefined ? content : content.toLowerCase());
   }
   return { styles, removed };
+}
+
+/**
+ * The style of an element to read, without the block display and fitted width Image draws an
+ * aligned image with: the image's `data-align` carries the alignment, so they lose nothing.
+ */
+export function styleToRead(element: Element): unknown {
+  const { style, dataAlign } = element.properties;
+  return element.tagName === 'img' && typeof style === 'string' && ['left', 'center', 'right'].includes(String(dataAlign))
+    ? style.split(';').filter(declaration => !/^\s*(?:display\s*:\s*block|width\s*:\s*fit-content)\s*$/i.test(declaration)).join(';')
+    : style;
 }
 
 export function serializeStyles(styles: ReadonlyMap<string, string>): string {

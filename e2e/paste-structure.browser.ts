@@ -305,3 +305,40 @@ for (const framework of FRAMEWORKS) {
     }
   });
 }
+
+// Unit tests: packages/extension-paste-cleanup/src/html/editorChrome.test.ts and src/PasteCleanup.editorChrome.test.ts.
+const CHROME: Record<string, string> = {
+  'a to-do list': '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>done</p></li><li data-type="taskItem" data-checked="false"><p>todo</p></li></ul>',
+  'an aligned image': `<p>x</p><img src="${PNG}" data-align="center"><p>y</p>`,
+};
+for (const framework of FRAMEWORKS) {
+  test(`${framework} pastes an own copy of a to-do list or an aligned image with no notice`, async ({ page }) => {
+    await open(page, framework, { 'list-markers': '1' });
+    for (const [name, content] of Object.entries(CHROME)) {
+      const before = await page.evaluate(content => {
+        const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+        if (!probe.editor.setContent(content, false)) throw new Error('Could not seed the editor');
+        probe.editor.view.focus();
+        probe.select(1, probe.editor.state.doc.content.size - 1);
+        return probe.editor.state.doc.toString();
+      }, content);
+      await page.keyboard.press('ControlOrMeta+a');
+      await page.keyboard.press('ControlOrMeta+c');
+      await page.evaluate(() => {
+        const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+        if (!probe.editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
+        probe.editor.view.focus();
+        probe.select(1);
+        probe.clearObservations();
+      });
+      await page.keyboard.press('ControlOrMeta+v');
+      await expect.poll(() => page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.map(operation => operation.status)), name)
+        .toEqual(['applied']);
+      expect(await page.evaluate(() => {
+        const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+        return { doc: probe.editor.state.doc.toString(), codes: probe.results.flatMap(result => result.diagnostics.map(diagnostic => diagnostic.code)) };
+      }), name).toEqual({ doc: before, codes: [] });
+      await expect(page.locator('.dm-paste-feedback'), name).toBeHidden();
+    }
+  });
+}

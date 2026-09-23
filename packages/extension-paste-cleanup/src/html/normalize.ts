@@ -3,7 +3,7 @@ import { sanitize } from 'hast-util-sanitize';
 import type { Schema } from 'hast-util-sanitize';
 import { toHtml } from 'hast-util-to-html';
 import { parseBoundedHTML, StructureLimitError } from './parse.js';
-import { readSafeStyles, serializeStyles } from './styles.js';
+import { readSafeStyles, serializeStyles, styleToRead } from './styles.js';
 import { listStyleFromType } from './listStyles.js';
 import { safeImage, safeLink } from './urls.js';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
@@ -66,6 +66,15 @@ const schema: Schema = {
 };
 
 const severityRank: Readonly<Record<PasteDiagnostic['severity'], number>> = { info: 0, warning: 1, error: 2 };
+
+const holdsText = (node: Element): boolean =>
+  node.children.some(child => (child.type === 'text' ? /[^\t\n\f\r ]/.test(child.value) : child.type === 'element' && holdsText(child)));
+
+/** The checkbox a Domternal or Tiptap task item draws before its content, whose state the item's data-checked holds. */
+function taskCheckbox(parent: Root | Element, child: Element): boolean {
+  return parent.type === 'element' && parent.tagName === 'li' && parent.properties.dataType === 'taskItem'
+    && (child.tagName === 'input' || (child.tagName === 'label' && !holdsText(child)));
+}
 
 /**
  * Append within a fixed allowance and report whether anything was omitted. When the allowance is full,
@@ -198,7 +207,7 @@ export function normalizeClipboardHTML(
       const children: RootContent[] = [];
       for (const child of parent.children) {
         if (child.type === 'text') { children.push(child); continue; }
-        if (child.type !== 'element' || envelopeTags.has(child.tagName)) continue;
+        if (child.type !== 'element' || envelopeTags.has(child.tagName) || taskCheckbox(parent, child)) continue;
         if (discard.has(child.tagName)) { report('unsafe-content-removed', child); continue; }
         const original = child.properties;
         const clean: Properties = cleanMetadata(original);
@@ -208,7 +217,7 @@ export function normalizeClipboardHTML(
           if (context !== undefined) clean['dataPmSlice'] = context;
           if (context !== anchorContext) report('formatting-adapted', child, 'info');
         }
-        const { styles, removed } = readSafeStyles(original.style, child.tagName === 'img', child.tagName);
+        const { styles, removed } = readSafeStyles(styleToRead(child), child.tagName === 'img', child.tagName);
         if (removed) report('unsupported-formatting', child);
         if (child.tagName === 'ul' && !styles.has('list-style-type') && clean.dataType !== 'taskList') {
           const marker = listStyleFromType('ul', original.type);

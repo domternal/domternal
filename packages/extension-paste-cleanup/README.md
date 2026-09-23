@@ -108,7 +108,11 @@ container between the notice and the scroller.
 
 The routine clipboard envelope is removed without a diagnostic: `head`, `title`,
 `meta`, `link`, `base` and `style` elements and Office `xml` islands, with their
-content. Office paragraph marks (`o:p`), content controls (`w:*`) and smart tags
+content. So is the chrome an editor draws around content its attributes carry: a
+task item's checkbox `label` and `input`, whose state is the item's `data-checked`,
+and the `display: block` and `width: fit-content` of an aligned image, whose
+alignment is its `data-align`, so an own copy of a to-do list or an aligned image
+shows no notice. Office paragraph marks (`o:p`), content controls (`w:*`) and smart tags
 (`st1:*`) are unwrapped and keep their text. Scripts, frames, embedded objects,
 templates, form controls, SVG and MathML still report `unsafe-content-removed`;
 VML drawings, Office math, `font` and other unknown elements still report
