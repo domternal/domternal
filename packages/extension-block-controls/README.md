@@ -97,11 +97,12 @@ values must be trusted application constants, never user-supplied content.
 - **`SmartPaste`** - keeps block-level formatting intact when pasting at an inline cursor.
   It splits the caret's block, or its list item, only where both halves stay valid: a list
   pasted into the middle of a heading or code block inside a list item lands at the caret
-  inside the item. A paste into a textblock its blocks cannot leave, such as a details
-  summary, whose parent takes no block beside it, is left to the textblock's owner or to
-  ProseMirror's own paste, so the parent is not split in two: Details puts the blocks at the
-  start of its content, which opens, and ProseMirror joins the text of one paragraph or
-  heading to the summary. Text copied from inside a list item, quote, table cell or
+  inside the item. A node that places pasted blocks elsewhere through
+  `@domternal/core/clipboard`, as Details puts blocks pasted into its summary in a new block at
+  the start of its content, which opens, gives SmartPaste the place to insert them, in one
+  transaction with that block. Any other paste into a textblock its blocks cannot leave,
+  whose parent takes no block beside it, is left to ProseMirror's own paste, so the parent is
+  not split in two, and ProseMirror joins the text of one paragraph or heading to it. Text copied from inside a list item, quote, table cell or
   details summary joins the caret's textblock through ProseMirror's paste, as it does
   without SmartPaste, though the copy records the container around it; before, it landed
   beside the textblock in a list, quote, table or details of its own. Into a list, the list

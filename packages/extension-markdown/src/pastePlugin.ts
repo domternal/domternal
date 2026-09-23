@@ -3,8 +3,11 @@
  * Markdown, including syntax-highlighted source HTML, parse it into rich content.
  * Plain prose, bare URLs (linkPastePlugin territory), and code block targets pass through.
  */
-import { Slice } from '@domternal/pm/model';
+import { placeClipboardPaste } from '@domternal/core/clipboard';
+import { Fragment, Slice } from '@domternal/pm/model';
+import type { Node as PMNode, NodeType } from '@domternal/pm/model';
 import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
 import type { MarkdownParser } from './parser/parser.js';
 
 export const markdownPastePluginKey = new PluginKey('markdownPaste');
@@ -135,6 +138,18 @@ function isMarkdownSourceHTML(html: string, text: string, ownerDocument: Documen
   return renderedOffset === rendered.length;
 }
 
+/**
+ * The blocks a parsed document puts after a textblock of `type`, without the empty ones of that
+ * type the parse made because the document starts with one, as a title, which join it.
+ */
+function blocksAfter(doc: PMNode, type: NodeType): Fragment {
+  const blocks: PMNode[] = [];
+  doc.forEach(node => {
+    if (blocks.length > 0 || node.type !== type || node.content.size > 0) blocks.push(node);
+  });
+  return Fragment.fromArray(blocks);
+}
+
 export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
   return new Plugin({
     key: markdownPastePluginKey,
@@ -160,18 +175,29 @@ export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
         }
         const first = doc.content.firstChild;
         const single = doc.content.childCount === 1 && first !== null;
-        // A textblock blocks cannot leave, such as a details summary, takes text only: blocks
-        // pasted there split its parent. One textblock gives its text, as one paragraph does
-        // anywhere, and anything else pastes as the text it was.
-        const { parent } = view.state.selection.$from;
-        const textOnly = parent.isTextblock && parent.type.spec.isolating === true;
-        if (textOnly && !(single && first.isTextblock)) return false;
-        const slice =
-          single && (first.type.name === 'paragraph' || textOnly)
-            ? new Slice(first.content, 0, 0)
-            : new Slice(doc.content, 0, 0);
+        // One paragraph gives its text, as anywhere.
+        const paragraph = single && first.type.name === 'paragraph';
+        let slice = new Slice(paragraph ? first.content : doc.content, 0, 0);
+        let tr: Transaction | undefined;
+        // A textblock blocks cannot leave, inside a parent that takes no block beside it, such as a
+        // details summary, takes text only: blocks pasted there split its parent. One line there
+        // gives its text if it parses as a textblock, as a heading, and pastes as the text it was
+        // otherwise. Several lines go where the textblock's node places pasted blocks, as Details
+        // puts them in its content, or paste as the text they were.
+        const { $from } = view.state.selection;
+        const textOnly = $from.parent.isTextblock && $from.parent.type.spec.isolating === true && $from.depth > 0
+          && !$from.node(-1).canReplace($from.index(-1) + 1, $from.index(-1) + 1, blocksAfter(doc, $from.parent.type));
+        if (textOnly && !paragraph) {
+          if (!/[\n\r]/.test(text.trim())) {
+            if (!single || !first.isTextblock) return false;
+            slice = new Slice(first.content, 0, 0);
+          } else {
+            tr = placeClipboardPaste(view, doc.content);
+            if (tr === undefined) return false;
+          }
+        }
         view.dispatch(
-          view.state.tr.replaceSelection(slice).scrollIntoView()
+          (tr ?? view.state.tr).replaceSelection(slice).scrollIntoView()
             .setMeta('paste', true).setMeta('uiEvent', 'paste')
         );
         return true;

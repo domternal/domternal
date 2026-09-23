@@ -330,6 +330,65 @@ for (const framework of FRAMEWORKS) {
   });
 }
 
+/** Pastes a DataTransfer with the HTML and a PNG file, bound to `cid:private-chart` for image assets, after the first `caret`. */
+async function pasteFile(page: Page, seed: string, caret: string, html?: string): Promise<void> {
+  await page.evaluate(({ seed, caret, html, png }) => {
+    const probe = (window as unknown as ProbeWindow & { __pasteCleanup: { setAssetBindings: (bindings: { reference: string; itemIndex: number }[]) => void } }).__pasteCleanup;
+    if (!probe.editor.setContent(seed, false)) throw new Error('Could not seed the editor');
+    let pos = -1;
+    probe.editor.state.doc.descendants((node, at) => {
+      if (pos < 0 && node.isText && node.text?.includes(caret) === true) pos = at + node.text.indexOf(caret) + caret.length;
+    });
+    probe.select(pos);
+    probe.clearObservations();
+    const data = new DataTransfer();
+    if (html !== undefined) data.setData('text/html', html);
+    const index = data.items.length;
+    data.items.add(new File([Uint8Array.from(atob(png.slice(png.indexOf(',') + 1)), c => c.charCodeAt(0))], 'a.png', { type: 'image/png' }));
+    probe.setAssetBindings([{ reference: 'cid:private-chart', itemIndex: index }]);
+    const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+    if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+    probe.editor.view.dom.dispatchEvent(event);
+  }, { seed, caret, html, png: PNG });
+}
+
+const docOf = (page: Page): Promise<string> => page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.toString());
+
+for (const framework of FRAMEWORKS) {
+  test(`${framework} pastes an image file, prepared image assets and a refused paste into a summary in one transaction`, async ({ page }) => {
+    const details = page.locator('.ProseMirror [data-type="details"]');
+    // An image file, which PasteCleanup and the image node insert.
+    for (const query of [{}, { 'paste-cleanup': 'off' }] as Record<string, string>[]) {
+      await open(page, framework, { details: '1', ...query });
+      await pasteFile(page, SUMMARY, 'Title');
+      await expect.poll(() => docOf(page), JSON.stringify(query)).toBe(IN_CONTENT('image'));
+      await expect(details, JSON.stringify(query)).toHaveClass(/is-open/);
+    }
+    // Content whose image PasteCleanup prepares first, then pastes against the document it captured.
+    await open(page, framework, { details: '1', assets: 'embedded' });
+    await pasteFile(page, SUMMARY, 'Title', '<p>New</p><img src="cid:private-chart" alt="Chart"><p>End</p>');
+    await expect.poll(() => page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.map(operation => operation.status))).toEqual(['applied']);
+    expect(await docOf(page)).toBe(IN_CONTENT('paragraph("New"), image, paragraph("End")'));
+    await expect(details).toHaveClass(/is-open/);
+    // A paste a CharacterCount limit refuses leaves the details as it was, and closed.
+    await open(page, framework, { details: '1', limit: '12' });
+    expect(await paste(page, SUMMARY, { html: '<p>aaaaaaaaaa</p><p>bbbbbbbbbb</p>', text: 'aaaaaaaaaa\n\nbbbbbbbbbb' }, 'Title'))
+      .toMatchObject({ doc: 'doc(details(detailsSummary("Title"), detailsContent(paragraph("body"))))', valid: true });
+    await expect(details).not.toHaveClass(/is-open/);
+  });
+
+  test(`${framework} joins text copied from inside a list item, and a line copied with its line break, to a summary`, async ({ page }) => {
+    for (const query of [{}, { 'paste-cleanup': 'off' }, { 'smart-paste': 'off' }] as Record<string, string>[]) {
+      await open(page, framework, { details: '1', ...query });
+      await copyAndPaste(page, `<ul><li><p>alpha beta</p></li></ul>${SUMMARY}`, 'beta', 'beta', 'Title');
+      await expect.poll(() => docOf(page), JSON.stringify(query))
+        .toBe('doc(bulletList(listItem(paragraph("alpha beta"))), details(detailsSummary("Titlebeta"), detailsContent(paragraph("body"))))');
+      expect(await paste(page, SUMMARY, { text: 'word\n' }, 'Title'), JSON.stringify(query))
+        .toMatchObject({ doc: 'doc(details(detailsSummary("Titleword"), detailsContent(paragraph("body"))))', valid: true });
+    }
+  });
+}
+
 // Unit tests: packages/extension-markdown/src/pastePlugin.summary.test.ts.
 for (const framework of FRAMEWORKS) {
   test(`${framework} pastes Markdown into a details summary as text, and Markdown lines into its content`, async ({ page }) => {

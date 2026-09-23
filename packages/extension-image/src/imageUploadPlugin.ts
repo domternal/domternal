@@ -16,11 +16,12 @@
  * its place through it, so another client typing while a file is read or
  * uploaded does not lose the image.
  */
+import { placeClipboardPaste } from '@domternal/core/clipboard';
 import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
-import { Slice } from '@domternal/pm/model';
+import { Fragment, Slice } from '@domternal/pm/model';
 import type { Node as PMNode, NodeType } from '@domternal/pm/model';
 import { ReplaceStep } from '@domternal/pm/transform';
 
@@ -330,7 +331,10 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
     // Every file is read or uploaded at once, so the number of one paste or drop is bounded.
     const accepted = limit > 0 ? acceptable.slice(0, limit) : acceptable;
     if (store === null || accepted.length === 0 || view.isDestroyed) return false;
-    const tr = view.state.tr;
+    // A block image pasted where a node places pasted blocks elsewhere, as Details puts blocks
+    // pasted into its summary at the start of its content, goes there.
+    const placed = placement.at === 'selection' && !nodeType.isInline ? placeClipboardPaste(view, Fragment.from(nodeType.create())) : undefined;
+    const tr = placed ?? view.state.tr;
     let pos: number;
     if (placement.at === 'position') {
       pos = placement.pos;

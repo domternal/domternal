@@ -96,13 +96,20 @@ Adding `Details` also registers a toolbar button and a slash-menu entry
 - A paste into the summary that brings blocks, such as several paragraphs, a
   list, Markdown lines or an image file, goes where `Enter` in the summary puts
   the cursor: a new block at the top of the content, which opens. The summary
-  keeps its text, and the paste lands as it would in an empty block, through
-  every other paste handler. Inline content and a single paragraph or heading
-  still join the summary's text. Before, the paste split the accordion in two
-  and moved the content into a second, collapsed one with an empty summary.
-  `Details` registers a `detailsPaste` extension for this, at priority 111, so
-  it runs ahead of Markdown's paste handling. Dropping blocks onto the summary
-  is not covered yet
+  keeps its text. The new block and the paste are one transaction: a paste that
+  a transaction filter refuses, such as one past a `CharacterCount` limit,
+  leaves the accordion as it was and closed, a paste whose images Paste Cleanup
+  prepares first is applied, and undo takes it back in one step. `Details`
+  registers a paste placement through `@domternal/core/clipboard`, which
+  Markdown, SmartPaste and the image node's file paste start from, and a
+  `detailsPaste` extension, at priority 90, that pastes what none of them took
+  as ProseMirror's own paste would. Inline content, a single paragraph or
+  heading, a line copied with its line break, and text copied from inside a
+  code block, list item, quote, table cell or another summary still join the
+  summary's text. Image files the image node does not store leave the
+  accordion as it was. Before, the paste split the accordion in two and moved
+  the content into a second, collapsed one with an empty summary. Dropping
+  blocks onto the summary is not covered yet
 - Blocks copied from inside the content, without the summary, paste as those
   blocks. The copy records the accordion around them, and the paste used to
   rebuild it as a collapsed block with an empty summary, which hid what was

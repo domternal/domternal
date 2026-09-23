@@ -24,7 +24,7 @@
  */
 
 import { Extension } from '@domternal/core';
-import { getClipboardPasteBehavior } from '@domternal/core/clipboard';
+import { getClipboardPasteBehavior, placeClipboardPaste } from '@domternal/core/clipboard';
 import { Plugin, TextSelection, Selection } from '@domternal/pm/state';
 import { canSplit } from '@domternal/pm/transform';
 import { Fragment, Slice } from '@domternal/pm/model';
@@ -99,9 +99,13 @@ function handleSmartPaste(view: EditorView, event: ClipboardEvent, pasted: Slice
   // does without SmartPaste, instead of landing beside it in a list, quote, table or details.
   if (isCopiedText(event, pasted)) return false;
 
+  // A node that places pasted blocks elsewhere, as Details puts blocks pasted into its summary
+  // at the start of its content, gives the transaction and the caret the strategies start from.
+  const placed = placeClipboardPaste(view, slice.content);
+
   // Strategies 2-7: collapse range, then route by parent state + offset.
-  const tr = state.tr;
-  if (!selection.empty) tr.deleteSelection();
+  const tr = placed ?? state.tr;
+  if (placed === undefined && !selection.empty) tr.deleteSelection();
 
   const $pos = tr.selection.$from;
   const parent = $pos.parent;
