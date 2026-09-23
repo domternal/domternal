@@ -7,7 +7,7 @@
  * - If no selection: inserts URL as clickable link text
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
-import type { MarkType } from '@domternal/pm/model';
+import type { Mark, MarkType, Node as PMNode } from '@domternal/pm/model';
 import { checkUrl } from '../../helpers/checkUrl.js';
 import { pasteClipboardImageFiles } from '../../helpers/clipboardImageFiles.js';
 
@@ -32,6 +32,17 @@ export interface LinkPastePluginOptions {
    * Return false to prevent linking specific URLs
    */
   validate?: (url: string) => boolean;
+}
+
+/** Whether the range holds inline content that the link marks or can mark. */
+function marksSomething(doc: PMNode, from: number, to: number, link: Mark): boolean {
+  let found = false;
+  doc.nodesBetween(from, to, (node, _pos, parent) => {
+    if (!found && node.isInline && parent?.type.allowsMarkType(link.type) === true
+      && (link.isInSet(node.marks) || link.addToSet(node.marks) !== node.marks)) found = true;
+    return !found;
+  });
+  return found;
 }
 
 /**
@@ -88,12 +99,13 @@ export function linkPastePlugin(options: LinkPastePluginOptions): Plugin {
           tr.insertText(text, from, to);
           tr.addMark(from, from + text.length, type.create({ href: text }));
         } else {
-          // Has selection - wrap selection in link
-          tr.addMark(from, to, type.create({ href: text }));
+          // A selection gets the link, and text the link already marks keeps its words.
           // A selection nothing in which takes the link, such as a selected image or text in a code
           // block, gets the address in its place, as a pasted text replaces it. A place that takes no
           // link, such as a code block, gets it as plain text.
-          if (!tr.docChanged) tr.replaceSelectionWith(type.schema.text(text, [type.create({ href: text })]), false);
+          const link = type.create({ href: text });
+          if (marksSomething(state.doc, from, to, link)) tr.addMark(from, to, link);
+          else tr.replaceSelectionWith(type.schema.text(text, [link]), false);
         }
 
         dispatch(tr.setMeta('paste', true).setMeta('uiEvent', 'paste'));

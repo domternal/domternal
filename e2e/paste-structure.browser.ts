@@ -37,10 +37,11 @@ async function open(page: Page, framework: string, query: Record<string, string>
 
 /**
  * Seeds the document, puts the caret after the first occurrence of `caret` (at the document's
- * first text position without one), pastes the clipboard and returns the document.
+ * first text position without one), or selects the `select` characters before it, pastes the
+ * clipboard and returns the document.
  */
-async function paste(page: Page, seed: string, clipboard: { html?: string; text?: string }, caret?: string): Promise<Pasted> {
-  await page.evaluate(({ seed, clipboard, caret }) => {
+async function paste(page: Page, seed: string, clipboard: { html?: string; text?: string }, caret?: string, select = 0): Promise<Pasted> {
+  await page.evaluate(({ seed, clipboard, caret, select }) => {
     const probe = (window as unknown as ProbeWindow).__pasteCleanup;
     const { editor } = probe;
     if (!editor.setContent(seed, false)) throw new Error('Could not seed the editor');
@@ -52,7 +53,7 @@ async function paste(page: Page, seed: string, clipboard: { html?: string; text?
       }
       return true;
     });
-    probe.select(pos);
+    probe.select(pos - select, pos);
     probe.clearObservations();
     const data = new DataTransfer();
     if (clipboard.html !== undefined) data.setData('text/html', clipboard.html);
@@ -61,7 +62,7 @@ async function paste(page: Page, seed: string, clipboard: { html?: string; text?
     if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
     editor.view.dom.dispatchEvent(event);
     if (!event.defaultPrevented) throw new Error('The editor did not handle the paste');
-  }, { seed, clipboard, caret });
+  }, { seed, clipboard, caret, select });
   return page.evaluate(() => {
     const probe = (window as unknown as ProbeWindow).__pasteCleanup;
     let valid = true;
@@ -202,6 +203,18 @@ for (const framework of FRAMEWORKS) {
     await expect.poll(() => page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.map(operation => operation.status))).toEqual(['applied']);
     expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.getHTML()))
       .toMatch(/^<p[^>]*>before<\/p><p[^>]*><a href="https:\/\/example\.com\/page"[^>]*>https:\/\/example\.com\/page<\/a><\/p><p[^>]*>after<\/p>$/);
+  });
+
+  test(`${framework} keeps selected text that a link to the pasted address already marks`, async ({ page }) => {
+    for (const cleanup of ['on', 'off']) {
+      await open(page, framework, cleanup === 'on' ? {} : { 'paste-cleanup': 'off' });
+      // All of the link's text, then part of it.
+      for (const [caret, select] of [['this', 4], ['thi', 2]] as const) {
+        const pasted = await paste(page, '<p>read <a href="https://example.com/page">this</a> now</p>', { text: 'https://example.com/page' }, caret, select);
+        expect(pasted.doc, `PasteCleanup ${cleanup}, ${caret}`).toBe('doc(paragraph("read ", link("this"), " now"))');
+        if (cleanup === 'on') expect(pasted.status, caret).toEqual(['noop']);
+      }
+    }
   });
 }
 

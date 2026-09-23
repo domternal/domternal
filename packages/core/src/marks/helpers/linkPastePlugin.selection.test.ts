@@ -37,6 +37,26 @@ describe('linkPastePlugin over a selection nothing in which takes a link', () =>
     expect(editor.getHTML()).toBe(`<p>read <a href="${URL}">this</a></p>`);
   });
 
+  it('keeps selected text that a link to the pasted address already marks', () => {
+    for (const [html, from, to] of [
+      [`<p>read <a href="${URL}">this</a> now</p>`, 6, 10],
+      [`<p>read <a href="${URL}">this</a> now</p>`, 7, 9],
+      [`<p><a href="${URL}">read this now</a></p>`, 6, 10],
+    ] as const) {
+      const editor = mount(html);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from, to)));
+      expect(pasteClipboard(editor.view, { text: URL }).defaultPrevented, `${html} ${String(from)}`).toBe(true);
+      expect(editor.getHTML(), `${html} ${String(from)}`).toBe(html);
+    }
+  });
+
+  it('links selected text that a link to another address marks to the pasted one, keeping its words', () => {
+    const editor = mount('<p>read <a href="https://example.com/old">this</a> now</p>');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 6, 10)));
+    pasteClipboard(editor.view, { text: URL });
+    expect(editor.getHTML()).toBe(`<p>read <a href="${URL}">this</a> now</p>`);
+  });
+
   it('puts the address as plain text over a selection in a code block, which takes no link', () => {
     const editor = mount('<pre><code>const a = 1;</code></pre>');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7, 8)));
