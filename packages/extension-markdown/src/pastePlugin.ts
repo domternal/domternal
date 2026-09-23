@@ -150,6 +150,16 @@ function blocksAfter(doc: PMNode, type: NodeType): Fragment {
   return Fragment.fromArray(blocks);
 }
 
+/** Whether a parsed document holds text or a leaf node, such as a rule or an image. */
+function showsSomething(doc: PMNode): boolean {
+  let found = false;
+  doc.descendants(node => {
+    if (node.isText ? node.text !== '' : node.isLeaf) found = true;
+    return !found;
+  });
+  return found;
+}
+
 export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
   return new Plugin({
     key: markdownPastePluginKey,
@@ -173,6 +183,9 @@ export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
           // never escape the paste event handler.
           return false;
         }
+        // Markdown that parses to nothing visible, such as a rule or a fence opener the schema
+        // has no node for, or an empty heading, pastes as the text it was instead of nothing.
+        if (!showsSomething(doc)) return false;
         const first = doc.content.firstChild;
         const single = doc.content.childCount === 1 && first !== null;
         // One paragraph gives its text, as anywhere.
@@ -181,15 +194,15 @@ export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
         let tr: Transaction | undefined;
         // A textblock blocks cannot leave, inside a parent that takes no block beside it, such as a
         // details summary, takes text only: blocks pasted there split its parent. One line there
-        // gives its text if it parses as a textblock, as a heading, and pastes as the text it was
-        // otherwise. Several lines go where the textblock's node places pasted blocks, as Details
-        // puts them in its content, or paste as the text they were.
+        // gives its text if it parses as a textblock other than code, as a heading, and pastes as
+        // the text it was otherwise. Several lines go where the textblock's node places pasted
+        // blocks, as Details puts them in its content, or paste as the text they were.
         const { $from } = view.state.selection;
         const textOnly = $from.parent.isTextblock && $from.parent.type.spec.isolating === true && $from.depth > 0
           && !$from.node(-1).canReplace($from.index(-1) + 1, $from.index(-1) + 1, blocksAfter(doc, $from.parent.type));
         if (textOnly && !paragraph) {
           if (!/[\n\r]/.test(text.trim())) {
-            if (!single || !first.isTextblock) return false;
+            if (!single || !first.isTextblock || first.type.spec.code === true) return false;
             slice = new Slice(first.content, 0, 0);
           } else {
             tr = placeClipboardPaste(view, doc.content);

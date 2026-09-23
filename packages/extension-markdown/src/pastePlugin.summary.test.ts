@@ -42,6 +42,10 @@ describe('Markdown pasted into a details summary', () => {
     expect(pasteIntoSummary('> quoted')).toBe(summary('"Title> quoted"'));
   });
 
+  it('pastes one line that parses to an empty block or a code block as the text it was', () => {
+    for (const text of ['```js', '# ', '    **x**']) expect(pasteIntoSummary(text), text).toBe(summary(JSON.stringify(`Title${text}`)));
+  });
+
   it('puts several lines in the content, as the blocks Markdown parses', () => {
     expect(pasteIntoSummary('# Head\n\n- one')).toBe(
       'doc(details(detailsSummary("Title"), detailsContent(heading("Head"), bulletList(listItem(paragraph("one"))), paragraph("body"))))');

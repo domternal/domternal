@@ -397,6 +397,11 @@ for (const framework of FRAMEWORKS) {
       .toMatchObject({ doc: 'doc(details(detailsSummary("Title- item"), detailsContent(paragraph("body"))))', valid: true });
     expect(await paste(page, SUMMARY, { text: '# Head' }, 'Title'))
       .toMatchObject({ doc: 'doc(details(detailsSummary("TitleHead"), detailsContent(paragraph("body"))))', valid: true });
+    // A line that parses to an empty block or a code block pastes as the text it was.
+    for (const text of ['```js', '# ']) {
+      expect(await paste(page, SUMMARY, { text }, 'Title'), text)
+        .toMatchObject({ doc: `doc(details(detailsSummary("Title${text}"), detailsContent(paragraph("body"))))`, valid: true });
+    }
     expect(await paste(page, SUMMARY, { text: '# Head\n\n- one' }, 'Title'))
       .toMatchObject({ doc: IN_CONTENT('heading("Head"), bulletList(listItem(paragraph("one")))'), valid: true });
     await expect(page.locator('.ProseMirror [data-type="details"]')).toHaveClass(/is-open/);
