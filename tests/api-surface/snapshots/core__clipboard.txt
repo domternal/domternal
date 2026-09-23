@@ -6,6 +6,7 @@ ClipboardImageDestinationPolicy @experimental
 ClipboardImageFileInserter @experimental
 ClipboardImageFileInsertion @experimental
 ClipboardPasteBehavior @experimental
+ClipboardPastePlacement @experimental
 ClipboardPasteTextOptions @experimental
 dropClipboardImageFiles @experimental
 getClipboardImageDestination @experimental
@@ -13,7 +14,9 @@ getClipboardPasteAttemptEvent @experimental
 getClipboardPasteBehavior @experimental
 pasteClipboardImageFiles @experimental
 pasteHasOwnText @experimental
+placeClipboardPaste @experimental
 registerClipboardCopyAnnotation @experimental
 registerClipboardHTMLPreparation @experimental
 registerClipboardImageDestination @experimental
+registerClipboardPastePlacement @experimental
 setClipboardPasteBehavior @experimental

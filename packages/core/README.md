@@ -249,6 +249,16 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   extension priority, and plugin views recreated by a reconfiguration register again above any
   registration made directly. When the latest policy reader throws or returns `undefined`, the
   view has no destination; an earlier registration is not a fallback.
+- Paste placements are a stack too, asked from the latest registration down. A node whose
+  textblock takes text only, inside a parent that takes no block beside it, can register one
+  with `registerClipboardPastePlacement(view, place)` to say where content pasted into that
+  textblock goes. A paste handler that builds its own transaction starts it from
+  `placeClipboardPaste(view, content)`, with the whole nodes it will insert: the transaction of
+  the first placement that moves the paste, whose selection is where the content belongs, or
+  `undefined` to insert at the selection. The placement is then part of the paste's one
+  transaction, so a paste that a transaction filter refuses leaves nothing behind, and undo takes
+  it back in one step. A placement that throws, or returns a transaction that does not start from
+  the view's current state, counts as none.
 - One rule decides when a paste's image files are the paste. `pasteHasOwnText(event, slice)`
   says whether the pasted content has text of its own: characters that show nothing (white space,
   a no-break space and Unicode format characters such as zero-width spaces and joiners or the

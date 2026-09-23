@@ -9,7 +9,7 @@
 // registration throws. A document import feature must not claim these slots on its own.
 // Image destinations are a latest-wins stack instead: the latest active registration
 // applies, disposing it restores the one before, and disposing an earlier one leaves the
-// latest in place.
+// latest in place. Paste placements are a stack too, asked from the latest down.
 export {
   setClipboardPasteBehavior,
   getClipboardPasteBehavior,
@@ -29,6 +29,11 @@ export {
   type ClipboardImageFileInsertion,
   type ClipboardPasteTextOptions,
 } from './helpers/clipboardImageFiles.js';
+export {
+  registerClipboardPastePlacement,
+  placeClipboardPaste,
+  type ClipboardPastePlacement,
+} from './helpers/clipboardPastePlacement.js';
 export { registerClipboardCopyAnnotation } from './helpers/clipboardCopyAnnotation.js';
 export {
   registerClipboardHTMLPreparation,
