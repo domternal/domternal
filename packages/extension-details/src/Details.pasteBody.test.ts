@@ -1,11 +1,12 @@
 /**
  * A copy of blocks from inside a details body, without its summary, records the details as the
  * slice's context, and the paste rebuilt it around the blocks: a collapsed details with an empty
- * summary, which hid them. The paste now drops that wrapper, so the blocks paste as blocks. A copy
- * that holds the summary keeps its details.
+ * summary, which hid them. The paste now drops that wrapper, so the blocks paste as blocks, also
+ * when the details sits in a list item or quote the copy recorded too. A copy that holds the
+ * summary keeps its details.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { Document, Editor, Paragraph, Text } from '@domternal/core';
+import { Blockquote, BulletList, Document, Editor, ListItem, Paragraph, Text } from '@domternal/core';
 import type { AnyExtension } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { copySelection, describeSlice, pasteClipboard, pastedSlice } from '@domternal/tests-clipboard-slices';
@@ -17,7 +18,7 @@ const editors: Editor[] = [];
 afterEach(() => { for (const editor of editors.splice(0)) editor.destroy(); });
 
 function mount(content: string, extra: AnyExtension[] = []): Editor {
-  const editor = new Editor({ content, extensions: [Document, Paragraph, Text, Details, DetailsSummary, DetailsContent, ...extra] });
+  const editor = new Editor({ content, extensions: [Document, Paragraph, Text, BulletList, ListItem, Blockquote, Details, DetailsSummary, DetailsContent, ...extra] });
   editors.push(editor);
   return editor;
 }
@@ -74,6 +75,23 @@ describe('pasting blocks copied from a details body', () => {
     pasteClipboard(target.view, copy(source, 'one', 'two'));
     expect(target.state.doc.toString()).toBe('doc(paragraph("one"), paragraph("two"))');
   });
+
+  for (const [name, html, doc] of [
+    ['a list item', '<ul><li><p>item</p><details><summary>Sum</summary><div data-details-content><p>one</p><p>two</p></div></details></li></ul>',
+      'doc(paragraph("x"), bulletList(listItem(paragraph("one"), paragraph("two"))))'],
+    ['a quote', '<blockquote><details><summary>Sum</summary><div data-details-content><p>one</p><p>two</p></div></details></blockquote>',
+      'doc(paragraph("x"), blockquote(paragraph("one"), paragraph("two")))'],
+  ] as const) {
+    it(`unwraps a details body copied from a details in ${name}, which the copy also recorded`, () => {
+      for (const extra of [[], [SmartPaste], [PasteCleanup], [SmartPaste, PasteCleanup]] as AnyExtension[][]) {
+        const copied = copy(mount(html, extra), 'one', 'two');
+        const target = mount('<p>x</p><p></p>', extra);
+        target.view.dispatch(target.state.tr.setSelection(TextSelection.create(target.state.doc, 4)));
+        pasteClipboard(target.view, copied);
+        expect(target.state.doc.toString(), String(extra.length)).toBe(doc);
+      }
+    });
+  }
 
   it('keeps the details of a copy that holds its summary', () => {
     const source = mount(SOURCE);

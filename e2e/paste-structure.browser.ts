@@ -309,6 +309,24 @@ for (const framework of FRAMEWORKS) {
   });
 }
 
+for (const framework of FRAMEWORKS) {
+  test(`${framework} pastes blocks copied from the body of a details in a list item as blocks in a list item`, async ({ page }) => {
+    for (const cleanup of ['on', 'off']) {
+      await open(page, framework, { details: '1', ...(cleanup === 'on' ? {} : { 'paste-cleanup': 'off' }) });
+      await copyAndPaste(page, '<ul><li><p>item</p><details><summary>Sum</summary><div data-details-content><p>one</p><p>two</p></div></details></li></ul><p></p>',
+        'one', 'two', '');
+      await expect.poll(() => page.evaluate(() => {
+        const found: string[] = [];
+        (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.descendants(node => {
+          if (node.type.name === 'listItem' || node.type.name === 'details') found.push(`${node.type.name}: ${node.textContent}`);
+        });
+        return found;
+      }), `PasteCleanup ${cleanup}`).toEqual(['listItem: itemSumonetwo', 'details: Sumonetwo', 'listItem: onetwo']);
+      await expect(page.locator('.ProseMirror li', { hasText: 'onetwo' }).last(), `PasteCleanup ${cleanup}`).toBeVisible();
+    }
+  });
+}
+
 // Unit tests: packages/extension-details/src/Details.pasteSummary.test.ts.
 const SUMMARY = '<details><summary>Title</summary><div data-details-content><p>body</p></div></details>';
 const IN_CONTENT = (blocks: string): string => `doc(details(detailsSummary("Title"), detailsContent(${blocks}, paragraph("body"))))`;
