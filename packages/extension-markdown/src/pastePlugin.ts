@@ -159,8 +159,15 @@ export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
           return false;
         }
         const first = doc.content.firstChild;
+        const single = doc.content.childCount === 1 && first !== null;
+        // A textblock blocks cannot leave, such as a details summary, takes text only: blocks
+        // pasted there split its parent. One textblock gives its text, as one paragraph does
+        // anywhere, and anything else pastes as the text it was.
+        const { parent } = view.state.selection.$from;
+        const textOnly = parent.isTextblock && parent.type.spec.isolating === true;
+        if (textOnly && !(single && first.isTextblock)) return false;
         const slice =
-          doc.content.childCount === 1 && first !== null && first.type.name === 'paragraph'
+          single && (first.type.name === 'paragraph' || textOnly)
             ? new Slice(first.content, 0, 0)
             : new Slice(doc.content, 0, 0);
         view.dispatch(

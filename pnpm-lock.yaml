@@ -785,6 +785,9 @@ importers:
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
+      '@domternal/tests-clipboard-slices':
+        specifier: workspace:*
+        version: link:../../tests/clipboard-slices
       '@types/markdown-it':
         specifier: ^14.1.2
         version: 14.1.2

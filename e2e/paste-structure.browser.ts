@@ -269,3 +269,17 @@ for (const framework of FRAMEWORKS) {
     }
   });
 }
+
+// Unit tests: packages/extension-markdown/src/pastePlugin.summary.test.ts.
+for (const framework of FRAMEWORKS) {
+  test(`${framework} pastes Markdown into a details summary as text, and Markdown lines into its content`, async ({ page }) => {
+    await open(page, framework, { details: '1' });
+    expect(await paste(page, SUMMARY, { text: '- item' }, 'Title'))
+      .toMatchObject({ doc: 'doc(details(detailsSummary("Title- item"), detailsContent(paragraph("body"))))', valid: true });
+    expect(await paste(page, SUMMARY, { text: '# Head' }, 'Title'))
+      .toMatchObject({ doc: 'doc(details(detailsSummary("TitleHead"), detailsContent(paragraph("body"))))', valid: true });
+    expect(await paste(page, SUMMARY, { text: '# Head\n\n- one' }, 'Title'))
+      .toMatchObject({ doc: IN_CONTENT('heading("Head"), bulletList(listItem(paragraph("one")))'), valid: true });
+    await expect(page.locator('.ProseMirror [data-type="details"]')).toHaveClass(/is-open/);
+  });
+}
