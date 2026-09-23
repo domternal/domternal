@@ -97,8 +97,11 @@ values must be trusted application constants, never user-supplied content.
 - **`SmartPaste`** - keeps block-level formatting intact when pasting at an inline cursor.
   It splits the caret's block, or its list item, only where both halves stay valid: a list
   pasted into the middle of a heading or code block inside a list item lands at the caret
-  inside the item, and a block pasted into a details summary goes through ProseMirror's own
-  paste, which keeps the summary whole. It inserts whole blocks, so a pasted slice that
+  inside the item. A paste into a textblock its blocks cannot leave, such as a details
+  summary, whose parent takes no block beside it, is left to the textblock's owner or to
+  ProseMirror's own paste, so the parent is not split in two: Details puts the blocks at the
+  start of its content, which opens, and ProseMirror joins the text of one paragraph or
+  heading to the summary. It inserts whole blocks, so a pasted slice that
   starts or ends inside a block first gets what its schema requires there: a list whose
   first item starts with a nested list, as a browser copies a selection that starts inside
   a nested item, keeps its nesting under an empty first item, and an empty item or quote

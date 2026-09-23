@@ -111,6 +111,16 @@ function handleSmartPaste(view: EditorView, event: ClipboardEvent, pasted: Slice
     && LIST_ITEM_TYPES.has($pos.node($pos.depth - 1).type.name)
     && $pos.index($pos.depth - 1) === 0;
 
+  // A textblock its blocks cannot leave, such as a details summary, can sit in a parent that takes
+  // no block beside it, where the insertions below would split that parent in two. Such a paste
+  // goes to the textblock's owner, as Details puts it in its content, or to ProseMirror's paste.
+  if (parent.type.spec.isolating === true && $pos.depth > 0) {
+    const container = $pos.node($pos.depth - 1);
+    const index = $pos.index($pos.depth - 1);
+    const at = offset === 0 && parentSize > 0 ? index : index + 1;
+    if (!container.canReplace(parentSize === 0 ? index : at, at, slice.content)) return false;
+  }
+
   if (hasTrailingHardBreakAtCursor(parent, offset, parentSize)) {
     // Shift+Enter: trim the trailing hardBreak, insert the slice as a SIBLING
     // after the parent. Text before the break is preserved ("Existing<br>|"

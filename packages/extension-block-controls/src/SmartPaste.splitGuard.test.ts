@@ -135,6 +135,18 @@ describe('SmartPaste split guard', () => {
       expect(editor.state.doc.textContent).toContain('Item');
     });
 
+    // SmartPaste inserted the block beside the summary, where the box takes none, so the box split in
+    // two: the content went to a second box with an empty summary. It leaves such a paste to the
+    // summary's owner, which Details is for its summary, or to ProseMirror's own paste, which joins
+    // one block's text to the summary.
+    it.each([['start', '|'], ['end', 'Hello world'], ['middle', 'Hello ']])('leaves a heading pasted at the %s of the summary to ProseMirror, which joins its text', (name, before) => {
+      const editor = mount('<details><summary>Hello world</summary><div data-box><p>Body</p></div></details>', before === '|' ? '' : before);
+      if (before === '|') editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
+      paste(editor, '<h2>Item</h2>');
+      const summary = { start: 'ItemHello world', end: 'Hello worldItem', middle: 'Hello Itemworld' }[name];
+      expect(editor.state.doc.toString()).toBe(`doc(box(boxSummary("${String(summary)}"), boxContent(paragraph("Body"))))`);
+    });
+
     it.each([
       ['a heading', '<h2>Item</h2>'], ['a blockquote', '<blockquote><p>Item</p></blockquote>'], ['a code block', '<pre><code>Item</code></pre>'],
       ['blocks', '<p>Item</p><h2>Second</h2>'], ...Object.entries(LISTS).map(([kind, list]) => [`${kind} list`, list]),
