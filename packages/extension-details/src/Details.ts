@@ -14,6 +14,7 @@ import { setGapCursor } from './helpers/setGapCursor.js';
 import { unwrapCopiedBody } from './helpers/unwrapCopiedBody.js';
 import { DetailsSummary } from './DetailsSummary.js';
 import { DetailsContent } from './DetailsContent.js';
+import { DetailsPaste } from './DetailsPaste.js';
 import { detailsMessages } from './messages.js';
 
 // Monotonic source of unique ids so each toggle button can point aria-controls
@@ -248,7 +249,8 @@ export const Details = Node.create<DetailsOptions>({
   },
 
   addExtensions() {
-    return [DetailsSummary, DetailsContent];
+    // Blocks pasted into the summary go into the content, as Enter in the summary does.
+    return [DetailsSummary, DetailsContent, DetailsPaste.configure({ persist: this.options.persist, openClassName: this.options.openClassName })];
   },
 
   addCommands() {

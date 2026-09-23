@@ -93,6 +93,16 @@ Adding `Details` also registers a toolbar button and a slash-menu entry
 
 ## Copy and paste
 
+- A paste into the summary that brings blocks, such as several paragraphs, a
+  list, Markdown lines or an image file, goes where `Enter` in the summary puts
+  the cursor: a new block at the top of the content, which opens. The summary
+  keeps its text, and the paste lands as it would in an empty block, through
+  every other paste handler. Inline content and a single paragraph or heading
+  still join the summary's text. Before, the paste split the accordion in two
+  and moved the content into a second, collapsed one with an empty summary.
+  `Details` registers a `detailsPaste` extension for this, at priority 111, so
+  it runs ahead of Markdown's paste handling. Dropping blocks onto the summary
+  is not covered yet
 - Blocks copied from inside the content, without the summary, paste as those
   blocks. The copy records the accordion around them, and the paste used to
   rebuild it as a collapsed block with an empty summary, which hid what was

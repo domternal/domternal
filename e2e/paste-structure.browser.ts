@@ -248,3 +248,24 @@ for (const framework of FRAMEWORKS) {
     }
   });
 }
+
+// Unit tests: packages/extension-details/src/Details.pasteSummary.test.ts.
+const SUMMARY = '<details><summary>Title</summary><div data-details-content><p>body</p></div></details>';
+const IN_CONTENT = (blocks: string): string => `doc(details(detailsSummary("Title"), detailsContent(${blocks}, paragraph("body"))))`;
+for (const framework of FRAMEWORKS) {
+  test(`${framework} keeps a details summary whole and puts blocks pasted into it at the start of the opened content`, async ({ page }) => {
+    for (const query of [{}, { 'paste-cleanup': 'off' }, { 'smart-paste': 'off' }] as Record<string, string>[]) {
+      await open(page, framework, { details: '1', ...query });
+      for (const caret of ['Title', 'Ti']) {
+        const label = `${JSON.stringify(query)} after ${caret}`;
+        expect(await paste(page, SUMMARY, { html: '<p>a</p><ul><li>l1</li><li>l2</li></ul>', text: 'a\nl1\nl2' }, caret), label)
+          .toMatchObject({ doc: IN_CONTENT('paragraph("a"), bulletList(listItem(paragraph("l1")), listItem(paragraph("l2")))'), valid: true });
+        await expect(page.locator('.ProseMirror [data-type="details"]'), label).toHaveClass(/is-open/);
+        await expect(page.locator('.ProseMirror li', { hasText: 'l2' }), label).toBeVisible();
+      }
+      // Inline content still joins the summary's text.
+      expect(await paste(page, SUMMARY, { html: '<p>add</p>', text: 'add' }, 'Title'), JSON.stringify(query))
+        .toMatchObject({ doc: 'doc(details(detailsSummary("Titleadd"), detailsContent(paragraph("body"))))', valid: true });
+    }
+  });
+}
