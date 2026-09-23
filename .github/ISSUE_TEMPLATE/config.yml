@@ -1,14 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Documentation
-    url: https://domternal.dev/v1/introduction
-    about: Guides, extension docs, and API reference.
-  - name: Live examples
-    url: https://domternal.dev/examples
-    about: Try Domternal in the browser and open framework starters on StackBlitz.
-  - name: Report a security vulnerability privately
-    url: https://github.com/domternal/domternal/security/policy
-    about: Use the private security policy instead of a public issue.
   - name: Domternal Pro support
     url: https://domternal.dev/v1/pro/support/
     about: Email support for subscribers and help involving private customer data.
