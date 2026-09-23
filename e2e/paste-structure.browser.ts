@@ -283,3 +283,25 @@ for (const framework of FRAMEWORKS) {
     await expect(page.locator('.ProseMirror [data-type="details"]')).toHaveClass(/is-open/);
   });
 }
+
+// Unit tests: packages/extension-paste-cleanup/src/html/listItemLabels.test.ts and src/PasteCleanup.listItemLabels.test.ts.
+const NESTED = (kind: string, inner: string, later: string): string =>
+  `${kind}(listItem(paragraph, ${kind}(listItem(paragraph("${inner}")))), listItem(paragraph("${later}")))`;
+const LABELS: Record<string, { html: string; doc: string }> = {
+  'after a paragraph': { html: '<p>p</p><ul><li><ul><li>a</li></ul></li><li>b</li></ul>', doc: `doc(paragraph("p"), ${NESTED('bulletList', 'a', 'b')})` },
+  'numbered, after a paragraph': { html: '<p>p</p><ol><li><ol><li>a</li></ol></li><li>b</li></ol>', doc: `doc(paragraph("p"), ${NESTED('orderedList', 'a', 'b')})` },
+  'in a later item': {
+    html: '<ul><li>a</li><li><ul><li>b</li></ul></li></ul>', doc: 'doc(bulletList(listItem(paragraph("a")), listItem(paragraph, bulletList(listItem(paragraph("b"))))))',
+  },
+};
+for (const framework of FRAMEWORKS) {
+  test(`${framework} keeps a nested list that starts a list item in its item with PasteCleanup`, async ({ page }) => {
+    for (const query of [{}, { 'smart-paste': 'off' }] as Record<string, string>[]) {
+      await open(page, framework, query);
+      for (const [name, { html, doc }] of Object.entries(LABELS)) {
+        expect(await paste(page, '<p></p>', { html, text: 'fallback' }), `${name} ${JSON.stringify(query)}`)
+          .toEqual({ doc, valid: true, status: ['applied'] });
+      }
+    }
+  });
+}

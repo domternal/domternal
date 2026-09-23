@@ -110,7 +110,9 @@ values must be trusted application constants, never user-supplied content.
   only: over the whole document (`Mod-A`) or a node selection, and in an editor without
   SmartPaste, ProseMirror's own paste fits such a list instead. The nested list then loses
   its depth and its first item can join the paragraph at the caret, the items after it
-  form a separate list, and a quote around the list is dropped. No text is lost.
+  form a separate list, and a quote around the list is dropped. No text is lost. With
+  PasteCleanup, HTML from outside the editor gives such an item an empty label paragraph
+  first, which keeps the nesting there too, except in a paragraph with text.
 - **`KeyboardReorder`** - `Mod-Shift-ArrowUp` / `Mod-Shift-ArrowDown` move the current
   top-level block.
 - **`FloatingMenu`** - the empty-line insert menu; `requireExplicitTrigger` gates it

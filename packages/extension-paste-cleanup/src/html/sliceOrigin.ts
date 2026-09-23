@@ -24,7 +24,8 @@ function ignorable(node: RootContent): boolean {
   return envelopeTags.has(node.tagName);
 }
 
-function firstElement(parent: Root | Element): Element | undefined {
+/** The first child of `parent` ProseMirror's clipboard parser reads, when it is an element. */
+export function firstElement(parent: Root | Element): Element | undefined {
   for (const child of parent.children) {
     if (ignorable(child)) continue;
     return child.type === 'element' ? child : undefined;

@@ -472,11 +472,22 @@ Google Docs selection that starts in a nested item is expected to write it, gets
 new first item that holds the nested list. ProseMirror's parse moves a nested list
 written after an item into that item, but one written first closes the outer list
 there, and the items after it would paste as a separate list, a bulleted one even
-when the outer list was numbered. SmartPaste then keeps the nested list under an
-empty first item. Where SmartPaste does not handle the paste, such as over the whole
-document, ProseMirror's own paste puts the nested list in a list of its own before
-the other items, which keep the outer list's kind. This shape is checked against
-authored HTML, not native captures; task lists are left as written.
+when the outer list was numbered. This shape is checked against authored HTML, not
+native captures; a task list that starts with a list is left as written.
+
+A list item whose content starts with a nested list, such as that new first item,
+an item after a paragraph, a later item or one in a details body, gets an empty
+paragraph first, the label a Domternal list or task item starts with. ProseMirror's
+parse cannot open such an item on its nested list: it closed the item empty, and the
+nested list and the later items pasted as lists of their own, bulleted even when the
+list was numbered. With the label the nested list stays in its item under an empty
+label, with or without SmartPaste, and also over the whole document. The first item
+of HTML with a `data-pm-slice` marker is left as written, since the marker's open
+depths count its levels, and Domternal's own copies paste as written. Into a
+paragraph with text, ProseMirror's own paste still puts the nested list in a list of
+its own before the other items, which keep the outer list's kind, and over the whole
+document it can drop a quote around the list. Without PasteCleanup such an item
+still pastes as an empty item and separate lists.
 
 Reconstructed Office lists use an explicit marker class at every depth, and a
 change of marker class creates a separate list. The schema probes must confirm

@@ -12,11 +12,11 @@ const cleanItem = (text: string): string => `<li dir="ltr"><p dir="ltr"><span><s
 
 describe('a list whose content starts with a list', () => {
   it.each([
-    ['one leading list', '<ul><ul><li>a</li></ul><li>b</li></ul>', '<ul><li><ul><li>a</li></ul></li><li>b</li></ul>'],
-    ['only a list', '<ol><ol><li>a</li></ol></ol>', '<ol><li><ol><li>a</li></ol></li></ol>'],
+    ['one leading list', '<ul><ul><li>a</li></ul><li>b</li></ul>', '<ul><li><p></p><ul><li>a</li></ul></li><li>b</li></ul>'],
+    ['only a list', '<ol><ol><li>a</li></ol></ol>', '<ol><li><p></p><ol><li>a</li></ol></li></ol>'],
     ['two leading lists and the white space between them', '<ul> <ul><li>a</li></ul> <ol><li>c</li></ol><li>b</li></ul>',
-      '<ul><li> <ul><li>a</li></ul> <ol><li>c</li></ol></li><li>b</li></ul>'],
-  ])('puts %s in a new first item', (_name, html, expected) => {
+      '<ul><li><p></p> <ul><li>a</li></ul> <ol><li>c</li></ol></li><li>b</li></ul>'],
+  ])('puts %s in a new first item, whose label is an empty paragraph', (_name, html, expected) => {
     const result = normalizePasteHTML(html);
     expect(result.html).toBe(expected);
     expect(result.diagnostics).toEqual([]);
@@ -24,7 +24,7 @@ describe('a list whose content starts with a list', () => {
 
   it('keeps a numbered Google Docs list one numbered list after moving the item markers to the lists', () => {
     const result = normalizePasteHTML(google(`<ol><ol>${item('lower-alpha', 2, 'a')}</ol>${item('decimal', 1, 'b')}</ol>`));
-    expect(result.html).toBe(`<span id="${GUID}"><ol style="list-style-type:decimal"><li><ol style="list-style-type:lower-alpha">`
+    expect(result.html).toBe(`<span id="${GUID}"><ol style="list-style-type:decimal"><li><p></p><ol style="list-style-type:lower-alpha">`
       + `${cleanItem('a')}</ol></li>${cleanItem('b')}</ol></span>`);
     expect(result.diagnostics).toEqual([]);
   });

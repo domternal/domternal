@@ -7,8 +7,9 @@ const LISTS = new Set(['ul', 'ol']);
  * Google Docs selection that starts in a nested item is expected to write the nested list directly in
  * its parent list (authored HTML, not a native capture). ProseMirror's parse moves a list written
  * after an item into that item, but one written first closes the parent list: the items after it then
- * land in a list of their own, a bullet list even when the parent was numbered. In an item the nested
- * list stays in its parent, which SmartPaste pastes with the nested list under an empty first item.
+ * land in a list of their own, a bullet list even when the parent was numbered. In an item, which
+ * labelListItems then gives an empty paragraph first, the nested list stays in its parent list under
+ * an empty first item.
  */
 export function nestLeadingLists(tree: Root): void {
   const pending: (Root | Element)[] = [tree];
