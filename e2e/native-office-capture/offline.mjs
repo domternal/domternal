@@ -5,12 +5,21 @@ import { open, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { crc32, inflateRawSync } from 'node:zlib';
 import { HARD_LIMITS, TEXT_FORMATS } from './capture.mjs';
+import { blocksFromHTML, compareBlocks } from './semantics.mjs';
 
 const MAX_SOURCE_BYTES = 16 * 1024 * 1024;
 const MAX_MANIFEST_BYTES = 128 * 1024;
 const MAX_EXPECTED_UNITS = 32 * 1024;
 const HASH = /^[a-f0-9]{64}$/u;
+// A redaction replaces a span by this token, padded with hyphens to the span's length. The token is reserved:
+// a capture of a version 2 manifest may hold it only inside a declared replacement.
+export const REDACTION_TOKEN = 'redacted';
+const PACKAGE_LIMITS = Object.freeze({ entries: 256, partBytes: 16 * 1024 * 1024, totalBytes: 64 * 1024 * 1024, nameLength: 256 });
+const PART_ELEMENT = /^[A-Za-z][A-Za-z0-9]{0,31}:[A-Za-z][A-Za-z0-9]{0,63}$/u;
+const SEMANTIC_BLOCK_TYPES = new Set(['heading', 'paragraph', 'listItem', 'literalItem', 'tableCell', 'empty', 'alphabet', 'image', 'imageRun', 'textOnly']);
+const NOTICES = new Set(['quiet', 'visible']);
 const stored = new WeakMap();
 const cleanupRequire = createRequire(new URL('../../packages/extension-paste-cleanup/package.json', import.meta.url));
 const normalize = value => value.toLowerCase();
@@ -222,6 +231,275 @@ export function replayCaptureEvidence(handle, expected) {
     editorInsertionVerified: false, imageAssociationVerified: false, fixtureId: state.report.fixtureId, outcomes });
 }
 
+/** The distinct codes of the findings that can show the notice, sorted: warnings and errors, never infos. */
+export function noticeCodes(diagnostics) {
+  return [...new Set(diagnostics.filter(item => item.severity !== 'info').map(item => item.code))].sort();
+}
+function sortedCodes(value) {
+  list(value, 32);
+  for (const code of value) text(code, 64);
+  if (JSON.stringify(value) !== JSON.stringify([...new Set(value)].sort())) fail('evidence-schema');
+  return value;
+}
+
+/**
+ * Check a reviewed semantic oracle: the blocks a content specification authors for one selection and,
+ * for each policy, the replay's status, source and notice codes, plus the notice and codes the fixture
+ * editor is expected to show. Nothing in it is normalizer output.
+ */
+export function readSemanticExpected(expected) {
+  if (!expected || typeof expected !== 'object' || Array.isArray(expected)) fail('evidence-schema');
+  const required = ['specification', 'scenario', 'blocks', 'preserve', 'adapt'];
+  const keys = Object.keys(expected);
+  if (required.some(key => !keys.includes(key)) || keys.some(key => !required.includes(key) && key !== 'partial')) fail('evidence-schema');
+  text(expected.specification, 64); text(expected.scenario, 128);
+  if (expected.partial !== undefined) {
+    shape(expected.partial, ['first', 'last']); text(expected.partial.first, 256); text(expected.partial.last, 256);
+  }
+  list(expected.blocks, 512);
+  if (expected.blocks.length === 0) fail('evidence-schema');
+  const ids = new Set();
+  for (const block of expected.blocks) {
+    if (!block || typeof block !== 'object' || Array.isArray(block) || typeof block.id !== 'string'
+      || !/^[A-Z][A-Za-z0-9]{0,15}$/u.test(block.id) || ids.has(block.id) || !SEMANTIC_BLOCK_TYPES.has(block.type)) fail('evidence-schema');
+    ids.add(block.id);
+  }
+  for (const formatting of ['preserve', 'adapt']) {
+    const oracle = shape(expected[formatting], ['status', 'source', 'warnings', 'editor']);
+    if (!['cleaned', 'rejected'].includes(oracle.status) || !['word', 'google-docs', 'libreoffice', 'html'].includes(oracle.source)) fail('evidence-schema');
+    sortedCodes(oracle.warnings);
+    const editor = shape(oracle.editor, ['notice', 'warnings']);
+    if (!NOTICES.has(editor.notice)) fail('evidence-schema');
+    sortedCodes(editor.warnings);
+  }
+  return expected;
+}
+
+/** The content specification a semantic oracle stands for: its blocks and one scenario that selects them in order. */
+export function semanticSpecification(expected) {
+  return {
+    documents: [{ blocks: expected.blocks }],
+    scenarios: [{ id: expected.scenario, blocks: expected.blocks.map(block => block.id),
+      ...(expected.partial === undefined ? {} : { partial: expected.partial }), outcome: { notice: 'observe' } }],
+  };
+}
+
+/** HTML-only replay against a reviewed semantic oracle: exact notice codes and the authored blocks, never exact HTML. */
+export function replaySemanticEvidence(handle, expected) {
+  const state = stored.get(handle);
+  if (!state) fail('evidence-handle');
+  if (typeof state.html !== 'string') fail('evidence-no-html');
+  readSemanticExpected(expected);
+  const specification = semanticSpecification(expected);
+  const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
+  const outcomes = [];
+  for (const formatting of ['preserve', 'adapt']) {
+    const oracle = expected[formatting];
+    const result = normalizePasteHTML(state.html, { formatting, allowRemoteImages: false, allowDataImages: true });
+    const warnings = noticeCodes(result.diagnostics);
+    if (result.status !== oracle.status || result.source !== oracle.source || JSON.stringify(warnings) !== JSON.stringify(oracle.warnings)) fail('evidence-replay-mismatch');
+    let problems;
+    try { problems = compareBlocks(specification, expected.scenario, blocksFromHTML(result.html), { formatting }); } catch { fail('evidence-schema'); }
+    if (problems.length > 0) fail('evidence-replay-mismatch');
+    outcomes.push({ formatting, status: result.status, source: result.source, htmlSha256: digest(result.html), htmlUnits: result.html.length,
+      warnings, diagnostics: result.diagnostics.length, diagnosticsTruncated: result.diagnosticsTruncated });
+  }
+  return freeze({ kind: 'offline-semantic-replay', qualification: false, nativeEvidenceAuthenticated: false,
+    editorInsertionVerified: false, imageAssociationVerified: false, fixtureId: state.report.fixtureId,
+    specification: expected.specification, scenario: expected.scenario, blocks: expected.blocks.length, outcomes });
+}
+
+/**
+ * The parts of a ZIP package, such as a Word document, read within fixed bounds: one disk, no ZIP64,
+ * no encryption, stored or deflated parts only, plain relative names, each part's size and CRC checked.
+ */
+export function readPackageParts(input) {
+  const view = Buffer.from(input.buffer, input.byteOffset, input.byteLength);
+  const u16 = at => { if (at < 0 || at + 2 > view.length) fail('evidence-package'); return view.readUInt16LE(at); };
+  const u32 = at => { if (at < 0 || at + 4 > view.length) fail('evidence-package'); return view.readUInt32LE(at); };
+  let end = -1;
+  for (let at = view.length - 22; at >= 0 && at >= view.length - 22 - 0xffff; at--) {
+    if (u32(at) === 0x06054b50 && at + 22 + u16(at + 20) === view.length) { end = at; break; }
+  }
+  if (end < 0) fail('evidence-package');
+  const count = u16(end + 10);
+  const directory = u32(end + 16);
+  if (u16(end + 4) !== 0 || u16(end + 6) !== 0 || u16(end + 8) !== count || count === 0 || count > PACKAGE_LIMITS.entries
+    || directory + u32(end + 12) !== end) fail('evidence-package');
+  const parts = new Map();
+  let total = 0;
+  let offset = directory;
+  try {
+    for (let index = 0; index < count; index++) {
+      if (u32(offset) !== 0x02014b50) fail('evidence-package');
+      const flags = u16(offset + 8); const method = u16(offset + 10); const crc = u32(offset + 16);
+      const compressed = u32(offset + 20); const size = u32(offset + 24);
+      const nameLength = u16(offset + 28); const extraLength = u16(offset + 30); const commentLength = u16(offset + 32);
+      const local = u32(offset + 42);
+      total += size;
+      if ((flags & 1) !== 0 || (method !== 0 && method !== 8) || nameLength === 0 || nameLength > PACKAGE_LIMITS.nameLength
+        || size > PACKAGE_LIMITS.partBytes || total > PACKAGE_LIMITS.totalBytes) fail('evidence-package');
+      const name = view.subarray(offset + 46, offset + 46 + nameLength).toString('latin1');
+      if (!/^[A-Za-z0-9[\]_.-]+(?:\/[A-Za-z0-9[\]_.-]+)*$/u.test(name) || name.split('/').some(part => part === '.' || part === '..') || parts.has(name)) fail('evidence-package');
+      offset += 46 + nameLength + extraLength + commentLength;
+      if (offset > end || u32(local) !== 0x04034b50) fail('evidence-package');
+      const start = local + 30 + u16(local + 26) + u16(local + 28);
+      if (start + compressed > directory) fail('evidence-package');
+      const data = view.subarray(start, start + compressed);
+      let content;
+      try { content = method === 0 ? Buffer.from(data) : inflateRawSync(data, { maxOutputLength: Math.max(size, 1) }); } catch { fail('evidence-package'); }
+      if (content.length !== size || crc32(content) !== crc) { content.fill(0); fail('evidence-package'); }
+      parts.set(name, content);
+    }
+    if (offset !== end) fail('evidence-package');
+  } catch (error) { for (const content of parts.values()) content.fill(0); throw error; }
+  return parts;
+}
+
+function partText(content) {
+  try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(content); } catch { fail('evidence-package'); }
+}
+const elementPattern = (element, flags) => new RegExp(`(<${element}(?:[\\t\\n\\r ][^<>]*)?>)[^<]*(</${element}>)`, flags);
+
+/** A part's text with the content of each named element removed, the form its redaction leaves. */
+export function maskedPart(content, elements) {
+  let value = partText(content);
+  for (const element of elements) value = value.replace(elementPattern(element, 'gu'), '$1$2');
+  return value;
+}
+/** Whether a part holds each named element, every occurrence of it empty. */
+function clearedPart(content, elements) {
+  const value = partText(content);
+  return elements.every(element => {
+    const opening = new RegExp(`<${element}(?=[\\t\\n\\r />])[^<>]*>`, 'gu');
+    let found = 0;
+    for (const match of value.matchAll(opening)) {
+      found++;
+      if (!match[0].endsWith('/>') && !value.startsWith(`</${element}>`, match.index + match[0].length)) return false;
+    }
+    return found > 0;
+  });
+}
+
+/** The capture with every declared replacement masked. It is equal for an original and its redaction when nothing else changed. */
+export function maskedCaptureDigest(bundle, replacements) {
+  const masked = structuredClone(bundle);
+  for (const { flavor, offset, length } of replacements) {
+    const value = masked.payload.text[flavor];
+    masked.payload.text[flavor] = `${value.slice(0, offset)}${'\u0000'.repeat(length)}${value.slice(offset + length)}`;
+  }
+  return digest(JSON.stringify(masked));
+}
+
+/** The reserved token of a replaced span of the given length. */
+export function redactionToken(length) {
+  return REDACTION_TOKEN.padEnd(length, '-');
+}
+
+/**
+ * Declared redactions of a version 2 manifest: at most one for the source document and one for the
+ * capture. Each records the original and redacted hashes, whether the original is retained, whether
+ * its fingerprints were taken from the original or from an already redacted copy, and what changed.
+ */
+export function readRedactions(value) {
+  list(value, 2);
+  const declared = {};
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) fail('evidence-schema');
+    if (entry.artifact === 'source') {
+      shape(entry, ['artifact', 'format', 'reason', 'originalSha256', 'redactedSha256', 'originalRetained', 'basis', 'clearedElements', 'parts']);
+      if (entry.format !== 'ooxml-package') fail('evidence-schema');
+      list(entry.clearedElements, 16);
+      if (entry.clearedElements.length === 0) fail('evidence-schema');
+      const named = new Set();
+      for (const cleared of entry.clearedElements) {
+        shape(cleared, ['part', 'elements']); text(cleared.part, PACKAGE_LIMITS.nameLength); list(cleared.elements, 16);
+        if (named.has(cleared.part) || cleared.elements.length === 0 || cleared.elements.some(element => typeof element !== 'string' || !PART_ELEMENT.test(element))) fail('evidence-schema');
+        named.add(cleared.part);
+      }
+      if (!entry.parts || typeof entry.parts !== 'object' || Array.isArray(entry.parts)) fail('evidence-schema');
+      integer(Object.keys(entry.parts).length, PACKAGE_LIMITS.entries, 1);
+      for (const part of Object.values(entry.parts)) hash(part);
+    } else if (entry.artifact === 'capture') {
+      shape(entry, ['artifact', 'format', 'reason', 'originalSha256', 'redactedSha256', 'originalRetained', 'basis', 'replacements', 'maskedSha256']);
+      if (entry.format !== 'capture-text') fail('evidence-schema');
+      list(entry.replacements, 64);
+      if (entry.replacements.length === 0) fail('evidence-schema');
+      for (const replacement of entry.replacements) {
+        shape(replacement, ['flavor', 'offset', 'length', 'token']);
+        if (!TEXT_FORMATS.includes(replacement.flavor)) fail('evidence-schema');
+        integer(replacement.offset, HARD_LIMITS.maxFormatBytes); integer(replacement.length, 512, REDACTION_TOKEN.length);
+        if (replacement.token !== redactionToken(replacement.length)) fail('evidence-schema');
+      }
+      hash(entry.maskedSha256);
+    } else fail('evidence-schema');
+    if (Object.hasOwn(declared, entry.artifact)) fail('evidence-schema');
+    text(entry.reason, 1024); hash(entry.originalSha256); hash(entry.redactedSha256);
+    if (typeof entry.originalRetained !== 'boolean' || !['original', 'redacted-copy'].includes(entry.basis)) fail('evidence-schema');
+    if (entry.originalSha256 === entry.redactedSha256) fail('evidence-redaction');
+    declared[entry.artifact] = entry;
+  }
+  return declared;
+}
+
+/** The committed package equals its original outside the cleared elements, which are empty. */
+export function verifyPackageRedaction(source, declaration) {
+  if (digest(source) !== declaration.redactedSha256) fail('evidence-redaction');
+  const parts = readPackageParts(source);
+  try {
+    const names = Object.keys(declaration.parts);
+    if (names.length !== parts.size || names.some(name => !parts.has(name))) fail('evidence-redaction');
+    const cleared = new Map(declaration.clearedElements.map(entry => [entry.part, entry.elements]));
+    for (const part of cleared.keys()) if (!parts.has(part)) fail('evidence-redaction');
+    for (const [name, content] of parts) {
+      const elements = cleared.get(name);
+      const fingerprint = elements === undefined ? digest(content) : digest(Buffer.from(maskedPart(content, elements), 'utf8'));
+      if (fingerprint !== declaration.parts[name] || (elements !== undefined && !clearedPart(content, elements))) fail('evidence-redaction');
+    }
+  } finally { for (const content of parts.values()) content.fill(0); }
+}
+
+/**
+ * The capture equals its original outside the declared replacements, each of which holds its token, and
+ * the reserved token appears nowhere else: a redaction without a declaration cannot pass as captured text.
+ */
+export function verifyCaptureRedaction(bundle, declaration) {
+  const flavors = bundle.payload.text;
+  const spans = new Map();
+  if (declaration !== undefined) {
+    let previous;
+    for (const replacement of declaration.replacements) {
+      const value = flavors[replacement.flavor];
+      const order = TEXT_FORMATS.indexOf(replacement.flavor);
+      if (typeof value !== 'string' || replacement.offset + replacement.length > value.length
+        || value.slice(replacement.offset, replacement.offset + replacement.length) !== replacement.token
+        || (previous !== undefined && (order < previous.order || (order === previous.order && replacement.offset < previous.end)))) fail('evidence-redaction');
+      previous = { order, end: replacement.offset + replacement.length };
+      spans.set(replacement.flavor, [...(spans.get(replacement.flavor) ?? []), [replacement.offset, previous.end]]);
+    }
+    if (maskedCaptureDigest(bundle, declaration.replacements) !== declaration.maskedSha256) fail('evidence-redaction');
+  }
+  for (const [flavor, value] of Object.entries(flavors)) {
+    for (let at = value.indexOf(REDACTION_TOKEN); at >= 0; at = value.indexOf(REDACTION_TOKEN, at + 1)) {
+      if (!(spans.get(flavor) ?? []).some(([start, stop]) => at >= start && at + REDACTION_TOKEN.length <= stop)) fail('evidence-redaction');
+    }
+  }
+  if (JSON.stringify({ ...bundle, payload: { ...bundle.payload, text: {} } }).includes(REDACTION_TOKEN)) fail('evidence-redaction');
+}
+
+function redactionSummary(declaration) {
+  return { artifact: declaration.artifact, basis: declaration.basis, originalRetained: declaration.originalRetained,
+    originalSha256: declaration.originalSha256, redactedSha256: declaration.redactedSha256, originalVerified: false,
+    changes: declaration.artifact === 'source' ? declaration.clearedElements.reduce((sum, entry) => sum + entry.elements.length, 0) : declaration.replacements.length };
+}
+
+/** Archived baseline references identify an authored variant, not a new native capture. */
+function readDerivation(value) {
+  shape(value, ['kind', 'sourceSha256', 'captureSha256', 'manifestSha256']);
+  if (value.kind !== 'english-text-variant') fail('evidence-provenance');
+  for (const field of ['sourceSha256', 'captureSha256', 'manifestSha256']) hash(value[field]);
+  return value;
+}
 function artifactPath(value) {
   text(value, 512);
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/u.test(value) || isAbsolute(value)
@@ -256,6 +534,34 @@ export async function verifyCaptureFixture(directory) {
     const root = await realpath(directory);
     manifestBytes = await readContained(root, 'manifest.json', MAX_MANIFEST_BYTES);
     const manifest = parseJSON(manifestBytes, MAX_MANIFEST_BYTES);
+    if (manifest?.schemaVersion === 2) {
+      // Historical compatibility for explicitly authored English variants; native claims keep their exact schema.
+      const synthetic = manifest.origin === 'synthetic';
+      shape(manifest, ['schemaVersion', 'id', 'origin', 'license', 'source', 'capture', 'redactions', 'expected',
+        ...(synthetic ? ['derivation'] : [])]);
+      if (!synthetic && manifest.origin !== 'claimed-native') fail('evidence-provenance');
+      const derivation = synthetic ? readDerivation(manifest.derivation) : undefined;
+      if (synthetic && (!Array.isArray(manifest.redactions) || manifest.redactions.length !== 0)) fail('evidence-provenance');
+      text(manifest.id); text(manifest.license);
+      shape(manifest.source, ['path', 'sha256']); shape(manifest.capture, ['path', 'sha256']);
+      hash(manifest.source.sha256); hash(manifest.capture.sha256);
+      const redactions = readRedactions(manifest.redactions);
+      readSemanticExpected(manifest.expected);
+      source = await readContained(root, manifest.source.path, MAX_SOURCE_BYTES);
+      if (digest(source) !== manifest.source.sha256) fail('evidence-checksum');
+      capture = await readContained(root, manifest.capture.path, HARD_LIMITS.maxJSONBytes);
+      if ((redactions.source !== undefined && redactions.source.redactedSha256 !== manifest.source.sha256)
+        || (redactions.capture !== undefined && redactions.capture.redactedSha256 !== manifest.capture.sha256)) fail('evidence-redaction');
+      // The bundle claims the document it was copied from: the original, when the committed one is its redaction.
+      const evidence = validateCaptureBytes(capture, { captureSha256: manifest.capture.sha256,
+        fixtureSha256: redactions.source?.originalSha256 ?? manifest.source.sha256, fixtureId: manifest.id, origin: manifest.origin });
+      handle = evidence.handle;
+      if (redactions.source !== undefined) verifyPackageRedaction(source, redactions.source);
+      verifyCaptureRedaction(parseJSON(capture, HARD_LIMITS.maxJSONBytes), redactions.capture);
+      const replay = replaySemanticEvidence(handle, manifest.expected);
+      return freeze({ integrity: { ...evidence.report, sourceSha256: manifest.source.sha256,
+        redactions: Object.values(redactions).map(redactionSummary), ...(derivation === undefined ? {} : { derivation }) }, replay });
+    }
     shape(manifest, ['schemaVersion', 'id', 'origin', 'license', 'source', 'capture', 'expected']);
     if (manifest.schemaVersion !== 1) fail('evidence-schema'); text(manifest.id); text(manifest.license);
     shape(manifest.source, ['path', 'sha256']); shape(manifest.capture, ['path', 'sha256']);

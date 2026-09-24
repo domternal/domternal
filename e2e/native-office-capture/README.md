@@ -131,10 +131,15 @@ would not be the user path this evidence is meant to show.
   result built from the specification for every scenario and both policies, and
   `--print <content.json>` lists the texts an operator enters.
 - [`prepare-fixture.mjs`](./prepare-fixture.mjs) checks a downloaded bundle's
-  integrity and writes a review skeleton: `manifest.json` with `expected: null`,
-  which `offline.mjs` refuses until a reviewer authors both expected outputs, and
-  `capture-summary.json` with the operator metadata and every text flavor's
-  length.
+  integrity and any declared redaction and writes a review skeleton: a version 2
+  `manifest.json` whose `expected` is `null`, or, with `--specification` and
+  `--scenario`, holds the blocks that scenario authors and empty outcomes, which
+  `offline.mjs` refuses until a reviewer authors both outcomes, and
+  `capture-summary.json` with the operator metadata, every text flavor's length
+  and the location of each redaction.
+- [`redact.mjs`](./redact.mjs) removes personal data from a bundle or a source
+  document before anything is committed and writes the declaration a manifest
+  carries; see [Declared redactions](#declared-redactions).
 
 ### Documents to create
 
@@ -185,13 +190,22 @@ web, Google Docs and LibreOffice rows stay pending in the
    `node e2e/native-office-capture/semantics.mjs e2e/native-office-capture/content/word-mac-v1.json word-default-bullets editor-preserve.json preserve`.
    Problems are findings to record, not a reason to edit the capture.
 6. Put `source.docx` and `capture.json` into
-   `e2e/native-office-capture/fixtures/<scenario>-<browser>/` and run
-   `node e2e/native-office-capture/prepare-fixture.mjs <that directory> --id <scenario>-<browser> --source source.docx`.
+   `e2e/native-office-capture/fixtures/<scenario>-<browser>/`. Scan both for
+   personal data (unzip the document; read every text flavor); remove what you
+   find with `redact.mjs` as [Declared redactions](#declared-redactions)
+   describes, never by hand. Then run
+   `node e2e/native-office-capture/prepare-fixture.mjs <that directory> --id <scenario>-<browser> --source source.docx --specification e2e/native-office-capture/content/word-mac-v1.json --scenario <scenario>`,
+   adding `--redactions redactions.json` when there are declarations.
 7. Review before committing: confirm the source contains no personal or hidden
-   data, author `expected.preserve` and `expected.adapt` from the content
-   specification and the reviewed editor results (never by copying normalizer
-   output), and run `node e2e/native-office-capture/offline.mjs` on the
-   directory. Keep unsupported and missing results as they are.
+   data, check that `expected.blocks` is what the content specification authors
+   for the selection, author the outcome of each policy (`expected.preserve` and
+   `expected.adapt`: the status, the source, the sorted warning and error codes
+   of the offline replay, and the notice and codes of the fixture editor) from
+   the specification and the reviewed editor results, never by copying
+   normalizer output, delete `redactions.json` once the manifest holds it, and
+   run `node e2e/native-office-capture/offline.mjs` on the directory. Keep
+   unsupported and missing results as they are: a difference from the
+   specification is a finding, not a reason to edit the oracle.
 
 ```sh
 node --test e2e/native-office-capture/preparation.test.mjs
@@ -202,6 +216,48 @@ generated images, the semantic checker on authored editor results, on HTML from
 the public normalizer and on the synthetic dry run of every scenario, the Google
 Docs dry run fixture, and the refusal of an unreviewed skeleton. They use
 authored inputs, not captures.
+
+### Declared redactions
+
+A capture or a source document can hold personal data that the synthetic text
+does not: Word writes the author's account in the document properties and, for
+a picture bullet, a local temporary path under the user's home folder into the
+clipboard HTML. Such data is removed before anything is committed, with
+[`redact.mjs`](./redact.mjs), and the removal is declared in the manifest, so
+the provenance chain stays checkable: the bundle claims the hash of the document
+it was copied from, which a redacted document cannot have.
+
+```sh
+# A capture: each occurrence of the text becomes the token "redacted", padded with hyphens to the same length.
+node e2e/native-office-capture/redact.mjs capture original.json capture.json --replace '<text>' --reason '<why>' --declarations redactions.json
+# A Word document: the named elements of a part are emptied; every other part keeps its content.
+node e2e/native-office-capture/redact.mjs package original.docx source.docx --clear docProps/core.xml=dc:creator,cp:lastModifiedBy --reason '<why>' --declarations redactions.json
+```
+
+- A replaced text is printable ASCII of at least eight characters; extend a
+  shorter one with its surroundings, for example an account name with the
+  home folder path before it, so no local path remains. Its byte length, the flavor's
+  length and the bundle's totals do not change, and the tool refuses a text
+  that also appears outside the text flavors.
+- Each declaration records the original and redacted SHA-256, whether the
+  original is retained, the reason, the replaced locations or cleared elements
+  (never the removed values) and fingerprints of everything the redaction left
+  unchanged: the capture with its replacements masked, and every part of the
+  package with its cleared elements emptied.
+- The fingerprints are taken from the original. When the original no longer
+  exists, run the same command on the redacted copy with
+  `--claimed-original <sha256>`: the declaration then has the basis
+  `redacted-copy`, its original hash is a recorded claim, and its fingerprints
+  hold the redacted copy from then on without proving what the original held.
+  A package whose elements are already empty keeps its bytes and hash.
+- `offline.mjs` verifies a version 2 manifest against its declarations: the
+  bundle's claim must equal the declared original hash of a redacted document
+  and the committed hash otherwise, the committed files must match their
+  redacted hashes and fingerprints, every replacement must hold its token, and
+  the token `redacted` may appear nowhere else in the bundle. An undeclared
+  redaction, a wrong original hash or any change outside the declared locations
+  is refused with `evidence-provenance` or `evidence-redaction`. It reports each
+  redaction with `originalVerified: false`, since no original is ever read.
 
 ## Google Docs capture preparation
 
@@ -372,13 +428,21 @@ With Node 22 and the existing public Free HTML build available:
 
 ```sh
 node e2e/native-office-capture/offline.mjs e2e/native-office-capture/fixtures/synthetic-v1
-node --test e2e/native-office-capture/capture.test.mjs e2e/native-office-capture/offline.test.mjs
-pnpm exec eslint e2e/native-office-capture/offline.mjs e2e/native-office-capture/offline.test.mjs
+node --test e2e/native-office-capture/capture.test.mjs e2e/native-office-capture/offline.test.mjs e2e/native-office-capture/redaction.test.mjs
+pnpm exec eslint e2e/native-office-capture/offline.mjs e2e/native-office-capture/offline.test.mjs e2e/native-office-capture/redact.mjs e2e/native-office-capture/redaction.test.mjs
 ```
 
 `offline.mjs` only reads the explicitly selected fixture directory. Its manifest
 names one source artifact and one complete capture JSON, with exact SHA-256
-values, origin, fixture ID, license and preserve/adapt HTML oracles. Relative
+values, origin, fixture ID, license and preserve/adapt oracles. A version 1
+manifest, such as the synthetic fixtures', holds exact HTML oracles. A version 2
+manifest, for claimed native fixtures only, adds the declared redactions and
+holds a semantic oracle instead: the blocks the content specification authors
+for the selection, and for each policy the status, the source and the sorted
+warning and error codes, which the replay must match exactly, with the block
+model of [`semantics.mjs`](./semantics.mjs) rather than exact HTML, plus the
+notice and codes the fixture editor regression checks. A Word package source is
+read as a bounded ZIP only when a redaction is declared for it. Relative
 artifact paths reject traversal, absolute paths and symlinks escaping that root.
 Symlinks resolving within the selected root are allowed. The tool is local
 repository tooling, not a filesystem sandbox against concurrent directory changes.
