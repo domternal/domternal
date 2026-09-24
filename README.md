@@ -121,7 +121,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the release contents.
 
 The table above lists all 18 current MIT packages in this workspace, including the unreleased `@domternal/extension-paste-cleanup` package. npm search may still show `@domternal/extension-block-menu` as a historical, deprecated 0.x entry. It is not an additional current package. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
 
-Paste cleanup is unreleased. It normalizes pasted HTML, rebuilds lists from explicit inline Office list metadata, and keeps a bounded set of inherited inline formatting. This behavior is verified with synthetic clipboard input; native Word, Google Docs, and LibreOffice clipboard captures are not yet verified. Pro DOCX file import is also unreleased.
+Paste cleanup is unreleased. It normalizes pasted HTML, rebuilds lists from explicit inline Office list metadata, and keeps a bounded set of inherited inline formatting. This behavior is verified with synthetic clipboard input and, for Word 16.113.3 for Mac copied in Safari 26.5.2, with reviewed native captures; Word for Mac in Chrome and Firefox and Google Docs are not yet captured, and Word for Windows, Word on the web and LibreOffice are unqualified. Pro DOCX file import is also unreleased.
 
 See [Packages & Bundle Size](https://domternal.dev/v1/packages) for a full breakdown of what each package includes and how tree-shaking works.
 

@@ -4,8 +4,10 @@ Opt-in clipboard HTML cleanup for Domternal. MIT licensed and part of Free.
 
 **Development status:** unreleased. This package is not a DOCX importer and makes
 no claim of complete Word, Google Docs, or LibreOffice fidelity. Its behavior is
-verified with synthetic clipboard input; native Word, Google Docs, and LibreOffice
-clipboard captures are not yet verified. Strict inline Office list metadata, read
+verified with synthetic clipboard input and, for one source path, with reviewed
+native captures: Word 16.113.3 for Mac copied in Safari 26.5.2 on macOS. Word for
+Mac in Chrome and Firefox and Google Docs are not yet captured; Word for Windows,
+Word on the web, LibreOffice and Collabora are unqualified. Strict inline Office list metadata, read
 together with Word's list level definitions and marker fonts, and a bounded subset
 of inherited formatting are supported. Optional local image preparation supports
 image-only pastes and explicit application-supplied bindings. An explicit resolver
@@ -128,6 +130,10 @@ Routine declarations are also dropped without a diagnostic: Office private
 (zero margins and indents, `normal` spacing and font variants, `none` borders,
 backgrounds and shadows, the `windowtext` default text color, which resets an
 inherited color), vertical block spacing, pagination and typesetting controls,
+letter spacing within half a point either way, as Word's Title style condenses
+its text, the initial values Safari writes on every element it copies (`start`
+alignment, `normal` white space, the `medium` font size, a zero text stroke,
+`auto` and `solid` text decoration, a `none` border image) and the caret color,
 table borders, cell padding and table layout, list indentation on semantic lists,
 the level indentation of reconstructed Office list paragraphs, and the style of a
 span that only draws the box of the one image it holds (no border, `inline-block`,
@@ -136,10 +142,25 @@ margin, padding, `hspace`, `vspace` or border attribute, and no comment, escape 
 `!important` in either style), as Google Docs is expected to wrap images; that
 shape is checked against
 authored HTML, not native captures. Nonzero horizontal indentation outside lists
-and tables, borders outside tables, background shorthands and images, an image
-box that crops, pads or offsets its image, hidden text, the `font` shorthand, letter
-spacing, case transforms, small caps and other unsupported declarations still
-report `unsupported-formatting`.
+and tables, borders outside tables, background shorthands with more than one
+color or an image, background images, an image box that crops, pads or offsets
+its image, hidden text, the `font` shorthand, wider letter spacing, case
+transforms, small caps and other unsupported declarations still report
+`unsupported-formatting`. An inline element without visible content, such as the
+empty span Safari ends a partial copy with, reports nothing, since nothing is lost.
+
+Safari copies the computed style of each top-level element it copies. A text
+color equal to the caret color it copies with it is the page's default text
+color, Word's automatic color among them, and pastes as the editor's own color,
+as `windowtext` does; a color the source applied comes without one and stays. A
+background shorthand that paints one color, as Word writes a highlight
+(`background: yellow`) or cell shading, is read as that background color. A line
+height in pixels or points becomes a ratio of the element's own font size, the
+form a LineHeight destination renders, and in a Word paste the ratio 1.15, Word's
+default spacing, is no formatting of its own. A space WebKit converted to a
+no-break space in a `span.Apple-converted-space` pastes as a space in every
+engine, as ProseMirror's paste does in WebKit only. Word's Title style becomes a
+level 1 heading, as Pro's DOCX import reads it.
 
 Use `feedback: 'application'` with an `onPasteResult` handler to own presentation.
 Omitting that handler is a fatal configuration error. English definitions are
@@ -420,7 +441,7 @@ for the paragraph's level:
 | `alpha-lower` or `alpha-upper`, same level text rule | one letter of that case | `lower-alpha` or `upper-alpha` |
 | `roman-lower` or `roman-upper`, same level text rule | a canonical numeral up to 3999 of that case | `lower-roman` or `upper-roman` |
 | Bullet `\F0B7` in Symbol | `·` or U+F0B7 in a Symbol marker run | `disc` |
-| Bullet `o` in Courier New | `o` in a Courier New marker run | `circle` |
+| Bullet `o` in Courier New, as `font-family` or, without one, the ASCII font Word names per script | `o` in a Courier New marker run | `circle` |
 | Bullet `\F0A7` in Wingdings | `§` or U+F0A7 in a Wingdings marker run | `square` |
 | Bullet `•`, `●`, `◦` or `▪` | the same glyph | `disc`, `disc`, `circle` or `square` |
 
@@ -432,14 +453,26 @@ picture bullets, letters past `z`, and malformed or conflicting definitions stay
 literal. A paragraph without a level definition, for example when a browser
 drops the stylesheet, is read as before: only positive decimal numbers followed
 by `.` or `)` and the Unicode bullets `• · ◦ ▪ ●` are admitted. The reader records
-only the levels that pasted paragraphs reference, bounds each rule body to 8,192
-UTF-16 units, 64 declarations and 64 units of level text, and resolves no other CSS.
+only the levels that pasted paragraphs reference and the levels above them, bounds
+each rule body to 8,192 UTF-16 units, 64 declarations and 64 units of level text,
+and resolves no other CSS.
 
-Fallback is per item. An unsupported item, or one whose parent level is missing,
-stays a literal paragraph with its visible marker: inside the nearest open list
-item when the destination can nest lists, otherwise at the list's own level,
-which closes the open lists. Deeper items under a literal item have no list
-parent and stay literal until the level returns to a supported parent. Each
+A selection that starts in a nested item, or an item more than one level below
+the previous one, has no parent levels. They open from their level definitions
+with one empty item each, so the item keeps its depth and marker; an ordered
+level starts one before the number of its next item in the run, which then
+continues it. Without a supported definition for every missing level the item
+stays literal.
+
+Fallback is per item. An unsupported item, or one whose missing parent levels
+have no supported definition, stays a literal paragraph with its visible marker:
+inside the nearest open list item when the destination can nest lists, otherwise
+at the list's own level, which closes the open lists. Deeper items under a
+literal item have no list parent and stay literal until the level returns to a
+supported parent. A picture bullet, which Word writes as an image inside the
+marker, is the marker's decoration and never an image of the paste: a literal
+item keeps its alt text as the visible marker, and it is neither removed with
+`image-removed` nor offered to image preparation. Each
 contiguous group of literal items reports one `office-list-unsupported` located
 at its first paragraph. A literal item keeps its source paragraph, so hanging
 indentation it carries is also reported as `unsupported-formatting`. Nesting, observed
@@ -861,9 +894,13 @@ requirements. This package has localized loss notices and optional host-owned
 feedback and optional image-preparation progress. It has no built-in preview or
 paste-choice dialog. Local image association still requires an explicit host
 mapping for mixed HTML; these fixtures do not prove native Office association.
-Content specifications and capture scenarios for Word for Mac are prepared in the
-repository's `e2e/native-office-capture` tooling; no native capture has been made
-yet, and Word list profiles, the quiet envelope and the measured limits are not
+The repository's `e2e/native-office-capture` tooling holds reviewed native
+captures for one path, Word 16.113.3 for Mac to Safari 26.5.2: its routine
+envelope, text and inline formatting, alignment, spacing, indentation, hidden
+text, empty paragraph, list and table scenarios, replayed in the real editor in
+three engines, qualify that path with the limits its support matrix lists. They
+are synthetic events with the captured flavors, not native pastes into the
+editor. Large selections, own copies, images and every other source path are not
 qualified against native clipboard data.
 The current Core color parser does not retain alpha in RGBA text colors or
 partially transparent backgrounds. Exact transparency fidelity is not promised.

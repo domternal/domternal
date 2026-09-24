@@ -18,10 +18,12 @@ source matcher. It captures the representations exposed by one browser paste
 event. It does not control Office applications, infer image bindings, upload
 data, request clipboard permissions or call `navigator.clipboard.read()`.
 
-**No native Office capture is included or claimed by this harness.** Automated
-tests use synthetic events and generated File objects. A complete bundle always
-has `qualification: false`. Its source application and operator metadata remain
-self-reported, including when its event was trusted.
+The harness itself captures nothing automatically: its automated tests use
+synthetic events and generated File objects, and a complete bundle always has
+`qualification: false`, with its source application and operator metadata
+self-reported, including when its event was trusted. The native captures in
+[`fixtures`](./fixtures) were made by the owner with this page and reviewed; the
+[support matrix](./SUPPORT-MATRIX.md) states what they qualify.
 
 ## Start locally
 
@@ -106,18 +108,24 @@ local blob adapter would need its own capture and lifetime evidence.
 
 ## Word for Mac capture preparation
 
-Status: **prepared, not captured.** The files below prepare native Word captures;
-none of them is a capture, and nothing here qualifies a source profile. The owner
-or a named tester creates the documents and performs every copy and paste. Native
-Word is not automated: earlier automation attempts timed out, and a scripted copy
-would not be the user path this evidence is meant to show.
+Status: **captured for Safari.** The owner made the Safari captures on
+2026-10-02 with Microsoft Word 16.113.3 (16.113.26092714) on macOS 26.5.2 (25F84)
+and Safari 26.5.2 (21624.2.5.11.8): every `word-*` scenario except the large
+document, `word-headings-styles` as its three selections. They are the reviewed
+fixtures `fixtures/<scenario>-safari`; Chrome, Firefox, the large document and
+`domternal-own-copy` are pending. The owner or a named tester creates the
+documents and performs every copy and paste. Native Word is not automated:
+earlier automation attempts timed out, and a scripted copy would not be the user
+path this evidence is meant to show.
 
 - [`content/word-mac-v1.json`](./content/word-mac-v1.json) is the machine-readable
-  content specification for Word 16.111 (build 16.111.26071325) on macOS. It
-  defines four documents block by block (exact text starting with a block
-  identifier, Word style or button to use, expected structure, marks and list
-  markers) and the scenarios with their selection and expected notice outcome.
-  The text is synthetic Croatian and English without personal data.
+  content specification, prepared for Word 16.111 (build 16.111.26071325) on
+  macOS and captured with Word 16.113.3, as its `captures` record. It defines four
+  documents block by block (exact text starting with a block identifier, Word
+  style or button to use, expected structure, marks and list markers) and the
+  scenarios with their selection and expected notice outcome. Corrections after
+  the first captures carry a `correction` that says what changed and why. The
+  text is synthetic Croatian and English without personal data.
 - [`content/large-source.mjs`](./content/large-source.mjs) generates the large
   source: 128 sections, 10,000 words, headings, paragraphs, nested lists and
   tables, every block starting with a consecutive `G00001` token.
@@ -161,11 +169,37 @@ Word-saved `.docx` locally and save it as `.odt`.
 
 ### Matrix for the first captures
 
-Word 16.111 on macOS to Safari, Chrome and Firefox (record the exact browser
-versions at capture time), for every `word-*` scenario and the
-`domternal-own-copy` scenario, with both preserve and adapt. Windows, Word on the
-web, Google Docs and LibreOffice rows stay pending in the
+Word for Mac to Safari, Chrome and Firefox (record the exact versions at capture
+time), for every `word-*` scenario and the `domternal-own-copy` scenario, with
+both preserve and adapt. Safari is captured; Chrome and Firefox are next. A
+selection that a scenario names as a separate one, such as
+`word-headings-styles-b06`, has a scenario of its own, which `capturedAs` maps to
+the scenario an earlier capture recorded. Windows, Word on the web and
+LibreOffice stay unqualified and Google Docs pending in the
 [support matrix](./SUPPORT-MATRIX.md).
+
+### Admitting the next browser
+
+The Chrome and Firefox captures of the same scenarios are admitted the way the
+Safari ones were; nothing in the tooling is specific to a browser:
+
+1. Capture each scenario as [Per capture](#per-capture) describes, into
+   `fixtures/<scenario>-<browser>/`, with the redacted documents of the Safari
+   fixtures as sources. They hash to what the owner's documents hash to now, so
+   a capture that names that hash needs no source redaction; one that names the
+   original hash declares the same one with `redact.mjs package ...
+   --claimed-original <hash>`.
+2. Expect personal data where Safari had it: Word writes a picture bullet as a
+   local file, under the user's home folder, which Chrome and Firefox may carry
+   as a `file:` URL. `prepare-fixture.mjs` refuses what its scan finds; remove it
+   with `redact.mjs capture`.
+3. Prepare with `--specification` and `--scenario`, then run
+   `pnpm exec playwright test --config e2e/paste-cleanup.config.ts paste-native-fixtures.browser.ts`.
+   It fails for a fixture whose outcomes are not authored yet: review that
+   fixture's editor results with the fixture editor and the checker of step 5,
+   then author both outcomes.
+4. Run `offline.mjs` on each directory and the regression spec again, add the
+   row to the support matrix with the recorded versions and limits, and commit.
 
 ### Per capture
 
@@ -200,7 +234,8 @@ web, Google Docs and LibreOffice rows stay pending in the
    data, check that `expected.blocks` is what the content specification authors
    for the selection, author the outcome of each policy (`expected.preserve` and
    `expected.adapt`: the status, the source, the sorted warning and error codes
-   of the offline replay, and the notice and codes of the fixture editor) from
+   of the offline replay, and the notice and codes of the fixture editor with
+   its default schema, or with every capability where the content needs it) from
    the specification and the reviewed editor results, never by copying
    normalizer output, delete `redactions.json` once the manifest holds it, and
    run `node e2e/native-office-capture/offline.mjs` on the directory. Keep
@@ -474,6 +509,14 @@ helpers expose a private HTML handle; `disposeCaptureEvidence` drops it, and
 `verifyCaptureFixture` disposes it automatically. Owned read/decoded byte buffers
 are zeroed on release. Immutable source strings and caller-owned inputs are not
 claimed to be erased from engine memory.
+
+Every committed version 2 fixture is also replayed into the real fixture editor
+by [`paste-native-fixtures.browser.ts`](../paste-native-fixtures.browser.ts), which
+the paste cleanup browser workflow runs in Chromium, Firefox and WebKit:
+
+```sh
+pnpm exec playwright test --config e2e/paste-cleanup.config.ts paste-native-fixtures.browser.ts
+```
 
 All reports remain `qualification: false`, `nativeEvidenceAuthenticated: false`
 and `sourceApplicationVerified: false`. A `claimed-native` manifest can validate
