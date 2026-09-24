@@ -76,6 +76,9 @@ export function blocksFromEditorJSON(doc) {
   return blocks;
 }
 
+// Elements the editor's parse places as blocks; inline content outside them opens a paragraph.
+const BLOCK_TAGS = new Set(['p', 'div', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tfoot',
+  'tr', 'td', 'th', 'caption', 'colgroup', 'col', 'details', 'summary']);
 const INLINE_MARKS = Object.freeze({ strong: 'bold', b: 'bold', em: 'italic', i: 'italic', u: 'underline', s: 'strike', del: 'strike', sub: 'subscript', sup: 'superscript', mark: 'highlight' });
 const STYLE_ATTRIBUTES = Object.freeze({ 'font-family': 'fontFamily', 'font-size': 'fontSize', color: 'color', 'background-color': 'backgroundColor' });
 
@@ -113,6 +116,41 @@ export function blocksFromHTML(html) {
   };
   const image = (node, context) => blocks.push({ type: 'image', text: attribute(node, 'alt') ?? '', src: scheme(attribute(node, 'src')), runs: [], align: null,
     ...(context.cell ? { cell: context.cell } : {}) });
+  /** One textblock from its inline content, as the editor's paragraph or heading. */
+  const textblock = (nodes, tag, align, context) => {
+    const runs = [];
+    const images = [];
+    for (const child of nodes) inline({ childNodes: [child] }, [], runs, images);
+    const text = runs.map(run => run.text).join('');
+    const inItem = context.list !== undefined && context.first === true;
+    blocks.push({
+      type: empty(text) ? 'empty' : tag === 'p' ? inItem ? 'listItem' : context.cell ? 'tableCell' : 'paragraph' : 'heading',
+      ...(tag !== 'p' ? { level: Number(tag.slice(1)) } : {}),
+      ...(inItem ? { list: context.list } : {}),
+      ...(context.cell ? { cell: context.cell } : {}),
+      ...(context.list !== undefined && !inItem ? { insideListItem: true } : {}),
+      align, text, runs,
+    });
+    for (const child of images) image(child, context);
+  };
+  const holdsBlock = node => (node.childNodes ?? []).some(child => BLOCK_TAGS.has(child.tagName) || (child.tagName && holdsBlock(child)));
+  /**
+   * The children of a container, where inline content outside any block becomes a paragraph of its own,
+   * as the editor's parse places it: a partly selected last paragraph that a browser writes as bare spans.
+   */
+  const visitChildren = (node, context) => {
+    let run = [];
+    const flush = () => {
+      if (run.some(child => child.nodeName !== '#text' || /[^\t\n\r ]/u.test(child.value))) textblock(run, 'p', null, context);
+      run = [];
+    };
+    for (const child of node.childNodes ?? []) {
+      if (child.nodeName === '#text' || (child.tagName && !BLOCK_TAGS.has(child.tagName) && child.tagName !== 'img' && !holdsBlock(child))) { run.push(child); continue; }
+      flush();
+      if (child.tagName) visit(child, context);
+    }
+    flush();
+  };
   const visit = (node, context) => {
     const tag = node.tagName;
     if (tag === 'ul' || tag === 'ol') {
@@ -142,29 +180,16 @@ export function blocksFromHTML(html) {
     }
     if (tag === 'td' || tag === 'th') {
       const cell = { header: tag === 'th', colspan: Number(attribute(node, 'colspan') ?? 1), rowspan: Number(attribute(node, 'rowspan') ?? 1) };
-      for (const child of node.childNodes ?? []) visit(child, { cell });
+      visitChildren(node, { cell });
       return;
     }
     if (tag === 'img') { image(node, context); return; }
     if (tag === 'p' || /^h[1-6]$/u.test(tag ?? '')) {
-      const runs = [];
-      const images = [];
-      inline(node, [], runs, images);
-      const text = runs.map(run => run.text).join('');
-      const inItem = context.list !== undefined && context.first === true;
-      const align = /text-align:\s*([a-z]+)/u.exec(attribute(node, 'style') ?? '')?.[1] ?? null;
-      blocks.push({
-        type: empty(text) ? 'empty' : tag === 'p' ? inItem ? 'listItem' : context.cell ? 'tableCell' : 'paragraph' : 'heading',
-        ...(tag !== 'p' ? { level: Number(tag.slice(1)) } : {}),
-        ...(inItem ? { list: context.list } : {}),
-        ...(context.cell ? { cell: context.cell } : {}),
-        ...(context.list !== undefined && !inItem ? { insideListItem: true } : {}),
-        align, text, runs,
-      });
-      for (const child of images) image(child, context);
+      textblock(node.childNodes ?? [], tag, /text-align:\s*([a-z]+)/u.exec(attribute(node, 'style') ?? '')?.[1] ?? null, context);
       return;
     }
-    for (const child of node.childNodes ?? []) visit(child, context);
+    // Inline content outside a paragraph or heading, in the fragment or in any other container: the editor opens a paragraph for it.
+    visitChildren(node, context);
   };
   visit(parseFragment(html), {});
   return blocks;
@@ -258,6 +283,11 @@ function compareList(expected, actual, where, problems) {
   }
 }
 
+// The sixteen basic named colors, which Word writes by name when a color is one of them, as `color:red`.
+const BASIC_COLORS = Object.freeze({ black: '#000000', silver: '#c0c0c0', gray: '#808080', white: '#ffffff', maroon: '#800000', red: '#ff0000',
+  purple: '#800080', fuchsia: '#ff00ff', green: '#008000', lime: '#00ff00', olive: '#808000', yellow: '#ffff00', navy: '#000080', blue: '#0000ff',
+  teal: '#008080', aqua: '#00ffff' });
+
 /** One comparable form of a style value: the first font family unquoted, colors as hexadecimal, sizes without spaces. */
 function styleValue(key, value) {
   if (value === undefined || value === null) return '';
@@ -266,6 +296,7 @@ function styleValue(key, value) {
   if (key === 'color' || key === 'backgroundColor') {
     const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*1(?:\.0+)?\s*)?\)$/u.exec(text);
     if (rgb) text = `#${rgb.slice(1, 4).map(part => Number(part).toString(16).padStart(2, '0')).join('')}`;
+    else if (Object.hasOwn(BASIC_COLORS, text)) text = BASIC_COLORS[text];
   }
   return text.replace(/\s+/gu, '');
 }
@@ -419,7 +450,9 @@ export function checkScenario(spec, scenarioId, input, options = {}) {
     // Replay the captured HTML exactly as the offline verifier does: no remote images, data images allowed.
     const html = input.payload?.text?.['text/html'];
     if (input.status !== 'complete' || typeof html !== 'string') throw new Error('The capture bundle is incomplete or has no text/html');
-    if (input.operator?.scenario !== scenarioId) problems.push(`capture: recorded scenario is ${String(input.operator?.scenario)}, expected ${scenarioId}`);
+    // A separate selection of a scenario was captured under that scenario's name, which capturedAs gives.
+    const recorded = expectedBlocks(spec, scenarioId).scenario.capturedAs ?? scenarioId;
+    if (input.operator?.scenario !== recorded) problems.push(`capture: recorded scenario is ${String(input.operator?.scenario)}, expected ${recorded}`);
     const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
     const result = normalizePasteHTML(html, { formatting, allowRemoteImages: false, allowDataImages: true });
     replay = { html: result.html, diagnostics: result.diagnostics };

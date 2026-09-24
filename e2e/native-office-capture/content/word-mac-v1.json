@@ -15,8 +15,10 @@
       "Firefox"
     ]
   },
+  "captures": [],
   "conventions": [
     "This is an offline edited English regression specification. Block IDs and v1 document names remain stable. No native recapture was performed; baseline application instructions describe the shape being modeled.",
+    "Corrections after the first captures say what changed and why in a correction field on the block or scenario; the earlier expectation is not kept.",
     "Every paragraph starts with its block identifier, so any output order, loss or duplication is visible.",
     "Type the text exactly. The typographic characters are part of the test: use the characters in this file, not keyboard substitutes.",
     "Use the named built-in styles and the Home tab buttons, not manual formatting, unless a block says otherwise.",
@@ -56,7 +58,8 @@
           "id": "B05",
           "type": "paragraph",
           "word": "Style: Normal. Insert a nonbreaking space (Option+Space) between 10 and kg.",
-          "text": "B05 Nonbreaking space between 10 kg."
+          "text": "B05 Nonbreaking space between 10 kg.",
+          "correction": "The text holds the nonbreaking space the block asks for; it had an ordinary space, which every capture shows as U+00A0."
         },
         {
           "id": "B06",
@@ -135,8 +138,10 @@
               "marks": [
                 "highlight"
               ],
+              "formatting": "preserve",
               "word": "Text highlight color yellow",
-              "expectation": "Word may write the highlight as a background shorthand, which cleanup reports as unsupported-formatting instead of keeping it; record what the capture shows."
+              "expectation": "Word writes the highlight as a background shorthand (background: yellow in the Safari capture), which cleanup reads as the highlight color.",
+              "correction": "A highlight is a text style that adapt removes, so the mark is expected in preserve only."
             }
           ]
         },
@@ -217,6 +222,7 @@
     },
     {
       "file": "word-mac-v1-lists.docx",
+      "provenance": "In the captured document the lists are defined as named lists (mso-list-name D3 ...), not taken from the Home tab libraries the blocks name. Their level texts and fonts are those of the libraries, except that the o level names its font per script (mso-ascii-font-family) instead of in font-family; cleanup reads both. A document made with the libraries is still to be captured.",
       "blocks": [
         {
           "id": "L01",
@@ -653,11 +659,18 @@
         },
         {
           "id": "L67",
-          "type": "literalItem",
-          "wordLabel": "1.",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 1,
+            "wordLabel": "1."
+          },
           "word": "Multilevel List Library: 1. / 1.1. / 1.1.1.",
           "text": "L67 Legal number",
-          "expectation": "Legal multilevel numbering stays literal."
+          "expectation": "The first level of the legal list is plain decimal numbering, 1., so it is an ordered list item; its legal second level stays literal.",
+          "correction": "Expected literal before the captures; the first level's definition is %1. without legal numbering, which Word shows as 1."
         },
         {
           "id": "L68",
@@ -689,7 +702,8 @@
             "headerRow": true
           },
           "word": "Insert > Table 3x3, Table Design: Header Row on",
-          "text": "T02 Column A"
+          "text": "T02 Column A",
+          "expectation": "Header Row is a table style option: the clipboard HTML has no header cells, so the first row arrives as ordinary cells, which the checker accepts."
         },
         {
           "id": "T03",
@@ -908,10 +922,36 @@
     {
       "id": "word-headings-styles",
       "document": "word-mac-v1-basics.docx",
-      "selection": "B01 to B02, then separately B06 and B08",
+      "selection": "B01 to B02; B06 and B08 are the separate selections word-headings-styles-b06 and word-headings-styles-b08",
       "blocks": [
         "B01",
         "B02"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-headings-styles-b06",
+      "capturedAs": "word-headings-styles",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B06 only: triple-click the heading",
+      "blocks": [
+        "B06"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-headings-styles-b08",
+      "capturedAs": "word-headings-styles",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B08 only: triple-click the heading",
+      "blocks": [
+        "B08"
       ],
       "outcome": {
         "notice": "quiet",
@@ -953,6 +993,7 @@
       "selection": "B14 to B16, across the two empty paragraphs",
       "blocks": [
         "B14",
+        "B15",
         "B16a",
         "B16b",
         "B16"
@@ -962,7 +1003,8 @@
         "requiredWarnings": [
           "unsupported-formatting"
         ]
-      }
+      },
+      "correction": "B15 lies between B14 and the empty paragraphs, so the selection holds it; it was missing from the blocks."
     },
     {
       "id": "word-default-bullets",
@@ -1185,16 +1227,25 @@
       }
     }
   ],
-  "captures": [],
-  "historicalBaselineCaptures": [],
+  "historicalBaselineCaptures": [
+    {
+      "date": "2026-10-02",
+      "application": "Microsoft Word 16.113.3 (16.113.26092714)",
+      "os": "macOS 26.5.2 (25F84)",
+      "browser": "Safari 26.5.2 (21624.2.5.11.8)",
+      "scenarios": "Every scenario except word-large-document and domternal-own-copy, word-headings-styles as its three selections",
+      "fixtures": "fixtures/<scenario>-safari",
+      "note": "The specification was prepared for Word 16.111; the owner authored the documents and made these captures with Word 16.113.3. Chrome, Firefox, the large document and the own copy are not captured yet."
+    }
+  ],
   "sourceContext": "Historical authoring-specification context only. The source application versions and destinations above do not describe production of the offline edited English variant. Original capture facts are retained separately in historicalBaselineCaptures; their fixture paths identify scenario lineage, not an attestation of the current edited bytes.",
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "59220ab93691c65f07e7fc9692f7d01b8aa7223d",
-    "originalSpecificationSha256": "ec02330bee2389da7717c802d63fb7a61879598b69ccd9a1084ff7539a803615",
+    "originalSpecificationBlob": "45037a3d9796b2a7036e89c9662018c69ec02b7b",
+    "originalSpecificationSha256": "72b8db30e296bf5f6aba9e82bbbe22fdc55f2d8949ff7560b9efa94e39305cbf",
     "originalKind": "domternal-native-capture-content",
-    "originalStatus": "prepared-not-captured",
+    "originalStatus": "captured-in-part",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",
     "baselinePolicy": "Original sources and evidence remain preserved privately. This English variant is synthetic edited regression evidence, not a native Word or Google Docs capture.",
     "notesPolicy": "Existing correction, provenance, capture, application instructions and observation descriptions explain the original source shapes or inherited expectations. They do not claim a new native observation of the English bytes."

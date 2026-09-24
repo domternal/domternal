@@ -25,6 +25,10 @@ test('the Word for Mac content specification is complete, unique and addressable
   assert.equal(spec.status, 'authored-English-regression-variant');
   assert.deepEqual(spec.captures, []);
   assert.equal(spec.editedRegressionProvenance.nativeCapturePerformed, false);
+  // A baseline selection captured under another scenario's name retains that relationship.
+  for (const scenario of spec.scenarios.filter(entry => entry.capturedAs !== undefined)) {
+    assert.ok(spec.scenarios.some(entry => entry.id === scenario.capturedAs && entry.capturedAs === undefined), scenario.id);
+  }
   const ids = new Set();
   for (const document of spec.documents) for (const block of document.blocks) {
     assert.ok(!ids.has(block.id), block.id); ids.add(block.id);
@@ -108,9 +112,11 @@ test('marks, alignment and hidden text follow the content specification', () => 
   const result = { type: 'doc', content: [paragraph(text('B07 '), text('bold', ['bold']), text(' '), text('italic', ['italic']), text(' '),
     text('underlined', ['underline']), text(' '), text('strikethrough', ['strike']), text(' H'), text('2', ['subscript']), text('O x'),
     text('2', ['superscript']), text(' Georgia red highlighted'))] };
-  const problems = compareBlocks(spec, 'word-inline-formatting', blocksFromEditorJSON(result), { formatting: 'adapt' }).join('\n');
+  const problems = compareBlocks(spec, 'word-inline-formatting', blocksFromEditorJSON(result), { formatting: 'preserve' }).join('\n');
   assert.match(problems, /"highlighted" lacks highlight/u);
-  assert.doesNotMatch(problems, /bold|italic|subscript|superscript|Georgia/u);
+  assert.doesNotMatch(problems, /bold|italic|subscript|superscript/u);
+  // Adapt removes highlights, as every text style: the specification expects the mark in preserve only.
+  assert.deepEqual(compareBlocks(spec, 'word-inline-formatting', blocksFromEditorJSON(result), { formatting: 'adapt' }), []);
   const hidden = { type: 'doc', content: [paragraph(text('B15 Visible part end.'))] };
   assert.deepEqual(compareBlocks(spec, 'word-hidden-text', blocksFromEditorJSON(hidden)), []);
 });
@@ -292,6 +298,22 @@ test('outcomes differ by policy and colors compare across notations', () => {
   const color = result.doc.content[0].content.find(node => node.text === 'red').marks[0];
   color.attrs.color = 'rgb(255, 0, 0)';
   assert.deepEqual(checkScenario(docs, 'gdocs-inline-formatting', result).problems, []);
+  // Word writes a basic color by name, as color:red for #FF0000.
+  color.attrs.color = 'red';
+  assert.deepEqual(checkScenario(docs, 'gdocs-inline-formatting', result).problems, []);
+  color.attrs.color = 'maroon';
+  assert.match(checkScenario(docs, 'gdocs-inline-formatting', result).problems.join('\n'), /color is maroon/u);
+});
+
+test('the HTML model opens a paragraph for inline content outside blocks, as the editor parses it', () => {
+  // A partly selected last paragraph that Safari writes as bare spans after a list.
+  const partial = blocksFromHTML('<ol><li><p>L10 Roman ii</p></li></ol><span><span style="font-size:12pt">L11 Letter</span></span><span></span>');
+  assert.deepEqual(partial.map(block => [block.type, block.text]), [['listItem', 'L10 Roman ii'], ['paragraph', 'L11 Letter']]);
+  assert.deepEqual(partial[1].runs[0].marks, [{ type: 'textStyle', attrs: { fontSize: '12pt' } }]);
+  assert.deepEqual(blocksFromHTML('<table><tr><td>Directly <b>in</b> a cell</td></tr></table>').map(block => [block.type, block.text]), [['tableCell', 'Directly in a cell']]);
+  // White space between blocks is no block; an inline wrapper that holds blocks is read through.
+  assert.deepEqual(blocksFromHTML('<p>A</p>\n <p>B</p>').map(block => block.text), ['A', 'B']);
+  assert.deepEqual(blocksFromHTML('<b id="docs-internal-guid-1"><p>A</p>tail</b>').map(block => [block.type, block.text]), [['paragraph', 'A'], ['paragraph', 'tail']]);
 });
 
 test('the HTML model reads Google Docs list nesting, cell spans, links, text styles and images', () => {
