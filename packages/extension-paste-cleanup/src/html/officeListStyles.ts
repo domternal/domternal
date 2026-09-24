@@ -1,8 +1,8 @@
 /**
  * Bounded reader for the Word list level definitions (`@list lN:levelL[ lfoF]`) that Word
  * writes into the clipboard stylesheet. It records only the levels that pasted paragraphs
- * reference, so its output never exceeds the number of candidate paragraphs. It does not
- * resolve general CSS: every other rule, at-rule and declaration is skipped.
+ * reference and the levels above them, so its output never exceeds eighteen keys per candidate
+ * paragraph. It does not resolve general CSS: every other rule, at-rule and declaration is skipped.
  */
 
 /** Word level number formats this reader distinguishes. Every other format is `other`. */
@@ -13,7 +13,7 @@ export interface OfficeLevelDefinition {
   format: OfficeLevelFormat;
   /** Decoded `mso-level-text`. Absent when the rule keeps Word's default level text. */
   text?: string;
-  /** First `font-family` entry, unquoted and lowercased. */
+  /** First `font-family` entry, or the per-script family that covers the level text, unquoted and lowercased. */
   font?: string;
   /** `mso-level-legal-format` renders every level in Arabic numerals. */
   legal: boolean;
@@ -30,7 +30,7 @@ interface LevelRule {
 export type OfficeListRules = ReadonlyMap<string, LevelRule | null>;
 
 const knownFormats = new Set(['bullet', 'alpha-lower', 'alpha-upper', 'roman-lower', 'roman-upper']);
-const relevant = new Set(['mso-level-number-format', 'mso-level-text', 'font-family', 'mso-level-legal-format']);
+const relevant = new Set(['mso-level-number-format', 'mso-level-text', 'font-family', 'mso-ascii-font-family', 'mso-hansi-font-family', 'mso-level-legal-format']);
 const space = /[\t\n\f\r ]/;
 // Word writes the selector without comments; any other form is not read as a level rule.
 const levelRule = /@list[\t\n\f\r ]+l([0-9]{1,10}):level([1-9])(?:[\t\n\f\r ]+lfo([0-9]{1,10}))?[\t\n\f\r ]*\{/iy;
@@ -156,7 +156,10 @@ function readLevelRule(body: string): LevelRule | null {
     if (decoded === undefined) return null;
     rule.text = decoded;
   }
-  const font = values.get('font-family');
+  // Without a font family, Word names the level's run font per script: the ASCII font for a level text in
+  // ASCII, as it writes the `o` of its default second bullet level, and the high ANSI font otherwise.
+  const script = rule.text === undefined || /^[\x20-\x7e]*$/.test(rule.text) ? 'mso-ascii-font-family' : 'mso-hansi-font-family';
+  const font = values.get('font-family') ?? values.get(script);
   if (font !== undefined) {
     const family = firstFamily(font);
     if (family === undefined) return null;

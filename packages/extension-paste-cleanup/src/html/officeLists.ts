@@ -40,6 +40,19 @@ interface Candidate {
   after: ElementContent[];
 }
 
+interface Marker {
+  element: Element;
+  /** The nearest font declared on the marker or its ancestors in the paragraph. */
+  font: string | null | undefined;
+}
+
+/** A list level opened above an item whose parent levels a selection left out, from the level definitions. */
+interface Ancestor {
+  kind: ListItem['kind'];
+  markerStyle: ListItem['markerStyle'];
+  start: number;
+}
+
 interface ListItem {
   paragraph: Element;
   marker: Element;
@@ -234,12 +247,11 @@ function profileMarker(label: string, level: number, definition: OfficeLevelDefi
   return ordinal === undefined ? undefined : { kind: 'ol', ordinal, markerStyle: ordered.style };
 }
 
-function readItem(entry: Candidate, rules: OfficeListRules): ListItem | undefined {
-  const metadata = listMetadata.exec(entry.declaration.value ?? '');
-  const identity = metadata?.[1];
-  const level = metadata?.[2];
-  const instance = metadata?.[3];
-  if (identity === undefined || level === undefined || instance === undefined) return undefined;
+/**
+ * The marker element of a list paragraph: the one `mso-list:Ignore` element in its prefix, before any text,
+ * with the font of its run. Undefined when the paragraph has none or more than one.
+ */
+function findMarker(entry: Candidate): Marker | undefined {
   let prefix = true;
   let marker: Element | undefined;
   let markerFont: string | null | undefined;
@@ -274,17 +286,56 @@ function readItem(entry: Candidate, rules: OfficeListRules): ListItem | undefine
       if (child !== undefined) pending.push({ node: child, font });
     }
   }
-  if (marker === undefined) return undefined;
-  const label = markerLabel(marker);
+  return marker === undefined ? undefined : { element: marker, font: markerFont };
+}
+
+function readItem(entry: Candidate, rules: OfficeListRules, marker: Marker | undefined): ListItem | undefined {
+  const metadata = listMetadata.exec(entry.declaration.value ?? '');
+  const identity = metadata?.[1];
+  const level = metadata?.[2];
+  const instance = metadata?.[3];
+  if (identity === undefined || level === undefined || instance === undefined || marker === undefined) return undefined;
+  const label = markerLabel(marker.element);
   if (label === undefined) return undefined;
   const definition = resolveOfficeLevel(rules, identity, Number(level), instance);
   const value = definition === undefined ? legacyMarker(label)
-    : definition === null ? undefined : profileMarker(label, Number(level), definition, markerFont);
+    : definition === null ? undefined : profileMarker(label, Number(level), definition, marker.font);
   if (value === undefined) return undefined;
   return {
-    paragraph: entry.paragraph, marker, level: Number(level),
+    paragraph: entry.paragraph, marker: marker.element, level: Number(level),
     identity: `${identity}:${instance}`, after: entry.after, ...value,
   };
+}
+
+/**
+ * The marker class a level definition alone gives a level without a marker of its own: the same profiles
+ * as profileMarker, with the definition's font in place of the absent marker run's.
+ */
+function definitionMarker(definition: OfficeLevelDefinition, level: number): Pick<ListItem, 'kind' | 'markerStyle'> | undefined {
+  if (definition.legal) return undefined;
+  if (definition.format === 'bullet') {
+    const profile = bulletProfiles.get(definition.text ?? '');
+    if (profile === undefined || (profile.font !== undefined && definition.font !== profile.font)) return undefined;
+    return { kind: 'ul', markerStyle: profile.style };
+  }
+  const ordered = orderedProfiles[definition.format];
+  const text = definition.text;
+  if (ordered === undefined || !(text === undefined || text === `%${String(level)}.` || text === `%${String(level)})`)) return undefined;
+  return { kind: 'ol', markerStyle: ordered.style };
+}
+
+/**
+ * A picture bullet of an item that stays literal: Word writes the picture inside the marker. It is the
+ * marker's decoration, never content, so it is not an image to paste or resolve: its alt text, if any,
+ * stays as the visible marker the literal paragraph keeps.
+ */
+function literalMarkerPictures(marker: Element): void {
+  marker.children = marker.children.flatMap((child): ElementContent[] => {
+    if (child.type !== 'element') return [child];
+    if (child.tagName !== 'img') { literalMarkerPictures(child); return [child]; }
+    const alt = child.properties.alt;
+    return typeof alt === 'string' && alt !== '' ? [{ type: 'text', value: alt, ...(child.position === undefined ? {} : { position: child.position }) }] : [];
+  });
 }
 
 /** The metadata level of a candidate, or the first level when its metadata cannot be read. */
@@ -314,20 +365,54 @@ interface RunOutput {
   segments: Element[];
 }
 
+type AncestorProfile = (item: ListItem, level: number) => Pick<ListItem, 'kind' | 'markerStyle'> | undefined;
+
 /**
- * Place a run item by item. A supported item joins the list stack as before. An unsupported
- * item, or one whose parent level does not exist, stays a literal paragraph with its visible
- * marker: inside the nearest open list item when the destination can nest, otherwise at the
- * run's own level, which closes the open lists. Deeper items under a literal one have no list
- * parent, so they stay literal too until the level returns to a supported parent.
+ * The levels to open above an item whose parent levels do not exist, as a selection that starts in a
+ * nested item leaves them out: each from its level definition, with one empty item. An ordered level
+ * starts one before the ordinal of its next item in the run, so that item continues it. Undefined when
+ * a missing level has no supported definition.
  */
-function reconstructRun(entries: readonly { entry: Candidate; item: ListItem | undefined }[], nestedLists: boolean): RunOutput {
+function ancestorsOf(entries: readonly PlannedEntry[], position: number, item: ListItem, depth: number, profile: AncestorProfile): Ancestor[] | undefined {
+  const ancestors: Ancestor[] = [];
+  for (let level = depth + 1; level < item.level; level++) {
+    const value = profile(item, level);
+    if (value === undefined) return undefined;
+    let start = 1;
+    for (const next of entries.slice(position + 1)) {
+      const nextLevel = next.item?.level ?? entryLevel(next.entry);
+      if (nextLevel < level) break;
+      if (nextLevel > level) continue;
+      const ordinal = next.item?.ordinal;
+      if (next.item?.identity === item.identity && next.item.kind === value.kind && next.item.markerStyle === value.markerStyle
+        && ordinal !== undefined && ordinal > 1) start = ordinal - 1;
+      break;
+    }
+    ancestors.push({ ...value, start });
+  }
+  return ancestors;
+}
+
+interface PlannedEntry { entry: Candidate; item: ListItem | undefined; marker: Marker | undefined }
+
+/**
+ * Place a run item by item. A supported item joins the list stack as before. A supported item
+ * whose parent levels do not exist opens them from their level definitions, each with one empty
+ * item, so it keeps its depth and marker. An unsupported item, or one whose missing parent levels
+ * have no supported definition, stays a literal paragraph with its visible marker: inside the
+ * nearest open list item when the destination can nest, otherwise at the run's own level, which
+ * closes the open lists. Deeper items under a literal one have no list parent, so they stay
+ * literal too until the level returns to a supported parent, unless their own definitions open it.
+ */
+function reconstructRun(entries: readonly PlannedEntry[], nestedLists: boolean, profile: AncestorProfile): RunOutput {
   const output: RunOutput = { content: [], lists: 0, items: 0, literal: 0, segments: [] };
   const stack: Level[] = [];
   let literalSegment = false;
-  for (const { entry, item } of entries) {
+  for (const [position, { entry, item, marker }] of entries.entries()) {
     const level = item?.level ?? entryLevel(entry);
-    if (item === undefined || stack.length < level - 1) {
+    const ancestors = item !== undefined && stack.length < level - 1 ? ancestorsOf(entries, position, item, stack.length, profile) : [];
+    if (item === undefined || ancestors === undefined) {
+      if (marker !== undefined) literalMarkerPictures(marker.element);
       output.literal++;
       if (!literalSegment) output.segments.push(entry.paragraph);
       literalSegment = true;
@@ -341,6 +426,19 @@ function reconstructRun(entries: readonly { entry: Candidate; item: ListItem | u
       continue;
     }
     literalSegment = false;
+    for (const ancestor of ancestors) {
+      const list: Element = { type: 'element', tagName: ancestor.kind, properties: {
+        ...(ancestor.kind === 'ol' ? { start: ancestor.start } : {}), style: `list-style-type:${ancestor.markerStyle}`,
+      }, children: [] };
+      const empty: Element = { type: 'element', tagName: 'li', properties: {}, children: [] };
+      list.children.push(empty);
+      const parent = stack.at(-1);
+      if (parent === undefined) output.content.push(list);
+      else parent.lastItem.children.push(list);
+      stack.push({ list, identity: item.identity, markerStyle: ancestor.markerStyle, lastItem: empty,
+        nextOrdinal: ancestor.kind === 'ol' ? ancestor.start + 1 : undefined });
+      output.lists++;
+    }
     stack.length = Math.min(stack.length, item.level);
     let current = stack[item.level - 1];
     if (current?.list.tagName !== item.kind || current.identity !== item.identity || current.markerStyle !== item.markerStyle
@@ -392,7 +490,10 @@ function assertBounds(tree: Root, options: OfficeListReconstructionOptions): voi
   }
 }
 
-/** Level keys that list paragraphs reference, so the stylesheet reader records nothing else. */
+/**
+ * Level keys that list paragraphs reference, with the levels above each, which a selection that starts
+ * in a nested item can need to open. The stylesheet reader records nothing else.
+ */
 function referencedLevels(tree: Root): Set<string> {
   const keys = new Set<string>();
   const pending: RootContent[] = [...tree.children];
@@ -403,8 +504,10 @@ function referencedLevels(tree: Root): Set<string> {
     if (node.tagName === 'p' && typeof style === 'string' && style.toLowerCase().includes('mso-list')) {
       const metadata = listMetadata.exec(listDeclaration(style).value ?? '');
       if (metadata?.[1] !== undefined && metadata[2] !== undefined) {
-        keys.add(officeLevelKey(metadata[1], metadata[2]));
-        keys.add(officeLevelKey(metadata[1], metadata[2], metadata[3]));
+        for (let level = 1; level <= Number(metadata[2]); level++) {
+          keys.add(officeLevelKey(metadata[1], level));
+          keys.add(officeLevelKey(metadata[1], level, metadata[3]));
+        }
       }
     }
     pending.push(...node.children);
@@ -439,10 +542,16 @@ export function reconstructOfficeLists(
   };
   const skipped: Element[] = [];
   const rules = readOfficeListRules(stylesheetTexts(tree), referencedLevels(tree));
-  const representable = (item: ListItem): boolean => !(item.kind === 'ol' && options.orderedLists === false)
+  const representable = (item: Pick<ListItem, 'kind' | 'markerStyle' | 'level'>): boolean => !(item.kind === 'ol' && options.orderedLists === false)
     && !(item.kind === 'ul' && options.bulletLists === false)
     && options.markers?.has(item.markerStyle) !== false
     && !(item.level > 1 && options.nestedLists === false);
+  const ancestorProfile: AncestorProfile = (item, level) => {
+    const [list = '', instance] = item.identity.split(':');
+    const definition = resolveOfficeLevel(rules, list, level, instance);
+    const value = definition === undefined || definition === null ? undefined : definitionMarker(definition, level);
+    return value !== undefined && representable({ ...value, level }) ? value : undefined;
+  };
   function rewrite(parent: Element): ElementContent[];
   function rewrite(parent: Root): RootContent[];
   function rewrite(parent: Root | Element): RootContent[] {
@@ -473,10 +582,11 @@ export function reconstructOfficeLists(
         end = nextIndex + 1;
       }
       const planned = entries.map(entry => {
-        const item = readItem(entry, rules);
-        return { entry, item: item !== undefined && representable(item) ? item : undefined };
+        const marker = findMarker(entry);
+        const item = readItem(entry, rules, marker);
+        return { entry, marker, item: item !== undefined && representable(item) ? item : undefined };
       });
-      const reconstructed = reconstructRun(planned, options.nestedLists !== false);
+      const reconstructed = reconstructRun(planned, options.nestedLists !== false, ancestorProfile);
       children.push(...reconstructed.content);
       skipped.push(...reconstructed.segments);
       if (reconstructed.items > 0) result.reconstructedRuns++;
