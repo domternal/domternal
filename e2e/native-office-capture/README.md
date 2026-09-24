@@ -193,7 +193,11 @@ Safari ones were; nothing in the tooling is specific to a browser:
 2. Expect personal data where Safari had it: Word writes a picture bullet as a
    local file, under the user's home folder, which Chrome and Firefox may carry
    as a `file:` URL. `prepare-fixture.mjs` refuses what its scan finds; remove it
-   with `redact.mjs capture`.
+   with `redact.mjs capture`. The scan also reads image metadata in the document
+   and in clipboard files, people and custom document properties, and text
+   written with HTML, percent or CSS escapes. `redact.mjs` cannot edit an image
+   or a clipboard file: when one holds personal data, capture again from a
+   document whose pictures carry none.
 3. Prepare with `--specification` and `--scenario`, then run
    `pnpm exec playwright test --config e2e/paste-cleanup.config.ts paste-native-fixtures.browser.ts`.
    It fails for a fixture whose outcomes are not authored yet: review that

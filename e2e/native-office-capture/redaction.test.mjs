@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { crc32, deflateSync } from 'node:zlib';
 import { HARD_LIMITS } from './capture.mjs';
 import { CaptureEvidenceError, maskedCaptureDigest, readPackageParts, verifyCaptureFixture } from './offline.mjs';
 import { prepareFixture } from './prepare-fixture.mjs';
@@ -367,6 +368,63 @@ test('the privacy scan names categories and offsets only, in parts, flavors and 
   assert.deepEqual([...new Set(report.map(entry => `${entry.location.slice(base.length + 1)} ${entry.category}`))].sort(),
     ['capture.json:text/html home folder path', 'source.docx:docProps/core.xml author property']);
   assert.ok(!JSON.stringify(report).includes(ACCOUNT) && !JSON.stringify(report).includes(AUTHOR));
+});
+
+/** A PNG with the given text chunks, valid enough for a reader of chunks. */
+function pngWith(chunks) {
+  const chunk = (type, data) => {
+    const length = Buffer.alloc(4); length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body) >>> 0);
+    return Buffer.concat([length, body, crc]);
+  };
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', Buffer.alloc(13)),
+    ...chunks.map(([type, data]) => chunk(type, data)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+test('the privacy scan reads image metadata, people and custom properties, clipboard files and encoded text', async t => {
+  const base = await mkdtemp(join(tmpdir(), 'domternal-privacy-'));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  // Assembled at run time, so this file itself holds no address, home path or name.
+  const address = ['synthetic.person', 'mail.example.invalid'].join('@');
+  const home = ['', 'Users', 'syntheticperson', 'Pictures'].join('/');
+  const png = pngWith([
+    ['tEXt', Buffer.from(`Author\u0000${address}`, 'latin1')],
+    ['zTXt', Buffer.concat([Buffer.from('Comment\u0000\u0000', 'latin1'), deflateSync(Buffer.from(home))])],
+    ['iTXt', Buffer.concat([Buffer.from('Source\u0000\u0001\u0000\u0000\u0000', 'latin1'), deflateSync(Buffer.from(`made by ${address}`))])],
+  ]);
+  const people = `<w15:people xmlns:w15="urn:w15"><w15:person w15:author="Synthetic Person"><w15:presenceInfo w15:providerId="AD" w15:userId="S::synthetic-id"/></w15:person></w15:people>`;
+  const custom = '<Properties xmlns:vt="urn:vt"><property name="Reviewer"><vt:lpwstr>Synthetic Reviewer</vt:lpwstr></property></Properties>';
+  const docx = writePackage(new Map([
+    ['[Content_Types].xml', Buffer.from('<?xml version="1.0"?><Types xmlns="urn:types"/>')],
+    ['word/media/image1.png', png],
+    ['word/people.xml', Buffer.from(people)],
+    ['docProps/custom.xml', Buffer.from(custom)],
+  ]));
+  await writeFile(join(base, 'source.docx'), docx);
+  const encoded = address.replace('@', '&#64;').replaceAll('.', '&#x2e;');
+  const html = `<p>${encoded}</p><p>${encodeURIComponent(home)}</p><p>${home.toLowerCase()}</p><img src="x" alt="${address.replace('@', '%40')}">`;
+  const payload = Buffer.from(`EXIF\u0000Artist\u0000${address}\u0000${home}`, 'latin1');
+  const bundle = originalBundle('0'.repeat(64), html);
+  bundle.payload.files = [{ itemIndex: 2, byteLength: payload.length, sha256: digest(payload), base64: payload.toString('base64') }];
+  await writeFile(join(base, 'capture.json'), JSON.stringify(bundle));
+  const findings = await scanFiles([join(base, 'source.docx'), join(base, 'capture.json')], []);
+  const found = new Set(findings.map(entry => `${entry.location.slice(base.length + 1).replace(/#decoded$/u, '')} ${entry.category}`));
+  for (const expected of [
+    'source.docx:word/media/image1.png e-mail address', 'source.docx:word/media/image1.png home folder path',
+    'source.docx:word/people.xml author attribute', 'source.docx:docProps/custom.xml custom property',
+    'capture.json:text/html e-mail address', 'capture.json:text/html home folder path',
+    'capture.json:files[0] e-mail address', 'capture.json:files[0] home folder path',
+  ]) assert.ok(found.has(expected), expected);
+  // Two encoded home paths and a lowercase one in the HTML: each is its own finding.
+  assert.ok(findings.filter(entry => entry.location.endsWith('capture.json:text/html') || entry.location.endsWith('capture.json:text/html#decoded'))
+    .filter(entry => entry.category === 'home folder path').length >= 2);
+  assert.ok(!JSON.stringify(findings).includes('syntheticperson') && !JSON.stringify(findings).includes('Synthetic'));
+  // A plain document has none of these, and app.xml's title list is no custom property.
+  const plain = writePackage(new Map([['docProps/app.xml', Buffer.from('<Properties xmlns:vt="urn:vt"><TitlesOfParts><vt:vector><vt:lpstr>B01 Test document</vt:lpstr></vt:vector></TitlesOfParts><Company></Company></Properties>')],
+    ['word/media/image1.png', pngWith([])]]));
+  await writeFile(join(base, 'plain.docx'), plain);
+  assert.deepEqual(await scanFiles([join(base, 'plain.docx')], []), []);
 });
 
 test('prepare-fixture refuses artifacts that still hold personal data', async t => {
