@@ -118,6 +118,16 @@ correctly with no theme loaded. `ImageFloat`, `ImageAlign`, `ImagePlacement`,
 `SetImageOptions`, and `ImageOptions` are exported, along with `imageUploadPluginKey`,
 whose plugin state is the `DecorationSet` of the placeholders of files being stored.
 
+## Alt text
+
+A string describes the image. An empty string marks a decorative image, which assistive
+technology skips: it renders as `alt=""` in the editor, `getHTML()` and `generateHTML()`, and
+parses back as `''`. `null`, the default, means the image has no description yet and renders no
+`alt`, also after a resize or another update of the image. Typing `![](src)` and clearing the field
+in the Edit alt text menu store `null`; content with `alt=""`, `setImage({ src, alt: '' })` and
+`updateAttributes('image', { alt: '' })` store `''`. Applying the Edit alt text menu with its field
+unchanged changes nothing.
+
 ## Editing UI
 
 The user-facing counterpart to the commands above:

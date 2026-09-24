@@ -47,6 +47,10 @@ export type ImagePlacement = 'float' | 'align';
  */
 export interface SetImageOptions {
   src: string;
+  /**
+   * Alternative text. An empty string marks a decorative image and renders as `alt=""`;
+   * leave it out for an image that has no description yet.
+   */
   alt?: string;
   title?: string;
   width?: string | number;
@@ -110,6 +114,19 @@ function applySource(img: HTMLImageElement, attrs: Record<string, unknown>, allo
     if (img.getAttribute('src') !== src) img.src = src;
   } else {
     img.removeAttribute('src');
+  }
+}
+
+/**
+ * Writes the stored alt text onto the node view's image as getHTML() writes it: an empty one
+ * marks a decorative image and is written as alt="", and a missing one (null) removes the
+ * attribute, so an image without a description never looks decorative.
+ */
+function applyAlt(img: HTMLImageElement, value: unknown): void {
+  if (typeof value === 'string') {
+    if (img.getAttribute('alt') !== value) img.setAttribute('alt', value);
+  } else {
+    img.removeAttribute('alt');
   }
 }
 
@@ -332,8 +349,9 @@ export const Image = Node.create<ImageOptions>({
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('alt'),
         renderHTML: (attributes: Record<string, unknown>) => {
-          if (!attributes['alt']) return {};
-          return { alt: attributes['alt'] as string };
+          const alt = attributes['alt'];
+          // An empty alt marks a decorative image, so it is written as alt=""; a missing one writes nothing.
+          return typeof alt === 'string' ? { alt } : {};
         },
       },
       title: {
@@ -466,7 +484,9 @@ export const Image = Node.create<ImageOptions>({
           const { tr } = state;
           const attrs: Record<string, unknown> = {
             src: allowed,
-            alt: alt ?? null,
+            // An empty ![](src) is an image not yet described, as the Markdown parser reads it;
+            // only content or a command marks an image decorative with an empty alt.
+            alt: alt === undefined || alt === '' ? null : alt,
             title: title ?? null,
           };
 
@@ -578,7 +598,7 @@ export const Image = Node.create<ImageOptions>({
 
       const img = document.createElement('img');
       applySource(img, node.attrs, allowBase64());
-      if (node.attrs['alt']) img.alt = node.attrs['alt'] as string;
+      applyAlt(img, node.attrs['alt']);
       if (node.attrs['title']) img.title = node.attrs['title'] as string;
       applyWidth(img, node.attrs['width']);
       dom.appendChild(img);
@@ -647,8 +667,8 @@ export const Image = Node.create<ImageOptions>({
         update(updatedNode: PmNode) {
           if (updatedNode.type.name !== 'image') return false;
           applySource(img, updatedNode.attrs, allowBase64());
-          // A null alt/title would be written as the literal string "null".
-          img.alt = (updatedNode.attrs['alt'] as string | null) ?? '';
+          applyAlt(img, updatedNode.attrs['alt']);
+          // A null title would be written as the literal string "null".
           img.title = (updatedNode.attrs['title'] as string | null) ?? '';
           applyWidth(img, updatedNode.attrs['width']);
           applyPlacement(updatedNode.attrs['float'], updatedNode.attrs['align']);
@@ -837,6 +857,8 @@ export const Image = Node.create<ImageOptions>({
       // When set, the popover edits the image at this position in place
       // (e.g. its alt text) instead of inserting a new image.
       let editingPos: number | null = null;
+      // The alt field as the edit menu filled it, so applying it unchanged changes nothing.
+      let prefilledAlt = '';
 
       let refreshingLabels = false;
       const refreshLabels = (): void => {
@@ -877,6 +899,7 @@ export const Image = Node.create<ImageOptions>({
         // only the alt field.
         urlInput.value = '';
         altInput.value = prefill?.alt ?? '';
+        prefilledAlt = altInput.value;
         urlInput.hidden = editing;
         // Without an uploadHandler or allowBase64 a chosen file could not be stored.
         browseBtn.hidden = editing || !files.canStore();
@@ -934,11 +957,13 @@ export const Image = Node.create<ImageOptions>({
 
       const applyUrl = (): void => {
         if (editingPos !== null) {
-          // Edit menu: only the alt text changes; the existing src is kept.
-          const alt = altInput.value.trim() || null;
+          // Edit menu: only the alt text changes; the existing src is kept. A field applied as
+          // it was filled changes nothing, so a decorative image (alt "") stays decorative; a
+          // changed field stores the trimmed text, or null (no description) when it is empty.
           const { state } = editor.view;
           const node = state.doc.nodeAt(editingPos);
-          if (node?.type === nodeType) {
+          if (altInput.value !== prefilledAlt && node?.type === nodeType) {
+            const alt = altInput.value.trim() || null;
             const tr = state.tr.setNodeMarkup(editingPos, undefined, { ...node.attrs, alt });
             editor.view.dispatch(tr);
           }
