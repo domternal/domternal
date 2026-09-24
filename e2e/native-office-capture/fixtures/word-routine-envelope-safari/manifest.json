@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 2,
+  "id": "word-routine-envelope-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "08fb8078c106c948712e713c27513d693d53f4e4cbed7a091ad704f3874b63d0"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-routine-envelope",
+    "blocks": [
+      {
+        "id": "B01",
+        "type": "heading",
+        "level": 1,
+        "word": "Style: Title",
+        "text": "B01 Paste test document"
+      },
+      {
+        "id": "B02",
+        "type": "heading",
+        "level": 1,
+        "word": "Style: Heading 1",
+        "text": "B02 Croatian characters and quotation marks"
+      },
+      {
+        "id": "B03",
+        "type": "paragraph",
+        "word": "Style: Normal",
+        "text": "B03 Lowercase č ć đ š ž, uppercase Č Ć Đ Š Ž."
+      },
+      {
+        "id": "B04",
+        "type": "paragraph",
+        "word": "Style: Normal. Keep AutoFormat quotes as typed here.",
+        "text": "B04 Quotation marks „double“, ‚single‘, »reversed«, \"straight\" and 'straight', the apostrophe in don’t, an en dash – and an ellipsis…"
+      },
+      {
+        "id": "B05",
+        "type": "paragraph",
+        "word": "Style: Normal. Insert a nonbreaking space (Option+Space) between 10 and kg.",
+        "text": "B05 Nonbreaking space between 10 kg.",
+        "correction": "The text holds the nonbreaking space the block asks for; it had an ordinary space, which every capture shows as U+00A0."
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
+    "captureSha256": "9ac2c0b673f689c9d04da5711686a7b5403c865f19d33269f0e663da8e2aa62b",
+    "manifestSha256": "3554e87bf664798713fd310ccbecdc9d859ab03f24420ff8baf2358749aaec13"
+  }
+}

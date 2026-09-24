@@ -20,6 +20,8 @@ const PACKAGE_LIMITS = Object.freeze({ entries: 256, partBytes: 16 * 1024 * 1024
 const PART_ELEMENT = /^[A-Za-z][A-Za-z0-9]{0,31}:[A-Za-z][A-Za-z0-9]{0,63}$/u;
 const SEMANTIC_BLOCK_TYPES = new Set(['heading', 'paragraph', 'listItem', 'literalItem', 'tableCell', 'empty', 'alphabet', 'image', 'imageRun', 'textOnly']);
 const NOTICES = new Set(['quiet', 'visible']);
+// The fixture editor's schema an editor oracle holds for: the default one, or every capability, for content that needs it.
+const EDITOR_SCHEMAS = new Set(['default', 'capability-full']);
 const stored = new WeakMap();
 const cleanupRequire = createRequire(new URL('../../packages/extension-paste-cleanup/package.json', import.meta.url));
 const normalize = value => value.toLowerCase();
@@ -245,7 +247,7 @@ function sortedCodes(value) {
 /**
  * Check a reviewed semantic oracle: the blocks a content specification authors for one selection and,
  * for each policy, the replay's status, source and notice codes, plus the notice and codes the fixture
- * editor is expected to show. Nothing in it is normalizer output.
+ * editor with the named schema is expected to show. Nothing in it is normalizer output.
  */
 export function readSemanticExpected(expected) {
   if (!expected || typeof expected !== 'object' || Array.isArray(expected)) fail('evidence-schema');
@@ -268,8 +270,8 @@ export function readSemanticExpected(expected) {
     const oracle = shape(expected[formatting], ['status', 'source', 'warnings', 'editor']);
     if (!['cleaned', 'rejected'].includes(oracle.status) || !['word', 'google-docs', 'libreoffice', 'html'].includes(oracle.source)) fail('evidence-schema');
     sortedCodes(oracle.warnings);
-    const editor = shape(oracle.editor, ['notice', 'warnings']);
-    if (!NOTICES.has(editor.notice)) fail('evidence-schema');
+    const editor = shape(oracle.editor, ['schema', 'notice', 'warnings']);
+    if (!NOTICES.has(editor.notice) || !EDITOR_SCHEMAS.has(editor.schema)) fail('evidence-schema');
     sortedCodes(editor.warnings);
   }
   return expected;

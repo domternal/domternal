@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 2,
+  "id": "word-list-punctuation-case-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "9aa08e8a5e993f147c2048b7df08b8d4585d85784e6b251d0e305842c1edc0f8"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "98c928669ae25ee4c7d13f3d7e3ceccae3a35fb49ed3551bd741e0158220eb72"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-list-punctuation-case",
+    "blocks": [
+      {
+        "id": "L25",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1)"
+        },
+        "word": "Numbering Library: 1)",
+        "text": "L25 Parenthesis one"
+      },
+      {
+        "id": "L26",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "2)"
+        },
+        "word": "Enter",
+        "text": "L26 Parenthesis two"
+      },
+      {
+        "id": "L27",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "a)"
+        },
+        "word": "Numbering Library: a), restart",
+        "text": "L27 Letter a with a parenthesis"
+      },
+      {
+        "id": "L28",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "b)"
+        },
+        "word": "Enter",
+        "text": "L28 Letter b with a parenthesis"
+      },
+      {
+        "id": "L29",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-alpha",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "A."
+        },
+        "word": "Numbering Library: A., restart",
+        "text": "L29 Uppercase A"
+      },
+      {
+        "id": "L30",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-alpha",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "B."
+        },
+        "word": "Enter",
+        "text": "L30 Uppercase B"
+      },
+      {
+        "id": "L31",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-roman",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "I."
+        },
+        "word": "Numbering Library: I., restart",
+        "text": "L31 Uppercase Roman I"
+      },
+      {
+        "id": "L32",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-roman",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "II."
+        },
+        "word": "Enter",
+        "text": "L32 Uppercase Roman II"
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
+    "captureSha256": "d8aaab75d816fc36b7c934a8b4745ea620bd914ca2aea72e8337f709cfc8202c",
+    "manifestSha256": "cd059caa46e96335dfa9f3724d1409cb61eaa2764e5ca60bdc453e16168de732"
+  }
+}

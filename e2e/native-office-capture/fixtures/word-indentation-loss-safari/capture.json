@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "harnessVersion": "native-office-capture-v1",
+  "capturedAt": "2026-10-07T21:05:17.164Z",
+  "status": "complete",
+  "qualification": false,
+  "scope": "allowlisted-formats-and-exposed-files",
+  "provenance": {
+    "eventKind": "synthetic-event",
+    "nativeClipboardCaptured": false,
+    "sourceApplicationVerified": false
+  },
+  "operator": {
+    "os": "Authored variant of macOS 26.5.2 (25F84)",
+    "application": "Authored variant of Microsoft Word 16.113.3 (16.113.26092714)",
+    "browser": "Authored variant of Safari 26.5.2 (21624.2.5.11.8)",
+    "scenario": "word-indentation-loss",
+    "fixtureId": "word-indentation-loss-safari",
+    "fixtureSha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a",
+    "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
+    "syntheticSourceConfirmed": true
+  },
+  "limits": {
+    "maxItems": 64,
+    "maxFormats": 32,
+    "maxMetadataLength": 512,
+    "maxFormatBytes": 2097152,
+    "maxTextBytes": 4194304,
+    "maxFileBytes": 5242880,
+    "maxTotalFileBytes": 10485760,
+    "maxClipboardBytes": 12582912,
+    "maxJSONBytes": 25165824,
+    "maxDurationMs": 15000
+  },
+  "diagnostics": [],
+  "payload": {
+    "availableFormats": [
+      "text/html",
+      "text/plain"
+    ],
+    "omittedFormats": [],
+    "text": {
+      "text/html": "<html xmlns:o=\"urn:schemas-microsoft-com:office:office\"\nxmlns:w=\"urn:schemas-microsoft-com:office:word\"\nxmlns:m=\"http://schemas.microsoft.com/office/2004/12/omml\"\nxmlns=\"http://www.w3.org/TR/REC-html40\"><head><meta charset=\"UTF-8\"></head><p class=\"MsoNormal\" style=\"margin: 0cm 0cm 8pt 36pt; line-height: 18.4px; font-size: medium; font-family: Aptos, sans-serif; caret-color: rgb(255, 255, 255); color: rgb(255, 255, 255); font-style: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: start; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; text-decoration-line: none; text-decoration-thickness: auto; text-decoration-style: solid;\">B13 Paragraph with a 1.27 cm left indent.<o:p></o:p></p><p class=\"MsoNormal\" style=\"margin: 0cm 0cm 8pt; line-height: 18.4px; font-size: medium; font-family: Aptos, sans-serif; caret-color: rgb(255, 255, 255); color: rgb(255, 255, 255); font-style: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: start; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; text-decoration-line: none; text-decoration-thickness: auto; text-decoration-style: solid; text-indent: 36pt;\">B14 Paragraph with a first-line indent.<o:p></o:p></p></html>",
+      "text/plain": "B13 Paragraph with a 1.27 cm left indent.\r\nB14 Paragraph with a first-line indent.\r\n"
+    },
+    "items": [
+      {
+        "itemIndex": 0,
+        "kind": "string",
+        "type": "text/html",
+        "file": null
+      },
+      {
+        "itemIndex": 1,
+        "kind": "string",
+        "type": "text/plain",
+        "file": null
+      }
+    ],
+    "files": [],
+    "totals": {
+      "textBytes": 1477,
+      "fileBytes": 0
+    }
+  }
+}

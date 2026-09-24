@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 2,
+  "id": "word-default-bullets-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "9aa08e8a5e993f147c2048b7df08b8d4585d85784e6b251d0e305842c1edc0f8"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "8ce84a3383d4e7341a3e7289fcbcdfe8584fb2cf6c0c8869a13d9061a98b3d80"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-default-bullets",
+    "blocks": [
+      {
+        "id": "L02",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "wordLabel": "•"
+        },
+        "word": "Home > Bullets (default library bullet)",
+        "text": "L02 First level"
+      },
+      {
+        "id": "L03",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "circle",
+          "depth": 2,
+          "wordLabel": "o"
+        },
+        "word": "Tab: Word shows o",
+        "text": "L03 Second level"
+      },
+      {
+        "id": "L04",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "square",
+          "depth": 3,
+          "wordLabel": "▪"
+        },
+        "word": "Tab: Word shows a small square",
+        "text": "L04 Third level"
+      },
+      {
+        "id": "L05",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "wordLabel": "•"
+        },
+        "word": "Shift+Tab twice",
+        "text": "L05 First level again"
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
+    "captureSha256": "f9b36462f6a25396d1072fb01c034a4ad6438656546223ddb0cd79d3f7f421a9",
+    "manifestSha256": "e2dc37fb8a6367c2b8ec6a4412d36ac6ec1a634eb2d7eba0bf9e54b496627b7a"
+  }
+}

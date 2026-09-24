@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 2,
+  "id": "word-unsupported-list-profiles-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "9aa08e8a5e993f147c2048b7df08b8d4585d85784e6b251d0e305842c1edc0f8"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "1ca0af977ab2e09c286efbffa9377dee58532cc289c3750ce7ce7d06343fc7a5"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-unsupported-list-profiles",
+    "blocks": [
+      {
+        "id": "L63",
+        "type": "literalItem",
+        "wordLabel": "–",
+        "word": "Bullets > Define New Bullet > Character: en dash",
+        "text": "L63 Dash",
+        "expectation": "Literal paragraph with its visible marker and office-list-unsupported."
+      },
+      {
+        "id": "L64",
+        "type": "literalItem",
+        "wordLabel": "✓",
+        "word": "Bullets Library: check mark",
+        "text": "L64 Check mark",
+        "expectation": "Literal paragraph with office-list-unsupported."
+      },
+      {
+        "id": "L65",
+        "type": "literalItem",
+        "wordLabel": "➢",
+        "word": "Bullets Library: arrow",
+        "text": "L65 Arrow",
+        "expectation": "Literal paragraph with office-list-unsupported."
+      },
+      {
+        "id": "L66",
+        "type": "literalItem",
+        "wordLabel": "picture",
+        "word": "Bullets > Define New Bullet > Picture: any built-in picture bullet",
+        "text": "L66 Picture bullet",
+        "expectation": "Literal paragraph or missing marker, with office-list-unsupported or image-removed; record what Word copies."
+      },
+      {
+        "id": "L67",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1."
+        },
+        "word": "Multilevel List Library: 1. / 1.1. / 1.1.1.",
+        "text": "L67 Legal number",
+        "expectation": "The first level of the legal list is plain decimal numbering, 1., so it is an ordered list item; its legal second level stays literal.",
+        "correction": "Expected literal before the captures; the first level's definition is %1. without legal numbering, which Word shows as 1."
+      },
+      {
+        "id": "L68",
+        "type": "literalItem",
+        "wordLabel": "1.1.",
+        "word": "Tab",
+        "text": "L68 Legal subnumber",
+        "expectation": "Legal multilevel numbering stays literal."
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "office-list-unsupported",
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "office-list-unsupported",
+          "unsupported-formatting"
+        ]
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "office-list-unsupported",
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "office-list-unsupported",
+          "unsupported-formatting"
+        ]
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
+    "captureSha256": "b76220ddceeb5877154078e543be52ce28ab8fb397862f04f37ec00bc2506fc9",
+    "manifestSha256": "f6160a1e3949c11aa4912e9485af66a1aaecb288fdc6ee027dca72344b3e17e4"
+  }
+}

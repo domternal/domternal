@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 2,
+  "id": "word-alpha-beyond-z-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "9aa08e8a5e993f147c2048b7df08b8d4585d85784e6b251d0e305842c1edc0f8"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "e6121209831318bb51432ad15407e4ac6e6530903efbd9ea354feab5d0cc2dc7"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-alpha-beyond-z",
+    "blocks": [
+      {
+        "id": "L34",
+        "type": "alphabet",
+        "count": 28,
+        "word": "Numbering Library: a., restart at a, then 28 items: L34 Item 1 to L61 Item 28. Word shows a. to z., then aa. and bb.",
+        "textPattern": "L{34+n} Item {1+n}",
+        "expectation": "Items 1 to 26 become one lower-alpha list; aa. and bb. stay literal paragraphs with one office-list-unsupported."
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "office-list-unsupported",
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "office-list-unsupported",
+          "unsupported-formatting"
+        ]
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "office-list-unsupported",
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "office-list-unsupported",
+          "unsupported-formatting"
+        ]
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
+    "captureSha256": "873e8ccb96131a24b54c8088f29a2c2fc21bc1fcb9de5c6e151de5e08ccea8b0",
+    "manifestSha256": "1ffe5b638ea71441edbc2be8ef83bd7fa0cf7f93a19f814d08918397da993d1a"
+  }
+}

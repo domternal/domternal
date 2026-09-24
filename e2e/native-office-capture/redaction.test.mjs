@@ -44,8 +44,8 @@ function originalBundle(sourceSha256, html = HTML) {
 const expected = () => ({
   specification: 'redaction-test', scenario: 'word-redaction-test',
   blocks: [{ id: 'B01', type: 'paragraph', text: 'B01 Test document*' }],
-  preserve: { status: 'cleaned', source: 'word', warnings: ['image-removed'], editor: { notice: 'visible', warnings: ['image-removed'] } },
-  adapt: { status: 'cleaned', source: 'word', warnings: ['image-removed'], editor: { notice: 'visible', warnings: ['image-removed'] } },
+  preserve: { status: 'cleaned', source: 'word', warnings: ['image-removed'], editor: { schema: 'default', notice: 'visible', warnings: ['image-removed'] } },
+  adapt: { status: 'cleaned', source: 'word', warnings: ['image-removed'], editor: { schema: 'default', notice: 'visible', warnings: ['image-removed'] } },
 });
 
 /** A fixture directory whose source and capture were redacted with redact.mjs from originals that the test holds. */
@@ -228,6 +228,7 @@ test('the semantic oracle refuses wrong notice codes, blocks, policies and incom
     manifest => { manifest.expected.preserve = null; },
     manifest => { manifest.expected.preserve.warnings = ['z', 'a']; },
     manifest => { manifest.expected.adapt.editor.notice = 'observe'; },
+    manifest => { manifest.expected.adapt.editor.schema = 'capability-minimal'; },
     manifest => { manifest.expected.blocks = []; },
     manifest => { manifest.expected.blocks[0].type = 'unknown'; },
   ]) {

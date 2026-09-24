@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 2,
+  "id": "word-single-list-item-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "9aa08e8a5e993f147c2048b7df08b8d4585d85784e6b251d0e305842c1edc0f8"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "926e597c0757a341ea53f8b7d24dc85536dc7f099e3203df02f07e756c11e4dc"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-single-list-item",
+    "blocks": [
+      {
+        "id": "L03",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "circle",
+          "depth": 2,
+          "wordLabel": "o"
+        },
+        "word": "Tab: Word shows o",
+        "text": "L03 Second level"
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
+    "captureSha256": "36e279ce7efba2278e69b54a854ce500392fc1f554b005112a8d3add386b7454",
+    "manifestSha256": "7e20c64ccbf383c0c0f72e89249f69dd82af2dffb60c7389ec2f915cc8101135"
+  }
+}

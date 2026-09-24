@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 2,
+  "id": "word-table-text-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "49b7d4f949c35e3c06a0a3b3679839de034acb7595625cb904516bc3fde3f9bf"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "67c3679d356bc08285b76b3a3a7675ffbce7f02b1ca9b7b49523971af3516136"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-table-text",
+    "blocks": [
+      {
+        "id": "T01",
+        "type": "heading",
+        "level": 1,
+        "word": "Style: Heading 1",
+        "text": "T01 Table"
+      },
+      {
+        "id": "T02",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 1,
+          "headerRow": true
+        },
+        "word": "Insert > Table 3x3, Table Design: Header Row on",
+        "text": "T02 Column A",
+        "expectation": "Header Row is a table style option: the clipboard HTML has no header cells, so the first row arrives as ordinary cells, which the checker accepts."
+      },
+      {
+        "id": "T03",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 2,
+          "headerRow": true
+        },
+        "text": "T03 Column B"
+      },
+      {
+        "id": "T04",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 3,
+          "headerRow": true
+        },
+        "text": "T04 Column C"
+      },
+      {
+        "id": "T05",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 1,
+          "shading": "light gray"
+        },
+        "word": "Shading: light gray",
+        "text": "T05 Gray cell"
+      },
+      {
+        "id": "T06",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 2
+        },
+        "text": "T06 Plain cell"
+      },
+      {
+        "id": "T07",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 3
+        },
+        "text": "T07 Third cell"
+      },
+      {
+        "id": "T08",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 3,
+          "column": 1,
+          "colspan": 2
+        },
+        "word": "Merge the first two cells of row 3",
+        "text": "T08 Merged cells"
+      },
+      {
+        "id": "T09",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 3,
+          "column": 3
+        },
+        "text": "T09 Last cell"
+      },
+      {
+        "id": "T10",
+        "type": "paragraph",
+        "word": "Style: Normal, between the tables",
+        "text": "T10 Between tables."
+      },
+      {
+        "id": "T11",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 1,
+          "column": 1
+        },
+        "word": "Insert > Table 2x1, Borders: No Border",
+        "text": "T11 Borderless left"
+      },
+      {
+        "id": "T12",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 1,
+          "column": 2
+        },
+        "text": "T12 Borderless right"
+      },
+      {
+        "id": "T13",
+        "type": "tableCell",
+        "cell": {
+          "table": 3,
+          "row": 1,
+          "column": 1
+        },
+        "word": "Insert > Table 1x1 with a bulleted list inside the cell",
+        "text": "T13 List in a cell"
+      },
+      {
+        "id": "T14",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "wordLabel": "•"
+        },
+        "cell": {
+          "table": 3,
+          "row": 1,
+          "column": 1
+        },
+        "word": "In the same cell: Home > Bullets",
+        "text": "T14 First bullet in a cell"
+      },
+      {
+        "id": "T15",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "wordLabel": "•"
+        },
+        "cell": {
+          "table": 3,
+          "row": 1,
+          "column": 1
+        },
+        "word": "Enter",
+        "text": "T15 Second bullet in a cell"
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "db663ef644d83d5cc21d36a2a3e7572e8c9c99617156d9a0498491485c6dada6",
+    "captureSha256": "0f657336f09a8f88e53f0d44b539aecb6ee2e3f8fa9aef4377908c27060cec56",
+    "manifestSha256": "8b17e761aef0810fc8135d592d7713db3f6c2c1063a621a5932aa39f43c7d5e0"
+  }
+}

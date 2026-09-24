@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "id": "word-empty-paragraphs-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "0876d0fc3a58393f2430cc24e5d21a5087d8b176b3fb4f3783655dbd7f5f469a"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-empty-paragraphs",
+    "blocks": [
+      {
+        "id": "B14",
+        "type": "paragraph",
+        "word": "Style: Normal, Format > Paragraph > Special: First line 1.27 cm",
+        "text": "B14 Paragraph with a first-line indent.",
+        "expectation": "First-line indentation is a reported loss: unsupported-formatting."
+      },
+      {
+        "id": "B15",
+        "type": "paragraph",
+        "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
+        "text": "B15 Visible part HIDDEN end.",
+        "hidden": "HIDDEN",
+        "expectation": "Record whether Word copies the hidden word. When present, it becomes visible with unsupported-formatting."
+      },
+      {
+        "id": "B16a",
+        "type": "empty",
+        "word": "Style: Normal, an empty paragraph"
+      },
+      {
+        "id": "B16b",
+        "type": "empty",
+        "word": "Style: Normal, a second empty paragraph"
+      },
+      {
+        "id": "B16",
+        "type": "paragraph",
+        "word": "Style: Normal",
+        "text": "B16 After two empty paragraphs."
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "unsupported-formatting"
+        ]
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "unsupported-formatting"
+        ]
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
+    "captureSha256": "4959cebcce9012f18e299691c4ed6452098dd6510653e95bfca75cc1b45363ae",
+    "manifestSha256": "c69971fd4a3576f89ddf6c3139dd0a3c4d39a54bb75420183090bd5fa885874a"
+  }
+}

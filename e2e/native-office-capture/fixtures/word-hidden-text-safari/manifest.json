@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "id": "word-hidden-text-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "bebc8c7caa9ed1d941cfb8634a1365fc25f08c17bb7bda2abc3e914b3d79ab78"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-hidden-text",
+    "blocks": [
+      {
+        "id": "B15",
+        "type": "paragraph",
+        "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
+        "text": "B15 Visible part HIDDEN end.",
+        "hidden": "HIDDEN",
+        "expectation": "Record whether Word copies the hidden word. When present, it becomes visible with unsupported-formatting."
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
+    "captureSha256": "ed690cd66f38560e732cc9411e344fb11c8cf30a002766626e1ce928a21c85a2",
+    "manifestSha256": "a5d0feb57ea2449b5345dc4836ca86a1c6b3682e6a40f94f2394089ea9de4c32"
+  }
+}

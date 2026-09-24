@@ -351,6 +351,37 @@ test('the Google Docs dry run fixture passes the offline verifier, and its repla
   assert.throws(() => checkScenario(docs, 'gdocs-mixed-document', { ...bundle, status: 'incomplete' }), /incomplete/u);
 });
 
+test('every committed English regression variant passes the offline verifier and holds its authored scenario blocks', async () => {
+  const directories = (await readdir(join(here, 'fixtures'), { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => join(here, 'fixtures', entry.name));
+  const variants = [];
+  for (const directory of directories) {
+    const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
+    if (manifest.schemaVersion !== 2) continue;
+    variants.push(manifest.id);
+    const report = await verifyCaptureFixture(directory);
+    assert.equal(report.integrity.qualification, false); assert.equal(report.integrity.nativeEvidenceAuthenticated, false);
+    assert.equal(report.integrity.claimedEventKind, manifest.origin === 'synthetic' ? 'synthetic-event' : 'native-event');
+    const scenario = spec.scenarios.find(entry => entry.id === manifest.expected.scenario);
+    assert.ok(scenario, manifest.id);
+    assert.equal(manifest.expected.specification, spec.id);
+    assert.match(manifest.id, new RegExp(`^${scenario.id}-(?:safari|chrome|firefox)$`, 'u'));
+    // The oracle's blocks are the specification's own, so a correction reaches every fixture of the scenario.
+    const blocks = new Map(spec.documents.flatMap(document => document.blocks.map(block => [block.id, block])));
+    assert.deepEqual(manifest.expected.blocks, scenario.blocks.map(id => blocks.get(id)), manifest.id);
+    assert.deepEqual(manifest.expected.partial, scenario.partial, manifest.id);
+    const bundle = JSON.parse(await readFile(join(directory, manifest.capture.path), 'utf8'));
+    assert.equal(bundle.operator.scenario, scenario.capturedAs ?? scenario.id);
+    assert.equal(bundle.operator.fixtureId, manifest.id);
+    // The replay also meets the scenario's own outcome: its required warnings, nothing it does not allow.
+    for (const formatting of ['preserve', 'adapt']) assert.deepEqual(checkScenario(spec, scenario.id, bundle, { formatting }).problems, [], `${manifest.id} ${formatting}`);
+    const summary = JSON.parse(await readFile(join(directory, 'capture-summary.json'), 'utf8'));
+    assert.equal(summary.reviewed, true); assert.equal(summary.qualification, false); assert.equal(summary.fixtureId, manifest.id);
+  }
+  // Every Word for Mac to Safari selection the owner captured on 2026-10-02.
+  assert.deepEqual(variants.filter(id => id.endsWith('-safari')).sort(), spec.scenarios
+    .filter(entry => entry.document.startsWith('word-mac-v1-') && entry.id !== 'word-large-document').map(entry => `${entry.id}-safari`).sort());
+});
+
 test('the printed specification lists every text an operator enters', () => {
   const printed = printSpecification(docs);
   for (const document of docs.documents) assert.ok(printed.includes(`# ${document.title} (export ${document.export})`));

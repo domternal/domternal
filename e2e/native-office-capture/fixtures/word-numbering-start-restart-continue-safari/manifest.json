@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 2,
+  "id": "word-numbering-start-restart-continue-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "9aa08e8a5e993f147c2048b7df08b8d4585d85784e6b251d0e305842c1edc0f8"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "c8078b98a0d7fa28d038b14f85ef083620988d42a52f1fd87640b20c4c93c803"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-numbering-start-restart-continue",
+    "blocks": [
+      {
+        "id": "L07",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1."
+        },
+        "word": "Home > Numbering (default 1.)",
+        "text": "L07 First number"
+      },
+      {
+        "id": "L08",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 1,
+          "wordLabel": "a."
+        },
+        "word": "Tab: Word shows a.",
+        "text": "L08 Letter a"
+      },
+      {
+        "id": "L09",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 1,
+          "wordLabel": "i."
+        },
+        "word": "Tab: Word shows i.",
+        "text": "L09 Roman i"
+      },
+      {
+        "id": "L10",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 2,
+          "wordLabel": "ii."
+        },
+        "word": "Enter",
+        "text": "L10 Roman ii"
+      },
+      {
+        "id": "L11",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 2,
+          "wordLabel": "b."
+        },
+        "word": "Shift+Tab",
+        "text": "L11 Letter b"
+      },
+      {
+        "id": "L12",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "2."
+        },
+        "word": "Shift+Tab",
+        "text": "L12 Second number"
+      },
+      {
+        "id": "L13",
+        "type": "paragraph",
+        "word": "Style: Normal, numbering off",
+        "text": "L13 List interruption."
+      },
+      {
+        "id": "L14",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 3,
+          "wordLabel": "3."
+        },
+        "word": "Numbering, then right-click > Continue Numbering",
+        "text": "L14 Numbering continues"
+      },
+      {
+        "id": "L15",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1."
+        },
+        "word": "Enter, then right-click > Restart at 1",
+        "text": "L15 Restart at one"
+      },
+      {
+        "id": "L16",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 5,
+          "wordLabel": "5."
+        },
+        "word": "Enter, then Format > Bullets and Numbering or right-click > Set Numbering Value: start a new list at 5",
+        "text": "L16 Start at five"
+      },
+      {
+        "id": "L17",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 6,
+          "wordLabel": "6."
+        },
+        "word": "Enter",
+        "text": "L17 Six"
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
+    "captureSha256": "e4fe947d43ca9f2b026193268d5ae18a33cb7b76df3058dc71cf70de70832fd3",
+    "manifestSha256": "93a3aec74d09260bd5f76131e0cdaffa6bdd241c5a17fe125298d9598c60b7c5"
+  }
+}
