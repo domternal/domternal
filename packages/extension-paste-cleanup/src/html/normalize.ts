@@ -27,6 +27,7 @@ import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.j
 import { envelopeTags, transparentOfficeWrapper } from './envelope.js';
 import { wrapLooseInlineRuns } from './looseInline.js';
 import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
+import { restoreConvertedSpaces } from './convertedSpaces.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -176,6 +177,7 @@ export function normalizeClipboardHTML(
       tree = wrapTableContent(parseBoundedHTML(html, limits, 'table'));
     }
     assertTableBounds(tree, limits.maxTableCells);
+    restoreConvertedSpaces(tree);
     let images = 0;
     let pixels = 0;
     // The alt text left in place of each removed image, so the editor can tell it from pasted text.
@@ -199,7 +201,7 @@ export function normalizeClipboardHTML(
       quietImageBoxes(tree);
       resolveInlineInheritance(tree, {
         maxNodes: limits.maxNodes, maxDepth: limits.maxDepth, maxInputLength: limits.maxInputLength,
-        formatting: options.formatting ?? 'preserve',
+        formatting: options.formatting ?? 'preserve', source: result.source,
       }, node => { report('unsupported-formatting', node); }, node => { report('formatting-adapted', node, 'info'); });
       if (anchor !== undefined) confirmSliceAnchor(tree, anchor);
     }
@@ -213,6 +215,8 @@ export function normalizeClipboardHTML(
         if (child.type !== 'element' || envelopeTags.has(child.tagName) || taskCheckbox(parent, child)) continue;
         if (discard.has(child.tagName)) { report('unsafe-content-removed', child); continue; }
         const original = child.properties;
+        // Word writes its Title style as a paragraph. It is the document's first level heading, as Pro's DOCX import reads it.
+        if (!own && result.source === 'word' && child.tagName === 'p' && Array.isArray(original.className) && original.className.includes('MsoTitle')) child.tagName = 'h1';
         const clean: Properties = cleanMetadata(original);
         const anchorContext = sliceAnchorContext(child);
         if (anchorContext !== undefined) {

@@ -39,19 +39,51 @@ const destinationLayout = new Set([
   'border-collapse', 'border-spacing', 'table-layout', 'text-decoration-skip-ink', 'text-decoration-skip',
   '-webkit-text-decoration-skip',
 ]);
-// Values that render exactly like the property's absence.
+// Values that render exactly like the property's absence. The text decoration, stroke and border image values
+// are the initial ones WebKit writes on every element it copies (Safari interchange markup).
 const neutralValues: Readonly<Record<string, readonly string[]>> = {
   'text-transform': ['none'], 'letter-spacing': ['normal'], 'word-spacing': ['normal'],
   'font-stretch': ['normal', '100%'], 'font-feature-settings': ['normal'], 'text-wrap-mode': ['wrap'], 'text-wrap': ['wrap'],
   background: ['transparent', 'none'], 'background-image': ['none'], 'text-shadow': ['none'], 'box-shadow': ['none'],
   'mso-hide': ['none'], 'text-underline': ['none'],
+  'text-decoration-thickness': ['auto', 'from-font'], 'text-decoration-style': ['solid'], 'border-image': ['none'],
 };
+// Supported properties whose initial value WebKit writes on every top-level element it copies. They are
+// dropped like the property's absence rather than kept as formatting the source did not apply.
+const initialValues: Readonly<Record<string, readonly string[]>> = {
+  'text-align': ['start'], 'white-space': ['normal'],
+};
+// The caret's color is editor chrome, never document formatting; WebKit copies it with the text color.
+const editorChrome = new Set(['caret-color']);
 
 /** A length whose magnitude cannot change layout, such as `0`, `0cm` or Word's `.0001pt`. */
 export function zeroLength(value: string): boolean {
   const match = /^[+-]?(\d{0,6}(?:\.\d{0,6})?)(?:[a-z]{1,4}|%)?$/.exec(value);
   const magnitude = match?.[1];
   return magnitude !== undefined && /\d/.test(magnitude) && Number(magnitude) < 0.01;
+}
+
+/** A letter spacing of at most half a point either way. */
+function smallTracking(value: string): boolean {
+  const match = /^[+-]?(\d{1,3}(?:\.\d{1,6})?|\.\d{1,6})(pt|px)$/.exec(value);
+  if (match === null) return false;
+  const points = Number(match[1]) * (match[2] === 'px' ? 0.75 : 1);
+  return points <= 0.5;
+}
+
+const backgroundInitials = new Set(['none', 'repeat', 'scroll', '0', '0%', 'left', 'top', 'auto', 'padding-box', 'border-box', 'initial']);
+
+/**
+ * The color of a background shorthand that paints one safe color and otherwise only initial values, as
+ * Word writes a highlight (`background:yellow`) and cell shading. Anything else, such as an image, is not read.
+ */
+export function backgroundColor(value: string): string | undefined {
+  const tokens = value.trim().match(/[^\s(]+(?:\([^)]*\))?/g) ?? [];
+  const colors = tokens.filter(token => !backgroundInitials.has(token.toLowerCase()));
+  const candidate = colors[0];
+  if (colors.length !== 1 || candidate === undefined || tokens.join(' ').length > 160 || !color.test(candidate)) return undefined;
+  const lower = candidate.toLowerCase();
+  return ['transparent', 'none', 'inherit', 'initial', 'unset', 'currentcolor'].includes(lower) ? undefined : candidate;
 }
 
 const cssSpace = /^[\t\n\f\r ]+|[\t\n\f\r ]+$/g;
@@ -123,8 +155,12 @@ function routineBorder(name: string, value: string, tag: string): boolean | unde
 export function routineDeclaration(name: string, content: string, tag = ''): boolean {
   const value = content.trim().toLowerCase();
   if (name.startsWith('mso-') && name !== 'mso-hide') return true;
-  if (destinationLayout.has(name)) return true;
-  if ((name === 'letter-spacing' || name === 'word-spacing' || name === 'text-indent') && zeroLength(value)) return true;
+  if (destinationLayout.has(name) || editorChrome.has(name)) return true;
+  if ((name === 'letter-spacing' || name === 'word-spacing' || name === 'text-indent' || name === '-webkit-text-stroke-width') && zeroLength(value)) return true;
+  // Tracking within half a point, as Word's Title style condenses its text, is typesetting the destination owns.
+  if (name === 'letter-spacing' && smallTracking(value)) return true;
+  // The keyword for the default size: the text has no size of its own, as WebKit writes for Word's Normal text.
+  if (name === 'font-size' && value === 'medium') return true;
   if (Object.hasOwn(neutralValues, name)) return neutralValues[name]?.includes(value) === true;
   if (/^font-variant(?:-[a-z]+)*$/.test(name)) return value === 'normal';
   if (name === 'overflow' && tableTags.has(tag)) return true;
@@ -150,6 +186,15 @@ export function readSafeStyles(value: unknown, imagePlacement = false, tag = '')
     const placement = ownRule(imagePlacementRules, name);
     const rule = ownRule(rules, name) ?? (imagePlacement ? placement : undefined);
     if (separator < 0) { removed = true; continue; }
+    if (Object.hasOwn(initialValues, name) && initialValues[name]?.includes(content.toLowerCase()) === true) { styles.delete(name); continue; }
+    if (name === 'background') {
+      // A later declaration wins, so the shorthand replaces an earlier background color and a later one replaces it.
+      const painted = backgroundColor(content);
+      if (painted !== undefined) styles.set('background-color', painted);
+      else if (routineDeclaration(name, content, tag)) styles.delete('background-color');
+      else removed = true;
+      continue;
+    }
     if (!rule?.test(content)) { removed ||= !routineDeclaration(name, content, tag); continue; }
     styles.set(name, placement === undefined ? content : content.toLowerCase());
   }

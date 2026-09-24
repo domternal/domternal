@@ -1,6 +1,7 @@
 import type { Element, ElementContent, Properties, Root, RootContent, Text } from 'hast';
 import { readSafeStyles, serializeStyles, styleToRead } from './styles.js';
 import { envelopeTags } from './envelope.js';
+import type { PasteSource } from './types.js';
 
 export interface InlineInheritanceOptions {
   maxNodes: number;
@@ -8,6 +9,8 @@ export interface InlineInheritanceOptions {
   /** Reuse the input budget to bound additional generated attribute characters. */
   maxInputLength?: number;
   formatting?: 'preserve' | 'adapt';
+  /** The detected source, for source defaults that are no formatting of their own. */
+  source?: PasteSource;
 }
 
 export class InheritanceLimitError extends Error {}
@@ -99,20 +102,71 @@ function validFamily(value: string): boolean {
   });
 }
 
+/** The value of the last declaration of a property in a split style, if any. */
+function declared(declarations: readonly string[], property: string): string | undefined {
+  let value: string | undefined;
+  for (const declaration of declarations) {
+    const separator = declaration.indexOf(':');
+    if (separator > 0 && declaration.slice(0, separator).trim().toLowerCase() === property) value = declaration.slice(separator + 1).trim();
+  }
+  return value;
+}
+
+const sameColor = (left: string, right: string): boolean => left.replace(/\s+/g, '').toLowerCase() === right.replace(/\s+/g, '').toLowerCase();
+
+/** A font size in pixels: lengths in pixels or points, and the `medium` keyword for the default 16 pixels. */
+function fontPixels(value: string | undefined): number | undefined {
+  const lower = value?.toLowerCase();
+  if (lower === 'medium') return 16;
+  const match = /^(\d{1,4}(?:\.\d{1,6})?)(px|pt)$/.exec(lower ?? '');
+  return match === null ? undefined : Number(match[1]) * (match[2] === 'pt' ? 4 / 3 : 1);
+}
+
+/**
+ * A line height in pixels or points as a ratio of the element's own font size, rounded to two places:
+ * WebKit writes the computed line height of each block it copies, Word's 115 % as 18.4px for 16px text.
+ */
+function lineHeightRatio(value: string, fontSize: string | undefined): string | undefined {
+  const match = /^(\d{1,4}(?:\.\d{1,8})?)(px|pt)$/.exec(value.toLowerCase());
+  const size = fontPixels(fontSize);
+  if (match === null || size === undefined || size <= 0) return undefined;
+  const ratio = Number(match[1]) * (match[2] === 'pt' ? 4 / 3 : 1) / size;
+  return ratio > 0 && ratio <= 10 ? String(Math.round(ratio * 100) / 100) : undefined;
+}
+
 /**
  * Preserve source order while ignoring invalid values within the safe grammar. Office writes the
- * `windowtext` system color to reset text to the default color; it resets the inherited color.
+ * `windowtext` system color to reset text to the default color; it resets the inherited color. So does
+ * a color equal to the element's caret color: WebKit copies a top-level element's inherited text color
+ * with an equal caret color, which is the page's default color, Word's automatic color among them; a
+ * color the source applied comes from its own rule, without one. A line height in pixels or points
+ * becomes a ratio of the element's font size, and Word's default 1.15 is the source's own spacing,
+ * which Word also writes on each run whose size differs from its paragraph's.
  */
-function readInheritanceStyles(value: unknown, image: boolean, tag: string): { styles: Map<string, string>; removed: boolean; defaultColor: boolean } {
+function readInheritanceStyles(value: unknown, image: boolean, tag: string, source?: PasteSource): { styles: Map<string, string>; removed: boolean; defaultColor: boolean } {
   const styles = new Map<string, string>();
   let removed = false;
   let defaultColor = false;
   if (typeof value !== 'string') return { styles, removed, defaultColor };
-  for (const declaration of value.split(';')) {
-    const parsed = readSafeStyles(declaration, image, tag);
+  const declarations = value.split(';');
+  const caret = declared(declarations, 'caret-color');
+  const fontSize = declared(declarations, 'font-size');
+  for (const declaration of declarations) {
+    const separator = declaration.indexOf(':');
+    let text = declaration;
+    if (separator > 0 && declaration.slice(0, separator).trim().toLowerCase() === 'line-height') {
+      const ratio = lineHeightRatio(declaration.slice(separator + 1).trim(), fontSize);
+      if (ratio !== undefined) {
+        if (source === 'word' && ratio === '1.15') continue;
+        text = `line-height:${ratio}`;
+      }
+    }
+    const parsed = readSafeStyles(text, image, tag);
     removed ||= parsed.removed;
     for (const [key, entry] of parsed.styles) {
-      if (key === 'color' && entry.toLowerCase() === 'windowtext') { styles.delete(key); defaultColor = true; continue; }
+      if (key === 'color' && (entry.toLowerCase() === 'windowtext' || (caret !== undefined && sameColor(entry, caret)))) {
+        styles.delete(key); defaultColor = true; continue;
+      }
       if (((key === 'color' || key === 'background-color') && !validColor(entry))
         || (key === 'font-family' && !validFamily(entry))) { removed = true; continue; }
       if (key === 'color') defaultColor = false;
@@ -122,6 +176,12 @@ function readInheritanceStyles(value: unknown, image: boolean, tag: string): { s
     }
   }
   return { styles, removed, defaultColor };
+}
+
+/** Whether an element holds text other than white space, an image or a line break. */
+function visibleContent(node: Element): boolean {
+  return node.children.some(child => child.type === 'text' ? /[^\t\n\f\r ]/.test(child.value)
+    : child.type === 'element' && (child.tagName === 'img' || child.tagName === 'br' || visibleContent(child)));
 }
 
 function resolveSize(value: string, parent: FontSize | undefined): FontSize | undefined {
@@ -215,7 +275,7 @@ export function resolveInlineInheritance(
       const state: State = { ...inherited };
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
-      const { styles, removed, defaultColor } = readInheritanceStyles(styleToRead(child), tag === 'img', tag);
+      const { styles, removed, defaultColor } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.source);
       let unsupported = removed;
       // One adapted finding per discarded source property, reported on its declaring element.
       const adapted: string[] = [];
@@ -286,7 +346,8 @@ export function resolveInlineInheritance(
       if (styles.size > 0) child.properties.style = serializeStyles(styles);
       else delete child.properties.style;
       if (neutralTags.has(tag)) child.tagName = 'span';
-      if (unsupported) onUnsupported?.(child);
+      // An inline element without visible content loses nothing, such as the empty span WebKit ends a copy with.
+      if (unsupported && (!inline || visibleContent(child))) onUnsupported?.(child);
       if (!preserve) {
         const offset = child.position?.start.offset;
         for (const property of adapted) {
