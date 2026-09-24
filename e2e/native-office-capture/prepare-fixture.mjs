@@ -12,7 +12,7 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { HARD_LIMITS, TEXT_FORMATS } from './capture.mjs';
-import { disposeCaptureEvidence, readRedactions, validateCaptureBytes, verifyCaptureRedaction, verifyPackageRedaction } from './offline.mjs';
+import { checkRedactionPairing, disposeCaptureEvidence, readRedactions, validateCaptureBytes, verifyCaptureRedaction, verifyPackageRedaction } from './offline.mjs';
 import { expectedBlocks, imageInventory } from './semantics.mjs';
 import { scanFiles } from './privacy.mjs';
 
@@ -54,11 +54,11 @@ export async function prepareFixture(directory, { id, source, capture, license =
   const captureSha256 = digest(captureBytes);
   // Declared redactions, written by redact.mjs into the fixture directory, are checked like offline.mjs checks them.
   const declarations = redactions === undefined ? [] : JSON.parse((await readInside(root, redactions, 128 * 1024)).toString('utf8'));
-  const declared = readRedactions(declarations);
+  const declared = checkRedactionPairing(readRedactions(declarations));
   if ((declared.source !== undefined && declared.source.redactedSha256 !== sourceSha256)
     || (declared.capture !== undefined && declared.capture.redactedSha256 !== captureSha256)) throw new Error('A declared redaction does not describe the files in the fixture directory');
-  // Integrity first: a complete bundle, a native event claim and the source it names, the original when it was redacted.
-  const { handle, report } = validateCaptureBytes(captureBytes, { captureSha256, fixtureSha256: declared.source?.originalSha256 ?? sourceSha256, fixtureId: id, origin: 'claimed-native' });
+  // Integrity first: a complete bundle, a native event claim and the source it names, withheld when that source was redacted.
+  const { handle, report } = validateCaptureBytes(captureBytes, { captureSha256, fixtureSha256: declared.source === undefined ? sourceSha256 : null, fixtureId: id, origin: 'claimed-native' });
   disposeCaptureEvidence(handle);
   const bundle = JSON.parse(captureBytes.toString('utf8'));
   if (declared.source !== undefined) verifyPackageRedaction(sourceBytes, declared.source);
@@ -87,7 +87,8 @@ export async function prepareFixture(directory, { id, source, capture, license =
     textBytes: report.textBytes, fileBytes: report.fileBytes, itemCount: report.itemCount, fileCount: report.fileCount,
     // What each redaction changed and why, by location only: the removed values are not recorded anywhere.
     redactions: declarations.map(entry => ({ artifact: entry.artifact, basis: entry.basis, originalRetained: entry.originalRetained, reason: entry.reason,
-      changes: entry.artifact === 'source' ? entry.clearedElements : entry.replacements.map(({ flavor, offset, length }) => ({ flavor, offset, length })) })),
+      changes: entry.artifact === 'source' ? entry.clearedElements : entry.replacements.map(({ flavor, offset, length }) => ({ flavor, offset, length })),
+      ...(entry.artifact === 'capture' ? { withheld: entry.withheld } : {}) })),
     review: [
       'Open the source document and confirm it contains no personal, customer or hidden data.',
       'Author expected.preserve and expected.adapt from the content specification, then compare them with the replay.',

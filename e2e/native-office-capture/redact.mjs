@@ -2,10 +2,12 @@
 /**
  * Remove personal data from a capture bundle or a source document before it is committed, and write the
  * declaration that a version 2 manifest carries. A capture keeps every length and total: each occurrence
- * of a given ASCII text in its text flavors becomes the reserved token, padded to the same length. A
+ * of a given ASCII text in its text flavors becomes the reserved token, padded to the same length, and the
+ * source hash its operator recorded can be withheld the same way, for a source that is redacted too. A
  * Word package keeps every part except the named elements, which are emptied. The declaration records
- * the original and redacted hashes and fingerprints of everything the redaction left unchanged, taken
- * from the original, or from an already redacted copy when the original no longer exists.
+ * the redacted hash and fingerprints of everything the redaction left unchanged, taken from the original,
+ * or from an already redacted copy when the original no longer exists. It never records a hash of the
+ * original: an unsalted hash of text that held a name or an address confirms a guess of it.
  */
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -15,23 +17,26 @@ import { parseArgs } from 'node:util';
 import { crc32, deflateRawSync } from 'node:zlib';
 import { TEXT_FORMATS } from './capture.mjs';
 import { maskedCaptureDigest, maskedPart, readPackageParts, readRedactions, REDACTION_TOKEN, redactionToken, verifyCaptureRedaction,
-  verifyPackageRedaction } from './offline.mjs';
+  verifyPackageRedaction, WITHHELD_SOURCE_HASH } from './offline.mjs';
 
-const HASH = /^[a-f0-9]{64}$/u;
+const HASH = /^[a-f0-9]{64}$/iu;
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
-function provenance({ reason, claimedOriginal, originalRetained = false }, originalBytes) {
+/** Why, and from what: the original, or a copy redacted before the original was deleted, whose fingerprints it then holds. */
+function provenance({ reason, basis = 'original', originalRetained = false }) {
   if (typeof reason !== 'string' || !reason.trim() || reason.length > 1024) throw new Error('A redaction needs a reason of at most 1024 characters');
-  if (claimedOriginal !== undefined && !HASH.test(claimedOriginal)) throw new Error('The claimed original hash must be 64 lowercase hexadecimal digits');
-  // Without the original, its hash is the recorded claim and every fingerprint comes from the redacted copy.
-  return claimedOriginal === undefined
-    ? { reason, originalSha256: digest(originalBytes), originalRetained, basis: 'original' }
-    : { reason, originalSha256: claimedOriginal, originalRetained: false, basis: 'redacted-copy' };
+  if (!['original', 'redacted-copy'].includes(basis)) throw new Error('The basis is original or redacted-copy');
+  if (typeof originalRetained !== 'boolean' || (basis === 'redacted-copy' && originalRetained)) throw new Error('Only a redaction of the original can say the original is retained');
+  return { reason, originalRetained, basis };
 }
 
-/** Replace every occurrence of each text in a capture's text flavors by the reserved token of the same length. */
+/**
+ * Replace every occurrence of each text in a capture's text flavors by the reserved token of the same length
+ * and, with `withholdFixtureHash`, the source hash the operator recorded by the token of 64 characters.
+ */
 export function redactCaptureBytes(input, texts, options) {
-  if (!Array.isArray(texts) || texts.length === 0) throw new Error('Name at least one text to replace');
+  const withheld = options?.withholdFixtureHash === true ? ['fixtureSha256'] : [];
+  if (!Array.isArray(texts) || (texts.length === 0 && withheld.length === 0)) throw new Error('Name at least one text to replace, or withhold the source hash');
   for (const value of texts) {
     // Printable ASCII without quotes or backslashes appears verbatim in JSON, so the bytes change in place.
     if (typeof value !== 'string' || value.length < REDACTION_TOKEN.length || value.length > 512 || !/^[\x20-\x7e]+$/u.test(value) || /["\\]/u.test(value)) {
@@ -58,14 +63,25 @@ export function redactCaptureBytes(input, texts, options) {
     }
     expected.payload.text[flavor] = value;
   }
-  if (replacements.length === 0) throw new Error('None of the texts appears in the capture');
+  if (texts.length > 0 && replacements.length === 0) throw new Error('None of the texts appears in the capture');
   let output = source;
   for (const value of [...texts].sort((left, right) => right.length - left.length)) output = output.split(value).join(redactionToken(value.length));
+  if (withheld.length > 0) {
+    // The recorded hash is replaced where it stands, so the bytes keep their length and nothing else moves.
+    const recorded = original?.operator?.fixtureSha256;
+    if (typeof recorded !== 'string' || !HASH.test(recorded)) throw new Error('The capture records no source hash to withhold');
+    const field = `"fixtureSha256": "${recorded}"`;
+    const compact = `"fixtureSha256":"${recorded}"`;
+    const form = output.split(field).length === 2 ? field : output.split(compact).length === 2 ? compact : undefined;
+    if (form === undefined || output.split(recorded).length !== 2) throw new Error('The source hash must appear once, as the operator field');
+    output = output.replace(form, form.replace(recorded, WITHHELD_SOURCE_HASH));
+    expected.operator.fixtureSha256 = WITHHELD_SOURCE_HASH;
+  }
   const bytes = Buffer.from(output, 'utf8');
-  if (bytes.byteLength !== input.byteLength || JSON.stringify(JSON.parse(output)) !== JSON.stringify(expected)) throw new Error('The replacement changed more than the text flavors');
-  const masked = maskedCaptureDigest(expected, replacements);
-  if (maskedCaptureDigest(original, replacements) !== masked) throw new Error('The redacted capture differs from its input outside the replacements');
-  const declaration = order({ artifact: 'capture', format: 'capture-text', ...provenance(options, input), redactedSha256: digest(bytes), replacements, maskedSha256: masked });
+  if (bytes.byteLength !== input.byteLength || JSON.stringify(JSON.parse(output)) !== JSON.stringify(expected)) throw new Error('The replacement changed more than the text flavors and the withheld field');
+  const masked = maskedCaptureDigest(expected, replacements, withheld);
+  if (maskedCaptureDigest(original, replacements, withheld) !== masked) throw new Error('The redacted capture differs from its input outside the replacements');
+  const declaration = order({ artifact: 'capture', format: 'capture-text', ...provenance(options ?? {}), redactedSha256: digest(bytes), replacements, withheld, maskedSha256: masked });
   // The same checks the offline verifier applies to the committed fixture.
   verifyCaptureRedaction(JSON.parse(output), readRedactions([declaration]).capture);
   return { bytes, declaration };
@@ -120,15 +136,16 @@ export function redactPackageBytes(input, cleared, options) {
     const elements = cleared.find(entry => entry.part === name)?.elements;
     fingerprints[name] = elements === undefined ? digest(content) : digest(Buffer.from(maskedPart(content, elements), 'utf8'));
   }
-  const declaration = order({ artifact: 'source', format: 'ooxml-package', ...provenance(options, input), redactedSha256: digest(bytes),
+  const declaration = order({ artifact: 'source', format: 'ooxml-package', ...provenance(options ?? {}), redactedSha256: digest(bytes),
     clearedElements: cleared.map(({ part, elements }) => ({ part, elements: [...elements] })), parts: fingerprints });
-  if (declaration.originalSha256 === declaration.redactedSha256) throw new Error('The package has nothing to clear');
+  // An original must change; a redacted copy is already cleared and keeps its bytes.
+  if (!changed && declaration.basis === 'original') throw new Error('The package has nothing to clear');
   verifyPackageRedaction(bytes, readRedactions([declaration]).source);
   return { bytes, declaration };
 }
 
-const FIELD_ORDER = ['artifact', 'format', 'reason', 'originalSha256', 'redactedSha256', 'originalRetained', 'basis',
-  'clearedElements', 'parts', 'replacements', 'maskedSha256'];
+const FIELD_ORDER = ['artifact', 'format', 'reason', 'redactedSha256', 'originalRetained', 'basis',
+  'clearedElements', 'parts', 'replacements', 'withheld', 'maskedSha256'];
 function order(declaration) {
   return Object.fromEntries(FIELD_ORDER.filter(key => Object.hasOwn(declaration, key)).map(key => [key, declaration[key]]));
 }
@@ -144,17 +161,19 @@ async function recordDeclaration(path, declaration) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const usage = 'Usage: node redact.mjs capture <input.json> <output.json> --replace <text> [--replace <text>] --reason <text> --declarations <redactions.json> [--claimed-original <sha256> | --original-retained]\n'
-    + '       node redact.mjs package <input.docx> <output.docx> --clear <part>=<element>[,<element>] --reason <text> --declarations <redactions.json> [--claimed-original <sha256> | --original-retained]';
+  const usage = 'Usage: node redact.mjs capture <input.json> <output.json> [--replace <text>]... [--withhold-fixture-hash] --reason <text> --declarations <redactions.json> [--redacted-copy | --original-retained]\n'
+    + '       node redact.mjs package <input.docx> <output.docx> --clear <part>=<element>[,<element>] --reason <text> --declarations <redactions.json> [--redacted-copy | --original-retained]';
   try {
     const { values, positionals } = parseArgs({ allowPositionals: true, options: {
       replace: { type: 'string', multiple: true }, clear: { type: 'string', multiple: true }, reason: { type: 'string' },
-      declarations: { type: 'string' }, 'claimed-original': { type: 'string' }, 'original-retained': { type: 'boolean', default: false },
+      declarations: { type: 'string' }, 'redacted-copy': { type: 'boolean', default: false }, 'original-retained': { type: 'boolean', default: false },
+      'withhold-fixture-hash': { type: 'boolean', default: false },
     } });
     const [mode, input, output] = positionals;
     if (positionals.length !== 3 || !['capture', 'package'].includes(mode) || !values.declarations
-      || (values['claimed-original'] !== undefined && values['original-retained'])) throw new Error(usage);
-    const options = { reason: values.reason, claimedOriginal: values['claimed-original'], originalRetained: values['original-retained'] };
+      || (values['redacted-copy'] && values['original-retained']) || (mode === 'package' && values['withhold-fixture-hash'])) throw new Error(usage);
+    const options = { reason: values.reason, basis: values['redacted-copy'] ? 'redacted-copy' : 'original', originalRetained: values['original-retained'],
+      withholdFixtureHash: values['withhold-fixture-hash'] };
     const bytes = await readFile(resolve(input));
     const result = mode === 'capture' ? redactCaptureBytes(bytes, values.replace ?? [], options)
       : redactPackageBytes(bytes, (values.clear ?? []).map(entry => {
@@ -163,9 +182,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       }), options);
     await writeFile(resolve(output), result.bytes, { flag: resolve(output) === resolve(input) ? 'w' : 'wx' });
     await recordDeclaration(resolve(values.declarations), result.declaration);
-    // Only hashes and locations: the replaced text is never printed.
+    // Only the redacted hash and the basis: neither the replaced text nor a hash of the original is printed.
     process.stdout.write(`${JSON.stringify({ artifact: result.declaration.artifact, basis: result.declaration.basis,
-      originalSha256: result.declaration.originalSha256, redactedSha256: result.declaration.redactedSha256 }, null, 2)}\n`);
+      redactedSha256: result.declaration.redactedSha256 }, null, 2)}\n`);
   } catch (error) {
     process.stderr.write(`${error?.code ?? error?.message ?? 'redaction-failed'}\n`);
     process.exitCode = 1;

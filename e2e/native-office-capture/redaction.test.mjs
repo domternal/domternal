@@ -61,8 +61,9 @@ async function fixture(t, { source = true, capture = true } = {}) {
     const result = redactPackageBytes(sourceOriginal, [{ part: 'docProps/core.xml', elements: ['dc:creator', 'cp:lastModifiedBy'] }], { reason: REASON });
     sourceBytes = result.bytes; redactions.push(result.declaration);
   }
-  if (capture) {
-    const result = redactCaptureBytes(captureOriginal, [`/home/${ACCOUNT}`], { reason: REASON });
+  if (capture || source) {
+    // A redacted source's original hash is withheld from the capture that names it.
+    const result = redactCaptureBytes(captureOriginal, capture ? [`/home/${ACCOUNT}`] : [], { reason: REASON, withholdFixtureHash: source });
     captureBytes = result.bytes; redactions.push(result.declaration);
   }
   await writeFile(join(base, 'source.docx'), sourceBytes);
@@ -88,23 +89,34 @@ async function replaceArtifact(base, name, bytes) {
   });
 }
 
-test('a declared source and capture redaction passes, with the original hashes reported as claims that were not re-verified', async t => {
-  const { base, sourceOriginal, captureOriginal, sourceBytes, captureBytes } = await fixture(t);
+test('a declared source and capture redaction passes, and nothing committed or reported holds a hash of what was removed', async t => {
+  const { base, manifest, sourceOriginal, captureOriginal, sourceBytes, captureBytes } = await fixture(t);
   const report = await verifyCaptureFixture(base);
-  assert.equal(report.integrity.fixtureSha256, digest(sourceOriginal));
+  // The source hash the capture names is withheld: a hash of a document that held personal data confirms a guess of it.
+  assert.equal(report.integrity.fixtureSha256, null);
+  assert.equal(JSON.parse(captureBytes.toString('utf8')).operator.fixtureSha256, `redacted${'-'.repeat(56)}`);
   assert.equal(report.integrity.sourceSha256, digest(sourceBytes));
-  assert.deepEqual(report.integrity.redactions.map(entry => [entry.artifact, entry.basis, entry.originalVerified, entry.originalRetained]),
-    [['source', 'original', false, false], ['capture', 'original', false, false]]);
-  assert.equal(report.integrity.redactions[1].originalSha256, digest(captureOriginal));
+  assert.deepEqual(report.integrity.redactions.map(entry => [entry.artifact, entry.basis, entry.originalRetained, entry.withheld]),
+    [['source', 'original', false, []], ['capture', 'original', false, ['fixtureSha256']]]);
   assert.equal(report.integrity.redactions[1].redactedSha256, digest(captureBytes));
   assert.equal(report.replay.kind, 'offline-semantic-replay');
   assert.deepEqual(report.replay.outcomes.map(outcome => outcome.warnings), [['image-removed'], ['image-removed']]);
   assert.equal(report.integrity.qualification, false); assert.equal(report.integrity.nativeEvidenceAuthenticated, false);
-  // Neither the report nor the committed artifacts hold the removed values.
-  const serialized = JSON.stringify(report);
-  for (const value of [AUTHOR, ACCOUNT]) assert.ok(!serialized.includes(value));
-  assert.ok(!captureBytes.toString('utf8').includes(ACCOUNT));
+  // Neither the report, the manifest nor the committed artifacts hold the removed values or a hash of an original.
+  const committed = [JSON.stringify(report), JSON.stringify(manifest), captureBytes.toString('utf8')];
+  for (const value of [AUTHOR, ACCOUNT, digest(sourceOriginal), digest(captureOriginal)]) for (const text of committed) assert.ok(!text.includes(value));
   for (const content of readPackageParts(sourceBytes).values()) assert.ok(!content.toString('latin1').includes(AUTHOR));
+});
+
+test('a declaration that records a hash of the original is refused', async t => {
+  for (const artifact of ['source', 'capture']) {
+    const { base, sourceOriginal } = await fixture(t);
+    await rewrite(base, manifest => {
+      const declaration = manifest.redactions.find(entry => entry.artifact === artifact);
+      declaration.originalSha256 = digest(sourceOriginal);
+    });
+    await assert.rejects(verifyCaptureFixture(base), failure('evidence-schema'));
+  }
 });
 
 test('the redactions keep every length, total and part except the declared ones', async t => {
@@ -119,7 +131,7 @@ test('the redactions keep every length, total and part except the declared ones'
   assert.ok(after.payload.text['text/html'].includes(`url("${token}/clip_image001.png")`));
   const capture = manifest.redactions.find(entry => entry.artifact === 'capture');
   assert.deepEqual(capture.replacements, [{ flavor: 'text/html', offset: HTML.indexOf(span), length: span.length, token }]);
-  assert.equal(maskedCaptureDigest(before, capture.replacements), capture.maskedSha256);
+  assert.equal(maskedCaptureDigest(before, capture.replacements, capture.withheld), capture.maskedSha256);
   const original = readPackageParts(sourceOriginal);
   const redacted = readPackageParts(sourceBytes);
   assert.deepEqual([...redacted.keys()], [...original.keys()]);
@@ -136,16 +148,44 @@ test('an unredacted version 2 fixture keeps the exact source claim of version 1'
   assert.equal(report.integrity.fixtureSha256, report.integrity.sourceSha256);
 });
 
-test('a redacted source without a declaration, or with a wrong original hash, is refused', async t => {
-  const { base, sourceOriginal } = await fixture(t);
+test('a redacted source and a withheld source hash need each other', async t => {
+  // A redacted source without its declaration: the capture's withheld claim names no redaction.
+  const { base } = await fixture(t);
   await rewrite(base, manifest => { manifest.redactions = manifest.redactions.filter(entry => entry.artifact !== 'source'); });
   await assert.rejects(verifyCaptureFixture(base), failure('evidence-provenance'));
-  const second = await fixture(t);
-  await rewrite(second.base, manifest => { manifest.redactions[0].originalSha256 = digest(Buffer.concat([sourceOriginal, Buffer.from([0])])); });
-  await assert.rejects(verifyCaptureFixture(second.base), failure('evidence-provenance'));
-  const third = await fixture(t);
-  await rewrite(third.base, manifest => { manifest.redactions[0].originalSha256 = manifest.redactions[0].redactedSha256; });
-  await assert.rejects(verifyCaptureFixture(third.base), failure('evidence-redaction'));
+  // A capture that withholds nothing for a redacted source: its claim cannot name the committed document.
+  const second = await fixture(t, { source: true, capture: true });
+  const restored = JSON.parse(second.captureBytes.toString('utf8'));
+  restored.operator.fixtureSha256 = digest(second.sourceBytes);
+  await replaceArtifact(second.base, 'capture.json', Buffer.from(JSON.stringify(restored, null, 2)));
+  await rewrite(second.base, manifest => {
+    const capture = manifest.redactions.find(entry => entry.artifact === 'capture');
+    capture.withheld = [];
+  });
+  await assert.rejects(verifyCaptureFixture(second.base), error => error instanceof CaptureEvidenceError && ['evidence-provenance', 'evidence-redaction'].includes(error.code));
+  // A withheld hash for a source that was not redacted hides provenance for nothing.
+  const third = await fixture(t, { source: false, capture: false });
+  const withheld = redactCaptureBytes(third.captureBytes, [], { reason: REASON, withholdFixtureHash: true });
+  await replaceArtifact(third.base, 'capture.json', withheld.bytes);
+  await rewrite(third.base, manifest => { manifest.redactions = [withheld.declaration]; });
+  await assert.rejects(verifyCaptureFixture(third.base), failure('evidence-provenance'));
+});
+
+test('a withheld source hash holds its token, and the declaration says so', async t => {
+  const { base, captureBytes } = await fixture(t);
+  const bundle = JSON.parse(captureBytes.toString('utf8'));
+  bundle.operator.fixtureSha256 = '0'.repeat(64);
+  await replaceArtifact(base, 'capture.json', Buffer.from(JSON.stringify(bundle, null, 2)));
+  await assert.rejects(verifyCaptureFixture(base), error => error instanceof CaptureEvidenceError && ['evidence-provenance', 'evidence-redaction'].includes(error.code));
+  for (const mutate of [
+    manifest => { manifest.redactions[1].withheld = ['copyMethod']; },
+    manifest => { manifest.redactions[1].withheld = ['fixtureSha256', 'fixtureSha256']; },
+    manifest => { delete manifest.redactions[1].withheld; },
+  ]) {
+    const next = await fixture(t);
+    await rewrite(next.base, mutate);
+    await assert.rejects(verifyCaptureFixture(next.base), failure('evidence-schema'));
+  }
 });
 
 test('a source change the declaration does not name is refused, in another part or inside a cleared element', async t => {
@@ -166,9 +206,20 @@ test('a source change the declaration does not name is refused, in another part 
 });
 
 test('a redacted capture without a declaration is refused by its reserved token', async t => {
-  const { base } = await fixture(t);
+  const { base } = await fixture(t, { source: false, capture: true });
   await rewrite(base, manifest => { manifest.redactions = manifest.redactions.filter(entry => entry.artifact !== 'capture'); });
   await assert.rejects(verifyCaptureFixture(base), failure('evidence-redaction'));
+});
+
+test('the reserved token in another letter case is refused like the token itself', async t => {
+  for (const variant of ['REDACTED', 'Redacted', 'rEdAcTeD']) {
+    const { base, captureBytes } = await fixture(t, { source: false, capture: true });
+    // An undeclared redaction written in capitals: the declaration is removed and the hashes are updated, as a careless edit would.
+    const token = `redacted${'-'.repeat(`/home/${ACCOUNT}`.length - 8)}`;
+    await replaceArtifact(base, 'capture.json', Buffer.from(captureBytes.toString('utf8').replace(token, `${variant}${token.slice(8)}`)));
+    await rewrite(base, manifest => { manifest.redactions = []; });
+    await assert.rejects(verifyCaptureFixture(base), failure('evidence-redaction'));
+  }
 });
 
 test('a capture change outside the declared replacements is refused', async t => {
@@ -184,7 +235,7 @@ test('a capture change outside the declared replacements is refused', async t =>
   await rewrite(third.base, manifest => { manifest.redactions[1].replacements[0].offset += 1; });
   await assert.rejects(verifyCaptureFixture(third.base), failure('evidence-redaction'));
   const fourth = await fixture(t);
-  await rewrite(fourth.base, manifest => { manifest.redactions[1].redactedSha256 = manifest.redactions[1].originalSha256.replace(/^./u, '0'); });
+  await rewrite(fourth.base, manifest => { manifest.redactions[1].redactedSha256 = manifest.redactions[1].maskedSha256; });
   await assert.rejects(verifyCaptureFixture(fourth.base), failure('evidence-redaction'));
 });
 
@@ -252,6 +303,7 @@ test('redact.mjs refuses short, quoted or absent texts and texts outside the fla
   assert.throws(() => redactCaptureBytes(captureOriginal, ['short'], { reason: REASON }), /extend a shorter one/u);
   assert.throws(() => redactCaptureBytes(captureOriginal, ['with "quote" inside'], { reason: REASON }), /without quotes/u);
   assert.throws(() => redactCaptureBytes(captureOriginal, ['NotPresentAnywhere'], { reason: REASON }), /None of the texts/u);
+  assert.throws(() => redactCaptureBytes(captureOriginal, [], { reason: REASON }), /Name at least one text/u);
   assert.throws(() => redactCaptureBytes(captureOriginal, ['Authored test OS'], { reason: REASON }), /outside the text flavors/u);
   assert.throws(() => redactCaptureBytes(captureOriginal, [`/home/${ACCOUNT}`], { reason: '' }), /reason/u);
   const clean = originalPackage('');
@@ -259,15 +311,22 @@ test('redact.mjs refuses short, quoted or absent texts and texts outside the fla
   assert.throws(() => redactPackageBytes(clean, [{ part: 'docProps/app.xml', elements: ['dc:creator'] }], { reason: REASON }), /no part/u);
 });
 
-test('a copy redacted before its original was deleted is declared with the claimed original hash and an unchanged hash', () => {
+test('a copy redacted before its original was deleted is declared as such, with an unchanged hash and no original hash', () => {
   const scrubbed = redactPackageBytes(originalPackage(), [{ part: 'docProps/core.xml', elements: ['dc:creator', 'cp:lastModifiedBy'] }], { reason: REASON }).bytes;
-  const claimed = digest(originalPackage());
   const { bytes, declaration } = redactPackageBytes(scrubbed, [{ part: 'docProps/core.xml', elements: ['dc:creator', 'cp:lastModifiedBy'] }],
-    { reason: REASON, claimedOriginal: claimed });
+    { reason: REASON, basis: 'redacted-copy' });
   assert.ok(bytes.equals(scrubbed));
-  assert.deepEqual([declaration.basis, declaration.originalRetained, declaration.originalSha256, declaration.redactedSha256],
-    ['redacted-copy', false, claimed, digest(scrubbed)]);
-  assert.throws(() => redactPackageBytes(scrubbed, [{ part: 'docProps/core.xml', elements: ['dc:creator'] }], { reason: REASON, claimedOriginal: 'not-a-hash' }), /claimed original/u);
+  assert.deepEqual([declaration.basis, declaration.originalRetained, declaration.redactedSha256], ['redacted-copy', false, digest(scrubbed)]);
+  assert.ok(!Object.hasOwn(declaration, 'originalSha256'));
+  assert.throws(() => redactPackageBytes(scrubbed, [{ part: 'docProps/core.xml', elements: ['dc:creator'] }], { reason: REASON, basis: 'claimed' }), /basis/u);
+  assert.throws(() => redactPackageBytes(scrubbed, [{ part: 'docProps/core.xml', elements: ['dc:creator'] }], { reason: REASON, basis: 'redacted-copy', originalRetained: true }), /retained/u);
+  // A capture copy whose text was redacted earlier keeps its spans; its source hash is withheld now.
+  const html = HTML.replace(`/home/${ACCOUNT}`, `/home/${'r'.repeat(ACCOUNT.length)}`);
+  const copy = Buffer.from(JSON.stringify(originalBundle(digest(originalPackage()), html), null, 2));
+  const capture = redactCaptureBytes(copy, [`/home/${'r'.repeat(ACCOUNT.length)}`], { reason: REASON, basis: 'redacted-copy', withholdFixtureHash: true });
+  assert.deepEqual([capture.declaration.basis, capture.declaration.withheld], ['redacted-copy', ['fixtureSha256']]);
+  assert.ok(!capture.bytes.toString('utf8').includes(digest(originalPackage())));
+  assert.equal(capture.bytes.byteLength, copy.byteLength);
 });
 
 test('prepare-fixture writes a version 2 skeleton with the declared redactions, the authored blocks and no removed value', async t => {
@@ -283,8 +342,10 @@ test('prepare-fixture writes a version 2 skeleton with the declared redactions, 
     blocks: specification.documents[0].blocks, preserve: null, adapt: null });
   assert.deepEqual(prepared.summary.redactions.map(entry => entry.artifact), ['source', 'capture']);
   assert.deepEqual(prepared.summary.redactions[1].changes, [{ flavor: 'text/html', offset: HTML.indexOf('/home/'), length: `/home/${ACCOUNT}`.length }]);
+  assert.deepEqual(prepared.summary.redactions[1].withheld, ['fixtureSha256']);
+  assert.equal(prepared.summary.operator.fixtureSha256, `redacted${'-'.repeat(56)}`);
   const written = await readFile(join(base, 'capture-summary.json'), 'utf8');
-  for (const value of [AUTHOR, ACCOUNT]) assert.ok(!written.includes(value));
+  for (const value of [AUTHOR, ACCOUNT, digest(originalPackage())]) assert.ok(!written.includes(value));
   // The skeleton stays unreviewed until both outcomes are authored.
   await assert.rejects(verifyCaptureFixture(base), failure('evidence-schema'));
   await writeFile(join(base, 'redactions.json'), JSON.stringify(manifest.redactions.slice(1)));

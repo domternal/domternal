@@ -186,9 +186,10 @@ Safari ones were; nothing in the tooling is specific to a browser:
 1. Capture each scenario as [Per capture](#per-capture) describes, into
    `fixtures/<scenario>-<browser>/`, with the redacted documents of the Safari
    fixtures as sources. They hash to what the owner's documents hash to now, so
-   a capture that names that hash needs no source redaction; one that names the
-   original hash declares the same one with `redact.mjs package ...
-   --claimed-original <hash>`.
+   a capture that names that hash needs no source redaction. One that names the
+   hash of a document that still held personal data declares the source
+   redaction with `redact.mjs package ... --redacted-copy` and withholds the hash
+   it names with `redact.mjs capture ... --withhold-fixture-hash`.
 2. Expect personal data where Safari had it: Word writes a picture bullet as a
    local file, under the user's home folder, which Chrome and Firefox may carry
    as a `file:` URL. `prepare-fixture.mjs` refuses what its scan finds; remove it
@@ -259,14 +260,15 @@ does not: Word writes the author's account in the document properties and, for
 a picture bullet, a local temporary path under the user's home folder into the
 clipboard HTML. Such data is removed before anything is committed, with
 [`redact.mjs`](./redact.mjs), and the removal is declared in the manifest, so
-the provenance chain stays checkable: the bundle claims the hash of the document
-it was copied from, which a redacted document cannot have.
+what changed stays checkable without keeping anything that identifies a person.
 
 ```sh
 # A capture: each occurrence of the text becomes the token "redacted", padded with hyphens to the same length.
 node e2e/native-office-capture/redact.mjs capture original.json capture.json --replace '<text>' --reason '<why>' --declarations redactions.json
 # A Word document: the named elements of a part are emptied; every other part keeps its content.
 node e2e/native-office-capture/redact.mjs package original.docx source.docx --clear docProps/core.xml=dc:creator,cp:lastModifiedBy --reason '<why>' --declarations redactions.json
+# The capture of a redacted document: the source hash its operator recorded becomes the 64-character token.
+node e2e/native-office-capture/redact.mjs capture original.json capture.json --withhold-fixture-hash --reason '<why>' --declarations redactions.json
 ```
 
 - A replaced text is printable ASCII of at least eight characters; extend a
@@ -274,25 +276,32 @@ node e2e/native-office-capture/redact.mjs package original.docx source.docx --cl
   home folder path before it, so no local path remains. Its byte length, the flavor's
   length and the bundle's totals do not change, and the tool refuses a text
   that also appears outside the text flavors.
-- Each declaration records the original and redacted SHA-256, whether the
-  original is retained, the reason, the replaced locations or cleared elements
-  (never the removed values) and fingerprints of everything the redaction left
-  unchanged: the capture with its replacements masked, and every part of the
-  package with its cleared elements emptied.
+- No declaration records a hash of an original, and a capture whose source
+  document was redacted withholds the source hash its operator recorded: an
+  unsalted hash of a file that held a name or an address confirms a guess of
+  that name or address, offline and in moments. A source redaction and a
+  withheld source hash therefore always come together, and the tie between the
+  capture and its document is the declaration, the fixture identifier and the
+  content the oracle checks.
+- Each declaration records the redacted SHA-256, whether the original is
+  retained, the reason, the replaced locations, withheld fields or cleared
+  elements (never the removed values) and fingerprints of everything the
+  redaction left unchanged: the capture with its replacements and withheld
+  fields masked, and every part of the package with its cleared elements emptied.
 - The fingerprints are taken from the original. When the original no longer
-  exists, run the same command on the redacted copy with
-  `--claimed-original <sha256>`: the declaration then has the basis
-  `redacted-copy`, its original hash is a recorded claim, and its fingerprints
-  hold the redacted copy from then on without proving what the original held.
-  A package whose elements are already empty keeps its bytes and hash.
+  exists, run the same command on the redacted copy with `--redacted-copy`: the
+  declaration then has the basis `redacted-copy`, and its fingerprints hold the
+  redacted copy from then on without proving what the original held. A package
+  whose elements are already empty keeps its bytes and hash.
 - `offline.mjs` verifies a version 2 manifest against its declarations: the
-  bundle's claim must equal the declared original hash of a redacted document
-  and the committed hash otherwise, the committed files must match their
-  redacted hashes and fingerprints, every replacement must hold its token, and
-  the token `redacted` may appear nowhere else in the bundle. An undeclared
-  redaction, a wrong original hash or any change outside the declared locations
-  is refused with `evidence-provenance` or `evidence-redaction`. It reports each
-  redaction with `originalVerified: false`, since no original is ever read.
+  bundle's source claim must equal the committed source hash, or be withheld
+  exactly when the source declares its redaction; the committed files must match
+  their redacted hashes and fingerprints; every replacement and withheld field
+  must hold its token; and the token `redacted`, in any letter case, may appear
+  nowhere else in the bundle. An undeclared redaction, a declaration that records
+  an original hash or any change outside the declared locations is refused with
+  `evidence-schema`, `evidence-provenance` or `evidence-redaction`. It reports
+  each redaction with `originalVerified: false`, since no original is ever read.
 
 ## Google Docs capture preparation
 

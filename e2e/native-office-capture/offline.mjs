@@ -16,6 +16,8 @@ const HASH = /^[a-f0-9]{64}$/u;
 // A redaction replaces a span by this token, padded with hyphens to the span's length. The token is reserved:
 // a capture of a version 2 manifest may hold it only inside a declared replacement.
 export const REDACTION_TOKEN = 'redacted';
+// Operator fields a capture redaction can withhold: the source hash, when the source it names held personal data.
+const WITHHOLDABLE = Object.freeze(['fixtureSha256']);
 const PACKAGE_LIMITS = Object.freeze({ entries: 256, partBytes: 16 * 1024 * 1024, totalBytes: 64 * 1024 * 1024, nameLength: 256 });
 const PART_ELEMENT = /^[A-Za-z][A-Za-z0-9]{0,31}:[A-Za-z][A-Za-z0-9]{0,63}$/u;
 const SEMANTIC_BLOCK_TYPES = new Set(['heading', 'paragraph', 'listItem', 'literalItem', 'tableCell', 'empty', 'alphabet', 'image', 'imageRun', 'textOnly']);
@@ -129,7 +131,8 @@ function canonicalBase64(value, size) {
 export function validateCaptureBytes(input, evidence) {
   try {
     shape(evidence, ['captureSha256', 'fixtureSha256', 'fixtureId', 'origin']);
-    hash(evidence.captureSha256); hash(evidence.fixtureSha256); text(evidence.fixtureId);
+    // A null source hash: the capture withholds the hash it recorded, by a declared redaction.
+    hash(evidence.captureSha256); if (evidence.fixtureSha256 !== null) hash(evidence.fixtureSha256); text(evidence.fixtureId);
     if (!['synthetic', 'claimed-native'].includes(evidence.origin)) fail('evidence-provenance');
     bytes(input, HARD_LIMITS.maxJSONBytes);
     if (digest(input) !== evidence.captureSha256) fail('evidence-checksum');
@@ -150,8 +153,9 @@ export function validateCaptureBytes(input, evidence) {
       : bundle.provenance.eventKind !== 'native-event' || bundle.provenance.nativeClipboardCaptured !== true) fail('evidence-provenance');
     shape(bundle.operator, ['os', 'application', 'browser', 'scenario', 'fixtureId', 'fixtureSha256', 'copyMethod', 'syntheticSourceConfirmed']);
     for (const field of ['os', 'application', 'browser', 'scenario', 'fixtureId', 'fixtureSha256', 'copyMethod']) text(bundle.operator[field], limits.maxMetadataLength);
+    const claim = evidence.fixtureSha256 === null ? WITHHELD_SOURCE_HASH : evidence.fixtureSha256;
     if (bundle.operator.syntheticSourceConfirmed !== true || bundle.operator.fixtureId !== evidence.fixtureId
-      || normalize(bundle.operator.fixtureSha256) !== evidence.fixtureSha256) fail('evidence-provenance');
+      || normalize(bundle.operator.fixtureSha256) !== claim) fail('evidence-provenance');
     const payload = shape(bundle.payload, ['availableFormats', 'omittedFormats', 'text', 'items', 'files', 'totals']);
     const formats = list(payload.availableFormats, limits.maxFormats);
     const seenFormats = new Set();
@@ -383,13 +387,17 @@ function clearedPart(content, elements) {
   });
 }
 
-/** The capture with every declared replacement masked. It is equal for an original and its redaction when nothing else changed. */
-export function maskedCaptureDigest(bundle, replacements) {
+/**
+ * The capture with every declared replacement and withheld operator field masked. It is equal for an
+ * original and its redaction when nothing else changed.
+ */
+export function maskedCaptureDigest(bundle, replacements, withheld = []) {
   const masked = structuredClone(bundle);
   for (const { flavor, offset, length } of replacements) {
     const value = masked.payload.text[flavor];
     masked.payload.text[flavor] = `${value.slice(0, offset)}${'\u0000'.repeat(length)}${value.slice(offset + length)}`;
   }
+  for (const field of withheld) masked.operator[field] = null;
   return digest(JSON.stringify(masked));
 }
 
@@ -397,11 +405,15 @@ export function maskedCaptureDigest(bundle, replacements) {
 export function redactionToken(length) {
   return REDACTION_TOKEN.padEnd(length, '-');
 }
+/** What a withheld source hash holds in place of its 64 hexadecimal digits. */
+export const WITHHELD_SOURCE_HASH = REDACTION_TOKEN.padEnd(64, '-');
 
 /**
  * Declared redactions of a version 2 manifest: at most one for the source document and one for the
- * capture. Each records the original and redacted hashes, whether the original is retained, whether
- * its fingerprints were taken from the original or from an already redacted copy, and what changed.
+ * capture. Each records the redacted hash, whether the original is retained, whether its fingerprints
+ * were taken from the original or from an already redacted copy, and what changed. None records a hash
+ * of the original: an unsalted hash of text that held a name or an address confirms a guess of it. For
+ * the same reason a capture whose source was redacted withholds the source hash its operator recorded.
  */
 export function readRedactions(value) {
   list(value, 2);
@@ -409,7 +421,7 @@ export function readRedactions(value) {
   for (const entry of value) {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) fail('evidence-schema');
     if (entry.artifact === 'source') {
-      shape(entry, ['artifact', 'format', 'reason', 'originalSha256', 'redactedSha256', 'originalRetained', 'basis', 'clearedElements', 'parts']);
+      shape(entry, ['artifact', 'format', 'reason', 'redactedSha256', 'originalRetained', 'basis', 'clearedElements', 'parts']);
       if (entry.format !== 'ooxml-package') fail('evidence-schema');
       list(entry.clearedElements, 16);
       if (entry.clearedElements.length === 0) fail('evidence-schema');
@@ -423,10 +435,11 @@ export function readRedactions(value) {
       integer(Object.keys(entry.parts).length, PACKAGE_LIMITS.entries, 1);
       for (const part of Object.values(entry.parts)) hash(part);
     } else if (entry.artifact === 'capture') {
-      shape(entry, ['artifact', 'format', 'reason', 'originalSha256', 'redactedSha256', 'originalRetained', 'basis', 'replacements', 'maskedSha256']);
+      shape(entry, ['artifact', 'format', 'reason', 'redactedSha256', 'originalRetained', 'basis', 'replacements', 'withheld', 'maskedSha256']);
       if (entry.format !== 'capture-text') fail('evidence-schema');
-      list(entry.replacements, 64);
-      if (entry.replacements.length === 0) fail('evidence-schema');
+      list(entry.replacements, 64); list(entry.withheld, 8);
+      if (entry.replacements.length === 0 && entry.withheld.length === 0) fail('evidence-schema');
+      if (entry.withheld.some((field, index) => !WITHHOLDABLE.includes(field) || entry.withheld.indexOf(field) !== index)) fail('evidence-schema');
       for (const replacement of entry.replacements) {
         shape(replacement, ['flavor', 'offset', 'length', 'token']);
         if (!TEXT_FORMATS.includes(replacement.flavor)) fail('evidence-schema');
@@ -436,11 +449,20 @@ export function readRedactions(value) {
       hash(entry.maskedSha256);
     } else fail('evidence-schema');
     if (Object.hasOwn(declared, entry.artifact)) fail('evidence-schema');
-    text(entry.reason, 1024); hash(entry.originalSha256); hash(entry.redactedSha256);
-    if (typeof entry.originalRetained !== 'boolean' || !['original', 'redacted-copy'].includes(entry.basis)) fail('evidence-schema');
-    if (entry.originalSha256 === entry.redactedSha256) fail('evidence-redaction');
+    text(entry.reason, 1024); hash(entry.redactedSha256);
+    if (typeof entry.originalRetained !== 'boolean' || !['original', 'redacted-copy'].includes(entry.basis)
+      || (entry.basis === 'redacted-copy' && entry.originalRetained)) fail('evidence-schema');
     declared[entry.artifact] = entry;
   }
+  return declared;
+}
+
+/**
+ * A fixture's redactions agree: a redacted source and a withheld source hash need each other. The capture
+ * names the original document, whose hash is not committed, and an unredacted source's hash holds nothing to withhold.
+ */
+export function checkRedactionPairing(declared) {
+  if ((declared.source !== undefined) !== (declared.capture?.withheld.includes('fixtureSha256') === true)) fail('evidence-provenance');
   return declared;
 }
 
@@ -462,8 +484,9 @@ export function verifyPackageRedaction(source, declaration) {
 }
 
 /**
- * The capture equals its original outside the declared replacements, each of which holds its token, and
- * the reserved token appears nowhere else: a redaction without a declaration cannot pass as captured text.
+ * The capture equals its original outside the declared replacements and withheld fields, each of which holds
+ * its token, and the reserved token appears nowhere else, in any letter case: a redaction without a
+ * declaration cannot pass as captured text.
  */
 export function verifyCaptureRedaction(bundle, declaration) {
   const flavors = bundle.payload.text;
@@ -479,20 +502,26 @@ export function verifyCaptureRedaction(bundle, declaration) {
       previous = { order, end: replacement.offset + replacement.length };
       spans.set(replacement.flavor, [...(spans.get(replacement.flavor) ?? []), [replacement.offset, previous.end]]);
     }
-    if (maskedCaptureDigest(bundle, declaration.replacements) !== declaration.maskedSha256) fail('evidence-redaction');
+    for (const field of declaration.withheld) if (bundle.operator[field] !== WITHHELD_SOURCE_HASH) fail('evidence-redaction');
+    if (maskedCaptureDigest(bundle, declaration.replacements, declaration.withheld) !== declaration.maskedSha256) fail('evidence-redaction');
   }
+  // The token in any letter case: an undeclared redaction written in capitals is still a redaction.
   for (const [flavor, value] of Object.entries(flavors)) {
-    for (let at = value.indexOf(REDACTION_TOKEN); at >= 0; at = value.indexOf(REDACTION_TOKEN, at + 1)) {
+    const folded = value.toLowerCase();
+    for (let at = folded.indexOf(REDACTION_TOKEN); at >= 0; at = folded.indexOf(REDACTION_TOKEN, at + 1)) {
       if (!(spans.get(flavor) ?? []).some(([start, stop]) => at >= start && at + REDACTION_TOKEN.length <= stop)) fail('evidence-redaction');
     }
   }
-  if (JSON.stringify({ ...bundle, payload: { ...bundle.payload, text: {} } }).includes(REDACTION_TOKEN)) fail('evidence-redaction');
+  const withheld = new Set(declaration?.withheld ?? []);
+  const operator = Object.fromEntries(Object.entries(bundle.operator).filter(([field]) => !withheld.has(field)));
+  if (JSON.stringify({ ...bundle, operator, payload: { ...bundle.payload, text: {} } }).toLowerCase().includes(REDACTION_TOKEN)) fail('evidence-redaction');
 }
 
 function redactionSummary(declaration) {
   return { artifact: declaration.artifact, basis: declaration.basis, originalRetained: declaration.originalRetained,
-    originalSha256: declaration.originalSha256, redactedSha256: declaration.redactedSha256, originalVerified: false,
-    changes: declaration.artifact === 'source' ? declaration.clearedElements.reduce((sum, entry) => sum + entry.elements.length, 0) : declaration.replacements.length };
+    redactedSha256: declaration.redactedSha256, originalVerified: false,
+    changes: declaration.artifact === 'source' ? declaration.clearedElements.reduce((sum, entry) => sum + entry.elements.length, 0) : declaration.replacements.length,
+    withheld: declaration.artifact === 'capture' ? [...declaration.withheld] : [] };
 }
 
 /** Archived baseline references identify an authored variant, not a new native capture. */
@@ -547,16 +576,16 @@ export async function verifyCaptureFixture(directory) {
       text(manifest.id); text(manifest.license);
       shape(manifest.source, ['path', 'sha256']); shape(manifest.capture, ['path', 'sha256']);
       hash(manifest.source.sha256); hash(manifest.capture.sha256);
-      const redactions = readRedactions(manifest.redactions);
+      const redactions = checkRedactionPairing(readRedactions(manifest.redactions));
       readSemanticExpected(manifest.expected);
       source = await readContained(root, manifest.source.path, MAX_SOURCE_BYTES);
       if (digest(source) !== manifest.source.sha256) fail('evidence-checksum');
       capture = await readContained(root, manifest.capture.path, HARD_LIMITS.maxJSONBytes);
       if ((redactions.source !== undefined && redactions.source.redactedSha256 !== manifest.source.sha256)
         || (redactions.capture !== undefined && redactions.capture.redactedSha256 !== manifest.capture.sha256)) fail('evidence-redaction');
-      // The bundle claims the document it was copied from: the original, when the committed one is its redaction.
+      // The bundle claims the document it was copied from; when the committed one is its redaction, that claim is withheld.
       const evidence = validateCaptureBytes(capture, { captureSha256: manifest.capture.sha256,
-        fixtureSha256: redactions.source?.originalSha256 ?? manifest.source.sha256, fixtureId: manifest.id, origin: manifest.origin });
+        fixtureSha256: redactions.source === undefined ? manifest.source.sha256 : null, fixtureId: manifest.id, origin: manifest.origin });
       handle = evidence.handle;
       if (redactions.source !== undefined) verifyPackageRedaction(source, redactions.source);
       verifyCaptureRedaction(parseJSON(capture, HARD_LIMITS.maxJSONBytes), redactions.capture);
