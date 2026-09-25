@@ -21,7 +21,12 @@
         "type": "heading",
         "level": 1,
         "word": "Style: Heading 1",
-        "text": "T01 Table"
+        "text": "T01 Table",
+        "textStyle": {
+          "fontFamily": "Aptos Display",
+          "fontSize": "20pt",
+          "color": "#0F4761"
+        }
       },
       {
         "id": "T02",
@@ -34,7 +39,11 @@
         },
         "word": "Insert > Table 3x3, Table Design: Header Row on",
         "text": "T02 Column A",
-        "expectation": "Header Row is a table style option: the clipboard HTML has no header cells, so the first row arrives as ordinary cells, which the checker accepts."
+        "expectation": "Header Row is a table style option: the clipboard HTML has no header cells, so the first row arrives as ordinary cells, which the checker accepts.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T03",
@@ -45,7 +54,11 @@
           "column": 2,
           "headerRow": true
         },
-        "text": "T03 Column B"
+        "text": "T03 Column B",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T04",
@@ -56,7 +69,11 @@
           "column": 3,
           "headerRow": true
         },
-        "text": "T04 Column C"
+        "text": "T04 Column C",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T05",
@@ -65,10 +82,17 @@
           "table": 1,
           "row": 2,
           "column": 1,
-          "shading": "light gray"
+          "shading": "light gray",
+          "background": "#D9D9D9"
         },
         "word": "Shading: light gray",
-        "text": "T05 Gray cell"
+        "text": "T05 Gray cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt",
+          "color": "#000000"
+        },
+        "expectation": "Word writes the automatic color of the text on the shading as black, which is how it shows it; light gray is White, Background 1, Darker 15 %, #D9D9D9."
       },
       {
         "id": "T06",
@@ -78,7 +102,11 @@
           "row": 2,
           "column": 2
         },
-        "text": "T06 Plain cell"
+        "text": "T06 Plain cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T07",
@@ -88,7 +116,11 @@
           "row": 2,
           "column": 3
         },
-        "text": "T07 Third cell"
+        "text": "T07 Third cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T08",
@@ -100,7 +132,11 @@
           "colspan": 2
         },
         "word": "Merge the first two cells of row 3",
-        "text": "T08 Merged cells"
+        "text": "T08 Merged cells",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T09",
@@ -110,13 +146,21 @@
           "row": 3,
           "column": 3
         },
-        "text": "T09 Last cell"
+        "text": "T09 Last cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T10",
         "type": "paragraph",
         "word": "Style: Normal, between the tables",
-        "text": "T10 Between tables."
+        "text": "T10 Between tables.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T11",
@@ -127,7 +171,11 @@
           "column": 1
         },
         "word": "Insert > Table 2x1, Borders: No Border",
-        "text": "T11 Borderless left"
+        "text": "T11 Borderless left",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T12",
@@ -137,7 +185,17 @@
           "row": 1,
           "column": 2
         },
-        "text": "T12 Borderless right"
+        "text": "T12 Borderless right",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T12a",
+        "type": "empty",
+        "word": "Style: Normal, the empty paragraph Word keeps between two tables",
+        "correction": "Word keeps an empty paragraph between the second and the third table, which Select All copies; it was missing from the blocks."
       },
       {
         "id": "T13",
@@ -148,7 +206,11 @@
           "column": 1
         },
         "word": "Insert > Table 1x1 with a bulleted list inside the cell",
-        "text": "T13 List in a cell"
+        "text": "T13 List in a cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T14",
@@ -165,7 +227,11 @@
           "column": 1
         },
         "word": "In the same cell: Home > Bullets",
-        "text": "T14 First bullet in a cell"
+        "text": "T14 First bullet in a cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "T15",
@@ -182,7 +248,22 @@
           "column": 1
         },
         "word": "Enter",
-        "text": "T15 Second bullet in a cell"
+        "text": "T15 Second bullet in a cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T15a",
+        "type": "empty",
+        "word": "Style: Normal, an empty paragraph after the last table",
+        "correction": "The document ends with two empty paragraphs after the last table, which Select All copies; they were missing from the blocks."
+      },
+      {
+        "id": "T15b",
+        "type": "empty",
+        "word": "Style: Normal, the document's last paragraph, empty"
       }
     ],
     "preserve": {
@@ -210,6 +291,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "db663ef644d83d5cc21d36a2a3e7572e8c9c99617156d9a0498491485c6dada6",
     "captureSha256": "0f657336f09a8f88e53f0d44b539aecb6ee2e3f8fa9aef4377908c27060cec56",
-    "manifestSha256": "709290d43578ee0a1305aed689ebfc871f73389873b63c3b13c22d8845c46610"
+    "manifestSha256": "33c30591d585d4a37af5c6f97bf12a13ec3241b324dd9d496f55ad9a97be0049"
   }
 }

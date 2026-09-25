@@ -31,7 +31,11 @@
           "wordLabel": "a."
         },
         "word": "Tab: Word shows a.",
-        "text": "L08 Letter a"
+        "text": "L08 Letter a",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L09",
@@ -44,7 +48,11 @@
           "wordLabel": "i."
         },
         "word": "Tab: Word shows i.",
-        "text": "L09 Roman i"
+        "text": "L09 Roman i",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L10",
@@ -57,7 +65,11 @@
           "wordLabel": "ii."
         },
         "word": "Enter",
-        "text": "L10 Roman ii"
+        "text": "L10 Roman ii",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L11",
@@ -70,7 +82,11 @@
           "wordLabel": "b."
         },
         "word": "Shift+Tab",
-        "text": "L11 Letter b"
+        "text": "L11 Letter b",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -98,6 +114,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
     "captureSha256": "7f970ae6acf06ab4aab4e491a75600046c5cc2a3393756033f4a0233a591cc12",
-    "manifestSha256": "e6ef8155e75f3aaca2e4d035bc11aeb6e2a9184eb071edda61c6aaa05814d19f"
+    "manifestSha256": "bd2224b70bb45dec18fc4ce5df8d554940148fe54bd24a3c0ac8cab07ecc420c"
   }
 }

@@ -21,14 +21,23 @@
         "type": "heading",
         "level": 1,
         "word": "Style: Title",
-        "text": "B01 Paste test document"
+        "text": "B01 Paste test document",
+        "textStyle": {
+          "fontFamily": "Aptos Display",
+          "fontSize": "28pt"
+        }
       },
       {
         "id": "B02",
         "type": "heading",
         "level": 1,
         "word": "Style: Heading 1",
-        "text": "B02 Croatian characters and quotation marks"
+        "text": "B02 Croatian characters and quotation marks",
+        "textStyle": {
+          "fontFamily": "Aptos Display",
+          "fontSize": "20pt",
+          "color": "#0F4761"
+        }
       }
     ],
     "preserve": {
@@ -56,6 +65,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "c9b1ec07aab4b12849f5e129516aaa10e6912ca4c632e832042051777390cbaf",
-    "manifestSha256": "676ceff00970485ed1d24d1e0eeb5ef575238bcf1a4f8a1f6b4026918575e446"
+    "manifestSha256": "92124a6305a9eed4ac8d6df380e665caab30fa71eb06037b3e3b027954430623"
   }
 }

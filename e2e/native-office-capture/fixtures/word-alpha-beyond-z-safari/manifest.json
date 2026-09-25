@@ -22,7 +22,11 @@
         "count": 28,
         "word": "Numbering Library: a., restart at a, then 28 items: L34 Item 1 to L61 Item 28. Word shows a. to z., then aa. and bb.",
         "textPattern": "L{34+n} Item {1+n}",
-        "expectation": "Items 1 to 26 become one lower-alpha list; aa. and bb. stay literal paragraphs with one office-list-unsupported."
+        "expectation": "Items 1 to 26 become one lower-alpha list; aa. and bb. stay literal paragraphs with one office-list-unsupported.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -62,6 +66,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
     "captureSha256": "873e8ccb96131a24b54c8088f29a2c2fc21bc1fcb9de5c6e151de5e08ccea8b0",
-    "manifestSha256": "a9e8bcb5e22f19a22e3eb48873440d8301373d305fee7b01cfd2e2a293edf1c9"
+    "manifestSha256": "446120cd233fa1b5bf96e44ec7c3543d066294066a9983167f60cdc4df7702eb"
   }
 }

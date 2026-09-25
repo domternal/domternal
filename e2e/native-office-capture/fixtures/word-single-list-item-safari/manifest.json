@@ -26,7 +26,11 @@
           "wordLabel": "o"
         },
         "word": "Tab: Word shows o",
-        "text": "L03 Second level"
+        "text": "L03 Second level",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -54,6 +58,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
     "captureSha256": "36e279ce7efba2278e69b54a854ce500392fc1f554b005112a8d3add386b7454",
-    "manifestSha256": "f9598774026cf64c0fdce5dd56d182e7d68fa5b48296532574e6f9c203d42c92"
+    "manifestSha256": "7ee547357197633655583a3aca93764ddb7e2a4c7dc44a963b0192e1f87e49bd"
   }
 }

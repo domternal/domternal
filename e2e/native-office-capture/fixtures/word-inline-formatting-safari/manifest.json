@@ -86,12 +86,19 @@
             "marks": [
               "highlight"
             ],
+            "style": {
+              "backgroundColor": "#FFFF00"
+            },
             "formatting": "preserve",
             "word": "Text highlight color yellow",
             "expectation": "Word writes the highlight as a background shorthand (background: yellow in the Safari capture), which cleanup reads as the highlight color.",
             "correction": "A highlight is a text style that adapt removes, so the mark is expected in preserve only."
           }
-        ]
+        ],
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -119,6 +126,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "074cc1f8c043d0400d752b118a9bbe5f4c75aeb8a03598ea383f0ca2c575afc1",
-    "manifestSha256": "d3e4f81166746199af6668e1d8afc3ec1c24c2cadfb16cccb08cfdff1722ea19"
+    "manifestSha256": "aae5bec69319c11b9bf3fc175cb1d25ed15afc99cc53224e728f27afdbc4ac51"
   }
 }

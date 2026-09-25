@@ -21,7 +21,11 @@
         "type": "paragraph",
         "word": "Style: Normal, Format > Paragraph > Special: First line 1.27 cm",
         "text": "B14 Paragraph with a first-line indent.",
-        "expectation": "First-line indentation is a reported loss: unsupported-formatting."
+        "expectation": "First-line indentation is a reported loss: unsupported-formatting.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "B15",
@@ -29,7 +33,11 @@
         "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
         "text": "B15 Visible part HIDDEN end.",
         "hidden": "HIDDEN",
-        "expectation": "Record whether Word copies the hidden word. When present, it becomes visible with unsupported-formatting."
+        "expectation": "Record whether Word copies the hidden word. When present, it becomes visible with unsupported-formatting.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "B16a",
@@ -45,7 +53,11 @@
         "id": "B16",
         "type": "paragraph",
         "word": "Style: Normal",
-        "text": "B16 After two empty paragraphs."
+        "text": "B16 After two empty paragraphs.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -81,6 +93,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "4959cebcce9012f18e299691c4ed6452098dd6510653e95bfca75cc1b45363ae",
-    "manifestSha256": "9a7464e93bc3cd31d009d87960942344232c0a28d7d75009495348e2b64716bc"
+    "manifestSha256": "c1adfd6ef851c788e002a1695a56cc5fb44440984291119d9d59ce3a3d77039a"
   }
 }

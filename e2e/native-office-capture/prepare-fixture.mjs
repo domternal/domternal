@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { HARD_LIMITS, TEXT_FORMATS } from './capture.mjs';
 import { checkRedactionPairing, disposeCaptureEvidence, readRedactions, validateCaptureBytes, verifyCaptureRedaction, verifyPackageRedaction } from './offline.mjs';
-import { expectedBlocks, imageInventory } from './semantics.mjs';
+import { expectedBlocks, imageInventory, resolvedBlock } from './semantics.mjs';
 import { scanFiles } from './privacy.mjs';
 
 const MAX_SOURCE_BYTES = 16 * 1024 * 1024;
@@ -33,7 +33,7 @@ async function readInside(root, name, maximum) {
 /** The blocks a content specification authors for one scenario, as the manifest's semantic oracle holds them. */
 export function specifiedExpectation(specification, scenarioId) {
   const { scenario } = expectedBlocks(specification, scenarioId);
-  const blocks = new Map(specification.documents.flatMap(document => document.blocks.map(block => [block.id, block])));
+  const blocks = new Map(specification.documents.flatMap(document => document.blocks.map(block => [block.id, resolvedBlock(document, block)])));
   return {
     specification: specification.id, scenario: scenario.id,
     ...(scenario.partial === undefined ? {} : { partial: scenario.partial }),

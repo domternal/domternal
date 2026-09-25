@@ -27,7 +27,11 @@
           "wordLabel": "1."
         },
         "word": "Home > Numbering (default 1.)",
-        "text": "L07 First number"
+        "text": "L07 First number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L08",
@@ -40,7 +44,11 @@
           "wordLabel": "a."
         },
         "word": "Tab: Word shows a.",
-        "text": "L08 Letter a"
+        "text": "L08 Letter a",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L09",
@@ -53,7 +61,11 @@
           "wordLabel": "i."
         },
         "word": "Tab: Word shows i.",
-        "text": "L09 Roman i"
+        "text": "L09 Roman i",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L10",
@@ -66,7 +78,11 @@
           "wordLabel": "ii."
         },
         "word": "Enter",
-        "text": "L10 Roman ii"
+        "text": "L10 Roman ii",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L11",
@@ -79,7 +95,11 @@
           "wordLabel": "b."
         },
         "word": "Shift+Tab",
-        "text": "L11 Letter b"
+        "text": "L11 Letter b",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L12",
@@ -92,13 +112,21 @@
           "wordLabel": "2."
         },
         "word": "Shift+Tab",
-        "text": "L12 Second number"
+        "text": "L12 Second number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L13",
         "type": "paragraph",
         "word": "Style: Normal, numbering off",
-        "text": "L13 List interruption."
+        "text": "L13 List interruption.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L14",
@@ -111,7 +139,11 @@
           "wordLabel": "3."
         },
         "word": "Numbering, then right-click > Continue Numbering",
-        "text": "L14 Numbering continues"
+        "text": "L14 Numbering continues",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L15",
@@ -124,7 +156,11 @@
           "wordLabel": "1."
         },
         "word": "Enter, then right-click > Restart at 1",
-        "text": "L15 Restart at one"
+        "text": "L15 Restart at one",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L16",
@@ -137,7 +173,11 @@
           "wordLabel": "5."
         },
         "word": "Enter, then Format > Bullets and Numbering or right-click > Set Numbering Value: start a new list at 5",
-        "text": "L16 Start at five"
+        "text": "L16 Start at five",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L17",
@@ -150,7 +190,11 @@
           "wordLabel": "6."
         },
         "word": "Enter",
-        "text": "L17 Six"
+        "text": "L17 Six",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -178,6 +222,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
     "captureSha256": "e4fe947d43ca9f2b026193268d5ae18a33cb7b76df3058dc71cf70de70832fd3",
-    "manifestSha256": "272b1e8612b788b41cbbdf361a44607d89904155b5cfb36f8adfa6627a42c259"
+    "manifestSha256": "a66f55ac12a1b2497a8a972ad1fe0c57c231d6f6fa4fb9b9084ee8de80422a6d"
   }
 }

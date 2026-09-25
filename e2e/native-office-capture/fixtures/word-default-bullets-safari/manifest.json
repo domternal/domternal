@@ -26,7 +26,11 @@
           "wordLabel": "•"
         },
         "word": "Home > Bullets (default library bullet)",
-        "text": "L02 First level"
+        "text": "L02 First level",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L03",
@@ -38,7 +42,11 @@
           "wordLabel": "o"
         },
         "word": "Tab: Word shows o",
-        "text": "L03 Second level"
+        "text": "L03 Second level",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L04",
@@ -50,7 +58,11 @@
           "wordLabel": "▪"
         },
         "word": "Tab: Word shows a small square",
-        "text": "L04 Third level"
+        "text": "L04 Third level",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L05",
@@ -62,7 +74,11 @@
           "wordLabel": "•"
         },
         "word": "Shift+Tab twice",
-        "text": "L05 First level again"
+        "text": "L05 First level again",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -90,6 +106,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
     "captureSha256": "f9b36462f6a25396d1072fb01c034a4ad6438656546223ddb0cd79d3f7f421a9",
-    "manifestSha256": "180674be21d5dbaa6775cb7986f24cfbc8e490db1679eb6c7bcfd44ed69685b2"
+    "manifestSha256": "805a7db0b5d195b5f254f2c29ec50b7544dfd03465145f20fc750b13ddf0ca1f"
   }
 }

@@ -27,7 +27,11 @@
           "wordLabel": "1)"
         },
         "word": "Numbering Library: 1)",
-        "text": "L25 Parenthesis one"
+        "text": "L25 Parenthesis one",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L26",
@@ -40,7 +44,11 @@
           "wordLabel": "2)"
         },
         "word": "Enter",
-        "text": "L26 Parenthesis two"
+        "text": "L26 Parenthesis two",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L27",
@@ -53,7 +61,11 @@
           "wordLabel": "a)"
         },
         "word": "Numbering Library: a), restart",
-        "text": "L27 Letter a with a parenthesis"
+        "text": "L27 Letter a with a parenthesis",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L28",
@@ -66,7 +78,11 @@
           "wordLabel": "b)"
         },
         "word": "Enter",
-        "text": "L28 Letter b with a parenthesis"
+        "text": "L28 Letter b with a parenthesis",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L29",
@@ -79,7 +95,11 @@
           "wordLabel": "A."
         },
         "word": "Numbering Library: A., restart",
-        "text": "L29 Uppercase A"
+        "text": "L29 Uppercase A",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L30",
@@ -92,7 +112,11 @@
           "wordLabel": "B."
         },
         "word": "Enter",
-        "text": "L30 Uppercase B"
+        "text": "L30 Uppercase B",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L31",
@@ -105,7 +129,11 @@
           "wordLabel": "I."
         },
         "word": "Numbering Library: I., restart",
-        "text": "L31 Uppercase Roman I"
+        "text": "L31 Uppercase Roman I",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L32",
@@ -118,7 +146,11 @@
           "wordLabel": "II."
         },
         "word": "Enter",
-        "text": "L32 Uppercase Roman II"
+        "text": "L32 Uppercase Roman II",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -146,6 +178,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
     "captureSha256": "d8aaab75d816fc36b7c934a8b4745ea620bd914ca2aea72e8337f709cfc8202c",
-    "manifestSha256": "90024714d674a7d8597f87a934602c63b5620abd6fdcb6bc25154b80e395af2a"
+    "manifestSha256": "5486833f72eabc4c3954e5074abf31bcad017520a624201da7eafbe00000e9b7"
   }
 }

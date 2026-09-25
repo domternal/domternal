@@ -7,8 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HARD_LIMITS } from './capture.mjs';
-import { CaptureEvidenceError, verifyCaptureFixture } from './offline.mjs';
-import { prepareFixture } from './prepare-fixture.mjs';
+import { CaptureEvidenceError, semanticSpecification, verifyCaptureFixture } from './offline.mjs';
+import { prepareFixture, specifiedExpectation } from './prepare-fixture.mjs';
 import { inflateSync } from 'node:zlib';
 import { blocksFromEditorJSON, blocksFromHTML, checkScenario, compareBlocks, compareOutcome, dryRun, expectedBlocks, imageInventory,
   printSpecification, syntheticEditorResult } from './semantics.mjs';
@@ -366,8 +366,7 @@ test('every committed English regression variant passes the offline verifier and
     assert.equal(manifest.expected.specification, spec.id);
     assert.match(manifest.id, new RegExp(`^${scenario.id}-(?:safari|chrome|firefox)$`, 'u'));
     // The oracle's blocks are the specification's own, so a correction reaches every fixture of the scenario.
-    const blocks = new Map(spec.documents.flatMap(document => document.blocks.map(block => [block.id, block])));
-    assert.deepEqual(manifest.expected.blocks, scenario.blocks.map(id => blocks.get(id)), manifest.id);
+    assert.deepEqual(manifest.expected.blocks, specifiedExpectation(spec, scenario.id).blocks, manifest.id);
     assert.deepEqual(manifest.expected.partial, scenario.partial, manifest.id);
     const bundle = JSON.parse(await readFile(join(directory, manifest.capture.path), 'utf8'));
     assert.equal(bundle.operator.scenario, scenario.capturedAs ?? scenario.id);
@@ -396,3 +395,83 @@ const LARGE_SOURCE_SHA256 = '65961f471b3cc61546725eb60db6be7578eb3d0aeb8bf05bcdd
 const GOOGLE_DOCS_IMAGES_SHA256 = 'f8078173e395786a68c6fc4d74a3acf2a165bc716edf3c52ee466bb851f502f0';
 // The source size limit of prepare-fixture.mjs and offline.mjs.
 const FIXTURE_SOURCE_LIMIT = 16 * 1024 * 1024;
+
+/** The committed semantic variants, each with its stored HTML. */
+async function semanticFixtures() {
+  const fixtures = [];
+  for (const entry of await readdir(join(here, 'fixtures'), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const directory = join(here, 'fixtures', entry.name);
+    const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
+    if (manifest.schemaVersion !== 2) continue;
+    const bundle = JSON.parse(await readFile(join(directory, manifest.capture.path), 'utf8'));
+    fixtures.push({ manifest, html: bundle.payload.text['text/html'] });
+  }
+  return fixtures;
+}
+const wrapText = (html, open, close) => html.replace(/(<(?:p|h[1-6])(?:\s[^>]*)?>)/gu, `$1${open}`).replace(/(<\/(?:p|h[1-6])>)/gu, `${close}$1`);
+
+test('the semantic oracle reports what a broken paste adds: blocks, empty paragraphs, marks, styles, alignment, spacing and shading', async () => {
+  const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
+  const mutations = [
+    ['an appended paragraph', html => `${html}<p>Junk paragraph</p>`],
+    ['a stylesheet leaking as text', html => `<p>@list l0:level1 {mso-level-number-format:bullet}</p>${html}`],
+    ['an extra empty paragraph', html => `${html}<p></p>`],
+    ['a paragraph holding a no-break space', html => `${html}<p>\u00a0</p>`],
+    ['bold on every run', html => wrapText(html, '<strong>', '</strong>')],
+    ['every paragraph centered', html => html.replace(/<(p|h[1-6])(?=[\s>])/gu, '<$1 style="text-align:center"')],
+  ];
+  // Around every text, so no style of the paste's own is closer to the text than the mutation.
+  const preserveOnly = [['gray Comic Sans text', html => html.replace(/>([^<>]*[^\s<>][^<>]*)</gu, '><span style="color:#777777;font-family:Comic Sans MS;font-size:20pt">$1</span><')]];
+  const missed = [];
+  for (const { manifest, html } of await semanticFixtures()) {
+    const specification = semanticSpecification(manifest.expected);
+    for (const formatting of ['preserve', 'adapt']) {
+      const result = normalizePasteHTML(html, { formatting, allowRemoteImages: false, allowDataImages: true });
+      const check = output => compareBlocks(specification, manifest.expected.scenario, blocksFromHTML(output), { formatting });
+      assert.deepEqual(check(result.html), [], `${manifest.id} ${formatting}`);
+      for (const [name, mutate] of [...mutations, ...(formatting === 'preserve' ? preserveOnly : [])]) {
+        if (check(mutate(result.html)).length === 0) missed.push(`${manifest.id} ${formatting}: ${name}`);
+      }
+    }
+  }
+  assert.deepEqual(missed, []);
+});
+
+test('the semantic oracle pins the line spacing, the cell shading and the empty paragraphs the captures show', async () => {
+  const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
+  const fixtures = new Map((await semanticFixtures()).map(fixture => [fixture.manifest.id, fixture]));
+  const check = (id, output, formatting = 'preserve') => {
+    const { manifest } = fixtures.get(id);
+    return compareBlocks(semanticSpecification(manifest.expected), manifest.expected.scenario, blocksFromHTML(output), { formatting }).join('\n');
+  };
+  const spacing = normalizePasteHTML(fixtures.get('word-alignment-spacing-safari').html).html;
+  assert.match(spacing, /line-height:1\.5/u);
+  assert.match(check('word-alignment-spacing-safari', spacing.replace('line-height:1.5', '')), /B12: line height is none, expected 1\.5/u);
+  assert.match(check('word-alignment-spacing-safari', spacing.replace('<h3', '<h3 style="line-height:1.15"')), /B08: line height is 1\.15, expected none/u);
+  const table = normalizePasteHTML(fixtures.get('word-table-text-safari').html).html;
+  assert.match(check('word-table-text-safari', table.replace(/ data-background="[^"]*"/u, '').replace(/background-color:rgb\(217, 217, 217\)/u, '')), /T05: cell background is none, expected #D9D9D9/u);
+  assert.equal(check('word-table-text-safari', table), '');
+  // A cell in another row or table than Word shows is a structural loss.
+  assert.match(check('word-table-text-safari', table.replace(/<\/tr>\s*<tr>/u, '')), /row is 1, expected 2/u);
+  const empties = normalizePasteHTML(fixtures.get('word-empty-paragraphs-safari').html).html;
+  assert.match(check('word-empty-paragraphs-safari', empties.replace('<p></p>', '<p>\u00a0</p>')), /no-break space|unexpected/u);
+});
+
+test('the semantic oracle reads the fixture editor result the same way: added blocks and formatting are reported', () => {
+  const result = syntheticEditorResult(spec, 'word-routine-envelope', 'preserve');
+  assert.deepEqual(compareBlocks(spec, 'word-routine-envelope', blocksFromEditorJSON(result.doc)), []);
+  const padded = structuredClone(result.doc);
+  padded.content.push(paragraph(), paragraph(), paragraph(), paragraph(text('Junk one')), paragraph(text('Junk two')));
+  const problems = compareBlocks(spec, 'word-routine-envelope', blocksFromEditorJSON(padded)).join('\n');
+  assert.match(problems, /unexpected empty paragraph/u);
+  assert.match(problems, /unexpected text "Junk one"/u);
+  const styled = structuredClone(result.doc);
+  for (const block of styled.content) for (const run of block.content ?? []) {
+    run.marks = [{ type: 'bold' }, { type: 'italic' }, { type: 'textStyle', attrs: { color: '#777777', fontFamily: 'Comic Sans MS', fontSize: '30pt' } }];
+  }
+  const formatted = compareBlocks(spec, 'word-routine-envelope', blocksFromEditorJSON(styled)).join('\n');
+  assert.match(formatted, /B03: "B03 Lowercase.*" is bold, which the source is not/u);
+  assert.match(formatted, /B03: .*color is #777777, expected none/u);
+  assert.match(formatted, /B01: .*fontFamily is Comic Sans MS, expected Aptos Display/u);
+});

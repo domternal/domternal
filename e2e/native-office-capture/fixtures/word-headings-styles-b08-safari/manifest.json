@@ -21,7 +21,12 @@
         "type": "heading",
         "level": 3,
         "word": "Style: Heading 3",
-        "text": "B08 Alignment and spacing"
+        "text": "B08 Alignment and spacing",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "14pt",
+          "color": "#0F4761"
+        }
       }
     ],
     "preserve": {
@@ -49,6 +54,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "c54575e4d8f98c37f451ee2d28248bb20a93595100f82bf3695b9c7589929ab6",
-    "manifestSha256": "a343fde2ddc836ce710476f40e13da3ac6ce175df1007ede55cfba995921d0f7"
+    "manifestSha256": "555297ae114352543a569bab830e433c9f5ba804cb28daa4f93d464f1e3ee622"
   }
 }

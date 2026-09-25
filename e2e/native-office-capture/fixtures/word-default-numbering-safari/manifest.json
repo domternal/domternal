@@ -27,7 +27,11 @@
           "wordLabel": "1."
         },
         "word": "Home > Numbering (default 1.)",
-        "text": "L07 First number"
+        "text": "L07 First number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L08",
@@ -40,7 +44,11 @@
           "wordLabel": "a."
         },
         "word": "Tab: Word shows a.",
-        "text": "L08 Letter a"
+        "text": "L08 Letter a",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L09",
@@ -53,7 +61,11 @@
           "wordLabel": "i."
         },
         "word": "Tab: Word shows i.",
-        "text": "L09 Roman i"
+        "text": "L09 Roman i",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L10",
@@ -66,7 +78,11 @@
           "wordLabel": "ii."
         },
         "word": "Enter",
-        "text": "L10 Roman ii"
+        "text": "L10 Roman ii",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L11",
@@ -79,7 +95,11 @@
           "wordLabel": "b."
         },
         "word": "Shift+Tab",
-        "text": "L11 Letter b"
+        "text": "L11 Letter b",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       },
       {
         "id": "L12",
@@ -92,7 +112,11 @@
           "wordLabel": "2."
         },
         "word": "Shift+Tab",
-        "text": "L12 Second number"
+        "text": "L12 Second number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -120,6 +144,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
     "captureSha256": "b88f9f7bbb71cb6437c584b2c39af6d67335f4317961d8d43f9d921d3e35416b",
-    "manifestSha256": "65b22b14bf13c86d21ba9213077e7dc1b80972c036c9f23a26bc705eb16db62a"
+    "manifestSha256": "ad5a171c114d00c44568b009fe64e15c9ae7fa278ff94734862bc3004c9e7162"
   }
 }

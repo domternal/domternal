@@ -22,7 +22,11 @@
         "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
         "text": "B15 Visible part HIDDEN end.",
         "hidden": "HIDDEN",
-        "expectation": "Record whether Word copies the hidden word. When present, it becomes visible with unsupported-formatting."
+        "expectation": "Record whether Word copies the hidden word. When present, it becomes visible with unsupported-formatting.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
       }
     ],
     "preserve": {
@@ -50,6 +54,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "ed690cd66f38560e732cc9411e344fb11c8cf30a002766626e1ce928a21c85a2",
-    "manifestSha256": "410bae2057c7087c86d0db1fbc4ea0aba5e38770b5d5c9ad44c5720b2d860241"
+    "manifestSha256": "80264e3646a4e214c295441261ed4b7fd4dcaa242be7f5246152a68182a7e777"
   }
 }

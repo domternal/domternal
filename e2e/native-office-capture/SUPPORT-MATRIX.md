@@ -54,7 +54,7 @@ Domternal, not from Office.
 | --- | --- | --- | --- |
 | HTML safety and formatting | Shared resource-free normalizer, preserve/adapt policies, supported inline/inherited styles and bounded loss diagnostics. Routine clipboard envelope elements, Office wrappers and Office private, neutral or destination-owned declarations are removed without a warning, including the computed declarations Safari writes on every element it copies; a text color equal to Safari's copied caret color is the page's default color, Word's automatic color among them. | [Normalizer tests](../../packages/extension-paste-cleanup/src/html/), [Safari Word tests](../../packages/extension-paste-cleanup/src/html/safariWord.test.ts), [browser contracts](../paste-cleanup.browser.ts), [feedback contracts](../paste-feedback.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | General stylesheet cascade, all Office-specific markup and exact RGBA transparency are not promised. Native Word for Mac envelopes stay quiet in Safari (reviewed fixtures); in Chrome and Firefox, and for Google Docs, that still needs the captures. |
 | Own copies and ProseMirror slices | A `data-pm-slice` marker is structural context. Only a same-page PasteCleanup copy marker keeps editor formatting; nested or duplicate markers are removed. | [Slice origin tests](../../packages/extension-paste-cleanup/src/html/sliceOrigin.test.ts), [own copy tests](../../packages/extension-paste-cleanup/src/PasteCleanup.ownCopy.test.ts), [list marker contracts](../paste-list-markers.browser.ts) | Copies across tabs, applications or separate package instances are external by design. |
-| Office-shaped lists | Explicit inline list metadata reconstructs bounded lists. Word level definitions from the clipboard stylesheet, a level font named per script among them, and the marker run font identify default bullets (disc, circle, square) and decimal, alphabetic and Roman numbering; without definitions only decimal numbers and Unicode bullets are admitted. A selection that starts in a nested item opens the levels above it from their definitions, each with one empty item. An unsupported item stays a literal paragraph while the rest of its run is reconstructed; a picture bullet stays its marker, never an image. | [List tests](../../packages/extension-paste-cleanup/src/html/officeLists.test.ts), [level definition tests](../../packages/extension-paste-cleanup/src/html/officeListStyles.test.ts), [Safari Word list tests](../../packages/extension-paste-cleanup/src/html/safariWordLists.test.ts), [list marker contracts](../paste-list-markers.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | Native list profiles are qualified for Word for Mac in Safari only, from a document whose lists are named list definitions with the libraries' level texts and fonts. Legal multilevel numbering below its first level, prefixed or custom level text, picture and symbol bullets other than the Word defaults, and letters past z stay literal; `1)` and `a)` keep their marker class, not their parenthesis. |
+| Office-shaped lists | Explicit inline list metadata reconstructs bounded lists. Word level definitions from the clipboard stylesheet, a level font named per script among them, and the marker run font identify default bullets (disc, circle, square) and decimal, alphabetic and Roman numbering; without definitions only decimal numbers and Unicode bullets are admitted. A selection that starts in a nested item opens the levels above it from their definitions, each with one empty item; a level skipped later in a run stays literal. An unsupported item stays a literal paragraph while the rest of its run is reconstructed; a picture bullet stays its marker, never an image. | [List tests](../../packages/extension-paste-cleanup/src/html/officeLists.test.ts), [level definition tests](../../packages/extension-paste-cleanup/src/html/officeListStyles.test.ts), [Safari Word list tests](../../packages/extension-paste-cleanup/src/html/safariWordLists.test.ts), [list marker contracts](../paste-list-markers.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | Native list profiles are qualified for Word for Mac in Safari only, from a document whose lists are named list definitions with the libraries' level texts and fonts. Legal multilevel numbering below its first level, prefixed or custom level text, picture and symbol bullets other than the Word defaults, and letters past z stay literal; `1)` and `a)` keep their marker class, not their parenthesis. |
 | Destination capabilities | Resource-free probes inspect the actual destination schema. Unrepresentable table structure blocks insertion; supported formatting demands receive bounded diagnostics. | [Capability tests](../../packages/extension-paste-cleanup/src/destinationCapabilities.test.ts), [browser contracts](../paste-destination.browser.ts) | A successful probe is not exact source-style fidelity or support for every custom node. |
 | Local embedded images | Explicit host bindings connect rich HTML references to exposed items. Validated inline raster URLs retain their own placements. | [Asset browser contracts](../paste-assets.browser.ts), [resolver browser contracts](../paste-resolver.browser.ts) | No automatic general CID, filename, position or byte-similarity association. No remote source fetching. |
 | Persistent images | Host resolver, exact allowed origins, source data-image transport, resource ownership and recovery notifications. | [Resolver contracts](../paste-resolver.browser.ts), [private lifecycle tests](../../packages/extension-paste-cleanup/src/clipboard/resolverLifecycle.test.ts) | Mock adapters do not certify a production storage service or prove that aborted remote work stopped. |
@@ -92,8 +92,12 @@ reviewed editor results. `offline.mjs` replays every capture through public
 `/html`, and the [native fixture regressions](../paste-native-fixtures.browser.ts)
 paste every capture's exact flavors into the fixture editor in Chromium,
 Firefox and WebKit, with both policies, in the paste cleanup browser workflow:
-blocks, list kinds, markers, depths and ordinals, cell spans, marks and text
-styles, the notice and its codes, and a contrast check of every pasted run.
+blocks, list kinds, markers, depths and ordinals, the table, row, column and
+spans of each cell, marks and text styles, the notice and its codes, and a
+contrast check of every pasted run. The check is exhaustive: a block, an empty
+paragraph, a mark, a text style value, an alignment, a line spacing or a cell
+shading that the content specification does not author for the selection is a
+finding, as is one it authors that is missing.
 
 What the captures show and the fixtures pin:
 
@@ -111,11 +115,26 @@ What the captures show and the fixtures pin:
   so no text is colored the page's color, in either theme.
 - The routine envelope pastes without a notice in both policies (D9 holds for
   this row): the Title style becomes a level 1 heading, as in Pro's DOCX import,
-  and Word's default line spacing of 1.15 is no formatting of its own. Losses
-  stay reported: indentation, the literal list items and their marker fonts.
-- Preserve keeps the fonts Safari computes for every run (Aptos and Aptos
-  Display), heading style colors and sizes, the highlight and the cell shading.
-  A copy in Chrome or Firefox may carry fewer of them, since cleanup resolves no
+  and the spacing of Word's Normal style, which Safari writes on every block, is
+  no formatting of its own. The copy names that spacing when it carries Word's
+  stylesheet; otherwise Word's defaults, 1.15 and 1.08 (written 107 %), stand for
+  it, and an explicit spacing equal to one of them reads as the style's. That
+  default is the working default of OD-53 (a quiet envelope), recorded for the
+  owner's review: the analysis's alternative kept the preserve notice for every
+  Safari paste into an editor without LineHeight. Losses stay reported:
+  indentation, the literal list items and their marker fonts.
+- Preserve keeps the typography Safari writes inline: the fonts of paragraphs,
+  headings and cells, the heading style colors and sizes, B07's font, size and
+  color, the highlight, B12's 1.5 spacing and T05's shading. The fixtures pin
+  that every kept value is the one Word shows, that B07's named runs and T05's
+  shading are kept, and B12's spacing wherever the result can carry it (the
+  offline replay; the editor's default schema has no LineHeight and reports it),
+  and that no run carries a mark, style or alignment Word does not show. They
+  do not pin that a run keeps a font: Word list paragraphs carry theirs only in
+  Word's class rules, which cleanup does not resolve, so list items paste in the
+  editor's font next to paragraphs and cells that keep Aptos, and Normal text at
+  Word's 12 pt arrives as WebKit's `medium`, the editor's default size. A copy in
+  Chrome or Firefox may carry fewer styles, since cleanup resolves no
   stylesheet; that is for their rows to show.
 
 Limits of this row:
@@ -132,13 +151,14 @@ Limits of this row:
 - Header Row is a Word table style option: Safari's HTML has no header cells,
   so the first row pastes as ordinary cells. Cell borders, padding and widths
   follow the destination table.
-- Word's empty paragraph keeps its no-break space. Safari leaves hidden text
-  out of the copy. `1)` and `a)` paste as decimal and alphabetic lists, without
+- Word's empty paragraph, a paragraph mark holding one no-break space, pastes
+  as an empty paragraph. Safari leaves hidden text out of the copy. `1)` and `a)` paste as decimal and alphabetic lists, without
   the parenthesis.
 - Large selections, own copies and every image scenario are not captured for
   this row.
 
-Decisions that waited on the captures, for this row: D9 (quiet envelope) holds;
+Decisions that waited on the captures, for this row: D9 (quiet envelope) holds,
+with the line spacing default above for the owner's review;
 PCL-03 keeps the glyph-only fallback; RTF flavor sizes do not apply, Safari
 exposes none; V2-1 and V2-2 (macOS image file shapes) stay unevidenced, Safari
 exposed no file in any Word copy, and need Finder, Copy Image and image-only

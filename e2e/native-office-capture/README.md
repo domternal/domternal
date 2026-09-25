@@ -132,10 +132,17 @@ path this evidence is meant to show.
 - [`semantics.mjs`](./semantics.mjs) compares a saved editor result, HTML from
   the offline replay or a capture bundle, whose HTML it replays like the offline
   verifier, with a scenario: block order by identifier, block types, heading
-  levels, list kind, marker, depth and ordinal, cell spans, alignment, text,
-  marks, links and text styles, image removal and the diagnostic outcome of the
-  chosen policy, including text styles that `adapt` must remove. It never compares
-  exact HTML and never qualifies. `--dry-run <content.json>` checks a synthetic
+  levels, list kind, marker, depth and ordinal, the table, row, column and spans
+  of each cell, alignment, text, marks, links and text styles, image removal and
+  the diagnostic outcome of the chosen policy, including text styles that `adapt`
+  must remove. For a specification that authors its documents' `textStyle`, as
+  the Word one does, the comparison is exhaustive: a block, an empty paragraph, a
+  mark, a text style value, an alignment, a line spacing or a cell shading the
+  specification does not author is a problem, and a kept text style must be the
+  one Word shows. A result without the attribute, such as the default schema
+  without LineHeight, has no spacing to compare; the notice reports it. A capture
+  replayed offline has no destination, so warnings only a destination reports are
+  not required of it. It never compares exact HTML and never qualifies. `--dry-run <content.json>` checks a synthetic
   result built from the specification for every scenario and both policies, and
   `--print <content.json>` lists the texts an operator enters.
 - [`prepare-fixture.mjs`](./prepare-fixture.mjs) checks a downloaded bundle's
@@ -339,8 +346,11 @@ profile.
   `destination-formatting-unconfirmed`, which shows the notice; adapt removes it.
 - Google Docs may write a `br` between blocks, after a table or for an empty
   paragraph. The editor makes one paragraph of line breaks from each run of
-  them: the checker ignores empty blocks a scenario does not name, and reports
-  two empty paragraphs that arrive as one in `gdocs-empty-paragraphs`.
+  them: until its specification authors its documents' `textStyle`, which makes
+  the comparison exhaustive as for Word, the checker ignores empty blocks a
+  scenario does not name and compares no text style it does not name, and
+  reports two empty paragraphs that arrive as one in `gdocs-empty-paragraphs`.
+  Admitting the Google Docs captures includes authoring both from them.
 - The specification assumes the list shape Google Docs is expected to write:
   each marker as `list-style-type` on its `li`, and a nested list placed
   directly in its parent list. The checker reads that nesting. Cleanup moves a

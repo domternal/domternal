@@ -2,8 +2,10 @@
 /**
  * Compare a pasted result with an authored content specification, independently of exact HTML:
  * block order by identifier, block types, heading levels, list kind, marker, depth and ordinal,
- * table cell spans, alignment, text, semantic marks, links and text styles, image removal, plus
- * the diagnostic outcome of each formatting policy. The input is the editor result the owner saves
+ * table, row, column and spans of each cell and its shading, alignment, line spacing, text,
+ * semantic marks, links and text styles, image removal, plus the diagnostic outcome of each
+ * formatting policy. The comparison is exhaustive: a block, an empty paragraph, a mark, a text
+ * style, an alignment or a spacing the specification does not author for the selection is a problem. The input is the editor result the owner saves
  * from the fixture editor, HTML from the offline replay, or a capture bundle whose HTML is replayed
  * here. `--dry-run` checks a synthetic result built from the specification for every scenario, and
  * `--print` lists the texts an operator enters. A passing check is analysis of one capture, never a
@@ -22,13 +24,30 @@ const POLICIES = Object.freeze(['preserve', 'adapt']);
 const cleanupRequire = createRequire(new URL('../../packages/extension-paste-cleanup/package.json', import.meta.url));
 
 const normalizeText = value => value.replace(/[\t\n\r ]+/gu, ' ').trim();
-const empty = value => /^[\s\u00a0]*$/u.test(value);
+// A paragraph holding a no-break space is not empty: it shows no placeholder and typed text starts after the space.
+const empty = value => /^[\t\n\r ]*$/u.test(value);
 // Only the URL scheme of an image source is ever reported, never the address.
 const scheme = source => /^([a-z][a-z0-9+.-]*):/iu.exec(source ?? '')?.[1]?.toLowerCase() ?? 'relative';
+
+/** The cell of a table grid: its table, row and first column, counted past the cells that rows above span into it. */
+function gridCells(rows) {
+  const occupied = new Set();
+  return rows.map((cells, rowIndex) => {
+    let column = 1;
+    return cells.map(({ colspan, rowspan }) => {
+      while (occupied.has(`${String(rowIndex + 1)}:${String(column)}`)) column++;
+      for (let row = 0; row < rowspan; row++) for (let offset = 0; offset < colspan; offset++) occupied.add(`${String(rowIndex + 1 + row)}:${String(column + offset)}`);
+      const position = { row: rowIndex + 1, column };
+      column += colspan;
+      return position;
+    });
+  });
+}
 
 /** Flat blocks from an editor JSON document: every textblock and image with its list and cell context. */
 export function blocksFromEditorJSON(doc) {
   const blocks = [];
+  let tables = 0;
   const image = (node, context) => blocks.push({ type: 'image', text: node.attrs?.alt ?? '', src: scheme(node.attrs?.src), runs: [], align: null,
     ...(context.cell ? { cell: context.cell } : {}) });
   const visit = (node, context) => {
@@ -43,9 +62,17 @@ export function blocksFromEditorJSON(doc) {
       });
       return;
     }
-    if (node.type === 'tableCell' || node.type === 'tableHeader') {
-      const cell = { header: node.type === 'tableHeader', colspan: Number(node.attrs?.colspan ?? 1), rowspan: Number(node.attrs?.rowspan ?? 1) };
-      for (const child of node.content ?? []) visit(child, { cell });
+    if (node.type === 'table') {
+      const table = ++tables;
+      const rows = (node.content ?? []).map(row => (row.content ?? []));
+      const grid = gridCells(rows.map(cells => cells.map(cell => ({ colspan: Number(cell.attrs?.colspan ?? 1), rowspan: Number(cell.attrs?.rowspan ?? 1) }))));
+      rows.forEach((cells, rowIndex) => cells.forEach((cellNode, cellIndex) => {
+        const attrs = cellNode.attrs ?? {};
+        // The background only where the schema has the attribute: a destination without it reports the loss itself.
+        const cell = { header: cellNode.type === 'tableHeader', colspan: Number(attrs.colspan ?? 1), rowspan: Number(attrs.rowspan ?? 1), table,
+          ...grid[rowIndex][cellIndex], ...(Object.hasOwn(attrs, 'background') ? { background: attrs.background ?? null } : {}) };
+        for (const child of cellNode.content ?? []) visit(child, { cell });
+      }));
       return;
     }
     if (node.type === 'image') { image(node, context); return; }
@@ -65,6 +92,8 @@ export function blocksFromEditorJSON(doc) {
         ...(inItem ? { list: context.list } : {}),
         ...(context.cell ? { cell: context.cell } : {}),
         ...(context.list !== undefined && !inItem ? { insideListItem: true } : {}),
+        // The line height only where the schema has the attribute, as for the cell background.
+        ...(Object.hasOwn(node.attrs ?? {}, 'lineHeight') ? { lineHeight: node.attrs.lineHeight ?? null } : {}),
         align: node.attrs?.textAlign ?? null, text, runs,
       });
       for (const child of images) image(child, context);
@@ -117,7 +146,7 @@ export function blocksFromHTML(html) {
   const image = (node, context) => blocks.push({ type: 'image', text: attribute(node, 'alt') ?? '', src: scheme(attribute(node, 'src')), runs: [], align: null,
     ...(context.cell ? { cell: context.cell } : {}) });
   /** One textblock from its inline content, as the editor's paragraph or heading. */
-  const textblock = (nodes, tag, align, context) => {
+  const textblock = (nodes, tag, align, context, lineHeight = null) => {
     const runs = [];
     const images = [];
     for (const child of nodes) inline({ childNodes: [child] }, [], runs, images);
@@ -129,7 +158,7 @@ export function blocksFromHTML(html) {
       ...(inItem ? { list: context.list } : {}),
       ...(context.cell ? { cell: context.cell } : {}),
       ...(context.list !== undefined && !inItem ? { insideListItem: true } : {}),
-      align, text, runs,
+      lineHeight, align, text, runs,
     });
     for (const child of images) image(child, context);
   };
@@ -151,8 +180,23 @@ export function blocksFromHTML(html) {
     }
     flush();
   };
+  let tables = 0;
+  const elements = node => (node.childNodes ?? []).filter(child => child.tagName);
   const visit = (node, context) => {
     const tag = node.tagName;
+    if (tag === 'table') {
+      const table = ++tables;
+      const rows = elements(node).flatMap(child => (['thead', 'tbody', 'tfoot'].includes(child.tagName) ? elements(child) : [child])).filter(row => row.tagName === 'tr')
+        .map(row => elements(row).filter(cell => cell.tagName === 'td' || cell.tagName === 'th'));
+      const span = (cell, name) => Number(attribute(cell, name) ?? 1);
+      const grid = gridCells(rows.map(cells => cells.map(cell => ({ colspan: span(cell, 'colspan'), rowspan: span(cell, 'rowspan') }))));
+      rows.forEach((cells, rowIndex) => cells.forEach((cellNode, cellIndex) => {
+        const background = attribute(cellNode, 'data-background') ?? declarations(cellNode).get('background-color') ?? null;
+        const cell = { header: cellNode.tagName === 'th', colspan: span(cellNode, 'colspan'), rowspan: span(cellNode, 'rowspan'), table, ...grid[rowIndex][cellIndex], background };
+        visitChildren(cellNode, { cell });
+      }));
+      return;
+    }
     if (tag === 'ul' || tag === 'ol') {
       const kind = tag === 'ul' ? 'bullet' : 'ordered';
       const start = Number(attribute(node, 'start') ?? 1);
@@ -179,13 +223,15 @@ export function blocksFromHTML(html) {
       return;
     }
     if (tag === 'td' || tag === 'th') {
+      // A cell outside a table, as a bare row's: no grid position.
       const cell = { header: tag === 'th', colspan: Number(attribute(node, 'colspan') ?? 1), rowspan: Number(attribute(node, 'rowspan') ?? 1) };
       visitChildren(node, { cell });
       return;
     }
     if (tag === 'img') { image(node, context); return; }
     if (tag === 'p' || /^h[1-6]$/u.test(tag ?? '')) {
-      textblock(node.childNodes ?? [], tag, /text-align:\s*([a-z]+)/u.exec(attribute(node, 'style') ?? '')?.[1] ?? null, context);
+      textblock(node.childNodes ?? [], tag, /text-align:\s*([a-z]+)/u.exec(attribute(node, 'style') ?? '')?.[1] ?? null, context,
+        declarations(node).get('line-height') ?? null);
       return;
     }
     // Inline content outside a paragraph or heading, in the fragment or in any other container: the editor opens a paragraph for it.
@@ -222,10 +268,20 @@ function alphabetItems(block) {
   return Array.from({ length: block.count }, (_, index) => {
     const id = `${prefix}${String(Number(digits) + index).padStart(digits.length, '0')}`;
     const text = `${id} Item ${String(index + 1)}`;
+    const style = block.textStyle === undefined ? {} : { textStyle: block.textStyle };
     return literalAfter === null || index < literalAfter
-      ? { id, type: 'listItem', list: { kind: 'ordered', marker: block.marker ?? 'lower-alpha', depth: 1, ordinal: index + 1 }, text }
-      : { id, type: 'literalItem', text };
+      ? { id, type: 'listItem', list: { kind: 'ordered', marker: block.marker ?? 'lower-alpha', depth: 1, ordinal: index + 1 }, text, ...style }
+      : { id, type: 'literalItem', text, ...style };
   });
+}
+
+/**
+ * A block as a scenario expects it: with the text style its document gives every text block, such as
+ * the font of Word's Normal style, under the block's own, such as a heading style's font, size and color.
+ */
+export function resolvedBlock(document, block) {
+  if (document.textStyle === undefined || ['empty', 'image', 'imageRun', 'generated'].includes(block.type)) return block;
+  return { ...block, textStyle: { ...document.textStyle, ...block.textStyle } };
 }
 
 /** The authored blocks one scenario selects, with an alphabet list expanded item by item. */
@@ -233,7 +289,7 @@ export function expectedBlocks(spec, scenarioId) {
   const scenario = spec.scenarios.find(entry => entry.id === scenarioId);
   if (!scenario) throw new Error(`Unknown scenario ${scenarioId}`);
   const blocks = new Map();
-  for (const document of spec.documents) for (const block of document.blocks) blocks.set(block.id, block);
+  for (const document of spec.documents) for (const block of document.blocks) blocks.set(block.id, resolvedBlock(document, block));
   const expected = [];
   for (const id of scenario.blocks) {
     const block = blocks.get(id);
@@ -301,15 +357,22 @@ function styleValue(key, value) {
   return text.replace(/\s+/gu, '');
 }
 
-function markCoverage(block, expected, where, problems, formatting) {
-  // A mark expectation can name the one policy it belongs to, for example a highlight that adapt removes.
-  if (expected.formatting !== undefined && expected.formatting !== formatting) return;
+/** The range of a mark expectation in a block's text, or undefined when its text is missing. */
+function markRange(block, expected) {
   let from = -1;
   for (let count = 0; count < (expected.occurrence ?? 1); count++) {
     from = block.text.indexOf(expected.text, from + 1);
-    if (from < 0) { problems.push(`${where}: text ${JSON.stringify(expected.text)} is missing`); return; }
+    if (from < 0) return undefined;
   }
-  const to = from + expected.text.length;
+  return { from, to: from + expected.text.length };
+}
+
+function markCoverage(block, expected, where, problems, formatting) {
+  // A mark expectation can name the one policy it belongs to, for example a highlight that adapt removes.
+  if (expected.formatting !== undefined && expected.formatting !== formatting) return;
+  const range = markRange(block, expected);
+  if (range === undefined) { problems.push(`${where}: text ${JSON.stringify(expected.text)} is missing`); return; }
+  const { from, to } = range;
   let offset = 0;
   for (const run of block.runs) {
     const start = offset; offset += run.text.length;
@@ -332,11 +395,112 @@ function markCoverage(block, expected, where, problems, formatting) {
   }
 }
 
+/** The semantic marks a run carries, by the specification's names: a background text style is a highlight. */
+function runMarks(run) {
+  const names = new Set();
+  for (const mark of run.marks) {
+    const name = Object.keys(MARKS).find(key => MARKS[key] === mark.type);
+    if (name !== undefined) names.add(name);
+    if (mark.type === 'link') names.add('link');
+    if (mark.type === 'textStyle' && typeof mark.attrs?.backgroundColor === 'string' && mark.attrs.backgroundColor !== '') names.add('highlight');
+  }
+  return names;
+}
+
+/**
+ * Nothing on a block's runs that the source did not apply: every semantic mark comes from an expectation
+ * covering the run, and in `preserve` every kept text style value is the one Word shows for the run, from the
+ * block's style under the expectations that cover it. A kept value is checked, an absent one is not: the
+ * editor's default stands in for a style the copy does not carry inline, and the notice reports real losses.
+ */
+function runExhaustiveness(block, found, where, problems, formatting, exhaustive = true) {
+  if (!exhaustive) return;
+  const expectations = (block.marks ?? []).filter(mark => mark.formatting === undefined || mark.formatting === formatting)
+    .map(mark => ({ mark, range: markRange(found, mark) })).filter(entry => entry.range !== undefined);
+  // A literal list item's visible marker keeps the font of its list level, as Word shows the marker: only its text is checked here.
+  const marker = ['literalItem', 'textOnly'].includes(block.type) && block.text !== undefined ? Math.max(0, found.text.lastIndexOf(block.text)) : 0;
+  let offset = 0;
+  for (const run of found.runs) {
+    const start = offset; offset += run.text.length;
+    if (!/\S/u.test(run.text)) continue;
+    if (offset <= marker) {
+      for (const name of runMarks(run)) problems.push(`${where}: its marker is ${name === 'link' ? 'a link' : name}, which the source is not`);
+      continue;
+    }
+    const covering = expectations.filter(({ range }) => range.from < offset && start < range.to);
+    const allowed = new Set(covering.flatMap(({ mark }) => [...(mark.marks ?? []), ...(mark.link === undefined ? [] : ['link']),
+      ...(mark.style?.backgroundColor === undefined ? [] : ['highlight'])]));
+    const label = JSON.stringify(run.text.trim().slice(0, 40));
+    for (const name of runMarks(run)) if (!allowed.has(name)) problems.push(`${where}: ${label} is ${name === 'link' ? 'a link' : name}, which the source is not`);
+    if (formatting !== 'preserve' || block.textStyle === undefined) continue;
+    const expected = Object.assign({}, block.textStyle, ...covering.map(({ mark }) => mark.style ?? {}));
+    const attrs = run.marks.find(mark => mark.type === 'textStyle')?.attrs ?? {};
+    for (const key of ADAPTED_STYLES) {
+      const value = attrs[key];
+      if (value === undefined || value === null || value === '') continue;
+      if (expected[key] === undefined) problems.push(`${where}: ${label} ${key} is ${String(value)}, expected none`);
+      else if (styleValue(key, value) !== styleValue(key, expected[key])) problems.push(`${where}: ${label} ${key} is ${String(value)}, expected ${String(expected[key])}`);
+    }
+  }
+}
+
+/** A line height as a number: a ratio, or a percentage of the font size. Undefined for a length, which no ratio can equal. */
+function lineHeightNumber(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const match = /^(\d+(?:\.\d+)?)(%?)$/u.exec(String(value).trim());
+  return match === null ? undefined : Math.round(Number(match[1]) / (match[2] === '%' ? 100 : 1) * 100) / 100;
+}
+
+/** Block level formatting: alignment, line spacing and cell shading where the result can carry them, and the cell's grid position. */
+function blockFormatting(block, found, where, problems, formatting, tables, exhaustive) {
+  const preserve = formatting === 'preserve';
+  if (preserve) {
+    const expected = block.align ?? null;
+    const actual = found.align === 'left' || found.align === 'start' ? null : found.align ?? null;
+    if (expected === null ? actual !== null : found.align !== expected) problems.push(`${where}: alignment is ${String(found.align)}, expected ${expected ?? 'none'}`);
+  } else if (found.align && !['left', 'start'].includes(found.align)) problems.push(`${where}: adapt kept alignment ${found.align}`);
+  // A result without the attribute, as the default schema without LineHeight, has no spacing to compare: the notice reports it.
+  if (exhaustive && Object.hasOwn(found, 'lineHeight')) {
+    const expected = preserve && block.lineHeight !== undefined ? lineHeightNumber(block.lineHeight) : null;
+    const actual = lineHeightNumber(found.lineHeight);
+    if (actual !== expected) problems.push(`${where}: line height is ${found.lineHeight ?? 'none'}, expected ${expected === null ? 'none' : String(block.lineHeight)}`);
+  }
+  if (block.cell !== undefined && found.cell !== undefined) {
+    if (exhaustive && Object.hasOwn(found.cell, 'background')) {
+      const expected = preserve ? block.cell.background ?? null : null;
+      const actual = found.cell.background ?? null;
+      if ((expected === null) !== (actual === null) || (expected !== null && styleValue('backgroundColor', actual) !== styleValue('backgroundColor', expected))) {
+        problems.push(`${where}: cell background is ${actual ?? 'none'}, expected ${expected ?? 'none'}`);
+      }
+    }
+    if (block.cell.table !== undefined && found.cell.table !== undefined) {
+      // Tables are matched in order of appearance: one authored table is one pasted table. A selection of part of a
+      // table pastes its rows and columns from the first, so positions count from the first cell of each table.
+      const known = tables.get(block.cell.table);
+      const offset = { row: found.cell.row - (block.cell.row ?? found.cell.row), column: found.cell.column - (block.cell.column ?? found.cell.column) };
+      if (known === undefined) {
+        if ([...tables.values()].some(entry => entry.table === found.cell.table)) problems.push(`${where}: shares a table with a cell of another table`);
+        tables.set(block.cell.table, { table: found.cell.table, ...offset });
+      } else {
+        if (known.table !== found.cell.table) problems.push(`${where}: is in another table than the cells of its own`);
+        for (const key of ['row', 'column']) {
+          if (block.cell[key] !== undefined && found.cell[key] !== block.cell[key] + known[key]) {
+            problems.push(`${where}: ${key} is ${String(found.cell[key] - known[key])}, expected ${String(block.cell[key])}`);
+          }
+        }
+      }
+    }
+  }
+}
+
+/** Whether two texts differ only where one has a no-break space and the other a space. */
+const spacesDiffer = (left, right) => left !== right && left.replace(/\u00a0/gu, ' ') === right.replace(/\u00a0/gu, ' ');
+
 /** Problems between the authored scenario and actual blocks. An empty list means the capture matches. */
 export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'preserve' } = {}) {
   const { scenario, expected } = expectedBlocks(spec, scenarioId);
   const problems = [];
-  const actual = actualBlocks.filter(block => block.type !== 'empty' || expected.some(entry => entry.type === 'empty'));
+  const actual = [...actualBlocks];
   const positions = new Map();
   actual.forEach((block, index) => {
     const id = IDENTIFIER.exec(block.text)?.[1];
@@ -353,9 +517,21 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     if (ids.length > expected[0].tokens) problems.push('G: more blocks than the source document has');
     return problems;
   }
+  // A specification that authors its documents' text style is checked for everything a paste adds, formatting included;
+  // one that does not yet, such as Google Docs before its captures, for its structure, marks it names and blocks.
+  const exhaustive = expected.some(block => block.textStyle !== undefined);
+  // A selection that starts in a nested item: the levels above it open with one empty item each, before anything else.
+  const consumed = new Set();
+  const first = expected.find(block => block.type !== 'image' && block.type !== 'imageRun');
+  for (let index = 0; first?.list !== undefined && index < actual.length; index++) {
+    const block = actual[index];
+    if (block.type !== 'empty' || block.list === undefined || block.list.depth >= first.list.depth) break;
+    consumed.add(index);
+  }
   // A partial selection names the blocks just outside it; their text must not arrive.
   for (const id of scenario.excluded ?? []) if (positions.has(id)) problems.push(`${id}: outside the selection but pasted`);
-  let previous = -1;
+  const tables = new Map();
+  let previous = consumed.size - 1;
   expected.forEach((block, order) => {
     if (block.type === 'image' || block.type === 'imageRun') {
       // Removal keeps the alt text in the image's place. A source may copy no alt text, and a run of images has none.
@@ -363,6 +539,7 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
       if (index === undefined) return;
       if (index <= previous) problems.push(`${block.id}: out of order`);
       previous = index;
+      consumed.add(index);
       if (actual[index].type !== 'image' && normalizeText(actual[index].text) !== block.alt) {
         problems.push(`${block.id}: alt text is ${JSON.stringify(normalizeText(actual[index].text))}, expected ${JSON.stringify(block.alt)}`);
       }
@@ -370,7 +547,7 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     }
     const partialFirst = scenario.partial && order === 0;
     const partialLast = scenario.partial && order === expected.length - 1;
-    const index = partialFirst ? 0 : partialLast ? actual.length - 1 : block.type === 'empty'
+    const index = partialFirst ? previous + 1 : partialLast ? actual.length - 1 : block.type === 'empty'
       ? previous + 1 : positions.get(block.id);
     const found = index === undefined ? undefined : actual[index];
     if (!found) { problems.push(`${block.id}: missing`); return; }
@@ -380,9 +557,11 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     }
     if (index <= previous) problems.push(`${block.id}: out of order`);
     previous = index;
+    consumed.add(index);
     if (partialFirst || partialLast) {
       const text = partialFirst ? scenario.partial.first : scenario.partial.last;
       if (normalizeText(found.text) !== text) problems.push(`${block.id}: partial text is ${JSON.stringify(found.text)}, expected ${JSON.stringify(text)}`);
+      runExhaustiveness({ textStyle: block.textStyle }, found, block.id, problems, formatting, exhaustive);
       return;
     }
     if (block.type === 'empty') return;
@@ -390,11 +569,13 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
       if (found.type === 'listItem' || !normalizeText(found.text).endsWith(block.text) || normalizeText(found.text) === block.text) {
         problems.push(`${block.id}: expected a literal paragraph that keeps its visible marker`);
       }
+      runExhaustiveness(block, found, block.id, problems, formatting, exhaustive);
       return;
     }
     if (block.type === 'textOnly') {
       // A profile without an expected structure: its text arrives in order, with or without a visible marker.
       if (!normalizeText(found.text).endsWith(block.text)) problems.push(`${block.id}: text is ${JSON.stringify(normalizeText(found.text))}, expected it to end with ${JSON.stringify(block.text)}`);
+      runExhaustiveness(block, found, block.id, problems, formatting, exhaustive);
       return;
     }
     const type = block.type === 'heading' ? 'heading' : block.type;
@@ -406,17 +587,32 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     }
     // Word may leave hidden text out of the copy; both forms are recorded observations.
     const texts = block.hidden === undefined ? [block.text] : [block.text, normalizeText(block.text.replace(block.hidden, ''))];
-    if (block.text !== undefined && !texts.includes(normalizeText(found.text))) {
-      problems.push(`${block.id}: text is ${JSON.stringify(normalizeText(found.text))}, expected ${JSON.stringify(block.text)}`);
+    const text = normalizeText(found.text);
+    if (block.text !== undefined && !texts.includes(text)) {
+      problems.push(texts.some(entry => spacesDiffer(text, entry))
+        ? `${block.id}: text has a no-break space where the specification has a space, or the reverse: ${JSON.stringify(text)}`
+        : `${block.id}: text is ${JSON.stringify(text)}, expected ${JSON.stringify(block.text)}`);
     }
-    if (block.align && formatting === 'preserve' && found.align !== block.align) problems.push(`${block.id}: alignment is ${String(found.align)}, expected ${block.align}`);
+    blockFormatting(block, found, block.id, problems, formatting, tables, exhaustive);
     if (formatting === 'adapt') {
-      if (found.align && !['left', 'start'].includes(found.align)) problems.push(`${block.id}: adapt kept alignment ${found.align}`);
       const kept = new Set(found.runs.flatMap(run => run.marks.filter(mark => mark.type === 'textStyle')
         .flatMap(mark => ADAPTED_STYLES.filter(key => mark.attrs?.[key]))));
       for (const key of kept) problems.push(`${block.id}: adapt kept ${key}`);
     }
     for (const mark of block.marks ?? []) markCoverage(found, mark, block.id, problems, formatting);
+    runExhaustiveness(block, found, block.id, problems, formatting, exhaustive);
+  });
+  // Everything else the paste added: blocks the selection does not hold, text without an identifier, empty paragraphs.
+  const excluded = new Set(scenario.excluded ?? []);
+  const expectsImages = expected.some(block => block.type === 'image' || block.type === 'imageRun');
+  actual.forEach((block, index) => {
+    if (consumed.has(index)) return;
+    const id = IDENTIFIER.exec(block.text)?.[1];
+    // Without the exhaustive check an empty paragraph the scenario does not name is not compared, as a break Google Docs writes between blocks.
+    if (block.type === 'empty') { if (exhaustive) problems.push(`unexpected empty paragraph at block ${String(index + 1)}`); }
+    else if (block.type === 'image') { if (!expectsImages && scenario.images !== 'removed') problems.push(`unexpected image at block ${String(index + 1)}`); }
+    else if (id === undefined) problems.push(`unexpected text ${JSON.stringify(normalizeText(block.text).slice(0, 40))} at block ${String(index + 1)}`);
+    else if (!excluded.has(id) && !expected.some(entry => entry.id === id)) problems.push(`${id}: not in the selection but pasted`);
   });
   if (scenario.images === 'removed') {
     const kept = actual.filter(block => block.type === 'image');
@@ -425,14 +621,20 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
   return [...new Set(problems)];
 }
 
-/** Diagnostic outcome of one policy against the scenario: required warnings present, nothing unexpected. */
-export function compareOutcome(spec, scenarioId, diagnostics, { formatting = 'preserve' } = {}) {
+/**
+ * Diagnostic outcome of one policy against the scenario: required warnings present, nothing unexpected. The
+ * outcome is the fixture editor's; a replay without a destination, `destination: false`, cannot report what
+ * only a destination reports, so those warnings are not required of it.
+ */
+export function compareOutcome(spec, scenarioId, diagnostics, { formatting = 'preserve', destination = true } = {}) {
   const { scenario } = expectedBlocks(spec, scenarioId);
   const outcome = outcomeFor(scenario, formatting);
   const problems = [];
   const codes = new Set(diagnostics.filter(entry => entry.severity !== 'info').map(entry => entry.code));
   const allowed = new Set([...(outcome.requiredWarnings ?? []), ...(outcome.allowedWarnings ?? []), ...(outcome.allowedErrors ?? [])]);
-  for (const code of outcome.requiredWarnings ?? []) if (!codes.has(code)) problems.push(`outcome: ${code} is required but was not reported`);
+  for (const code of outcome.requiredWarnings ?? []) {
+    if (!codes.has(code) && (destination || !code.startsWith('destination-'))) problems.push(`outcome: ${code} is required but was not reported`);
+  }
   if (outcome.notice !== 'observe') for (const code of codes) if (!allowed.has(code)) problems.push(`outcome: unexpected ${code}`);
   if (outcome.notice === 'quiet' && [...codes].some(code => !allowed.has(code))) problems.push('outcome: the notice would not stay quiet');
   return problems;
@@ -460,7 +662,8 @@ export function checkScenario(spec, scenarioId, input, options = {}) {
   }
   const blocks = typeof replay.html === 'string' ? blocksFromHTML(replay.html) : blocksFromEditorJSON(replay.doc);
   const diagnostics = replay.diagnostics ?? replay.results?.at(-1)?.diagnostics ?? [];
-  problems.push(...compareBlocks(spec, scenarioId, blocks, { formatting }), ...compareOutcome(spec, scenarioId, diagnostics, { formatting }));
+  problems.push(...compareBlocks(spec, scenarioId, blocks, { formatting }),
+    ...compareOutcome(spec, scenarioId, diagnostics, { formatting, destination: images === undefined }));
   return Object.freeze({ kind: 'native-capture-semantics', scenario: scenarioId, formatting, qualification: false,
     ...(images ? { capture: { replayed: true, images } } : {}), matches: problems.length === 0, problems });
 }

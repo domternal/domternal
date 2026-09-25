@@ -22,25 +22,39 @@
     "Every paragraph starts with its block identifier, so any output order, loss or duplication is visible.",
     "Type the text exactly. The typographic characters are part of the test: use the characters in this file, not keyboard substitutes.",
     "Use the named built-in styles and the Home tab buttons, not manual formatting, unless a block says otherwise.",
-    "A marker in list.wordLabel is what Word shows. Do not type it; Word creates it from the list formatting."
+    "A marker in list.wordLabel is what Word shows. Do not type it; Word creates it from the list formatting.",
+    "A document's textStyle is the text style of Word's Normal style as Word shows it, a block's textStyle that of its own style, such as a heading's font, size and color; automatic color is no color. A pasted run may keep these values or none, never another."
   ],
   "documents": [
     {
       "file": "word-mac-v1-basics.docx",
+      "textStyle": {
+        "fontFamily": "Aptos",
+        "fontSize": "12pt"
+      },
       "blocks": [
         {
           "id": "B01",
           "type": "heading",
           "level": 1,
           "word": "Style: Title",
-          "text": "B01 Paste test document"
+          "text": "B01 Paste test document",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "28pt"
+          }
         },
         {
           "id": "B02",
           "type": "heading",
           "level": 1,
           "word": "Style: Heading 1",
-          "text": "B02 Croatian characters and quotation marks"
+          "text": "B02 Croatian characters and quotation marks",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "B03",
@@ -66,7 +80,12 @@
           "type": "heading",
           "level": 2,
           "word": "Style: Heading 2",
-          "text": "B06 Inline formatting"
+          "text": "B06 Inline formatting",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "16pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "B07",
@@ -138,6 +157,9 @@
               "marks": [
                 "highlight"
               ],
+              "style": {
+                "backgroundColor": "#FFFF00"
+              },
               "formatting": "preserve",
               "word": "Text highlight color yellow",
               "expectation": "Word writes the highlight as a background shorthand (background: yellow in the Safari capture), which cleanup reads as the highlight color.",
@@ -150,7 +172,12 @@
           "type": "heading",
           "level": 3,
           "word": "Style: Heading 3",
-          "text": "B08 Alignment and spacing"
+          "text": "B08 Alignment and spacing",
+          "textStyle": {
+            "fontFamily": "Aptos",
+            "fontSize": "14pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "B09",
@@ -222,6 +249,10 @@
     },
     {
       "file": "word-mac-v1-lists.docx",
+      "textStyle": {
+        "fontFamily": "Aptos",
+        "fontSize": "12pt"
+      },
       "provenance": "In the captured document the lists are defined as named lists (mso-list-name D3 ...), not taken from the Home tab libraries the blocks name. Their level texts and fonts are those of the libraries, except that the o level names its font per script (mso-ascii-font-family) instead of in font-family; cleanup reads both. A document made with the libraries is still to be captured.",
       "blocks": [
         {
@@ -229,7 +260,12 @@
           "type": "heading",
           "level": 1,
           "word": "Style: Heading 1",
-          "text": "L01 Bullets"
+          "text": "L01 Bullets",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "L02",
@@ -284,7 +320,12 @@
           "type": "heading",
           "level": 1,
           "word": "Style: Heading 1",
-          "text": "L06 Numbering"
+          "text": "L06 Numbering",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "L07",
@@ -427,7 +468,12 @@
           "type": "heading",
           "level": 1,
           "word": "Style: Heading 1",
-          "text": "L18 Mixed nesting"
+          "text": "L18 Mixed nesting",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "L19",
@@ -468,6 +514,12 @@
           "text": "L21 Second number"
         },
         {
+          "id": "L21a",
+          "type": "empty",
+          "word": "Style: Normal, an empty paragraph before L22",
+          "correction": "L22 follows an empty Normal paragraph, as its instruction says, so a selection from L21 to L22 holds it; it was missing from the blocks."
+        },
+        {
           "id": "L22",
           "type": "listItem",
           "list": {
@@ -497,7 +549,12 @@
           "type": "heading",
           "level": 1,
           "word": "Style: Heading 1",
-          "text": "L24 Punctuation and letter case"
+          "text": "L24 Punctuation and letter case",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "L25",
@@ -608,7 +665,12 @@
           "type": "heading",
           "level": 1,
           "word": "Style: Heading 1",
-          "text": "L33 Alphabet after z"
+          "text": "L33 Alphabet after z",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "L34",
@@ -623,7 +685,12 @@
           "type": "heading",
           "level": 1,
           "word": "Style: Heading 1",
-          "text": "L62 Unsupported profiles"
+          "text": "L62 Unsupported profiles",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "L63",
@@ -684,13 +751,22 @@
     },
     {
       "file": "word-mac-v1-tables.docx",
+      "textStyle": {
+        "fontFamily": "Aptos",
+        "fontSize": "12pt"
+      },
       "blocks": [
         {
           "id": "T01",
           "type": "heading",
           "level": 1,
           "word": "Style: Heading 1",
-          "text": "T01 Table"
+          "text": "T01 Table",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
         },
         {
           "id": "T02",
@@ -734,10 +810,15 @@
             "table": 1,
             "row": 2,
             "column": 1,
-            "shading": "light gray"
+            "shading": "light gray",
+            "background": "#D9D9D9"
           },
           "word": "Shading: light gray",
-          "text": "T05 Gray cell"
+          "text": "T05 Gray cell",
+          "textStyle": {
+            "color": "#000000"
+          },
+          "expectation": "Word writes the automatic color of the text on the shading as black, which is how it shows it; light gray is White, Background 1, Darker 15 %, #D9D9D9."
         },
         {
           "id": "T06",
@@ -809,6 +890,12 @@
           "text": "T12 Borderless right"
         },
         {
+          "id": "T12a",
+          "type": "empty",
+          "word": "Style: Normal, the empty paragraph Word keeps between two tables",
+          "correction": "Word keeps an empty paragraph between the second and the third table, which Select All copies; it was missing from the blocks."
+        },
+        {
           "id": "T13",
           "type": "tableCell",
           "cell": {
@@ -852,6 +939,17 @@
           },
           "word": "Enter",
           "text": "T15 Second bullet in a cell"
+        },
+        {
+          "id": "T15a",
+          "type": "empty",
+          "word": "Style: Normal, an empty paragraph after the last table",
+          "correction": "The document ends with two empty paragraphs after the last table, which Select All copies; they were missing from the blocks."
+        },
+        {
+          "id": "T15b",
+          "type": "empty",
+          "word": "Style: Normal, the document's last paragraph, empty"
         }
       ]
     },
@@ -899,10 +997,15 @@
       ],
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [
-          "destination-formatting-unconfirmed"
-        ]
-      }
+        "allowedWarnings": [],
+        "preserve": {
+          "notice": "visible",
+          "requiredWarnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      },
+      "correction": "B12 keeps its explicit 1.5 spacing in preserve, which the fixture editor's default schema, without LineHeight, cannot show: the notice is visible there, and adapt, which removes spacing, stays quiet."
     },
     {
       "id": "word-inline-formatting",
@@ -1068,13 +1171,15 @@
         "L19",
         "L20",
         "L21",
+        "L21a",
         "L22",
         "L23"
       ],
       "outcome": {
         "notice": "quiet",
         "allowedWarnings": []
-      }
+      },
+      "correction": "The selection holds the empty paragraph L21a before L22."
     },
     {
       "id": "word-list-punctuation-case",
@@ -1189,16 +1294,20 @@
         "T10",
         "T11",
         "T12",
+        "T12a",
         "T13",
         "T14",
-        "T15"
+        "T15",
+        "T15a",
+        "T15b"
       ],
       "outcome": {
         "notice": "quiet",
         "allowedWarnings": [
           "destination-formatting-unconfirmed"
         ]
-      }
+      },
+      "correction": "Select All holds the empty paragraphs T12a, T15a and T15b."
     },
     {
       "id": "word-large-document",
@@ -1242,8 +1351,8 @@
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "45037a3d9796b2a7036e89c9662018c69ec02b7b",
-    "originalSpecificationSha256": "72b8db30e296bf5f6aba9e82bbbe22fdc55f2d8949ff7560b9efa94e39305cbf",
+    "originalSpecificationBlob": "5601629403d7edaee45383e10f9f3298821bef6a",
+    "originalSpecificationSha256": "17242a5e5b0082d6c92e4be8ff7ee948fb40a7056f5f143ba829d70276b8cd60",
     "originalKind": "domternal-native-capture-content",
     "originalStatus": "captured-in-part",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",

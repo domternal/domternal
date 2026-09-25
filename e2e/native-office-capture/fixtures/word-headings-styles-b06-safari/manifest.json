@@ -21,7 +21,12 @@
         "type": "heading",
         "level": 2,
         "word": "Style: Heading 2",
-        "text": "B06 Inline formatting"
+        "text": "B06 Inline formatting",
+        "textStyle": {
+          "fontFamily": "Aptos Display",
+          "fontSize": "16pt",
+          "color": "#0F4761"
+        }
       }
     ],
     "preserve": {
@@ -49,6 +54,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "9e01bd9aa2e26d39c502fe6601ff2a95ca60c0b260cf31039ec59d62138bf7a6",
-    "manifestSha256": "e0438d8586736fbf6a80efd8ee568a06eb6f49aab2e170294a02420249d134a8"
+    "manifestSha256": "0f1534e072fd0c833ecf9dfb3a1a396ee3e452e95d962ebe8688b667720e20bb"
   }
 }
