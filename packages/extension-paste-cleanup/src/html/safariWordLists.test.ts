@@ -76,6 +76,18 @@ describe('Safari copies of Word lists', () => {
       + '<li><p><span></span>L11 Letter b</p></li></ol></li><li><p><span></span>L12 Second number</p></li></ol>');
   });
 
+  it.each(policies)('keeps an item that skips a level after the run started literal with its marker, as Word shows it, in %s', formatting => {
+    // L08 is gone: Word shows 1. L07, then i. and ii. one level further in, then a. L11 and 2. L12. No item is empty.
+    const html = `${WORD}${definitions(...NUMBER_LEVELS)}${listParagraph('CxSpFirst', 1, '1.', 'L07 First number')}`
+      + `${listParagraph('CxSpMiddle', 3, 'i.', 'L09 Roman i')}${listParagraph('CxSpMiddle', 3, 'ii.', 'L10 Roman ii')}`
+      + `${listParagraph('CxSpMiddle', 2, 'a.', 'L11 Letter b')}${listParagraph('CxSpLast', 1, '2.', 'L12 Second number')}</html>`;
+    const result = normalizePasteHTML(html, { formatting });
+    expect(codes(result.diagnostics)).toEqual(['office-list-unsupported', 'unsupported-formatting']);
+    expect(result.html).not.toContain('<li><p></p>');
+    expect(result.html).toMatch(/^<ol style="list-style-type:decimal" start="1"><li><p><span><\/span>L07 First number<\/p><p>.*i\..*L09 Roman i<\/p><p>.*ii\..*L10 Roman ii<\/p>/u);
+    expect(result.html).toContain('<ol style="list-style-type:lower-alpha" start="1"><li><p><span></span>L11 Letter b</p></li></ol></li><li><p><span></span>L12 Second number</p></li></ol>');
+  });
+
   it('keeps an item literal when a level above it has no supported definition', () => {
     const legal = '@list l0:level1\n\t{mso-level-legal-format:yes;\n\tmso-level-text:"%1\\.";}';
     const html = `${WORD}${definitions(legal, NUMBER_LEVELS[1] ?? '')}${listParagraph('', 2, 'a.', 'L08 Letter a')}</html>`;

@@ -398,7 +398,8 @@ interface PlannedEntry { entry: Candidate; item: ListItem | undefined; marker: M
 /**
  * Place a run item by item. A supported item joins the list stack as before. A supported item
  * whose parent levels do not exist opens them from their level definitions, each with one empty
- * item, so it keeps its depth and marker. An unsupported item, or one whose missing parent levels
+ * item, so it keeps its depth and marker, but only before the run placed its first item. An
+ * unsupported item, one that skips a level later in the run, or one whose missing parent levels
  * have no supported definition, stays a literal paragraph with its visible marker: inside the
  * nearest open list item when the destination can nest, otherwise at the run's own level, which
  * closes the open lists. Deeper items under a literal one have no list parent, so they stay
@@ -410,7 +411,10 @@ function reconstructRun(entries: readonly PlannedEntry[], nestedLists: boolean, 
   let literalSegment = false;
   for (const [position, { entry, item, marker }] of entries.entries()) {
     const level = item?.level ?? entryLevel(entry);
-    const ancestors = item !== undefined && stack.length < level - 1 ? ancestorsOf(entries, position, item, stack.length, profile) : [];
+    // Only a run that starts below its first level opens the levels above: a selection left them out. A level
+    // skipped after an item was placed is the document's own, which an empty item would show as a marker Word does not.
+    const ancestors = item !== undefined && stack.length < level - 1
+      ? output.items === 0 ? ancestorsOf(entries, position, item, stack.length, profile) : undefined : [];
     if (item === undefined || ancestors === undefined) {
       if (marker !== undefined) literalMarkerPictures(marker.element);
       output.literal++;
