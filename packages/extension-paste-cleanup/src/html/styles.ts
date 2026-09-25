@@ -72,6 +72,23 @@ function smallTracking(value: string): boolean {
 }
 
 const backgroundInitials = new Set(['none', 'repeat', 'scroll', '0', '0%', 'left', 'top', 'auto', 'padding-box', 'border-box', 'initial']);
+// Where a painted background has a home: a run's highlight, or a table cell's background. A block keeps none.
+const backgroundOwners = new Set(['', 'span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'a', 'code', 'sub', 'sup', 'font', 'td', 'th']);
+
+/** A background shorthand of initial values and transparent only, such as `transparent none repeat scroll 0% 0%`: it paints nothing. */
+function paintsNothing(value: string): boolean {
+  const tokens = value.trim().toLowerCase().split(/[\t\n\f\r ]+/);
+  return tokens.length <= 16 && tokens.every(token => token === 'transparent' || backgroundInitials.has(token));
+}
+
+/**
+ * Typography the `adapt` policy removes from every element. A declaration of it that cleanup cannot read
+ * is gone in that policy either way, so it is an adaptation there and a loss only in `preserve`.
+ */
+export function adaptedTypography(name: string): boolean {
+  return ['font-family', 'font-size', 'color', 'background-color', 'background', 'line-height', 'letter-spacing', 'word-spacing',
+    'text-transform', 'font-stretch', 'font-feature-settings', 'font-size-adjust', 'font-synthesis'].includes(name) || /^font-variant(?:-[a-z]+)*$/.test(name);
+}
 
 /**
  * The color of a background shorthand that paints one safe color and otherwise only initial values, as
@@ -167,11 +184,24 @@ export function routineDeclaration(name: string, content: string, tag = ''): boo
   return routineBox(name, value, tag) ?? routineBorder(name, value, tag) ?? false;
 }
 
+/** What a style attribute keeps, and what it drops: the properties it reports and the properties a later declaration reset. */
+export interface SafeStyles {
+  styles: Map<string, string>;
+  removed: boolean;
+  /** The names of the declarations that are neither kept nor routine, in order; empty for a declaration without a name. */
+  removedNames: string[];
+  /** Properties a declaration reset to their initial value, which also clears a value an earlier attribute declared. */
+  cleared: Set<string>;
+}
+
 /** A deliberately small CSS value grammar: no functions that can load resources. */
-export function readSafeStyles(value: unknown, imagePlacement = false, tag = ''): { styles: Map<string, string>; removed: boolean } {
+export function readSafeStyles(value: unknown, imagePlacement = false, tag = ''): SafeStyles {
   const styles = new Map<string, string>();
-  let removed = false;
-  if (typeof value !== 'string') return { styles, removed };
+  const removedNames: string[] = [];
+  const cleared = new Set<string>();
+  const keep = (name: string, content: string): void => { styles.set(name, content); cleared.delete(name); };
+  const reset = (name: string): void => { styles.delete(name); cleared.add(name); };
+  if (typeof value !== 'string') return { styles, removed: false, removedNames, cleared };
   for (const declaration of value.split(';')) {
     if (declaration.trim() === '') continue;
     const separator = declaration.indexOf(':');
@@ -179,26 +209,26 @@ export function readSafeStyles(value: unknown, imagePlacement = false, tag = '')
     const content = declaration.slice(separator + 1).trim();
     if (name === 'list-style-type') {
       const marker = content.toLowerCase();
-      if (validListStyle(tag, marker)) styles.set(name, marker);
-      else removed = true;
+      if (validListStyle(tag, marker)) keep(name, marker);
+      else removedNames.push(name);
       continue;
     }
     const placement = ownRule(imagePlacementRules, name);
     const rule = ownRule(rules, name) ?? (imagePlacement ? placement : undefined);
-    if (separator < 0) { removed = true; continue; }
-    if (Object.hasOwn(initialValues, name) && initialValues[name]?.includes(content.toLowerCase()) === true) { styles.delete(name); continue; }
+    if (separator < 0) { removedNames.push(''); continue; }
+    if (Object.hasOwn(initialValues, name) && initialValues[name]?.includes(content.toLowerCase()) === true) { reset(name); continue; }
     if (name === 'background') {
       // A later declaration wins, so the shorthand replaces an earlier background color and a later one replaces it.
       const painted = backgroundColor(content);
-      if (painted !== undefined) styles.set('background-color', painted);
-      else if (routineDeclaration(name, content, tag)) styles.delete('background-color');
-      else removed = true;
+      if (paintsNothing(content)) reset('background-color');
+      else if (painted !== undefined && backgroundOwners.has(tag)) keep('background-color', painted);
+      else removedNames.push(name);
       continue;
     }
-    if (!rule?.test(content)) { removed ||= !routineDeclaration(name, content, tag); continue; }
-    styles.set(name, placement === undefined ? content : content.toLowerCase());
+    if (!rule?.test(content)) { if (!routineDeclaration(name, content, tag)) removedNames.push(name); continue; }
+    keep(name, placement === undefined ? content : content.toLowerCase());
   }
-  return { styles, removed };
+  return { styles, removed: removedNames.length > 0, removedNames, cleared };
 }
 
 /**

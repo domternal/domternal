@@ -1,7 +1,6 @@
 import type { Element, ElementContent, Properties, Root, RootContent, Text } from 'hast';
-import { readSafeStyles, serializeStyles, styleToRead } from './styles.js';
+import { adaptedTypography, readSafeStyles, serializeStyles, styleToRead } from './styles.js';
 import { envelopeTags } from './envelope.js';
-import type { PasteSource } from './types.js';
 
 export interface InlineInheritanceOptions {
   maxNodes: number;
@@ -9,8 +8,11 @@ export interface InlineInheritanceOptions {
   /** Reuse the input budget to bound additional generated attribute characters. */
   maxInputLength?: number;
   formatting?: 'preserve' | 'adapt';
-  /** The detected source, for source defaults that are no formatting of their own. */
-  source?: PasteSource;
+  /**
+   * Line heights, as ratios rounded to two places, that are the source's own spacing rather than formatting,
+   * such as the spacing of Word's Normal style that Safari writes on every block it copies.
+   */
+  routineLineHeights?: ReadonlySet<string>;
 }
 
 export class InheritanceLimitError extends Error {}
@@ -140,14 +142,15 @@ function lineHeightRatio(value: string, fontSize: string | undefined): string | 
  * a color equal to the element's caret color: WebKit copies a top-level element's inherited text color
  * with an equal caret color, which is the page's default color, Word's automatic color among them; a
  * color the source applied comes from its own rule, without one. A line height in pixels or points
- * becomes a ratio of the element's font size, and Word's default 1.15 is the source's own spacing,
- * which Word also writes on each run whose size differs from its paragraph's.
+ * becomes a ratio of the element's font size, and a routine one is the source's own spacing, which Word
+ * also writes on each run whose size differs from its paragraph's. A later declaration wins, a reset to
+ * the initial value included. The names of the declarations not kept are returned for the caller's policy.
  */
-function readInheritanceStyles(value: unknown, image: boolean, tag: string, source?: PasteSource): { styles: Map<string, string>; removed: boolean; defaultColor: boolean } {
+function readInheritanceStyles(value: unknown, image: boolean, tag: string, routineLineHeights?: ReadonlySet<string>): { styles: Map<string, string>; removedNames: string[]; defaultColor: boolean } {
   const styles = new Map<string, string>();
-  let removed = false;
+  const removedNames: string[] = [];
   let defaultColor = false;
-  if (typeof value !== 'string') return { styles, removed, defaultColor };
+  if (typeof value !== 'string') return { styles, removedNames, defaultColor };
   const declarations = value.split(';');
   const caret = declared(declarations, 'caret-color');
   const fontSize = declared(declarations, 'font-size');
@@ -157,25 +160,26 @@ function readInheritanceStyles(value: unknown, image: boolean, tag: string, sour
     if (separator > 0 && declaration.slice(0, separator).trim().toLowerCase() === 'line-height') {
       const ratio = lineHeightRatio(declaration.slice(separator + 1).trim(), fontSize);
       if (ratio !== undefined) {
-        if (source === 'word' && ratio === '1.15') continue;
+        if (routineLineHeights?.has(ratio) === true) { styles.delete('line-height'); continue; }
         text = `line-height:${ratio}`;
       }
     }
     const parsed = readSafeStyles(text, image, tag);
-    removed ||= parsed.removed;
+    removedNames.push(...parsed.removedNames);
+    for (const key of parsed.cleared) styles.delete(key);
     for (const [key, entry] of parsed.styles) {
       if (key === 'color' && (entry.toLowerCase() === 'windowtext' || (caret !== undefined && sameColor(entry, caret)))) {
         styles.delete(key); defaultColor = true; continue;
       }
       if (((key === 'color' || key === 'background-color') && !validColor(entry))
-        || (key === 'font-family' && !validFamily(entry))) { removed = true; continue; }
+        || (key === 'font-family' && !validFamily(entry))) { removedNames.push(key); continue; }
       if (key === 'color') defaultColor = false;
       if (key === 'text-decoration') styles.delete('text-decoration-line');
       if (key === 'text-decoration-line') styles.delete('text-decoration');
       styles.set(key, entry);
     }
   }
-  return { styles, removed, defaultColor };
+  return { styles, removedNames, defaultColor };
 }
 
 /** Whether an element holds text other than white space, an image or a line break. */
@@ -275,10 +279,11 @@ export function resolveInlineInheritance(
       const state: State = { ...inherited };
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
-      const { styles, removed, defaultColor } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.source);
-      let unsupported = removed;
+      const { styles, removedNames, defaultColor } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.routineLineHeights);
+      // Typography that adapt removes anyway is that policy's adaptation, not a loss; in preserve every declaration not kept is.
+      let unsupported = removedNames.some(name => preserve || !adaptedTypography(name));
       // One adapted finding per discarded source property, reported on its declaring element.
-      const adapted: string[] = [];
+      const adapted: string[] = preserve ? [] : [...new Set(removedNames.filter(adaptedTypography))];
       if (tag === 'b' || tag === 'strong') state.bold = true;
       if (tag === 'i' || tag === 'em') state.italic = true;
       if (tag === 'mark') { state.defaultHighlight = true; delete state.highlight; delete state.highlightToken; }

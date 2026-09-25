@@ -16,8 +16,9 @@ const inheritedNames = ['constructor', '__proto__', 'CONSTRUCTOR', '__PROTO__'];
 
 describe('safe CSS rule lookup', () => {
   it.each(inheritedNames)('removes a %s declaration without discarding its valid sibling', name => {
-    expect(readSafeStyles(`${name}:x;color:red`)).toEqual({ styles: new Map([['color', 'red']]), removed: true });
-    expect(readSafeStyles(`${name}:auto;float:LEFT`, true)).toEqual({ styles: new Map([['float', 'left']]), removed: true });
+    const removedNames = [name.toLowerCase()];
+    expect(readSafeStyles(`${name}:x;color:red`)).toEqual({ styles: new Map([['color', 'red']]), removed: true, removedNames, cleared: new Set() });
+    expect(readSafeStyles(`${name}:auto;float:LEFT`, true)).toEqual({ styles: new Map([['float', 'left']]), removed: true, removedNames, cleared: new Set() });
   });
 
   it.each(['preserve', 'adapt'] as const)('keeps a %s paste whose pasted style names inherited object keys', formatting => {

@@ -174,3 +174,83 @@ describe('Safari copies of Word: computed styles read as Word means them', () =>
     }
   });
 });
+
+describe('Safari copies of Word: what the native fixture review found', () => {
+  const EMPTY = `<p class="MsoNormal" style="margin: 0cm 0cm 8pt; line-height: 18.4px; font-size: medium; font-family: Aptos, sans-serif; ${WHITE} ${INTERCHANGE}"><o:p>\u00a0</o:p></p>`;
+
+  it.each(policies)('pastes Word\'s empty paragraph, a paragraph mark holding one no-break space, as an empty paragraph in %s', formatting => {
+    const html = `${WORD}${normal('B15 Visible part end.')}${EMPTY}${EMPTY}${normal('B16 After two empty paragraphs.')}</html>`;
+    const result = normalizePasteHTML(html, { formatting });
+    expect(result.html).toContain('</p><p></p><p></p><p>');
+    expect(result.html).not.toContain('\u00a0');
+    expect(warnings(result.diagnostics)).toEqual([]);
+    // The mark inside a run, as Word on Windows writes it, and in a table cell.
+    const run = normalizePasteHTML(`${WORD}<p class=MsoNormal><span lang=EN-US style='font-size:11.0pt'><o:p>&nbsp;</o:p></span></p></html>`, { formatting });
+    expect(run.html).not.toContain('\u00a0');
+    const cell = normalizePasteHTML(`${WORD}<table><tr><td><p class=MsoNormal><o:p>&nbsp;</o:p></p></td></tr></table></html>`, { formatting });
+    expect(cell.html).toContain('<td><p></p></td>');
+  });
+
+  it('keeps a no-break space Word wrote as text: outside the paragraph mark, beside other text or beside a line break', () => {
+    for (const paragraph of ['<p class=MsoNormal>&nbsp;<o:p></o:p></p>', '<p class=MsoNormal>A<o:p>&nbsp;</o:p></p>',
+      '<p class=MsoNormal><br><o:p>&nbsp;</o:p></p>', '<p class=MsoNormal><o:p>&nbsp;&nbsp;</o:p></p>']) {
+      expect(normalizePasteHTML(`${WORD}${paragraph}</html>`).html).toContain('\u00a0');
+    }
+  });
+
+  it.each([
+    ['a paragraph', '<p class=MsoNormal style=\'background:#D9D9D9\'>Shaded</p>'],
+    ['a Safari heading', '<h1 style="background: rgb(240, 240, 240)">Shaded</h1>'],
+    ['a division', '<div style="background:#eeeeee">Shaded</div>'],
+    ['a list item', '<ul><li style="background:#eee">Shaded</li></ul>'],
+  ])('reports the shading of %s, which no block keeps, in preserve and adapts it quietly', (_name, block) => {
+    const preserve = normalizePasteHTML(block);
+    expect(warnings(preserve.diagnostics)).toEqual(['unsupported-formatting']);
+    expect(preserve.html).not.toContain('background');
+    const adapt = normalizePasteHTML(block, { formatting: 'adapt' });
+    expect(warnings(adapt.diagnostics)).toEqual([]);
+    expect(adapt.html).not.toContain('background');
+    expect(adapt.diagnostics.some(entry => entry.code === 'formatting-adapted')).toBe(true);
+  });
+
+  it('reads a background that paints nothing as no background, also when it resets an earlier one', () => {
+    for (const style of ['background: transparent none repeat scroll 0% 0%', 'background-color: yellow; background: none',
+      'background-color: yellow; background: transparent', 'background: yellow; background: transparent none repeat scroll 0% 0%']) {
+      const result = normalizePasteHTML(`<p><span style="${style}">A</span></p>`);
+      expect(warnings(result.diagnostics)).toEqual([]);
+      expect(result.html).toBe('<p><span>A</span></p>');
+    }
+    const aligned = normalizePasteHTML('<p style="text-align: right; text-align: start">B</p>');
+    expect(aligned.html).toBe('<p>B</p>');
+  });
+
+  it('reads the line spacing of Word\'s Normal style as the source\'s own: 115 % and, before Word 2023, 107 %', () => {
+    const paragraph = (lineHeight: string, size: string, text: string): string => `<p class="MsoNormal" style="margin: 0cm 0cm 8pt; line-height: ${lineHeight}; `
+      + `font-size: ${size}; font-family: Calibri, sans-serif; ${WHITE} ${INTERCHANGE}">${text}<o:p></o:p></p>`;
+    const older = normalizePasteHTML(`${WORD}${paragraph('15.693333px', '11pt', 'Calibri 11')}${paragraph('18.4px', 'medium', 'Aptos 12')}</html>`);
+    expect(older.html).not.toContain('line-height');
+    expect(warnings(older.diagnostics)).toEqual([]);
+    // A copy that carries Word's stylesheet names its Normal spacing: only that one is the source's own.
+    const sheet = (value: string): string => `<style class="WebKit-mso-list-quirks-style"><!-- p.MsoNormal, li.MsoNormal, div.MsoNormal {margin-top:0cm; line-height:${value}; font-size:12.0pt;} --></style>`;
+    const named = normalizePasteHTML(`${WORD}${sheet('115%')}${paragraph('15.693333px', '11pt', 'Explicit 1.07')}${paragraph('18.4px', 'medium', 'Normal')}</html>`);
+    expect(named.html).toBe('<p style="line-height:1.07"><span style="font-family:Calibri, sans-serif;font-size:11pt">Explicit 1.07</span></p>'
+      + '<p><span style="font-family:Calibri, sans-serif">Normal</span></p>');
+    const custom = normalizePasteHTML(`${WORD}${sheet('107%')}${paragraph('15.693333px', '11pt', 'Normal')}${paragraph('18.4px', 'medium', 'Explicit 1.15')}</html>`);
+    expect(custom.html).toBe('<p><span style="font-family:Calibri, sans-serif;font-size:11pt">Normal</span></p>'
+      + '<p style="line-height:1.15"><span style="font-family:Calibri, sans-serif">Explicit 1.15</span></p>');
+  });
+
+  it('adapts typography quietly in adapt, as the policy discards it anyway, and keeps reporting it in preserve', () => {
+    for (const run of ['<span style="letter-spacing:2.0pt">Spaced</span>', '<span style="font-family:\'\'">Family</span>',
+      '<span style="word-spacing:3pt">Words</span>', '<span style="text-transform:uppercase">Caps</span>', '<span style="font-variant:small-caps">Small</span>']) {
+      const html = `${WORD}<p class="MsoNormal">${run}</p></html>`;
+      const adapt = normalizePasteHTML(html, { formatting: 'adapt' });
+      expect(warnings(adapt.diagnostics), run).toEqual([]);
+      expect(adapt.diagnostics.some(entry => entry.code === 'formatting-adapted'), run).toBe(true);
+      expect(warnings(normalizePasteHTML(html).diagnostics), run).toEqual(['unsupported-formatting']);
+    }
+    // Layout that adapt does not own stays a loss in both policies.
+    const indented = `${WORD}<p class="MsoNormal" style="margin-left:36pt">Indented</p></html>`;
+    expect(warnings(normalizePasteHTML(indented, { formatting: 'adapt' }).diagnostics)).toEqual(['unsupported-formatting']);
+  });
+});

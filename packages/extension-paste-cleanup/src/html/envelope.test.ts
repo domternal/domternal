@@ -41,7 +41,8 @@ describe('routine clipboard envelope', () => {
 
   it.each([
     ['an empty paragraph mark', '<p class=MsoNormal>Text<o:p></o:p></p>', '<p>Text</p>'],
-    ['a paragraph mark holding a space', '<p class=MsoNormal><o:p>&nbsp;</o:p></p>', '<p>\u00a0</p>'],
+    // Word's empty paragraph: the space only gives the empty mark a line's height, so the paragraph stays empty.
+    ['a paragraph mark holding a space', '<p class=MsoNormal><o:p>&nbsp;</o:p></p>', '<p></p>'],
     ['smart tags', '<p><st1:place w:st="on"><st1:City w:st="on">Zagreb</st1:City></st1:place> i okolica</p>', '<p>Zagreb i okolica</p>'],
     ['a content control', '<w:Sdt ShowingPlcHdr="t" DocPart="x" ID="1"><p>Field value</p></w:Sdt>', '<p>Field value</p>'],
   ])('unwraps %s and keeps its content without a diagnostic', (_name, html, expected) => {

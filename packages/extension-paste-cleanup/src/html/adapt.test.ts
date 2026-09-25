@@ -50,10 +50,14 @@ describe('adapt through the public normalizer', () => {
     });
   });
 
-  it('still reports malformed style values in adapt mode', () => {
-    const result = normalizePasteHTML('<p><span style="color:url(x)">T</span></p>', { formatting: 'adapt' });
+  it('still reports malformed style values in adapt mode, except typography that adapt removes anyway', () => {
+    const result = normalizePasteHTML('<p><span style="vertical-align:url(x)">T</span></p>', { formatting: 'adapt' });
     expect(result).toMatchObject({ status: 'cleaned', html: '<p><span>T</span></p>' });
     expect(result.diagnostics).toEqual([{ code: 'unsupported-formatting', severity: 'warning', offset: 3 }]);
+    const color = normalizePasteHTML('<p><span style="color:url(x)">T</span></p>', { formatting: 'adapt' });
+    expect(color).toMatchObject({ status: 'cleaned', html: '<p><span>T</span></p>' });
+    expect(color.diagnostics).toEqual([{ code: 'formatting-adapted', severity: 'info', offset: 3 }]);
+    expect(normalizePasteHTML('<p><span style="color:url(x)">T</span></p>').diagnostics).toEqual([{ code: 'unsupported-formatting', severity: 'warning', offset: 3 }]);
   });
 
   describe('resource boundaries', () => {

@@ -3,7 +3,7 @@ import { sanitize } from 'hast-util-sanitize';
 import type { Schema } from 'hast-util-sanitize';
 import { toHtml } from 'hast-util-to-html';
 import { parseBoundedHTML, StructureLimitError } from './parse.js';
-import { readSafeStyles, serializeStyles, styleToRead } from './styles.js';
+import { adaptedTypography, readSafeStyles, serializeStyles, styleToRead } from './styles.js';
 import { listStyleFromType } from './listStyles.js';
 import { safeImage, safeLink } from './urls.js';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
@@ -24,10 +24,11 @@ import { nestLeadingLists } from './leadingLists.js';
 import { labelListItems } from './listItemLabels.js';
 import { quietImageBoxes } from './imageBoxes.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
-import { envelopeTags, transparentOfficeWrapper } from './envelope.js';
+import { emptyParagraphMarks, envelopeTags, transparentOfficeWrapper } from './envelope.js';
 import { wrapLooseInlineRuns } from './looseInline.js';
 import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
 import { restoreConvertedSpaces } from './convertedSpaces.js';
+import { routineLineHeights } from './wordSpacing.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -178,6 +179,7 @@ export function normalizeClipboardHTML(
     }
     assertTableBounds(tree, limits.maxTableCells);
     restoreConvertedSpaces(tree);
+    emptyParagraphMarks(tree);
     let images = 0;
     let pixels = 0;
     // The alt text left in place of each removed image, so the editor can tell it from pasted text.
@@ -199,9 +201,10 @@ export function normalizeClipboardHTML(
       nestLeadingLists(tree);
       labelListItems(tree, anchor);
       quietImageBoxes(tree);
+      const routine = routineLineHeights(tree, result.source === 'word');
       resolveInlineInheritance(tree, {
         maxNodes: limits.maxNodes, maxDepth: limits.maxDepth, maxInputLength: limits.maxInputLength,
-        formatting: options.formatting ?? 'preserve', source: result.source,
+        formatting: options.formatting ?? 'preserve', ...(routine === undefined ? {} : { routineLineHeights: routine }),
       }, node => { report('unsupported-formatting', node); }, node => { report('formatting-adapted', node, 'info'); });
       if (anchor !== undefined) confirmSliceAnchor(tree, anchor);
     }
@@ -224,8 +227,10 @@ export function normalizeClipboardHTML(
           if (context !== undefined) clean['dataPmSlice'] = context;
           if (context !== anchorContext) report('formatting-adapted', child, 'info');
         }
-        const { styles, removed } = readSafeStyles(styleToRead(child), child.tagName === 'img', child.tagName);
-        if (removed) report('unsupported-formatting', child);
+        const { styles, removedNames } = readSafeStyles(styleToRead(child), child.tagName === 'img', child.tagName);
+        // Typography that adapt removes anyway is its adaptation there, as in the inheritance pass.
+        if (removedNames.some(name => !adapt || !adaptedTypography(name))) report('unsupported-formatting', child);
+        else if (removedNames.length > 0) report('formatting-adapted', child, 'info');
         if (child.tagName === 'ul' && !styles.has('list-style-type') && clean.dataType !== 'taskList') {
           const marker = listStyleFromType('ul', original.type);
           if (marker !== undefined) styles.set('list-style-type', marker);

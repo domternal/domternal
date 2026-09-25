@@ -76,15 +76,12 @@ describe('routine source declarations', () => {
     ['a first line indent', '<p style="text-indent:-18pt">Text</p>'],
     ['a paragraph border', '<p style="border:solid black 1pt">Text</p>'],
     ['a paragraph side border', '<p style="border-bottom:solid windowtext 1.5pt">Text</p>'],
-    ['a background shorthand with an image', '<p><span style="background:url(https://example.test/x.png) yellow">Text</span></p>'],
+
     ['a background image', '<p style="background-image:linear-gradient(red,blue)">Text</p>'],
     ['hidden text', '<p><span style="display:none">Text</span></p>'],
     ['invisible text', '<p><span style="visibility:hidden">Text</span></p>'],
     ['Office hidden text', '<p><span style="mso-hide:all">Text</span></p>'],
     ['a font shorthand', '<p><span style=\'font:7.0pt "Times New Roman"\'>Text</span></p>'],
-    ['letter spacing', '<p><span style="letter-spacing:2pt">Text</span></p>'],
-    ['a case transform', '<p><span style="text-transform:uppercase">Text</span></p>'],
-    ['small caps', '<p><span style="font-variant:small-caps">Text</span></p>'],
     ['positioning', '<p style="position:fixed">Text</p>'],
     ['an image box that crops its image', imageBox('width:100px;height:50px', 'margin-left:0px;margin-top:0px')],
     ['an image moved up inside its box', imageBox('width:200px;height:100px', 'margin-left:0px;margin-top:-20px')],
@@ -94,6 +91,21 @@ describe('routine source declarations', () => {
       expect(result.html).toContain('Text');
       expect(warnings(result.diagnostics).map(diagnostic => `${diagnostic.code}:${diagnostic.severity}`)).toEqual(['unsupported-formatting:warning']);
     }
+  });
+
+  it.each([
+    ['a background shorthand with an image', '<p><span style="background:url(https://example.test/x.png) yellow">Text</span></p>'],
+    ['letter spacing', '<p><span style="letter-spacing:2pt">Text</span></p>'],
+    ['a case transform', '<p><span style="text-transform:uppercase">Text</span></p>'],
+    ['small caps', '<p><span style="font-variant:small-caps">Text</span></p>'],
+  ])('keeps warning about %s in preserve, and adapts it quietly in adapt, which removes typography anyway', (_name, html) => {
+    const preserve = normalizePasteHTML(html);
+    expect(preserve.html).toContain('Text');
+    expect(warnings(preserve.diagnostics).map(diagnostic => `${diagnostic.code}:${diagnostic.severity}`)).toEqual(['unsupported-formatting:warning']);
+    const adapt = normalizePasteHTML(html, { formatting: 'adapt' });
+    expect(adapt.html).toContain('Text');
+    expect(warnings(adapt.diagnostics)).toEqual([]);
+    expect(adapt.diagnostics.map(diagnostic => `${diagnostic.code}:${diagnostic.severity}`)).toContain('formatting-adapted:info');
   });
 
   it('never classifies inherited object keys as routine declarations', () => {

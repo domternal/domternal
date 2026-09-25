@@ -1,3 +1,5 @@
+import type { Element, ElementContent, Root } from 'hast';
+
 /**
  * Clipboard envelope elements carry document metadata, stylesheets and Office settings,
  * never visible content. Browsers and Office applications add them to routine copies,
@@ -12,4 +14,59 @@ export const envelopeTags: ReadonlySet<string> = new Set(['head', 'title', 'meta
  */
 export function transparentOfficeWrapper(tagName: string): boolean {
   return /^(?:o|w|st\d{1,2}):[a-z]/.test(tagName);
+}
+
+const markBlocks = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'div']);
+
+/** The text of a node and whether it holds anything but text, such as a line break or an image. */
+function blockContent(node: Element): { text: string; other: boolean } {
+  let text = '';
+  let other = false;
+  const pending: ElementContent[] = [...node.children];
+  for (let child = pending.shift(); child !== undefined; child = pending.shift()) {
+    if (child.type === 'text') text += child.value;
+    else if (child.type === 'element') {
+      if (child.tagName === 'br' || child.tagName === 'img') other = true;
+      else pending.unshift(...child.children);
+    }
+  }
+  return { text, other };
+}
+
+/** The paragraph marks of a block: its `o:p` descendants that hold one no-break space and nothing else. */
+function placeholderMarks(node: Element): Element[] {
+  const marks: Element[] = [];
+  const pending: ElementContent[] = [...node.children];
+  for (let child = pending.pop(); child !== undefined; child = pending.pop()) {
+    if (child.type !== 'element') continue;
+    const only = child.children.length === 1 ? child.children[0] : undefined;
+    if (child.tagName === 'o:p' && only?.type === 'text' && only.value === ' ') marks.push(child);
+    else pending.push(...child.children);
+  }
+  return marks;
+}
+
+/**
+ * Word writes an empty paragraph as a paragraph mark holding one no-break space, `<o:p>&nbsp;</o:p>`,
+ * so a browser gives it a line's height. The space is no text of the document: kept, the paragraph
+ * pasted as one holding a space, which hides a placeholder and starts typed text after it. A block
+ * whose only text is that space becomes empty; a space Word wrote as text, outside the mark, beside
+ * other text or a line break, stays.
+ */
+export function emptyParagraphMarks(tree: Root): void {
+  const pending: (Root | Element)[] = [tree];
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    for (const child of node.children) {
+      if (child.type !== 'element') continue;
+      if (markBlocks.has(child.tagName) && !child.children.some(entry => entry.type === 'element' && markBlocks.has(entry.tagName))) {
+        const marks = placeholderMarks(child);
+        const content = marks.length === 1 ? blockContent(child) : undefined;
+        if (content !== undefined && !content.other && content.text.replace(/[\t\n\f\r ]/g, '') === ' ') {
+          for (const mark of marks) mark.children = [];
+          continue;
+        }
+      }
+      pending.push(child);
+    }
+  }
 }
