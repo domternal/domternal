@@ -1,6 +1,6 @@
 {
   "kind": "domternal-historical-evidence-tools",
-  "version": 1,
+  "version": 2,
   "report": "../../2026-09-26-macos-arm64.json",
   "reportSha256": "f2235bf6df03012662b11ad0301ea05ac13977f4be45722e96b7e7f6fbebf39a",
   "markdown": "../../2026-09-26-macos-arm64.md",
@@ -105,5 +105,25 @@
   "nodePort": {
     "ported": false,
     "reason": "Block 3 scope decision: no Node port, because no original exists to port and lost steps are recorded, never reconstructed. The report is covered by the serialization golden of node tests/evidence/cli.mjs check and by this manifest."
-  }
+  },
+  "redactions": [
+    {
+      "id": "2026-10-03-home-paths",
+      "date": "2026-10-03",
+      "reason": "On the owner's request, the home folder in the archive location this manifest records is replaced by $HOME. No digest recorded anywhere covers this manifest, so none changed.",
+      "rule": [
+        {
+          "replaces": "the producing machine's home folder",
+          "with": "$HOME"
+        },
+        {
+          "replaces": "the session scratchpad directory",
+          "with": "$SCRATCHPAD"
+        }
+      ],
+      "files": [],
+      "digestsReplaced": [],
+      "digestsWithheld": []
+    }
+  ]
 }

@@ -82,6 +82,6 @@ The verifier checked exact unique project/file/describe/title identities, all st
 
 - Input inventory SHA256: `e19330c5d5415250b1eb0109c8357ecd6c94b3ea7ed79ea272efb2e107cbb43c`
 - Final raw Playwright report SHA256: `ad1142febd57b6ad7206e85cc2c974c3717ed175adba4eafd204c4513419ee41`
-- Durable JSON SHA256: `3f600be7d9a79b931da19a528b1a3f64d478516c587efcd147f5eca080e300f5`
+- Durable JSON SHA256: `74d2c5c66a4ee7ed3d5e2c5f928dec1141396bc386f2d299e22be4586441e05b`
 
 Raw logs, the full Playwright report, traces and verifier scripts are local scratch artifacts. Their paths and relevant hashes are recorded in the JSON; the durable evidence contains bounded case metadata and hashes, not trace archives or copied source HTML.

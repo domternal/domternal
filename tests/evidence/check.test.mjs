@@ -152,9 +152,32 @@ test('recorded digests are recomputed', () => {
   expectProblem((root) => reserialize(root, BREAKS, (value) => { value.frozenInputs.inventory[0].bytes += 1; }, true), /\/frozenInputs\/inventorySha256/);
   expectProblem((root) => reserialize(root, BREAKS, (value) => { value.cases.pop(); }, true), /\/verification\/caseInventorySha256/);
   expectProblem(
-    (root) => edit(root, 'e2e/paste-cleanup-results/2026-09-27-styled-breaks.md', (bytes) => Buffer.from(bytes.toString('utf8').replace('Durable JSON SHA256: `3', 'Durable JSON SHA256: `4'))),
+    // Whatever the digest is, its first hex digit changes.
+    (root) => edit(root, 'e2e/paste-cleanup-results/2026-09-27-styled-breaks.md', (bytes) => Buffer.from(bytes.toString('utf8').replace(/(Durable JSON SHA256: `)([0-9a-f])/, (_, label, digit) => `${label}${digit === '0' ? '1' : '0'}`))),
     /"Durable JSON SHA256"/
   );
+});
+
+test('the declared redaction holds: a changed redacted file, a restored path or a removed declaration fails', () => {
+  expectProblem((root) => edit(root, `${MARKER_TOOLS}/domternal-n12-free-gates.py`, (bytes) => Buffer.concat([bytes, Buffer.from('# edited\n')])), /is not the redacted file declared/);
+  expectProblem((root) => reserialize(root, BREAKS, (value) => { value.runs = { root: `${['', 'Users', 'someone-else'].join('/')}/x` }; }, true), /still holds a path the redaction replaces/);
+  expectProblem(
+    (root) => edit(root, `${MARKER_TOOLS}/MANIFEST.json`, (bytes) => {
+      const value = JSON.parse(bytes.toString('utf8'));
+      delete value.redactions;
+      return `${JSON.stringify(value, null, 2)}\n`;
+    }),
+    /must declare its redactions/
+  );
+  expectProblem(
+    (root) => edit(root, `${BREAK_TOOLS}/MANIFEST.json`, (bytes) => {
+      const value = JSON.parse(bytes.toString('utf8'));
+      value.lost[0].storedVerifierOutput.sha256 = 'a'.repeat(64);
+      return `${JSON.stringify(value, null, 2)}\n`;
+    }),
+    /storedVerifierOutput\/sha256 must hold "withheld"/
+  );
+  expectProblem((root) => writeFileSync(join(root, 'e2e/paste-performance/results/notes.md'), 'ran in $HOME/work\n'), /notes\.md: holds \$HOME or \$SCRATCHPAD, but no MANIFEST\.json declares/);
 });
 
 test('the ported unit rederives what its assembler derived', () => {

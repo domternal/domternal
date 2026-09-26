@@ -1912,7 +1912,7 @@
     {
       "role": "Scratch snapshot verifier",
       "localPath": "/private/tmp/domternal-n10c-free-evidence.py",
-      "bytes": 5090,
+      "bytes": 5080,
       "sha256": "435e4c78f2a3cc2d3f73b7ccb3029eb015812b81fd8f1ac013746b9a555b7de7"
     },
     {
@@ -1924,7 +1924,7 @@
     {
       "role": "Scratch completed-run verifier",
       "localPath": "/private/tmp/domternal-n10c-free-verify.py",
-      "bytes": 14301,
+      "bytes": 14271,
       "sha256": "e83f775f49193bcb1946ecade0c9997e3e8eaa60d6f3af905a393d4af2ad0219"
     },
     {

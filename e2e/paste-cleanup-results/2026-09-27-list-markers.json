@@ -4541,20 +4541,20 @@
     {
       "role": "Independent report and snapshot verifier",
       "localPath": "/private/tmp/domternal-n12-verify-evidence.py",
-      "bytes": 13505,
+      "bytes": 13495,
       "sha256": "c60c0a138007e98813a84252eb33a2d077061ab226a2cf86458535e56a186e71"
     },
     {
       "role": "Independent evidence assembler",
       "localPath": "/private/tmp/domternal-n12-assemble-evidence.py",
-      "bytes": 20604,
+      "bytes": 20574,
       "sha256": "87f512daad7a4e82e029287802ec82913d3cc015761cfa28ef796b899343218a"
     },
     {
       "role": "Unchanged historical styled-breaks evidence used for prior case identities",
       "localPath": "$HOME/Documents/Domternal/domternal/e2e/paste-cleanup-results/2026-09-27-styled-breaks.json",
-      "bytes": 415709,
-      "sha256": "3f600be7d9a79b931da19a528b1a3f64d478516c587efcd147f5eca080e300f5"
+      "bytes": 415689,
+      "sha256": "74d2c5c66a4ee7ed3d5e2c5f928dec1141396bc386f2d299e22be4586441e05b"
     },
     {
       "role": "Locally packed frozen build checked by publint and ATTW",

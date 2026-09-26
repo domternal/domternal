@@ -167,10 +167,12 @@ test('every replaced digest is a redacted file\'s digest, and every withheld one
   expectRedactionProblem(declaration({ digestsReplaced: ['missing.json#/x'] }), /names a missing file/);
   expectRedactionProblem(declaration({ digestsReplaced: ['../../unit.json'] }), /is not <file>#<pointer or label>/);
   expectRedactionProblem(declaration({ digestsWithheld: ['MANIFEST.json#/reportSha256'] }), /must hold "withheld" in place of the digest/);
-  expectRedactionProblem(
-    declaration(),
-    /must hold "withheld"/,
-    { extra: { notes: [`The committed JSON is ${'a'.repeat(64)}, withheld.`] } }
+  expectRedactionProblem(declaration(), /must hold "withheld"/, { extra: { notes: [`The committed JSON is ${'a'.repeat(64)}.`] } });
+  expectRedactionProblem(declaration(), /must hold "withheld"/, { extra: { pythonOutput: { sha256: 'withheld since the redaction' } } });
+  assert.deepEqual(
+    redactionProblems(declaration(), { extra: { notes: [`A lost run printed ${'b'.repeat(64)}; the committed digest is withheld.`] } }),
+    [],
+    'a sentence may keep other digests once it says which one is withheld'
   );
 });
 

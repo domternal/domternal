@@ -1,10 +1,10 @@
 {
   "kind": "domternal-historical-evidence-tools",
-  "version": 1,
+  "version": 2,
   "report": "../../2026-09-27-list-markers.json",
-  "reportSha256": "1c20a386321b1772985a3841a541362c366b690b5cc61ee0e9c604f17a3edffa",
+  "reportSha256": "4e28ceeee274e59cebf84512b28b3d685dcf925d6ce05f52e164cfeba54eda86",
   "markdown": "../../2026-09-27-list-markers.md",
-  "markdownSha256": "e8c688117c384e6365cd5538d756026b430666cf27c522355ada9f68a407261c",
+  "markdownSha256": "0f0dbeb56940ccd5a8501f6e891ec2724e43d33c57d6fbab757461864b5a2345",
   "markdownWrittenBy": "domternal-n12-assemble-evidence.py",
   "executedByCI": false,
   "interpreter": "CPython 3.13.2 (the originals ran under it; the __pycache__ tag cpython-313 in the archive agrees)",
@@ -12,7 +12,7 @@
     {
       "file": "domternal-n12-free-evidence.py",
       "originalPath": "/private/tmp/domternal-n12-free-evidence.py",
-      "bytes": 5753,
+      "bytes": 5743,
       "sha256": "6c76a39cf55af04a718386567748cb39d3803903c1cc994ca19b7eb13efe8c44",
       "originalMtime": "2026-09-27T08:37:57.228+02:00",
       "role": "Snapshot freezer. Its freeze action wrote the 784-file source and build inventory before the final runs; its verify-snapshot action rechecked it against the live tree.",
@@ -31,7 +31,7 @@
     {
       "file": "domternal-n12-verify-evidence.py",
       "originalPath": "/private/tmp/domternal-n12-verify-evidence.py",
-      "bytes": 13505,
+      "bytes": 13495,
       "sha256": "c60c0a138007e98813a84252eb33a2d077061ab226a2cf86458535e56a186e71",
       "originalMtime": "2026-09-27T08:50:20.819+02:00",
       "role": "Read-only verifier of the completed paste and legacy runs against read-only discovery, and of the frozen snapshot. The assembler loads it with runpy.",
@@ -62,7 +62,7 @@
     {
       "file": "domternal-n12-assemble-evidence.py",
       "originalPath": "/private/tmp/domternal-n12-assemble-evidence.py",
-      "bytes": 20604,
+      "bytes": 20574,
       "sha256": "87f512daad7a4e82e029287802ec82913d3cc015761cfa28ef796b899343218a",
       "originalMtime": "2026-09-27T09:02:46.566+02:00",
       "role": "Assembler that wrote the committed JSON and Markdown after rerunning the verifier and checking the focused runs, the retained initial failures and the release gate logs.",
@@ -89,7 +89,7 @@
     {
       "file": "domternal-n12-free-gates.py",
       "originalPath": "/private/tmp/domternal-n12-free-gates.py",
-      "bytes": 1254,
+      "bytes": 1234,
       "sha256": "d55feacd0aa94af625da686ead7ff350c930e53c85b97f7016e53b9e02d47785",
       "originalMtime": "2026-09-27T08:12:16.236+02:00",
       "role": "Gates runner. It ran fifteen root pnpm gates with Node v22.23.2 and wrote /private/tmp/domternal-n12-free-gates.json, which the report records at /artifacts/20 as the parent initial release gate outcomes.",
@@ -107,14 +107,14 @@
     }
   ],
   "notes": [
-    "The assembler printed jsonSha256 6b1e4af44113ed76751991a1f2700c3025c3852b4d6f530b88acafb1400566ce and mdSha256 5c78ace2915a37383dbd503576b6988b3f4c1fb55b56278920467674d5fc4125 at 09:00:32 +02:00 (/private/tmp/domternal-n12-free-evidence-assembly.log, archived). The committed JSON is 1c20a386321b1772985a3841a541362c366b690b5cc61ee0e9c604f17a3edffa. The committed JSON, the committed Markdown and this assembler all have mtime 09:02:46 +02:00, and the committed JSON records the digest of that final assembler at /artifacts/32/sha256, so the assembler was changed and run again without a recorded stdout. The committed files are not the output of the recorded 09:00:32 run. With verifiedAt fixed to the recorded value, the one-time Python replay of the preserved final assembler reproduced the committed JSON byte for byte after mapping its scratch mirror root back, and the committed Markdown up to the embedded digest of that relocated JSON (see pythonBaseline). The maintained Node port reproduces both committed files byte for byte (see replay).",
+    "The assembler printed jsonSha256 6b1e4af44113ed76751991a1f2700c3025c3852b4d6f530b88acafb1400566ce and mdSha256 5c78ace2915a37383dbd503576b6988b3f4c1fb55b56278920467674d5fc4125 at 09:00:32 +02:00 (/private/tmp/domternal-n12-free-evidence-assembly.log, archived). The digest of the committed JSON as the assembler wrote it is withheld since the 2026-10-03 redaction (see redactions). The committed JSON, the committed Markdown and this assembler all have mtime 09:02:46 +02:00, and the committed JSON records the digest of that final assembler at /artifacts/32/sha256, so the assembler was changed and run again without a recorded stdout. The committed files are not the output of the recorded 09:00:32 run. With verifiedAt fixed to the recorded value, the one-time Python replay of the preserved final assembler reproduced the committed JSON byte for byte after mapping its scratch mirror root back, and the committed Markdown up to the embedded digest of that relocated JSON (see pythonBaseline). The maintained Node port reproduces both committed files byte for byte (see replay).",
     "The report was committed in b68a601 at 09:03:41 +02:00.",
     "The originals contain absolute paths of the machine that produced the report and read inputs that existed only in its temporary directory. Some of them write files; running them against the current tree would fail or overwrite results."
   ],
   "lost": [
     {
       "what": "The assembler version that ran at 09:00:32 and printed jsonSha256 6b1e4af4, and the stdout of the 09:02:46 run.",
-      "evidence": "The assembly log records 6b1e4af4 while the committed JSON is a41900c3; the assembler, the JSON and the Markdown share the 09:02:46 mtime.",
+      "evidence": "The assembly log records 6b1e4af4 while the committed JSON had another digest, withheld since the 2026-10-03 redaction; the assembler, the JSON and the Markdown share the 09:02:46 mtime.",
       "consequence": "What changed between the two runs cannot be established. No committed byte depends on the lost version: the preserved final assembler reproduces the committed files under the declared replay normalizations, and the maintained Node port reproduces them byte for byte."
     }
   ],
@@ -215,7 +215,7 @@
           "reference": "$SCRATCHPAD/b3map/f/n12/domternal/e2e/paste-cleanup-results/2026-09-27-list-markers.md",
           "result": "IDENTICAL_AFTER_DECLARED_NORMALIZATION",
           "normalizations": [
-            "embedded JSON digest withheld recomputed after root mapping as 1c20a386321b1772985a3841a541362c366b690b5cc61ee0e9c604f17a3edffa"
+            "embedded JSON digest recomputed after root mapping (both digests withheld since the 2026-10-03 redaction)"
           ]
         },
         {
@@ -225,6 +225,88 @@
         }
       ]
     },
-    "resultsNote": "The maintained Node port reproduced the committed JSON and Markdown and the original stored verifier output byte for byte, on Node 22.23.2 and 24.13.0 alike, from the archived inputs. The only declared normalization is the one lost dist file, accepted at its recorded size and digest. Compared with the Python baseline, the Node output is identical after mapping the scratch mirror root back and recomputing the Markdown digest of the relocated JSON. No committed report was rewritten."
-  }
+    "resultsNote": "The maintained Node port reproduced the committed JSON and Markdown and the original stored verifier output byte for byte, on Node 22.23.2 and 24.13.0 alike, from the archived inputs. The only declared normalization is the one lost dist file, accepted at its recorded size and digest. Compared with the Python baseline, the Node output is identical after mapping the scratch mirror root back and recomputing the Markdown digest of the relocated JSON. No committed report was rewritten.",
+    "redactionNote": "This replay ran on 2026-09-27, before the 2026-10-03 redaction: its comparisons name the committed files as they were then. A replay after the redaction reads the inputs the redaction changed through it, compares the archived outputs of the originals after it, and reports IDENTICAL_AFTER_DECLARED_NORMALIZATION where these say IDENTICAL."
+  },
+  "redactions": [
+    {
+      "id": "2026-10-03-home-paths",
+      "date": "2026-10-03",
+      "reason": "On the owner's request, the absolute home folder and session scratchpad paths of the machine that produced this evidence are replaced by $HOME and $SCRATCHPAD, which name the same places without naming the account. Every digest the change touched is replaced by the digest of the redacted bytes, and every digest of unredacted bytes that a guessed account name could be checked against is withheld. Nothing else changed: node tests/evidence/cli.mjs check --history proves it from the commit named in originalIn.",
+      "rule": [
+        {
+          "replaces": "the producing machine's home folder",
+          "with": "$HOME"
+        },
+        {
+          "replaces": "the session scratchpad directory",
+          "with": "$SCRATCHPAD"
+        }
+      ],
+      "files": [
+        {
+          "path": "../../2026-09-27-list-markers.json",
+          "occurrences": 5,
+          "redactedSha256": "4e28ceeee274e59cebf84512b28b3d685dcf925d6ce05f52e164cfeba54eda86",
+          "redactedBytes": 735839,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        },
+        {
+          "path": "../../2026-09-27-list-markers.md",
+          "occurrences": 0,
+          "redactedSha256": "0f0dbeb56940ccd5a8501f6e891ec2724e43d33c57d6fbab757461864b5a2345",
+          "redactedBytes": 4185,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        },
+        {
+          "path": "domternal-n12-free-evidence.py",
+          "occurrences": 1,
+          "redactedSha256": "6c76a39cf55af04a718386567748cb39d3803903c1cc994ca19b7eb13efe8c44",
+          "redactedBytes": 5743,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        },
+        {
+          "path": "domternal-n12-verify-evidence.py",
+          "occurrences": 1,
+          "redactedSha256": "c60c0a138007e98813a84252eb33a2d077061ab226a2cf86458535e56a186e71",
+          "redactedBytes": 13495,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        },
+        {
+          "path": "domternal-n12-assemble-evidence.py",
+          "occurrences": 3,
+          "redactedSha256": "87f512daad7a4e82e029287802ec82913d3cc015761cfa28ef796b899343218a",
+          "redactedBytes": 20574,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        },
+        {
+          "path": "domternal-n12-free-gates.py",
+          "occurrences": 2,
+          "redactedSha256": "d55feacd0aa94af625da686ead7ff350c930e53c85b97f7016e53b9e02d47785",
+          "redactedBytes": 1234,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        }
+      ],
+      "digestsReplaced": [
+        "MANIFEST.json#/reportSha256",
+        "MANIFEST.json#/markdownSha256",
+        "MANIFEST.json#/tools/0/sha256",
+        "MANIFEST.json#/tools/1/sha256",
+        "MANIFEST.json#/tools/2/sha256",
+        "MANIFEST.json#/tools/3/sha256",
+        "../../2026-09-27-list-markers.json#/artifacts/31/sha256",
+        "../../2026-09-27-list-markers.json#/artifacts/32/sha256",
+        "../../2026-09-27-list-markers.json#/artifacts/33/sha256",
+        "../../2026-09-27-list-markers.md#JSON SHA256"
+      ],
+      "digestsWithheld": [
+        "MANIFEST.json#/notes/0",
+        "MANIFEST.json#/lost/0/evidence",
+        "MANIFEST.json#/pythonBaseline/outputs/0/sha256",
+        "MANIFEST.json#/pythonBaseline/outputs/1/sha256",
+        "MANIFEST.json#/pythonBaseline/outputs/2/sha256",
+        "MANIFEST.json#/replay/pythonBaseline/comparisons/1/normalizations/0"
+      ]
+    }
+  ]
 }

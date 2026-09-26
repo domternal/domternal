@@ -121,7 +121,8 @@ export function declaredFiles(declarations) {
       for (const file of Array.isArray(redaction.files) ? redaction.files : []) {
         if (typeof file?.path !== 'string') continue;
         const path = posix.normalize(posix.join(directory, file.path));
-        if (!files.has(path)) files.set(path, { directory, redaction, file });
+        if (files.has(path)) files.get(path).count += 1;
+        else files.set(path, { directory, redaction, file, count: 1 });
       }
     }
   }
@@ -183,7 +184,7 @@ export function checkRedactions(root, directory, manifest, all) {
         say(`${where} file ${file.path} leaves the repository`);
         continue;
       }
-      if (all.get(path)?.file !== file) say(`${path} is declared by more than one redaction`);
+      if ((all.get(path)?.count ?? 1) > 1) say(`${path} is declared by more than one redaction`);
       if (!Number.isSafeInteger(file.occurrences) || file.occurrences < 0) say(`${where} file ${path} needs its count of placeholders`);
       if (!SHA256.test(file.redactedSha256 ?? '') || !Number.isSafeInteger(file.redactedBytes)) say(`${where} file ${path} needs its redacted size and digest`);
       if (typeof file.originalIn !== 'string' || !COMMIT.test(file.originalIn)) say(`${where} file ${path} needs the commit that holds its unredacted bytes`);
@@ -209,8 +210,8 @@ export function checkRedactions(root, directory, manifest, all) {
     for (const reference of Array.isArray(redaction.digestsWithheld) ? redaction.digestsWithheld : [null]) {
       const resolved = resolveReference(root, directory, reference);
       if (resolved.problem) say(`${where} digestsWithheld: ${resolved.problem}`);
-      // A digest field holds the word itself; a sentence that quoted a digest says it is withheld.
-      else if (typeof resolved.value !== 'string' || !resolved.value.includes(WITHHELD) || /[0-9a-f]{64}/.test(resolved.value)) {
+      // A digest field holds the word itself; a sentence that quoted a digest says the digest is withheld.
+      else if (/sha256$/i.test(reference) ? resolved.value !== WITHHELD : typeof resolved.value !== 'string' || !resolved.value.includes(WITHHELD)) {
         say(`${where} digestsWithheld: ${reference} must hold "${WITHHELD}" in place of the digest`);
       }
     }

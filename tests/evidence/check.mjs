@@ -363,7 +363,8 @@ export function readDeclarations(root, reports = REPORTS) {
 export function checkDeclarations(root, reports = REPORTS, files = listRepositoryFiles(root)) {
   const declarations = readDeclarations(root, reports);
   const evidence = files.filter((path) => EVIDENCE_DIRECTORIES.some((directory) => path.startsWith(`${directory}/`)));
-  const manifests = new Set(declarations.map(({ directory }) => `${directory}/MANIFEST.json`));
+  // A version 2 manifest declares the placeholders in its own text, and its README describes them.
+  const manifests = new Set(declarations.flatMap(({ directory }) => [`${directory}/MANIFEST.json`, `${directory}/README.md`]));
   return undeclaredPlaceholders(root, evidence, declaredFiles(declarations), manifests);
 }
 

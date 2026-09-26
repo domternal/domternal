@@ -9,7 +9,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readDeclarations } from './check.mjs';
 import { selectFromCandidates } from './inventory.mjs';
+import { declaredFiles } from './redaction.mjs';
 import { indentedBytes, parseJson } from './json.mjs';
 import * as unit from './units/2026-09-27-list-markers.mjs';
 import { UNITS, unitFor } from './units/index.mjs';
@@ -69,8 +71,9 @@ test('everything the assembler derived is rederived from the committed files', (
 });
 
 test('the Markdown template renders the committed Markdown', () => {
+  // The digest of the committed JSON since the declared redaction 2026-10-03-home-paths (its MANIFEST.json).
   const markdown = unit.renderMarkdown({
-    jsonSha256: '1c20a386321b1772985a3841a541362c366b690b5cc61ee0e9c604f17a3edffa',
+    jsonSha256: '4e28ceeee274e59cebf84512b28b3d685dcf925d6ce05f52e164cfeba54eda86',
     inventorySha256: committed.frozenInputs.inventorySha256,
     pasteCaseInventorySha256: committed.runs.paste.caseInventorySha256,
     legacyCaseInventorySha256: committed.runs.legacy.caseInventorySha256,
@@ -81,6 +84,19 @@ test('the Markdown template renders the committed Markdown', () => {
 
 test('run commands match what the assembler recorded', () => {
   for (const kind of ['paste', 'legacy']) assert.equal(unit.runCommand(kind), committed.runs[kind].command);
+});
+
+test('replay reads through the declared redaction exactly the inputs it changed', () => {
+  const manifest = JSON.parse(read(`${unit.HISTORICAL_TOOLS}/MANIFEST.json`).toString('utf8'));
+  assert.deepEqual(manifest.redactions.map((redaction) => redaction.id), [unit.REDACTION.id]);
+  const recorded = new Map(committed.artifacts.map((artifact) => [artifact.localPath, artifact.sha256]));
+  // The prior report is declared beside its own originals.
+  const declared = new Set([...declaredFiles(readDeclarations(repoRoot)).values()].map(({ file }) => file.redactedSha256));
+  for (const input of unit.REDACTION.inputs) {
+    assert.ok(declared.has(recorded.get(input)), `${input} is recorded with the digest of a declared redacted file`);
+  }
+  assert.equal(unit.ROOT.startsWith('$HOME/'), true);
+  assert.equal(unit.PYTHON_BASELINE.scratchRoot.startsWith('$SCRATCHPAD/'), true);
 });
 
 test('units are looked up by report stem', () => {

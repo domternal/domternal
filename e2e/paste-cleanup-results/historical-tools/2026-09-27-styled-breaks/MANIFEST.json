@@ -1,10 +1,10 @@
 {
   "kind": "domternal-historical-evidence-tools",
-  "version": 1,
+  "version": 2,
   "report": "../../2026-09-27-styled-breaks.json",
-  "reportSha256": "3f600be7d9a79b931da19a528b1a3f64d478516c587efcd147f5eca080e300f5",
+  "reportSha256": "74d2c5c66a4ee7ed3d5e2c5f928dec1141396bc386f2d299e22be4586441e05b",
   "markdown": "../../2026-09-27-styled-breaks.md",
-  "markdownSha256": "c9a17ef2fd43cf6cb4cf591b38400987165a13030caba28555c4d1dfe2a17079",
+  "markdownSha256": "fa8ae16bbe007005aa3daf687fc3f3716284c5104b843abbf2c831c53ce7fa02",
   "markdownWrittenBy": "hand-written; excluded from byte comparison, but check verifies the three digests it quotes",
   "executedByCI": false,
   "interpreter": "CPython 3.13.2 (the originals ran under it; the __pycache__ tag cpython-313 in the archive agrees)",
@@ -12,7 +12,7 @@
     {
       "file": "domternal-n10c-free-evidence.py",
       "originalPath": "/private/tmp/domternal-n10c-free-evidence.py",
-      "bytes": 5090,
+      "bytes": 5080,
       "sha256": "435e4c78f2a3cc2d3f73b7ccb3029eb015812b81fd8f1ac013746b9a555b7de7",
       "originalMtime": "2026-09-27T06:47:26.643+02:00",
       "role": "Snapshot freezer and verifier. It froze the 321-file source and build inventory and rechecked it; the verifier loads it as a module.",
@@ -46,7 +46,7 @@
     {
       "file": "domternal-n10c-free-verify.py",
       "originalPath": "/private/tmp/domternal-n10c-free-verify.py",
-      "bytes": 14301,
+      "bytes": 14271,
       "sha256": "e83f775f49193bcb1946ecade0c9997e3e8eaa60d6f3af905a393d4af2ad0219",
       "originalMtime": "2026-09-27T06:53:10.910+02:00",
       "role": "Completed-run verifier. It wrote /private/tmp/domternal-n10c-free-verified-evidence.json, the base of the committed JSON.",
@@ -247,5 +247,65 @@
   "nodePort": {
     "ported": false,
     "reason": "Block 3 scope decision: only the latest Free unit, 2026-09-27-list-markers, is ported to Node. This report is covered by the serialization golden and the digest goldens of node tests/evidence/cli.mjs check (the frozen inventory digest, the case inventory digest over the committed cases and the three digests the Markdown quotes) and by this manifest."
-  }
+  },
+  "redactions": [
+    {
+      "id": "2026-10-03-home-paths",
+      "date": "2026-10-03",
+      "reason": "On the owner's request, the absolute home folder and session scratchpad paths of the machine that produced this evidence are replaced by $HOME and $SCRATCHPAD, which name the same places without naming the account. Every digest the change touched is replaced by the digest of the redacted bytes, and every digest of unredacted bytes that a guessed account name could be checked against is withheld. Nothing else changed: node tests/evidence/cli.mjs check --history proves it from the commit named in originalIn.",
+      "rule": [
+        {
+          "replaces": "the producing machine's home folder",
+          "with": "$HOME"
+        },
+        {
+          "replaces": "the session scratchpad directory",
+          "with": "$SCRATCHPAD"
+        }
+      ],
+      "files": [
+        {
+          "path": "../../2026-09-27-styled-breaks.json",
+          "occurrences": 2,
+          "redactedSha256": "74d2c5c66a4ee7ed3d5e2c5f928dec1141396bc386f2d299e22be4586441e05b",
+          "redactedBytes": 415689,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        },
+        {
+          "path": "../../2026-09-27-styled-breaks.md",
+          "occurrences": 2,
+          "redactedSha256": "fa8ae16bbe007005aa3daf687fc3f3716284c5104b843abbf2c831c53ce7fa02",
+          "redactedBytes": 8764,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        },
+        {
+          "path": "domternal-n10c-free-evidence.py",
+          "occurrences": 1,
+          "redactedSha256": "435e4c78f2a3cc2d3f73b7ccb3029eb015812b81fd8f1ac013746b9a555b7de7",
+          "redactedBytes": 5080,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        },
+        {
+          "path": "domternal-n10c-free-verify.py",
+          "occurrences": 3,
+          "redactedSha256": "e83f775f49193bcb1946ecade0c9997e3e8eaa60d6f3af905a393d4af2ad0219",
+          "redactedBytes": 14271,
+          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+        }
+      ],
+      "digestsReplaced": [
+        "MANIFEST.json#/reportSha256",
+        "MANIFEST.json#/markdownSha256",
+        "MANIFEST.json#/tools/0/sha256",
+        "MANIFEST.json#/tools/2/sha256",
+        "../../2026-09-27-styled-breaks.json#/artifacts/12/sha256",
+        "../../2026-09-27-styled-breaks.json#/artifacts/14/sha256",
+        "../../2026-09-27-styled-breaks.md#Durable JSON SHA256"
+      ],
+      "digestsWithheld": [
+        "MANIFEST.json#/lost/0/storedVerifierOutput/sha256",
+        "MANIFEST.json#/pythonBaseline/outputs/0/sha256"
+      ]
+    }
+  ]
 }

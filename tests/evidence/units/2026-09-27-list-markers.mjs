@@ -20,7 +20,11 @@
  * The run happened on one machine, with raw files under `/private/tmp`. The
  * evidence records those paths, so this unit keeps them as `ROOT` and
  * `SCRATCH` and reads every byte through an `InputSet`, which maps each
- * recorded path to where its bytes live now.
+ * recorded path to where its bytes live now. Since the declared redaction
+ * 2026-10-03-home-paths (see the MANIFEST.json beside the originals), the
+ * evidence and these constants name that machine's home folder `$HOME` and
+ * its session scratchpad `$SCRATCHPAD`; replay reads the inputs the redaction
+ * changed through it (`REDACTION`).
  */
 import { artifactRecord } from '../artifacts.mjs';
 import { verifySnapshotBytes, verifyStoredSnapshot } from '../inventory.mjs';
@@ -58,8 +62,7 @@ const RELEASE_PACK = `${SCRATCH}/domternal-n12-free-release-pack`;
  * They are archived under these paths and serve as the recorded baseline; the
  * originals are not executed again.
  */
-const MAPPING_SCRATCH =
-  '$SCRATCHPAD/b3map';
+const MAPPING_SCRATCH = '$SCRATCHPAD/b3map';
 export const PYTHON_BASELINE = {
   scratchRoot: MAPPING_SCRATCH,
   mirrorRoot: `${MAPPING_SCRATCH}/f/n12/domternal`,
@@ -70,6 +73,16 @@ export const PYTHON_BASELINE = {
 
 const tmp = (name) => `${SCRATCH}/${name}`;
 const repo = (path) => `${ROOT}/${path}`;
+
+/**
+ * The declared redaction of this unit's committed evidence, and the inputs it
+ * changed: the two preserved originals the report records and the prior report.
+ * Replay reads exactly these through R1, as the committed evidence records them.
+ */
+export const REDACTION = {
+  id: '2026-10-03-home-paths',
+  inputs: [tmp('domternal-n12-verify-evidence.py'), tmp('domternal-n12-assemble-evidence.py'), repo(PRIOR)],
+};
 
 // domternal-n12-verify-evidence.py
 export const BROWSERS = ['chromium', 'firefox', 'webkit'];
