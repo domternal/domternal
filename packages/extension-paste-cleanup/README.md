@@ -143,11 +143,20 @@ margin, padding, `hspace`, `vspace` or border attribute, and no comment, escape 
 shape is checked against
 authored HTML, not native captures. Nonzero horizontal indentation outside lists
 and tables, borders outside tables, background shorthands with more than one
-color or an image, background images, an image box that crops, pads or offsets
-its image, hidden text, the `font` shorthand, wider letter spacing, case
+color or an image, a background shorthand that paints a block other than a table
+cell, which no block keeps, background images, an image box that crops, pads or
+offsets its image, hidden text, the `font` shorthand, wider letter spacing, case
 transforms, small caps and other unsupported declarations still report
-`unsupported-formatting`. An inline element without visible content, such as the
-empty span Safari ends a partial copy with, reports nothing, since nothing is lost.
+`unsupported-formatting`. In `adapt`, which removes typography anyway, an
+unsupported font family or size, color, background, line height, letter or word
+spacing, case transform or font variant is reported as `formatting-adapted`
+instead. A later declaration wins, a reset to the initial value included, so
+`background: none` after a background color leaves no background. An inline
+element without visible content, such as the empty span Safari ends a partial
+copy with, reports nothing, since nothing is lost. Word writes an empty paragraph
+as a paragraph mark holding one no-break space; that space is no text of the
+document, so the paragraph pastes empty, while a no-break space Word wrote as
+text stays.
 
 Safari copies the computed style of each top-level element it copies. A text
 color equal to the caret color it copies with it is the page's default text
@@ -156,8 +165,12 @@ as `windowtext` does; a color the source applied comes without one and stays. A
 background shorthand that paints one color, as Word writes a highlight
 (`background: yellow`) or cell shading, is read as that background color. A line
 height in pixels or points becomes a ratio of the element's own font size, the
-form a LineHeight destination renders, and in a Word paste the ratio 1.15, Word's
-default spacing, is no formatting of its own. A space WebKit converted to a
+form a LineHeight destination renders. In a Word paste the spacing of Word's
+Normal style is no formatting of its own: the copy names it when it carries
+Word's stylesheet, as Safari's copies with lists do, and otherwise Word's
+defaults 1.15 and 1.08 (written 107 %) stand for it. A copy cannot tell a
+paragraph that keeps its style's spacing from one set to the same value, so
+that value reads as the style's. A space WebKit converted to a
 no-break space in a `span.Apple-converted-space` pastes as a space in every
 engine, as ProseMirror's paste does in WebKit only. Word's Title style becomes a
 level 1 heading, as Pro's DOCX import reads it.
@@ -457,12 +470,13 @@ only the levels that pasted paragraphs reference and the levels above them, boun
 each rule body to 8,192 UTF-16 units, 64 declarations and 64 units of level text,
 and resolves no other CSS.
 
-A selection that starts in a nested item, or an item more than one level below
-the previous one, has no parent levels. They open from their level definitions
-with one empty item each, so the item keeps its depth and marker; an ordered
-level starts one before the number of its next item in the run, which then
-continues it. Without a supported definition for every missing level the item
-stays literal.
+A selection that starts in a nested item has no parent levels. They open from
+their level definitions with one empty item each, so the item keeps its depth and
+marker; an ordered level starts one before the number of its next item in the
+run, which then continues it. Without a supported definition for every missing
+level the item stays literal. An item more than one level below the previous one
+later in a run stays literal too, with its visible marker and
+`office-list-unsupported`: an empty item would show a marker Word does not.
 
 Fallback is per item. An unsupported item, or one whose missing parent levels
 have no supported definition, stays a literal paragraph with its visible marker:
@@ -900,7 +914,9 @@ envelope, text and inline formatting, alignment, spacing, indentation, hidden
 text, empty paragraph, list and table scenarios, replayed in the real editor in
 three engines, qualify that path with the limits its support matrix lists. They
 are synthetic events with the captured flavors, not native pastes into the
-editor. Large selections, own copies, images and every other source path are not
+editor. Word list paragraphs carry their fonts only in Word's class rules, which
+cleanup does not resolve, so in `preserve` list items paste in the editor's font
+while the paragraphs and cells around them keep the fonts Safari writes inline. Large selections, own copies, images and every other source path are not
 qualified against native clipboard data.
 The current Core color parser does not retain alpha in RGBA text colors or
 partially transparent backgrounds. Exact transparency fidelity is not promised.
