@@ -15,7 +15,12 @@
  *   { unit, files: [{ role, originalPath, bytes, sha256, source }] }
  *
  * where `source` is one of `{ kind: 'file', path }`, `{ kind: 'git',
- * repository, revision, path }` or `{ kind: 'lost' }`.
+ * repository, revision, path }` or `{ kind: 'lost' }`. A file or Git source
+ * may add `redaction: <id>`: its bytes are read through the declared
+ * redaction R1 (redaction.mjs), and the recorded size and digest are those of
+ * the redacted bytes, as the committed evidence records them. An original
+ * path may start with `$HOME/` or `$SCRATCHPAD/`, as redacted evidence
+ * records it.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -23,6 +28,10 @@ import { isAbsolute, join } from 'node:path';
 import { parseJson, pythonReadText, sha256 } from './json.mjs';
 import { LOST } from './inventory.mjs';
 import { EvidenceCheckError, ensure } from './playwright.mjs';
+import { redactBytes, redactPaths } from './redaction.mjs';
+
+/** An absolute path, or one a declared redaction rooted at a placeholder. */
+const recordedPath = (path) => typeof path === 'string' && (isAbsolute(path) || /^\$(?:HOME|SCRATCHPAD)\//.test(path));
 
 export const INPUTS_KIND = 'domternal-evidence-inputs';
 
@@ -51,7 +60,8 @@ export class InputSet {
     this.files = new Map();
     this.cache = new Map();
     for (const file of manifest.files) {
-      ensure(typeof file.originalPath === 'string' && isAbsolute(file.originalPath), 'Input without an absolute original path');
+      ensure(recordedPath(file.originalPath), 'Input without an absolute original path');
+      ensure(file.source?.redaction === undefined || (typeof file.source.redaction === 'string' && file.source.kind !== 'lost'), 'Input with an invalid redaction', file.originalPath);
       ensure(!this.files.has(file.originalPath), 'Duplicate input', file.originalPath);
       ensure(Number.isSafeInteger(file.bytes) && /^[0-9a-f]{64}$/.test(file.sha256), 'Input without a recorded size and digest', file.originalPath);
       ensure(['file', 'git', 'lost'].includes(file.source?.kind), 'Input without a known source', file.originalPath);
@@ -88,6 +98,7 @@ export class InputSet {
       ensure(existsSync(file.source.path), 'Input source file missing', `${originalPath} at ${file.source.path}`);
       data = readFileSync(file.source.path);
     }
+    if (file.source.redaction !== undefined) data = redactBytes(data);
     ensure(data.length === file.bytes && sha256(data) === file.sha256, 'Input digest mismatch', originalPath);
     this.cache.set(originalPath, data);
     return data;
@@ -145,6 +156,11 @@ export class EvidenceArchive {
     this.directory = directory;
     this.index = index;
     this.byPath = new Map(index.entries.map((entry) => [entry.originalPath, entry]));
+    // Redacted evidence names an archived file by its path with R1 applied.
+    for (const entry of index.entries) {
+      const redacted = redactPaths(entry.originalPath);
+      if (redacted !== entry.originalPath && !this.byPath.has(redacted)) this.byPath.set(redacted, entry);
+    }
     this.blobs = new Set(readdirSync(join(directory, 'blobs')));
   }
 
@@ -157,12 +173,13 @@ export class EvidenceArchive {
     return this.byPath.get(originalPath) ?? null;
   }
 
-  /** Archived entries directly inside `directory` whose names end with `suffix`. */
+  /** Archived entries directly inside `directory` whose names end with `suffix`, by original or redacted path. */
   entriesIn(directory, suffix) {
     const prefix = directory.endsWith('/') ? directory : `${directory}/`;
     return this.index.entries.filter((entry) => {
-      if (!entry.originalPath.startsWith(prefix)) return false;
-      const name = entry.originalPath.slice(prefix.length);
+      const path = entry.originalPath.startsWith(prefix) ? entry.originalPath : redactPaths(entry.originalPath);
+      if (!path.startsWith(prefix)) return false;
+      const name = path.slice(prefix.length);
       return !name.includes('/') && name.endsWith(suffix);
     });
   }

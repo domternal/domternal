@@ -2,9 +2,11 @@
 /**
  * The maintained evidence tool.
  *
- *   node tests/evidence/cli.mjs check
+ *   node tests/evidence/cli.mjs check [--history]
  *     The body of the `test:evidence` gate (see check.mjs). Needs nothing but
- *     the repository.
+ *     the repository. --history also proves, from Git, that every file a
+ *     declared redaction changed is its original with only that redaction
+ *     applied (local: CI clones are shallow).
  *   node tests/evidence/cli.mjs freeze --unit <stem> --out <file> [--root <dir>]
  *     Capture the unit's source and build inventory. Never replaces a file.
  *   node tests/evidence/cli.mjs verify --unit <stem> --inputs <inputs.json> [--live] [--out <file>] [--verified-at <iso>]
@@ -18,7 +20,9 @@
  *     archive may also be named by DOMTERNAL_EVIDENCE_ARCHIVE).
  *
  * Every input is read through an inputs.json manifest with recorded sizes and
- * digests; nothing under /private/tmp is read implicitly.
+ * digests; nothing under /private/tmp is read implicitly. What verify and
+ * assemble write must not record the machine's home folder or scratchpad: a
+ * unit records such a path through the declared redaction (redaction.mjs).
  */
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -30,6 +34,7 @@ import { runCheck } from './check.mjs';
 import { freezeSnapshot, listCandidates, verifyMembership } from './inventory.mjs';
 import { EvidenceJsonError, pythonUtcIsoformat } from './json.mjs';
 import { EvidenceCheckError } from './playwright.mjs';
+import { holdsPersonalPath } from './redaction.mjs';
 import { gitMembership, gitShow, replayUnit } from './replay.mjs';
 import { UNITS, unitFor } from './units/index.mjs';
 
@@ -38,7 +43,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export class UsageError extends Error {}
 
 const COMMANDS = {
-  check: {},
+  check: { history: { type: 'boolean' } },
   freeze: { unit: { type: 'string' }, out: { type: 'string' }, root: { type: 'string' } },
   verify: {
     unit: { type: 'string' },
@@ -70,6 +75,13 @@ function unitOf(stem) {
     return unitFor(stem);
   } catch (error) {
     throw new UsageError(error.message);
+  }
+}
+
+/** Evidence never records the home folder or scratchpad of the machine that wrote it. */
+export function refusePersonalPaths(data, what) {
+  if (holdsPersonalPath(data.toString('utf8'))) {
+    throw new EvidenceCheckError('Refusing to write a home folder or scratchpad path; record it as $HOME or $SCRATCHPAD', what);
   }
 }
 
@@ -114,7 +126,7 @@ export function run(argv, { log = console.log, error = console.error } = {}) {
   } catch (error) {
     throw new UsageError(error.message);
   }
-  if (command === 'check') return runCheck(repoRoot, { log, error });
+  if (command === 'check') return runCheck(repoRoot, { log, error, history: Boolean(values.history) });
 
   if (command === 'freeze') {
     const unit = unitOf(required(values, 'unit'));
@@ -134,6 +146,7 @@ export function run(argv, { log = console.log, error = console.error } = {}) {
     const out = values.out ? resolve(values.out) : null;
     refuseExisting([out]);
     const result = unit.verifyBrowserEvidence(inputs, { verifiedAt: verifiedAt(values), membership: membershipFor(unit, values) });
+    refusePersonalPaths(result.bytes, out ?? 'the verified browser data');
     if (out) writeFileSync(out, result.bytes, { flag: 'wx' });
     log(JSON.stringify({ verified: true, unit: unit.STEM, lostInputs: result.lost, membership: result.membership }, null, 2));
     return 0;
@@ -153,6 +166,8 @@ export function run(argv, { log = console.log, error = console.error } = {}) {
       membership: membershipFor(unit, values),
       gitShow: (revision, path) => gitShow(repository, revision, path),
     });
+    refusePersonalPaths(result.json, jsonPath);
+    refusePersonalPaths(result.markdown, markdownPath);
     writeFileSync(jsonPath, result.json, { flag: 'wx' });
     writeFileSync(markdownPath, result.markdown, { flag: 'wx' });
     log(JSON.stringify({ assembled: true, json: jsonPath, markdown: markdownPath, lostInputs: result.lost }, null, 2));

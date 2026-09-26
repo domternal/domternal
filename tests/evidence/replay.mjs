@@ -28,6 +28,13 @@
  *
  * The Python baseline is classified the same way, and a difference from it
  * beyond its declared normalizations fails the replay too.
+ *
+ * A unit whose committed evidence carries a declared redaction (`REDACTION`,
+ * see redaction.mjs) reads the inputs that redaction changed through R1, and
+ * compares the archived outputs of the originals after R1 and after mapping
+ * each digest and size of those inputs to its redacted counterpart. Equal
+ * outputs are then IDENTICAL_AFTER_DECLARED_NORMALIZATION, naming the
+ * redaction, never IDENTICAL.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -36,6 +43,7 @@ import { EvidenceArchive, INPUTS_KIND, InputSet, locateRecordedBytes } from './a
 import { gitCandidates, gitTrackedPaths, verifyMembershipAgainstGit } from './inventory.mjs';
 import { indentedBytes, parseJson, pointerDiff, sha256 } from './json.mjs';
 import { EvidenceCheckError, ensure } from './playwright.mjs';
+import { applyDeclaredRedaction, redactBytes } from './redaction.mjs';
 
 export const CLASSIFICATIONS = [
   'IDENTICAL',
@@ -57,6 +65,7 @@ export function gitShow(repository, revision, path) {
  */
 export function buildInputsFromArchive(unit, { archive, repository }) {
   const required = unit.requiredInputs();
+  const redacted = new Set(unit.REDACTION?.inputs ?? []);
   const files = [];
   const seen = new Set();
   const add = (role, originalPath, bytes, digest, source) => {
@@ -64,25 +73,31 @@ export function buildInputsFromArchive(unit, { archive, repository }) {
     seen.add(originalPath);
     files.push({ role, originalPath, bytes, sha256: digest, source });
   };
+  /** An input the declared redaction changed: recorded as its redacted bytes, read through R1. */
+  const addRedactable = (role, originalPath, raw, source) => {
+    if (!redacted.has(originalPath)) return add(role, originalPath, raw.length, sha256(raw), source);
+    const data = redactBytes(raw);
+    return add(role, originalPath, data.length, sha256(data), { ...source, redaction: unit.REDACTION.id });
+  };
   const fromArchive = (role, originalPath) => {
     const entry = archive.entry(originalPath);
     ensure(entry, 'Input missing from the evidence archive', originalPath);
     const blob = archive.blobPath(entry.sha256);
     ensure(blob, 'Archive blob missing', originalPath);
-    add(role, originalPath, entry.bytes, entry.sha256, { kind: 'file', path: blob });
+    if (redacted.has(originalPath)) addRedactable(role, originalPath, readFileSync(blob), { kind: 'file', path: blob });
+    else add(role, originalPath, entry.bytes, entry.sha256, { kind: 'file', path: blob });
   };
   for (const { role, originalPath } of [...required.files, ...required.storedOutputs]) fromArchive(role, originalPath);
   for (const { role, directory, suffix } of required.directories) {
     const entries = archive.entriesIn(directory, suffix);
     ensure(entries.length > 0, 'Archived directory has no matching files', `${directory}/*${suffix}`);
-    for (const entry of entries) fromArchive(role, entry.originalPath);
+    for (const entry of entries) fromArchive(role, `${directory.replace(/\/$/, '')}/${entry.originalPath.split('/').pop()}`);
   }
   const snapshotEntry = archive.entry(unit.SNAPSHOT);
   ensure(snapshotEntry, 'Snapshot missing from the evidence archive', unit.SNAPSHOT);
   const snapshot = parseJson(new InputSet({ kind: INPUTS_KIND, version: 1, unit: unit.STEM, files }).read(unit.SNAPSHOT));
   for (const { role, path } of required.repositoryFiles) {
-    const data = gitShow(repository, snapshot.gitHead, path);
-    add(role, `${unit.ROOT}/${path}`, data.length, sha256(data), { kind: 'git', repository, revision: snapshot.gitHead, path });
+    addRedactable(role, `${unit.ROOT}/${path}`, gitShow(repository, snapshot.gitHead, path), { kind: 'git', repository, revision: snapshot.gitHead, path });
   }
   for (const row of snapshot.inventory) {
     const originalPath = `${unit.ROOT}/${row.path}`;
@@ -114,20 +129,34 @@ export function compareBytes(produced, reference, { json = false } = {}) {
 }
 
 /**
- * Compare with the Python replay output after its declared normalizations:
- * the scratch mirror root mapped back to the recorded root, and the JSON digest
- * the Markdown embeds recomputed after that mapping.
+ * A reference the originals wrote, as the declared redaction turns it: R1,
+ * then each digest and size of a redacted input replaced by its redacted
+ * counterpart. Without a redaction it is returned unchanged.
  */
-export function compareWithPythonBaseline({ produced, python, mirrorRoot, recordedRoot, pythonJson }) {
-  let mapped = Buffer.from(python.toString('utf8').split(mirrorRoot).join(recordedRoot), 'utf8');
-  const normalizations = [];
-  if (!mapped.equals(python)) normalizations.push(`scratch mirror root ${mirrorRoot} mapped back to ${recordedRoot}`);
+export function redactReference(data, redaction) {
+  if (!redaction) return { data, normalizations: [] };
+  const mapped = applyDeclaredRedaction(data, redaction.mapping);
+  return mapped.equals(data) ? { data, normalizations: [] } : { data: mapped, normalizations: [`declared redaction ${redaction.id} applied`] };
+}
+
+/**
+ * Compare with the Python replay output after its declared normalizations:
+ * a declared redaction, the scratch mirror root mapped back to the recorded
+ * root, and the JSON digest the Markdown embeds recomputed after that mapping.
+ * Digests in these normalizations are named only when no redaction applies:
+ * a digest of unredacted bytes would confirm a guessed account name.
+ */
+export function compareWithPythonBaseline({ produced, python, mirrorRoot, recordedRoot, pythonJson, redaction = null }) {
+  const reference = redactReference(python, redaction);
+  let mapped = Buffer.from(reference.data.toString('utf8').split(mirrorRoot).join(recordedRoot), 'utf8');
+  const normalizations = [...reference.normalizations];
+  if (!mapped.equals(reference.data)) normalizations.push(`scratch mirror root ${mirrorRoot} mapped back to ${recordedRoot}`);
   if (pythonJson) {
     const before = sha256(pythonJson);
-    const after = sha256(Buffer.from(pythonJson.toString('utf8').split(mirrorRoot).join(recordedRoot), 'utf8'));
+    const after = sha256(Buffer.from(redactReference(pythonJson, redaction).data.toString('utf8').split(mirrorRoot).join(recordedRoot), 'utf8'));
     if (before !== after && mapped.includes(before)) {
       mapped = Buffer.from(mapped.toString('utf8').split(before).join(after), 'utf8');
-      normalizations.push(`embedded JSON digest ${before} recomputed after root mapping as ${after}`);
+      normalizations.push(redaction ? 'embedded JSON digest recomputed after the redaction and root mapping' : `embedded JSON digest ${before} recomputed after root mapping as ${after}`);
     }
   }
   const comparison = compareBytes(produced, mapped);
@@ -135,16 +164,43 @@ export function compareWithPythonBaseline({ produced, python, mirrorRoot, record
   return { ...comparison, normalizations };
 }
 
-/** The unit's classification: the worst comparison, and equal outputs with lost inputs are partial. */
+/** Compare with a reference the originals wrote, after a declared redaction. */
+export function compareWithRedaction(produced, reference, redaction, options) {
+  const normalized = redactReference(reference, redaction);
+  const comparison = compareBytes(produced, normalized.data, options);
+  if (comparison.result === 'IDENTICAL' && normalized.normalizations.length) comparison.result = 'IDENTICAL_AFTER_DECLARED_NORMALIZATION';
+  return normalized.normalizations.length ? { ...comparison, normalizations: normalized.normalizations } : comparison;
+}
+
+/** The unit's classification: the worst comparison, and equal outputs with lost inputs are partial at best. */
 export function classifyReplay(results, lostCount) {
   const classification = worst(results);
-  return classification === 'IDENTICAL' && lostCount > 0 ? 'PARTIAL_LOST_INPUTS' : classification;
+  return lostCount > 0 ? worst([classification, 'PARTIAL_LOST_INPUTS']) : classification;
 }
 
 function worst(results) {
   let index = 0;
   for (const result of results) index = Math.max(index, CLASSIFICATIONS.indexOf(result));
   return CLASSIFICATIONS[index];
+}
+
+/**
+ * The unit's declared redaction with the digest and size of each input it
+ * changed, before and after, read from the sources the inputs manifest names.
+ */
+export function declaredRedaction(unit, manifest) {
+  if (!unit.REDACTION) return null;
+  const mapping = [];
+  for (const file of manifest.files) {
+    if (file.source.redaction === undefined) continue;
+    const original =
+      file.source.kind === 'git'
+        ? execFileSync('git', ['show', `${file.source.revision}:${file.source.path}`], { cwd: file.source.repository, maxBuffer: 1 << 30 })
+        : readFileSync(file.source.path);
+    if (original.length === file.bytes && sha256(original) === file.sha256) continue;
+    mapping.push({ originalSha256: sha256(original), redactedSha256: file.sha256, originalBytes: original.length, redactedBytes: file.bytes });
+  }
+  return { id: unit.REDACTION.id, mapping };
 }
 
 function writeOnce(path, data) {
@@ -168,6 +224,14 @@ export function replayUnit(unit, { archiveDir, repository, outDir, pythonBaselin
   const inputs = new InputSet(manifest);
   const membership = gitMembership(unit, repository);
   const stem = unit.STEM;
+  const redaction = declaredRedaction(unit, manifest);
+  const redactedRepositoryPaths = new Set(
+    unit.requiredInputs().repositoryFiles.filter(({ path }) => unit.REDACTION?.inputs.includes(`${unit.ROOT}/${path}`)).map(({ path }) => path)
+  );
+  const showAsRecorded = (rev, path) => {
+    const data = gitShow(repository, rev, path);
+    return redactedRepositoryPaths.has(path) ? redactBytes(data) : data;
+  };
 
   const storedVerifierPath = unit.requiredInputs().storedOutputs[0].originalPath;
   const storedVerifier = inputs.read(storedVerifierPath);
@@ -175,25 +239,31 @@ export function replayUnit(unit, { archiveDir, repository, outDir, pythonBaselin
   const assembled = unit.assembleQualification(inputs, {
     verifiedAt: committed.verifiedAt,
     membership,
-    gitShow: (rev, path) => gitShow(repository, rev, path),
+    gitShow: showAsRecorded,
   });
   writeOnce(join(outDir, `${stem}.json`), assembled.json);
   writeOnce(join(outDir, `${stem}.md`), assembled.markdown);
   writeOnce(join(outDir, `${stem}.verified-browser-data.json`), verifier.bytes);
 
+  // Committed evidence that carries a redaction is reproduced from inputs read through it.
+  const throughRedaction = (comparison) =>
+    redaction && comparison.result === 'IDENTICAL'
+      ? { ...comparison, result: 'IDENTICAL_AFTER_DECLARED_NORMALIZATION', normalizations: [`inputs read through declared redaction ${redaction.id}`] }
+      : comparison;
   const comparisons = [
-    { output: `${stem}.json`, reference: `${revision}:${unit.REPORT}`, ...compareBytes(assembled.json, committedJson, { json: true }) },
-    { output: `${stem}.md`, reference: `${revision}:${unit.MARKDOWN}`, ...compareBytes(assembled.markdown, committedMarkdown) },
+    { output: `${stem}.json`, reference: `${revision}:${unit.REPORT}`, ...throughRedaction(compareBytes(assembled.json, committedJson, { json: true })) },
+    { output: `${stem}.md`, reference: `${revision}:${unit.MARKDOWN}`, ...throughRedaction(compareBytes(assembled.markdown, committedMarkdown)) },
     {
       output: `${stem}.verified-browser-data.json`,
       reference: `${storedVerifierPath} (the original verifier output, archived)`,
-      ...compareBytes(verifier.bytes, storedVerifier, { json: true }),
+      ...compareWithRedaction(verifier.bytes, storedVerifier, redaction, { json: true }),
     },
   ];
 
   const baseline = unit.PYTHON_BASELINE;
   const readBaseline = (path) => {
     if (pythonBaselineDir) return readFileSync(path.replace(baseline.scratchRoot, pythonBaselineDir));
+    // An archived baseline output keeps its original path; the unit may name it through the redaction.
     const entry = archive.entry(path);
     ensure(entry && archive.blobPath(entry.sha256), 'Python baseline output missing from the archive', path);
     return inputsFromBlob(archive, entry);
@@ -203,7 +273,7 @@ export function replayUnit(unit, { archiveDir, repository, outDir, pythonBaselin
     {
       output: `${stem}.json`,
       reference: `Python replay ${baseline.json}`,
-      ...compareWithPythonBaseline({ produced: assembled.json, python: pythonJson, mirrorRoot: baseline.mirrorRoot, recordedRoot: unit.ROOT }),
+      ...compareWithPythonBaseline({ produced: assembled.json, python: pythonJson, mirrorRoot: baseline.mirrorRoot, recordedRoot: unit.ROOT, redaction }),
     },
     {
       output: `${stem}.md`,
@@ -214,12 +284,13 @@ export function replayUnit(unit, { archiveDir, repository, outDir, pythonBaselin
         mirrorRoot: baseline.mirrorRoot,
         recordedRoot: unit.ROOT,
         pythonJson,
+        redaction,
       }),
     },
     {
       output: `${stem}.verified-browser-data.json`,
       reference: `Python replay ${baseline.verifier}`,
-      ...compareBytes(verifier.bytes, readBaseline(baseline.verifier), { json: true }),
+      ...compareWithRedaction(verifier.bytes, readBaseline(baseline.verifier), redaction, { json: true }),
     },
   ];
 

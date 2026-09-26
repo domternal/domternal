@@ -14,6 +14,10 @@
  *   frozen inventory, the case inventories, the JSON digests in the Markdown)
  *   is recomputed, and the ported unit rederives everything its assembler
  *   derived.
+ * - Declared redactions: a version 2 MANIFEST.json declares every file a
+ *   redaction changed, with its redacted size, digest and placeholder count,
+ *   and every digest it replaced or withheld; a placeholder no manifest
+ *   declares fails (see redaction.mjs).
  * - A 2 MiB ceiling per committed evidence JSON file.
  * - Nothing executes the historical tools or Python: no package script, no
  *   workflow, no test or script, and this tool itself only ever spawns `git`.
@@ -29,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { inventoryDigest } from './inventory.mjs';
 import { getPointer, indentedBytes, parseJson, sha256 } from './json.mjs';
 import { caseInventorySha256 } from './playwright.mjs';
+import { checkRedactions, declaredFiles, historyProblems, undeclaredPlaceholders } from './redaction.mjs';
 import { unitFor } from './units/index.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -251,7 +256,7 @@ function childrenOf(files, directory) {
  * `files` is what Git would commit, so an ignored `.DS_Store` does not count
  * but an ignored tool is reported.
  */
-export function checkHistoricalTools(root, entry, files = listRepositoryFiles(root)) {
+export function checkHistoricalTools(root, entry, files = listRepositoryFiles(root), allDeclared = declaredFiles(readDeclarations(root, REPORTS))) {
   const problems = [];
   const directory = entry.historicalTools;
   const full = join(root, directory);
@@ -266,7 +271,9 @@ export function checkHistoricalTools(root, entry, files = listRepositoryFiles(ro
   } catch (error) {
     return [`${directory}: MANIFEST.json cannot be parsed (${error.message})`];
   }
-  if (manifest.kind !== MANIFEST_KIND || manifest.version !== 1) say(`MANIFEST.json is not a ${MANIFEST_KIND} version 1 manifest`);
+  if (manifest.kind !== MANIFEST_KIND || ![1, 2].includes(manifest.version)) say(`MANIFEST.json is not a ${MANIFEST_KIND} version 1 or 2 manifest`);
+  if (manifest.version === 1 && Object.hasOwn(manifest, 'redactions')) say('MANIFEST.json declares redactions, which only a version 2 manifest can');
+  if (manifest.version === 2) problems.push(...checkRedactions(root, directory, manifest, allDeclared));
   if (manifest.executedByCI !== false) say('MANIFEST.json must record executedByCI: false');
   const reportPath = typeof manifest.report === 'string' ? posix.normalize(posix.join(directory, manifest.report)) : null;
   if (reportPath !== entry.path) say(`MANIFEST.json report ${String(manifest.report)} does not resolve to ${entry.path}`);
@@ -339,6 +346,33 @@ export function checkHistoricalTools(root, entry, files = listRepositoryFiles(ro
     }
   }
   return problems;
+}
+
+/** The parsed version 2 historical-tools manifests, by directory. */
+export function readDeclarations(root, reports = REPORTS) {
+  const declarations = [];
+  for (const entry of reports) {
+    if (!entry.historicalTools) continue;
+    const manifest = parseQuietly(readOptional(root, `${entry.historicalTools}/MANIFEST.json`));
+    if (manifest?.version === 2) declarations.push({ directory: entry.historicalTools, manifest });
+  }
+  return declarations;
+}
+
+/** Placeholders in evidence files that no version 2 manifest declares. */
+export function checkDeclarations(root, reports = REPORTS, files = listRepositoryFiles(root)) {
+  const declarations = readDeclarations(root, reports);
+  const evidence = files.filter((path) => EVIDENCE_DIRECTORIES.some((directory) => path.startsWith(`${directory}/`)));
+  const manifests = new Set(declarations.map(({ directory }) => `${directory}/MANIFEST.json`));
+  return undeclaredPlaceholders(root, evidence, declaredFiles(declarations), manifests);
+}
+
+/**
+ * The local history check (`cli.mjs check --history`): every declared file is
+ * its unredacted original with only the declared redaction applied.
+ */
+export function checkHistory(root = repoRoot, reports = REPORTS) {
+  return historyProblems(root, declaredFiles(readDeclarations(root, reports)));
 }
 
 /** Registry against the files: no unregistered report or historical-tools entry. */
@@ -476,28 +510,35 @@ export function checkExecutionGuard(root, files = listRepositoryFiles(root)) {
  * The gate's own test files. `node --test` passes on a glob that matches
  * nothing, so their presence is checked here, where a missing file fails.
  */
-export const TEST_FILES = ['check', 'cli', 'inventory', 'json', 'playwright', 'replay', 'units'].map(
+export const TEST_FILES = ['check', 'cli', 'inventory', 'json', 'playwright', 'redaction', 'replay', 'units'].map(
   (name) => `tests/evidence/${name}.test.mjs`
 );
 
 /** Every check of the gate. */
 export function check(root = repoRoot, { reports = REPORTS, files, testFiles = TEST_FILES } = {}) {
   const listed = files ?? listRepositoryFiles(root);
-  const problems = [...checkRegistry(root, reports, listed)];
+  const problems = [...checkRegistry(root, reports, listed), ...checkDeclarations(root, reports, listed)];
+  const allDeclared = declaredFiles(readDeclarations(root, reports));
   for (const path of testFiles) {
     if (!existsSync(join(root, path))) problems.push(`${path}: evidence test file is missing, so node --test would pass without it`);
   }
   for (const entry of reports) {
     problems.push(...checkReport(root, entry));
-    if (entry.historicalTools) problems.push(...checkHistoricalTools(root, entry, listed));
+    if (entry.historicalTools) problems.push(...checkHistoricalTools(root, entry, listed, allDeclared));
   }
   problems.push(...checkExecutionGuard(root, listed));
   return problems;
 }
 
 /** CLI entry: print the result and set the exit code. */
-export function runCheck(root = repoRoot, { log = console.log, error = console.error } = {}) {
+export function runCheck(root = repoRoot, { log = console.log, error = console.error, history = false } = {}) {
   const problems = check(root);
+  if (history) {
+    const result = checkHistory(root);
+    problems.push(...result.problems);
+    for (const note of result.unavailable) log(`[evidence] history: ${note}`);
+    if (result.problems.length === 0 && result.compared > 0) log(`[evidence] history: ${result.compared} declared files are their originals with only the declared redaction applied`);
+  }
   if (problems.length > 0) {
     error('[evidence] FAILED:');
     for (const problem of problems) error(`  - ${problem}`);
