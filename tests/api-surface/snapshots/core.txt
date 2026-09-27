@@ -324,6 +324,9 @@ Subscript
 SubscriptOptions
 Superscript
 SuperscriptOptions
+surfaceTone
+SurfaceTone
+surfaceToneAttributes
 TaskItem
 TaskItemOptions
 TaskList

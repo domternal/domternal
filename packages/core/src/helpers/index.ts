@@ -42,6 +42,7 @@ export {
   type UrlPolicyOptions,
 } from './checkUrl.js';
 export { isSafeCssValue } from './isSafeCssValue.js';
+export { surfaceTone, surfaceToneAttributes, type SurfaceTone } from './surfaceTone.js';
 export {
   generateHTML,
   generateJSON,

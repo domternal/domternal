@@ -494,6 +494,15 @@ import { isSafeCssValue } from '@domternal/core';
 const safeColor: boolean = isSafeCssValue(editor.getAttributes('textStyle')['color']);
 void safeColor;
 
+// The tone of a kept background, for a host that draws its own text on it.
+import { surfaceTone, surfaceToneAttributes, type SurfaceTone } from '@domternal/core';
+
+const highlightTone: SurfaceTone | null = surfaceTone(editor.getAttributes('textStyle')['backgroundColor']);
+const toneName: 'light' | 'dark' | undefined = highlightTone?.tone;
+const toneAttributes: { 'data-dm-tone': string } | null = surfaceToneAttributes('#002060');
+void toneName;
+void toneAttributes;
+
 // Options objects written in full for 1.2 still compile, and the documented option forms type-check.
 import { Extension } from '@domternal/core';
 import type { ImageOptions } from '@domternal/extension-image';
