@@ -50,6 +50,7 @@ import { createResizeSuppressionPlugin } from './plugins/resizeSuppressionPlugin
 import { createCellSelectionPlugin } from './plugins/cellSelectionPlugin.js';
 import { guardedColumnResizing, guardedTableEditing, inUnsupportedTable, selectionInUnsupportedTable } from './helpers/guardedTableEditing.js';
 import { createTableCellPastePlugin } from './plugins/tableCellPastePlugin.js';
+import { createCellSurfaceTonePlugin } from './plugins/cellSurfaceTonePlugin.js';
 import { TableRow } from './TableRow.js';
 import { TableCell } from './TableCell.js';
 import { TableHeader } from './TableHeader.js';
@@ -501,6 +502,9 @@ export const Table = Node.create<TableOptions>({
       }),
 
       createCellSelectionPlugin(),
+
+      // A cell's own background marks it light or dark in the view, for the theme's text colors.
+      createCellSurfaceTonePlugin(),
 
       // A span that data-pm-slice context carries is rebuilt without validation.
       pastedAttributesPlugin('unsupported-table-span'),
