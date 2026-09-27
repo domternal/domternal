@@ -6,6 +6,7 @@
 // already loaded ahead of this file by `index.scss`, so the module's own CSS
 // still appears in its existing place and nothing is emitted twice.
 @use 'themes/light';
+@use 'derived-tokens';
 
 @media print {
   // ===========================================================================
@@ -197,20 +198,12 @@
     @include light.light-tokens(' !important');
 
     // The tokens `_variables.scss` derives from that palette, listed because
-    // `light-tokens` is only the set the dark theme flips.
-    --dm-link-color: var(--dm-accent) !important;
-    --dm-mention-color: var(--dm-accent) !important;
-    --dm-mention-bg: var(--dm-accent-surface) !important;
-    --dm-code-bg: var(--dm-code-surface) !important;
-    --dm-code-block-bg: var(--dm-code-surface) !important;
-    --dm-code-block-text: var(--dm-text) !important;
-    --dm-table-header-bg: var(--dm-surface) !important;
-    --dm-details-bg: var(--dm-surface) !important;
-
-    // The one token where the light palette and the untouched default disagree
-    // visibly: `.dm-theme-light` renders the chip pink. `currentColor` takes the
-    // surrounding text's colour instead.
-    --dm-code-text: currentColor !important;
+    // `light-tokens` is only the set the dark theme flips. The code chip is the
+    // one where the light palette and the untouched default disagree visibly:
+    // `.dm-theme-light` renders it pink, and the shared list gives it the
+    // surrounding text's colour instead. A kept background re-emits the same
+    // list for its own palette (`_surface-tone.scss`).
+    @include derived-tokens.content-tokens(' !important');
 
     border: none !important;
     border-radius: 0 !important;
@@ -364,6 +357,9 @@
   .dm-editor .ProseMirror .mention,
   .dm-editor .ProseMirror [data-bg-color],
   .dm-editor .ProseMirror [data-text-color],
+  // A highlight or shaded cell prints with its background, so the black or
+  // white text drawn for it stays readable on the sheet.
+  .dm-editor .ProseMirror [data-dm-tone],
   .dm-editor .ProseMirror div[data-type="details"] {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;

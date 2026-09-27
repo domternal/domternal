@@ -1,0 +1,28 @@
+// =============================================================================
+// Derived content tokens
+// =============================================================================
+// `_variables.scss` derives these from the palette on `.dm-editor`, and a custom
+// property that reads another is resolved where it is declared: an element
+// inside the editor that redeclares the palette (a kept background in
+// `_surface-tone.scss`, the paper in `_print.scss`) inherits them already
+// resolved from the editor's palette unless it derives them again. This is
+// that list, in one place, so the two cannot drift apart.
+//
+// A code chip takes the text color around it rather than a palette pink: on
+// paper and on a kept background that color is the readable one.
+
+@mixin content-tokens($important: '') {
+  --dm-link-color: var(--dm-accent)#{$important};
+  --dm-link-hover-color: var(--dm-accent-hover)#{$important};
+  --dm-code-bg: var(--dm-code-surface)#{$important};
+  --dm-code-text: currentColor#{$important};
+  --dm-code-block-bg: var(--dm-code-surface)#{$important};
+  --dm-code-block-text: var(--dm-text)#{$important};
+  --dm-mention-bg: var(--dm-accent-surface)#{$important};
+  --dm-mention-color: var(--dm-accent)#{$important};
+  --dm-table-header-bg: var(--dm-surface)#{$important};
+  --dm-details-bg: var(--dm-surface)#{$important};
+  --dm-details-border: 1px solid var(--dm-border-color)#{$important};
+  --dm-placeholder-color: var(--dm-muted)#{$important};
+  --dm-hr-color: var(--dm-border-color)#{$important};
+}

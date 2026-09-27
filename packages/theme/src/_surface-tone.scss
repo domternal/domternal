@@ -1,0 +1,100 @@
+// =============================================================================
+// Text on kept backgrounds
+// =============================================================================
+// A highlight with its own color and a table cell with its own shading paint a
+// background the document keeps, whatever the theme: yellow stays yellow in the
+// dark theme, and Word's dark blue cell stays dark blue in the light one. The
+// editor marks each such element in the view with the tone of its background,
+// `data-dm-tone="light"` or `"dark"`, followed by `mid` for a mid tone (core's
+// `surfaceTone`; never in getHTML). This file draws on it:
+//
+// 1. Text without a color of its own is black on a light background and white
+//    on a dark one, in every theme and on paper: `--dm-on-light-text` and
+//    `--dm-on-dark-text`. The split sits where black and white have the same
+//    contrast, so the better of the two reaches at least 4.58:1 on any opaque
+//    background.
+// 2. Content that takes its color from the theme (links, code, quotes, muted
+//    headings, mentions, placeholders, nested block colors, form controls)
+//    takes the palette of that background: a dark background always declares
+//    the dark palette; a light one declares the light palette where the
+//    surface around it is dark. In a light context a light background changes
+//    no token, so a host's own light palette stays.
+// 3. On a mid tone no palette keeps its links, muted text and quotes at 3:1, so
+//    they take the black or white of rule 1 there; a link keeps its underline.
+//
+// Authored colors stay as authored: an inline color always wins, a token color
+// on the run itself resolves in the background's palette, and a color a block
+// sets for everything inside it is inherited unchanged.
+//
+// A host theme of its own that is dark without `dm-theme-dark` gets rule 2 in
+// engines that apply style queries on `--dm-color-scheme`; add `dm-theme-dark`
+// as well for the rest. To opt out, redeclare the two text tokens as `inherit`.
+
+@use 'themes/light';
+@use 'themes/dark';
+@use 'derived-tokens';
+
+// 2. The palette of a dark background: always, since nothing around it is darker.
+.dm-editor .ProseMirror :where([data-dm-tone~="dark"]) {
+  @include dark.dark-tokens;
+  @include derived-tokens.content-tokens;
+  color-scheme: dark;
+}
+
+// 2. The palette of a light background, where the surface around it is dark.
+.dm-theme-dark .dm-editor .ProseMirror :where([data-dm-tone~="light"]),
+.dm-theme-dark.dm-editor .ProseMirror :where([data-dm-tone~="light"]),
+.dm-editor .ProseMirror :where([data-dm-tone~="dark"] [data-dm-tone~="light"]) {
+  @include light.light-tokens;
+  @include derived-tokens.content-tokens;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dm-theme-auto .dm-editor .ProseMirror :where([data-dm-tone~="light"]),
+  .dm-theme-auto.dm-editor .ProseMirror :where([data-dm-tone~="light"]) {
+    @include light.light-tokens;
+    @include derived-tokens.content-tokens;
+    color-scheme: light;
+  }
+}
+
+// A host's own dark theme declares `--dm-color-scheme: dark`; engines with style queries follow it too.
+@container style(--dm-color-scheme: dark) {
+  .dm-editor .ProseMirror :where([data-dm-tone~="light"]) {
+    @include light.light-tokens;
+    @include derived-tokens.content-tokens;
+    color-scheme: light;
+  }
+}
+
+// 1. Text without a color of its own, unless a block around it sets one.
+.dm-editor .ProseMirror :where([data-dm-tone~="light"]:not([data-text-color] *)) {
+  color: var(--dm-on-light-text);
+}
+
+.dm-editor .ProseMirror :where([data-dm-tone~="dark"]:not([data-text-color] *)) {
+  color: var(--dm-on-dark-text);
+}
+
+// A highlight inside a link keeps the link's color, from the palette of the highlight.
+.dm-editor .ProseMirror a :where([data-dm-tone]) {
+  color: var(--dm-link-color);
+}
+
+// 3. Mid tones, last so they win over the palettes above.
+.dm-editor .ProseMirror [data-dm-tone~="mid"]:where([data-dm-tone~="light"]) {
+  --dm-link-color: var(--dm-on-light-text);
+  --dm-link-hover-color: var(--dm-on-light-text);
+  --dm-muted: var(--dm-on-light-text);
+  --dm-placeholder-color: var(--dm-on-light-text);
+  --dm-blockquote-color: var(--dm-on-light-text);
+}
+
+.dm-editor .ProseMirror [data-dm-tone~="mid"]:where([data-dm-tone~="dark"]) {
+  --dm-link-color: var(--dm-on-dark-text);
+  --dm-link-hover-color: var(--dm-on-dark-text);
+  --dm-muted: var(--dm-on-dark-text);
+  --dm-placeholder-color: var(--dm-on-dark-text);
+  --dm-blockquote-color: var(--dm-on-dark-text);
+}

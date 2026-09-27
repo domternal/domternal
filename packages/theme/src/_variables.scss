@@ -83,6 +83,13 @@
   --dm-code-surface: #f0f0f0;
   --dm-code-color: inherit;
 
+  // Text without a color of its own on a background the document keeps (a
+  // highlight, a shaded cell): black on a light one, white on a dark one, in
+  // every theme. Theme independent, so the light and dark mixins leave them
+  // alone. See `_surface-tone.scss`.
+  --dm-on-light-text: #000000;
+  --dm-on-dark-text: #ffffff;
+
   // ---------------------------------------------------------------------------
   // Block colors (BlockColor extension)
   // ---------------------------------------------------------------------------
