@@ -79,6 +79,12 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: pnpm test:ci-wiring
 
+      - name: No personal data in tracked files
+        # E-mail addresses, home and drive paths, file URLs and the runner's own
+        # names in every tracked file, read the way the native capture scanner
+        # reads them. It needs nothing built, so it fails early.
+        run: pnpm test:privacy
+
       - name: Check committed locale output before builds
         run: node tests/i18n/generate-locales.mjs --check
 

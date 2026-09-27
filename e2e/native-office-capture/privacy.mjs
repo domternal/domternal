@@ -37,18 +37,23 @@ function machineNames() {
   return names.filter(([, value]) => value.length >= 3).map(([category, value]) => [category, value.toLowerCase()]);
 }
 
-/** Matches by category in one text. */
-function matches(location, value, names) {
+/** Matches by category in one text, with each match's length. */
+function located(location, value, names) {
   const found = [];
   for (const [category, pattern] of Object.entries(PATTERNS)) {
-    for (const match of value.matchAll(pattern)) found.push({ location, category, offset: match.index });
+    for (const match of value.matchAll(pattern)) found.push({ location, category, offset: match.index, length: match[0].length });
   }
-  if (location.endsWith('docProps/custom.xml')) for (const match of value.matchAll(CUSTOM_PROPERTY)) found.push({ location, category: 'custom property', offset: match.index });
+  if (location.endsWith('docProps/custom.xml')) for (const match of value.matchAll(CUSTOM_PROPERTY)) found.push({ location, category: 'custom property', offset: match.index, length: match[0].length });
   const lower = value.toLowerCase();
   for (const [category, name] of names) {
-    for (let at = lower.indexOf(name); at >= 0; at = lower.indexOf(name, at + 1)) found.push({ location, category, offset: at });
+    for (let at = lower.indexOf(name); at >= 0; at = lower.indexOf(name, at + 1)) found.push({ location, category, offset: at, length: name.length });
   }
   return found;
+}
+
+/** Matches by category in one text: category and offset only. */
+function matches(location, value, names) {
+  return located(location, value, names).map(({ location: where, category, offset }) => ({ location: where, category, offset }));
 }
 
 /** A text with its HTML character references, percent escapes and CSS escapes decoded. */
@@ -75,6 +80,23 @@ export function scanText(location, value, names = machineNames()) {
     for (const [category, entries] of hidden) findings.push(...entries.slice(counted.get(category) ?? 0));
   }
   return findings;
+}
+
+/**
+ * Matches in one text and in its decoded form, for a caller that applies its own policy: each with its
+ * category, offset and length, and the text it was found in, so the caller can judge the matched value.
+ * The caller must not print or store that value; findings name a category and a location only.
+ */
+export function findMatches(location, value, names = []) {
+  const found = located(location, value, names).map(entry => ({ ...entry, text: value }));
+  const plain = decoded(value);
+  if (plain === value) return found;
+  const counted = new Map();
+  for (const entry of found) counted.set(entry.category, (counted.get(entry.category) ?? 0) + 1);
+  const hidden = new Map();
+  for (const entry of located(`${location}#decoded`, plain, names)) hidden.set(entry.category, [...(hidden.get(entry.category) ?? []), { ...entry, text: plain }]);
+  for (const [category, entries] of hidden) found.push(...entries.slice(counted.get(category) ?? 0));
+  return found;
 }
 
 /** The text chunks of a PNG, inflated where compressed, within fixed bounds. */
@@ -141,6 +163,15 @@ function texts(name, bytes) {
   return [...Object.entries(flavors).map(([flavor, text]) => [`${name}:${flavor}`, String(text)]),
     ...files.flatMap((file, index) => (typeof file?.base64 === 'string' ? byteTexts(`${name}:files[${String(index)}]`, Buffer.from(file.base64, 'base64')) : [])),
     [`${name}:fields`, JSON.stringify({ ...bundle, payload: { ...bundle.payload, text: {}, files: files.map(file => ({ ...file, base64: '' })) } })]];
+}
+
+/**
+ * Every text an artifact holds, as [location, text] pairs: the parts of a Word package, the text chunks
+ * and printable runs of binary data, the flavors, fields and clipboard files of a capture bundle, or the
+ * file as text.
+ */
+export function artifactTexts(name, bytes) {
+  return texts(name, bytes);
 }
 
 /** Scan the given files. */

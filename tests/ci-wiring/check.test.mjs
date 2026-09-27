@@ -7,6 +7,7 @@ import {
   BUILT_OUTPUT_GATES,
   FOCUSED_BROWSER_SCRIPTS,
   LOCAL_ONLY_SCRIPTS,
+  MANDATORY_GATES,
   NOT_GATES,
   REQUIRED_SCRIPTS,
   actionlintProblems,
@@ -25,6 +26,7 @@ import {
   leastPrivilegePermissionProblems,
   localActionReferences,
   localOnlyProblems,
+  mandatoryGateProblems,
   nonBlockingChecks,
   packageManagerConsistencyProblems,
   packageValidationProblems,
@@ -918,4 +920,19 @@ test('the fixture suite itself executes the live repository checker', () => {
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
+test('mandatory gates are declared with their reviewed command and run by ci.yml', () => {
+  assert.deepEqual(mandatoryGateProblems(realManifest, realCi), []);
+  assert.equal(MANDATORY_GATES.get('test:privacy'), 'node --test tests/privacy/check.test.mjs && node tests/privacy/check.mjs');
+  const withoutScript = { scripts: { ...realManifest.scripts } };
+  delete withoutScript.scripts['test:privacy'];
+  const withoutStep = realCi.replace(/\n {6}- name: No personal data in tracked files\n(?: {8}.*\n)+/, '\n');
+  assert.notEqual(withoutStep, realCi, 'the fixture removes the privacy step');
+  assert.deepEqual(mandatoryGateProblems(withoutScript, withoutStep), [
+    'package.json must declare the mandatory gate "test:privacy" as "node --test tests/privacy/check.test.mjs && node tests/privacy/check.mjs"',
+    'ci.yml must run the mandatory gate "pnpm test:privacy"',
+  ]);
+  const hollowed = { scripts: { ...realManifest.scripts, 'test:privacy': 'node --test tests/privacy/check.test.mjs' } };
+  assert.equal(mandatoryGateProblems(hollowed, realCi).length, 1);
 });

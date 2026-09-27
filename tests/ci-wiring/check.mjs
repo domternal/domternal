@@ -690,6 +690,27 @@ export function focusedBrowserWorkflowProblems(manifest, workflow) {
   return [...problems, ...exactStructureProblems(parsed, EXPECTED_PASTE_CLEANUP_WORKFLOW, 'paste-cleanup-e2e.yml')];
 }
 
+// Gates that must exist, with the reviewed command each runs. The generic
+// wiring checks only hold what package.json declares: deleting a gate and its
+// step together would leave them green. test:privacy keeps personal data
+// (addresses, home folders, this machine's names) out of every tracked file.
+export const MANDATORY_GATES = new Map([
+  ['test:privacy', 'node --test tests/privacy/check.test.mjs && node tests/privacy/check.mjs'],
+]);
+
+/** Each mandatory gate is declared with its reviewed command and invoked by ci.yml. */
+export function mandatoryGateProblems(manifest, workflow, gates = MANDATORY_GATES) {
+  const problems = [];
+  const invoked = scriptInvocations(workflow);
+  for (const [name, command] of gates) {
+    if (manifest.scripts?.[name] !== command) {
+      problems.push(`package.json must declare the mandatory gate "${name}" as "${command}"`);
+    }
+    if (!invoked.has(name)) problems.push(`ci.yml must run the mandatory gate "pnpm ${name}"`);
+  }
+  return problems;
+}
+
 /** Local-only checks stay runnable locally, keep a CI unit suite, and stay out of CI. */
 export function localOnlyProblems(manifest, workflow) {
   const problems = [];
@@ -1176,6 +1197,7 @@ function main() {
   }
   // Local-only checks must remain executable locally and absent from hosted CI.
   for (const problem of localOnlyProblems(manifest, workflow)) failures.push(problem);
+  for (const problem of mandatoryGateProblems(manifest, workflow)) failures.push(problem);
 
   // The other direction: a step invoking a script that no longer exists would
   // fail the build with a confusing pnpm error rather than a useful one.

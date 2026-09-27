@@ -32,6 +32,7 @@
     "test:package-artifacts": "node --test tests/package-artifacts/check.test.mjs && node tests/package-artifacts/check.mjs",
     "test:release-readiness": "node --test tests/release-readiness/check.test.mjs && node tests/release-readiness/check.mjs",
     "test:evidence": "node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check",
+    "test:privacy": "node --test tests/privacy/check.test.mjs && node tests/privacy/check.mjs",
     "evidence:replay": "node tests/evidence/cli.mjs replay --all",
     "test:ssr-import": "node --test tests/ssr-import/check.test.mjs && node tests/ssr-import/check.mjs",
     "test:subpath-reexports": "node --test tests/subpath-reexports/check.test.mjs && node tests/subpath-reexports/check.mjs",

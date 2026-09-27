@@ -358,7 +358,7 @@ describe('LinkPopover refusal reason', () => {
   });
 
   it('shows the reason without an alert when it opens on a stored link the popover refuses', () => {
-    mount({ popover: { protocols: ['https:'] }, content: '<p>Mail <a href="mailto:a@b.co">me</a> now</p>' });
+    mount({ popover: { protocols: ['https:'] }, content: '<p>Mail <a href="mailto:a@b.example">me</a> now</p>' });
     select(7);
     openPopover();
     expect(input().getAttribute('aria-invalid')).toBe('true');
