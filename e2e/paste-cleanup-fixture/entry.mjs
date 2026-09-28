@@ -1,5 +1,5 @@
 import {
-  Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
+  Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight, Code, BlockColor,
   FontFamily, FontSize, TextAlign, Heading, BulletList, OrderedList, ListItem,
   Blockquote, CodeBlock, HardBreak, UniqueID, Extension, Subscript, Superscript, LineHeight, TaskList, TaskItem,
   CharacterCount, TrailingNode,
@@ -38,6 +38,10 @@ const httpsLinks = query.get('link-protocols') === 'https';
 const listMarkers = query.get('list-markers') === '1';
 // The theme with the frame every wrapper renders: the view mounts in a div inside .dm-editor.
 const themed = query.get('theme') === '1';
+// A theme class on the page around the editor: dm-theme-dark, dm-theme-auto or dm-theme-light.
+const themeMode = ['dark', 'auto', 'light'].includes(query.get('theme-mode') ?? '') ? query.get('theme-mode') : null;
+// Inline code, block colors and task lists, for the contrast checks on kept backgrounds.
+const contrast = query.get('contrast') === '1';
 // Core paste without PasteCleanup, for behavior applications see without the extension.
 const withoutPasteCleanup = query.get('paste-cleanup') === 'off';
 // ProseMirror's own paste placement, without SmartPaste's block routing.
@@ -56,6 +60,7 @@ const angularForm = query.get('angular-form') === '1';
 const trailingNode = query.get('trailing-node') === 'on';
 const initialContent = trailingNode ? '<p>intro text</p><h2>Last</h2>' : '<p></p>';
 if (listMarkers || themed) await import('@domternal/theme/css');
+if (themeMode) document.body.classList.add(`dm-theme-${themeMode}`);
 // Test-only older/custom schema control: keep list structure but omit the marker attribute.
 const withoutMarker = extension => extension.extend({ addAttributes() {
   const attrs = { ...this.parent?.() }; delete attrs.listStyleType; return attrs;
@@ -289,7 +294,8 @@ const extensions = [
   capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : headingLevels ? Heading.configure({ levels: [2, 3] }) : Heading,
   ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),
   ...(lists ? [...markerLists, ListItem] : []),
-  ...(listMarkers ? [TaskList, TaskItem] : []),
+  ...(listMarkers || contrast ? [TaskList, TaskItem] : []),
+  ...(contrast ? [Code, BlockColor] : []),
   Blockquote, CodeBlock, HardBreak, UniqueID,
   ...(tableFirst ? tableExtensions : []), ...(imagePolicy === 'missing' ? [] : [Image.configure({
     allowBase64: imagePolicy !== 'no-base64',
