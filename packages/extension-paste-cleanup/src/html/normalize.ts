@@ -34,6 +34,9 @@ import type {
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
 } from './types.js';
 
+/** The classes Word writes for its Title style: one paragraph, or the first, middle and last of several. */
+const WORD_TITLE = /^MsoTitle(?:CxSp(?:First|Middle|Last))?$/;
+
 export const DEFAULT_PASTE_HTML_LIMITS: Readonly<PasteHTMLLimits> = Object.freeze({
   maxInputLength: 2_000_000, maxNodes: 30_000, maxDepth: 128, maxDiagnostics: 100,
   maxTableCells: 20_000, maxImages: 200, maxImagePixels: 50_000_000,
@@ -218,8 +221,10 @@ export function normalizeClipboardHTML(
         if (child.type !== 'element' || envelopeTags.has(child.tagName) || taskCheckbox(parent, child)) continue;
         if (discard.has(child.tagName)) { report('unsafe-content-removed', child); continue; }
         const original = child.properties;
-        // Word writes its Title style as a paragraph. It is the document's first level heading, as Pro's DOCX import reads it.
-        if (!own && result.source === 'word' && child.tagName === 'p' && Array.isArray(original.className) && original.className.includes('MsoTitle')) child.tagName = 'h1';
+        // Word writes its Title style as a paragraph, and a Title of several paragraphs with its contextual spacing
+        // classes. Each is a first level heading, as Pro's DOCX import reads every Title paragraph.
+        if (!own && result.source === 'word' && child.tagName === 'p' && Array.isArray(original.className)
+          && original.className.some(name => typeof name === 'string' && WORD_TITLE.test(name))) child.tagName = 'h1';
         const clean: Properties = cleanMetadata(original);
         const anchorContext = sliceAnchorContext(child);
         if (anchorContext !== undefined) {

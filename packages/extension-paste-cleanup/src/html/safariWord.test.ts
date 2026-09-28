@@ -120,6 +120,20 @@ describe('Safari copies of Word: computed styles read as Word means them', () =>
     expect(normalizePasteHTML('<p class="MsoTitle">Heading</p>').html).toBe('<p>Heading</p>');
   });
 
+  it.each(policies)('reads a Title of several paragraphs, written with Word\'s contextual spacing classes, as level 1 headings in %s', formatting => {
+    const title = (variant: string, text: string): string => TITLE.replace('class="MsoTitle"', `class="${variant}"`).replace('B01 Paste test document', text);
+    const source = `${WORD}${title('MsoTitleCxSpFirst', 'First line')}${title('MsoTitleCxSpMiddle', 'Middle line')}${title('MsoTitleCxSpLast', 'Last line')}`
+      + `<p class="MsoSubtitle">Subtitle</p><p class="MsoSubtitleCxSpFirst">Subtitle two</p>${normal('Text')}</html>`;
+    const result = normalizePasteHTML(source, { formatting });
+    expect(warnings(result.diagnostics)).toEqual([]);
+    const blocks = [...result.html.matchAll(/<(h1|p)\b[^>]*>(?:<span[^>]*>)?([^<]*)/gu)].map(match => `${match[1] ?? ''} ${match[2] ?? ''}`);
+    // Each Title paragraph is its own level 1 heading, as Pro's DOCX import maps every Title paragraph; a subtitle stays a paragraph.
+    expect(blocks).toEqual(['h1 First line', 'h1 Middle line', 'h1 Last line', 'p Subtitle', 'p Subtitle two', 'p Text']);
+    // A name that only starts like the Title classes is not one of them.
+    expect(normalizePasteHTML(`${WORD}<p class="MsoTitleCxSpOther">Other</p></html>`).html).toBe('<p>Other</p>');
+    expect(normalizePasteHTML('<p class="MsoTitleCxSpFirst">Heading</p>').html).toBe('<p>Heading</p>');
+  });
+
   it('reads a computed line height as a ratio of its block font size and Word\'s default 1.15 as no spacing of its own', () => {
     const spacing = `${WORD}${heading('h3', '14pt', '21.466665px', 'B08 Alignment and spacing')}`
       + normal('B09 Centered paragraph.', 'margin: 0cm 0cm 8pt', ' text-align: center;')
