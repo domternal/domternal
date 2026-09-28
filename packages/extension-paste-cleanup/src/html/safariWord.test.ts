@@ -68,6 +68,28 @@ describe('Safari copies of Word: computed styles read as Word means them', () =>
     expect(own.html).toBe('<p><span style="color:rgb(255, 255, 255)">White</span></p>');
   });
 
+  it('takes only Word\'s caret color for automatic text; a web page keeps a colored container and drops only its neutral text color', () => {
+    // Safari's interchange copy of a web page: the computed color and caret color of each top-level element.
+    const web = (color: string, text: string): string => `<meta charset="utf-8"><p style="caret-color: ${color}; color: ${color}; font-size: medium; ${INTERCHANGE}">${text}</p>`;
+    const red = normalizePasteHTML(web('rgb(200, 0, 0)', 'Red warning paragraph'));
+    expect(red.source).not.toBe('word');
+    expect(red.html).toBe('<p><span style="color:rgb(200, 0, 0)">Red warning paragraph</span></p>');
+    expect(warnings(red.diagnostics)).toEqual([]);
+    // A page's default text color, light or dark, is the reader's default, not the author's.
+    for (const neutral of ['rgb(224, 224, 224)', 'rgb(0, 0, 0)', 'rgb(26, 26, 26)', 'rgb(255, 255, 255)', 'rgb(51, 51, 51)', '#1a1a1a', 'rgb(40, 44, 52)']) {
+      const result = normalizePasteHTML(web(neutral, 'Page text'));
+      expect(result.html, neutral).toBe('<p>Page text</p>');
+      expect(warnings(result.diagnostics), neutral).toEqual([]);
+    }
+    // Close to gray but tinted beyond the neutral spread is a color the page chose.
+    expect(normalizePasteHTML(web('rgb(30, 60, 90)', 'Tinted')).html).toBe('<p><span style="color:rgb(30, 60, 90)">Tinted</span></p>');
+    // In a Word copy any color equal to the caret color is Word's automatic color, white or red alike.
+    for (const automatic of ['rgb(255, 255, 255)', 'rgb(200, 0, 0)']) {
+      const word = normalizePasteHTML(`${WORD}<p class="MsoNormal" style="caret-color: ${automatic}; color: ${automatic}; ${INTERCHANGE}">Auto</p></html>`);
+      expect(word.html, automatic).toBe('<p>Auto</p>');
+    }
+  });
+
   it('drops the automatic color a table passes to its cells and keeps a cell run color Word wrote', () => {
     const result = normalizePasteHTML(TABLE);
     expect(warnings(result.diagnostics)).toEqual([]);

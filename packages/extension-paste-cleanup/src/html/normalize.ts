@@ -208,6 +208,7 @@ export function normalizeClipboardHTML(
       resolveInlineInheritance(tree, {
         maxNodes: limits.maxNodes, maxDepth: limits.maxDepth, maxInputLength: limits.maxInputLength,
         formatting: options.formatting ?? 'preserve', ...(routine === undefined ? {} : { routineLineHeights: routine }),
+        wordSource: result.source === 'word',
       }, node => { report('unsupported-formatting', node); }, node => { report('formatting-adapted', node, 'info'); });
       if (anchor !== undefined) confirmSliceAnchor(tree, anchor);
     }
