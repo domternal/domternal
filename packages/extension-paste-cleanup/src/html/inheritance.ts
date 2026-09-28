@@ -164,17 +164,22 @@ function lineHeightRatio(value: string, fontSize: string | undefined): string | 
  * also writes on each run whose size differs from its paragraph's. A later declaration wins, a reset to
  * the initial value included. The names of the declarations not kept are returned for the caller's policy.
  */
-function readInheritanceStyles(value: unknown, image: boolean, tag: string, routineLineHeights?: ReadonlySet<string>, wordSource = false): { styles: Map<string, string>; removedNames: string[]; defaultColor: boolean } {
+function readInheritanceStyles(value: unknown, image: boolean, tag: string, routineLineHeights?: ReadonlySet<string>, wordSource = false): { styles: Map<string, string>; removedNames: string[]; defaultColor: boolean; defaultSize: boolean } {
   const styles = new Map<string, string>();
   const removedNames: string[] = [];
   let defaultColor = false;
-  if (typeof value !== 'string') return { styles, removedNames, defaultColor };
+  let defaultSize = false;
+  if (typeof value !== 'string') return { styles, removedNames, defaultColor, defaultSize };
   const declarations = value.split(';');
   const caret = declared(declarations, 'caret-color');
   const fontSize = declared(declarations, 'font-size');
   for (const declaration of declarations) {
     const separator = declaration.indexOf(':');
     let text = declaration;
+    // The keyword for the default size resets an inherited size; at the top, where WebKit writes it on every copied element, there is none.
+    if (separator > 0 && declaration.slice(0, separator).trim().toLowerCase() === 'font-size' && declaration.slice(separator + 1).trim().toLowerCase() === 'medium') {
+      styles.delete('font-size'); defaultSize = true; continue;
+    }
     if (separator > 0 && declaration.slice(0, separator).trim().toLowerCase() === 'line-height') {
       const ratio = lineHeightRatio(declaration.slice(separator + 1).trim(), fontSize);
       if (ratio !== undefined) {
@@ -193,12 +198,13 @@ function readInheritanceStyles(value: unknown, image: boolean, tag: string, rout
       if (((key === 'color' || key === 'background-color') && !validColor(entry))
         || (key === 'font-family' && !validFamily(entry))) { removedNames.push(key); continue; }
       if (key === 'color') defaultColor = false;
+      if (key === 'font-size') defaultSize = false;
       if (key === 'text-decoration') styles.delete('text-decoration-line');
       if (key === 'text-decoration-line') styles.delete('text-decoration');
       styles.set(key, entry);
     }
   }
-  return { styles, removedNames, defaultColor };
+  return { styles, removedNames, defaultColor, defaultSize };
 }
 
 /** Whether an element holds text other than white space, an image or a line break. */
@@ -298,7 +304,7 @@ export function resolveInlineInheritance(
       const state: State = { ...inherited };
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
-      const { styles, removedNames, defaultColor } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.routineLineHeights, options.wordSource);
+      const { styles, removedNames, defaultColor, defaultSize } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.routineLineHeights, options.wordSource);
       // Typography that adapt removes anyway is that policy's adaptation, not a loss; in preserve every declaration not kept is.
       let unsupported = removedNames.some(name => preserve || !adaptedTypography(name));
       // One adapted finding per discarded source property, reported on its declaring element.
@@ -329,6 +335,7 @@ export function resolveInlineInheritance(
       const family = styles.get('font-family');
       if (family !== undefined) { state.family = family; adapted.push('font-family'); }
       const size = styles.get('font-size');
+      if (defaultSize) delete state.size;
       if (size !== undefined) {
         adapted.push('font-size');
         const resolved = resolveSize(size, inherited.size);

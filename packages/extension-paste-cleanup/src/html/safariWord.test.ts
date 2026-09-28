@@ -90,6 +90,23 @@ describe('Safari copies of Word: computed styles read as Word means them', () =>
     }
   });
 
+  it.each(policies)('resets an inherited size to the default where a nested element declares font-size: medium, in %s', formatting => {
+    const word = normalizePasteHTML(`${WORD}<p class="MsoNormal" style="font-size: 20pt">Big <span style="font-size: medium">normal</span> big</p></html>`, { formatting });
+    const web = normalizePasteHTML('<meta charset="utf-8"><p style="font-size: 20pt">Big <span style="font-size: medium">normal</span> big</p>', { formatting });
+    for (const result of [word, web]) {
+      expect(warnings(result.diagnostics)).toEqual([]);
+      if (formatting === 'preserve') {
+        expect(result.html).toBe('<p><span style="font-size:20pt">Big </span><span>normal</span><span style="font-size:20pt"> big</span></p>');
+      } else expect(result.html).toBe('<p>Big <span>normal</span> big</p>');
+    }
+    // A later declaration wins either way, and a size inside the reset applies again.
+    expect(normalizePasteHTML('<p style="font-size: 20pt"><span style="font-size: medium; font-size: 12pt">A</span></p>').html).toContain('font-size:12pt">A');
+    expect(normalizePasteHTML('<p style="font-size: 20pt"><span style="font-size: 12pt; font-size: medium">A</span></p>').html).toBe('<p><span>A</span></p>');
+    expect(normalizePasteHTML('<p style="font-size: 20pt"><span style="font-size: medium"><span style="font-size: 9pt">A</span></span></p>').html).toContain('font-size:9pt">A');
+    // The keyword at the top, as Safari writes it on every element it copies, has nothing to reset.
+    expect(normalizePasteHTML('<p style="font-size: medium">A</p>').html).toBe('<p>A</p>');
+  });
+
   it('drops the automatic color a table passes to its cells and keeps a cell run color Word wrote', () => {
     const result = normalizePasteHTML(TABLE);
     expect(warnings(result.diagnostics)).toEqual([]);
