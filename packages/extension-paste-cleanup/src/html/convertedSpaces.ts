@@ -24,3 +24,26 @@ export function restoreConvertedSpaces(tree: Root): void {
     }
   }
 }
+
+/** A span with no attribute left whose only content is one no-break space. */
+function bareSpace(node: Element): boolean {
+  const only = node.children.length === 1 ? node.children[0] : undefined;
+  return node.tagName === 'span' && Object.keys(node.properties).length === 0 && only?.type === 'text' && only.value === '\u00a0';
+}
+
+/**
+ * Chromium's ProseMirror paste also turns a span without a class or style that holds only one no-break
+ * space into a space; Firefox and WebKit keep the no-break space. Cleanup leaves such spans behind once
+ * it removed their class, as around the first space of a partial Word selection, so the same copy pasted
+ * " a" in one engine and "a" in another. Done here, on the cleaned output, every engine pastes a space.
+ */
+export function restoreBareSpaces(tree: Root): void {
+  const pending: (Root | Element)[] = [tree];
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    for (const [index, child] of node.children.entries()) {
+      if (child.type !== 'element') continue;
+      if (bareSpace(child)) node.children[index] = { type: 'text', value: ' ', ...(child.position === undefined ? {} : { position: child.position }) };
+      else pending.push(child);
+    }
+  }
+}

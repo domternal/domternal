@@ -88,6 +88,20 @@ describe('normalizePasteHTML', () => {
     }
   });
 
+  it('pastes a bare span holding one no-break space as a space, as Chromium already pastes it, and leaves every other span', () => {
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      expect(normalizePasteHTML('<p>a<span>\u00a0</span>b</p>', { formatting }).html).toBe('<p>a b</p>');
+      expect(normalizePasteHTML('<p><span>\u00a0</span>a</p>', { formatting }).html).toBe('<p> a</p>');
+      // Word's own span around a selection's first space, whatever its class said before cleanup.
+      expect(normalizePasteHTML('<p class=MsoNormal><span class="MsoSpacer">\u00a0</span>a</p>', { formatting }).html).toBe('<p> a</p>');
+    }
+    // More than one no-break space, other text or a span that keeps an attribute is the author's.
+    expect(normalizePasteHTML('<p>a<span>\u00a0\u00a0</span>b</p>').html).toBe('<p>a<span>\u00a0\u00a0</span>b</p>');
+    expect(normalizePasteHTML('<p>a<span>\u00a0x</span>b</p>').html).toBe('<p>a<span>\u00a0x</span>b</p>');
+    expect(normalizePasteHTML('<p>a<span style="color:#123456">\u00a0</span>b</p>').html).toContain('<span style="color:#123456">\u00a0</span>');
+    expect(normalizePasteHTML('<p>10\u00a0kg</p>').html).toBe('<p>10\u00a0kg</p>');
+  });
+
   it('requires explicit opt-in to retain remote image URLs', () => {
     expect(normalizePasteHTML('<img src="https://example.test/a.png" alt="A">', { allowRemoteImages: true }).html).toBe('<img src="https://example.test/a.png" alt="A">');
   });

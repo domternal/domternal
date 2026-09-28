@@ -5,7 +5,8 @@
  * "GB09 boldita". PasteCleanup wraps such a run in a division, which a block image in the run
  * ends without an empty paragraph before it. Synthetic paste events through every wrapper; the unit
  * tests are packages/extension-paste-cleanup/src/PasteCleanup.looseInline.test.ts and
- * src/html/looseInline.test.ts.
+ * src/html/looseInline.test.ts. A span left with only one no-break space, as cleanup leaves the first
+ * space of a partial Word selection, pastes as a space in every engine, as Chromium's paste turns it.
  */
 import { expect, type Page } from '@playwright/test';
 import type { Editor } from '@domternal/core';
@@ -52,6 +53,15 @@ const SHAPES: Record<string, { html: string; blocks: string[] }> = {
   },
 };
 
+// A span with one no-break space: Chromium's paste turned it into a space, Firefox and WebKit did not.
+const SPACES: Record<string, { html: string; blocks: string[] }> = {
+  'a bare span holding one no-break space between words': { html: '<p>a<span>\u00a0</span>b</p>', blocks: ['paragraph: a b'] },
+  'a partial Word selection that starts at a space': {
+    html: '<p class=MsoNormal><span class="MsoSpacer">\u00a0</span><span style="font-size:12pt">a</span> b</p>', blocks: ['paragraph: a b'],
+  },
+  'two no-break spaces in one span': { html: '<p>a<span>\u00a0\u00a0</span>b</p>', blocks: ['paragraph: a\u00a0\u00a0b'] },
+};
+
 async function open(page: Page, framework: string, formatting: 'preserve' | 'adapt'): Promise<void> {
   await page.goto(`${BASE_URL}/?${new URLSearchParams({ framework, formatting }).toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
@@ -59,9 +69,9 @@ async function open(page: Page, framework: string, formatting: 'preserve' | 'ada
 }
 
 /** Pastes each shape into an empty document and reports its blocks, with a hard break as a line feed. */
-async function pasteShapes(page: Page): Promise<Record<string, { blocks: string[]; valid: boolean; status: string[] }>> {
+async function pasteShapes(page: Page, shapes = SHAPES): Promise<Record<string, { blocks: string[]; valid: boolean; status: string[] }>> {
   const outcomes: Record<string, { blocks: string[]; valid: boolean; status: string[] }> = {};
-  for (const [name, { html }] of Object.entries(SHAPES)) {
+  for (const [name, { html }] of Object.entries(shapes)) {
     await page.evaluate(html => {
       const probe = (window as unknown as ProbeWindow).__pasteCleanup;
       if (!probe.editor.setContent('<p></p>', false)) throw new Error('Could not seed the editor');
@@ -99,4 +109,12 @@ for (const framework of FRAMEWORKS) {
       expect(await pasteShapes(page)).toEqual(expected);
     });
   }
+}
+
+for (const formatting of ['preserve', 'adapt'] as const) {
+  test(`a span holding one no-break space pastes as a space in every engine in ${formatting}`, async ({ page }) => {
+    await open(page, 'vanilla', formatting);
+    const expected = Object.fromEntries(Object.entries(SPACES).map(([name, { blocks }]) => [name, { blocks, valid: true, status: ['applied'] }]));
+    expect(await pasteShapes(page, SPACES)).toEqual(expected);
+  });
 }

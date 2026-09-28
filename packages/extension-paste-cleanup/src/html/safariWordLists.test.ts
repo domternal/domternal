@@ -71,7 +71,7 @@ describe('Safari copies of Word lists', () => {
     const result = normalizePasteHTML(html);
     expect(warnings(result.diagnostics)).toEqual([]);
     // The first level starts one before the number of its next item, which then continues it.
-    expect(result.html).toBe('<ol style="list-style-type:decimal" start="3"><li><p></p><ol style="list-style-type:lower-alpha" start="1"><li><p><span></span><span>\u00a0</span>a</p>'
+    expect(result.html).toBe('<ol style="list-style-type:decimal" start="3"><li><p></p><ol style="list-style-type:lower-alpha" start="1"><li><p><span></span> a</p>'
       + '<ol style="list-style-type:lower-roman" start="1"><li><p><span></span>L09 Roman i</p></li><li><p><span></span>L10 Roman ii</p></li></ol></li>'
       + '<li><p><span></span>L11 Letter b</p></li></ol></li><li><p><span></span>L12 Second number</p></li></ol>');
   });

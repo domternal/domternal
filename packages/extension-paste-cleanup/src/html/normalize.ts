@@ -27,7 +27,7 @@ import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.j
 import { emptyParagraphMarks, envelopeTags, transparentOfficeWrapper } from './envelope.js';
 import { wrapLooseInlineRuns } from './looseInline.js';
 import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
-import { restoreConvertedSpaces } from './convertedSpaces.js';
+import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
 import { routineLineHeights } from './wordSpacing.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
@@ -354,6 +354,7 @@ export function normalizeClipboardHTML(
     // A verified own copy holds only blocks at its top, as the editor serialized them. A wrapper
     // added here is generated output too, so the tree must still fit the same bounds with it.
     if (!own && wrapLooseInlineRuns(sanitized)) assertOutputTreeBounds(sanitized, limits.maxNodes, limits.maxDepth);
+    if (!own) restoreBareSpaces(sanitized);
     if (destination !== undefined) {
       const requested = collectDestinationDemand(sanitized, limits);
       const unconfirmed = requested.length > 0 ? destination(requested) : [];

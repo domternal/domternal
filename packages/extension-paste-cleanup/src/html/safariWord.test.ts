@@ -129,9 +129,11 @@ describe('Safari copies of Word: computed styles read as Word means them', () =>
     expect(result.html).toBe('<p>B07 <span><strong>bold</strong></span> <span><em>italic</em></span> H<span><sub>2</sub></span>O x<span><sup>2</sup></span> '
       + '<span>Georgia</span> <span>red</span> <span>highlighted</span></p>');
     expect(normalizePasteHTML(ROUTINE).html).toContain('10\u00a0kg.');
-    for (const kept of ['<span class="Apple-converted-space">\u00a0\u00a0</span>', '<span class="Other">\u00a0</span>', '<b class="Apple-converted-space">\u00a0</b>']) {
+    for (const kept of ['<span class="Apple-converted-space">\u00a0\u00a0</span>', '<b class="Apple-converted-space">\u00a0</b>']) {
       expect(normalizePasteHTML(`<p>A${kept}B</p>`).html).toContain('\u00a0');
     }
+    // Another class is removed, and the bare span left pastes as a space, as Chromium's paste turns it.
+    expect(normalizePasteHTML('<p>A<span class="Other">\u00a0</span>B</p>').html).toBe('<p>A B</p>');
   });
 
   it.each(policies)('reads Word\'s Title style as a level 1 heading in %s', formatting => {
