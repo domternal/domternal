@@ -37,7 +37,7 @@
         "packages/pm/src/tables.js",
         "packages/extension-table/dist/index.js"
       ],
-      "commit": "c706475a8da153eedc550000e2d42c500de5bfde",
+      "commit": "1c3578ee617d456739178907bfaff8c88f982320",
       "dirty": false
     },
     {
@@ -61,7 +61,7 @@
         "packages/pm/src/tables.js",
         "packages/extension-table/dist/index.js"
       ],
-      "commit": "daa1ce1b42798d9526ef7b49c8dd34daeddb8931",
+      "commit": "951cc51bf2392e91fe5da8f041910ff6ae9db403",
       "dirty": true,
       "bundledAs": "head"
     }

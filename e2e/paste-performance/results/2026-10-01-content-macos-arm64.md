@@ -12,8 +12,8 @@ it, and `generateHTML` of the 40 and 160 section articles within 8 percent;
 `setContent` with JSON, and the initial load of the heading and styled documents,
 still cost more, as listed below.
 
-- Timing JSON SHA256: `ae2c1ad44d85ab8f764d550f4fd47bffcb7d2b7d9da4b27c6fd6bd81b18b4a0c`
-- Equivalence JSON SHA256: `2161ae72f8b92b9b166f2581f7be146c9016b9a9f449e9c7efef819256a2eaab`
+- Timing JSON SHA256: `fd9a8553280e2a20871d2b4aad7e3dc81b5c6242c3f0710b7d305c88a9959e07`
+- Equivalence JSON SHA256: `7e2d6a4c2ab1f51bc572adc73295756f31ff5810bee61a1e39ea89a50f41e608`
 
 ## Method and environment
 
@@ -23,16 +23,20 @@ and floating-ui files, so the comparison isolates Domternal's own code:
 
 - **1.2.0**: the registry packages `@domternal/core`, `extension-image` and
   `extension-table` 1.2.0 of `tests/mixed-version/v1.2.0`.
-- **Before**: the build of `daa1ce1`, whose packages equal those of `2ebb649`, the
+- **Before**: the build of `951cc51`, whose packages equal those of `9eb867d`, the
   state the release review measured. This bundle came from an earlier output of the
   harness, and both JSON files first named it by its local path. Its entry now gives
   what that output recorded for it: the commit, the inputs and `dirty: true`, since
   source edits for the changes below had begun in the checkout, though not yet been
-  built, when it was bundled. A clean checkout of `daa1ce1`, built and bundled by the
+  built, when it was bundled. A clean checkout of `951cc51`, built and bundled by the
   harness, gives the same bundle, SHA-256
   `086ff635ae4f57dc28514ed8abb725f8f6d64b1b5da09ef6fea652839c5853b4`.
-- **After**: the build of the clean commit `c706475`, which holds `edce42c` and
-  `24b068b`.
+- **After**: the build of the clean commit `1c3578e`, which holds `edceeb4` and
+  `6edbae5`.
+
+The commit ids in this report and its JSON files are those the 2026-10-03 privacy
+rewrite of the branch history gave the measured commits; the rewrite changed only
+committed evidence and fixture files, not the measured packages.
 
 The application is StarterKit with TextStyle, TextColor, Highlight, FontSize,
 FontFamily, TextAlign, LineHeight, Image and Table. Eight documents from a 4 section
@@ -59,11 +63,11 @@ microseconds) named these costs:
 
 | Operation | Cost found | Change |
 | --- | --- | --- |
-| `setContent` with JSON | The table extension's unsupported span guard (since 1.2.0) walked every node of the new document on each document-replacing transaction, comparing it with the old one: about 41 percent of `setContent` on the heading document, next to prosemirror-tables' own `fixTables` walk, which 1.2.0 has as well | `24b068b`: each node remembers whether its subtree holds a table with an unsupported span; a document that holds none skips the walk, and otherwise the walk runs as before |
-| Initial load, `setContent`, `generateHTML` | Every link href was checked by the URL policy twice, once while loading and once while rendering, and `generateHTML` builds a new schema with a new copy of the default schemes on every call, so neither check was remembered there | `edce42c`: one cache of URL checks per Link policy, keyed by the schemes and `allowRelative`, which loading and rendering share |
-| Initial load, `setContent`, `generateHTML` | The JSON normalization walk looked up the schema's normalized attributes and allocated closures and result objects for every node and mark | `edce42c`: one map lookup per node and mark, no allocation for types without a normalized attribute |
-| `getHTML` of headings | Rendering each heading validated the `levels` option again, copying it, before its cache check | `edce42c`: an unchanged option list is read from the cache first, and a level the list holds returns at once |
-| `getHTML` of styled content | The color rewrite looked up the style attribute in every start tag of output that holds any `rgb` | `edce42c`: a tag without `rgb` is passed over |
+| `setContent` with JSON | The table extension's unsupported span guard (since 1.2.0) walked every node of the new document on each document-replacing transaction, comparing it with the old one: about 41 percent of `setContent` on the heading document, next to prosemirror-tables' own `fixTables` walk, which 1.2.0 has as well | `6edbae5`: each node remembers whether its subtree holds a table with an unsupported span; a document that holds none skips the walk, and otherwise the walk runs as before |
+| Initial load, `setContent`, `generateHTML` | Every link href was checked by the URL policy twice, once while loading and once while rendering, and `generateHTML` builds a new schema with a new copy of the default schemes on every call, so neither check was remembered there | `edceeb4`: one cache of URL checks per Link policy, keyed by the schemes and `allowRelative`, which loading and rendering share |
+| Initial load, `setContent`, `generateHTML` | The JSON normalization walk looked up the schema's normalized attributes and allocated closures and result objects for every node and mark | `edceeb4`: one map lookup per node and mark, no allocation for types without a normalized attribute |
+| `getHTML` of headings | Rendering each heading validated the `levels` option again, copying it, before its cache check | `edceeb4`: an unchanged option list is read from the cache first, and a level the list holds returns at once |
+| `getHTML` of styled content | The color rewrite looked up the style attribute in every start tag of output that holds any `rgb` | `edceeb4`: a tag without `rgb` is passed over |
 
 Every change keeps the result the same function of the input. Before and after were
 compared with the harness's equivalence mode on 8 seeds of 250 documents full of edge

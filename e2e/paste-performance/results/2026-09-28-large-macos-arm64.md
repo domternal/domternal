@@ -8,7 +8,7 @@ document. **Nothing was truncated silently.** This is one local measurement of
 synthetic inputs, not a product-wide capacity or latency bound, and no limit was
 changed.
 
-The run used the clean Free commit `54e6966ced0b27cbde9fc1e29733e5f19e69b33a`,
+The run used the clean Free commit `d5b2ae40536607379a4071e14603d11a11d965ad`,
 Node 24.13.0 and Playwright 1.58.2 on an Apple M1 Max with 10 logical CPUs and
 64 GiB RAM, Darwin 25.5.0 arm64. Headless engines were Chromium 145.0.7632.6,
 Firefox 146.0.1 and WebKit 26.0. Initial load averages were 19.74, 18.99 and
@@ -17,7 +17,11 @@ repository, and machine idleness was not certified. The run took 172 seconds,
 including the Node sweep. Inputs, protocol and bounds are described in the
 [harness README](../README.md#large-documents-and-resource-limits).
 
-- JSON SHA256: `9699b867076028dc6db433d650d455164c98e32f1cebf5735f50e63f7c751be4`
+The commit ids in this report and its JSON are those the 2026-10-03 privacy rewrite
+of the branch history gave the measured commits; the rewrite changed only committed
+evidence and fixture files, not the measured packages.
+
+- JSON SHA256: `cf2d481326d0757b36c899f7c4d849a14e923cc62d4c79012fb521546e83f627`
 
 ## Where each profile stops
 

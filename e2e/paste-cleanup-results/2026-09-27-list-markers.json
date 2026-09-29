@@ -347,7 +347,7 @@
     "kind": "domternal-free-list-markers-input-snapshot",
     "version": 1,
     "createdAt": "2026-09-27T06:42:23.158860+00:00",
-    "gitHead": "e2aa6e5fb632ab553cdc04e33c9c637a5a5cf042",
+    "gitHead": "c78f15b3d015a52a23a989ce0f97460474c1b59b",
     "gitBranch": "feat/office-paste-import",
     "gitStatus": [
       "M README.md",

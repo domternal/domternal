@@ -20,7 +20,7 @@ function output(bundle, listing) {
   return { path: join(nested, 'head.js'), sha256: createHash('sha256').update(bundle).digest('hex') };
 }
 
-const COMMIT = 'daa1ce1b42798d9526ef7b49c8dd34daeddb8931';
+const COMMIT = '951cc51bf2392e91fe5da8f041910ff6ae9db403';
 const INPUTS = ['packages/core/dist/index.js'];
 
 test('names the commit, inputs and state an earlier output recorded for the bundle, and no local path', () => {

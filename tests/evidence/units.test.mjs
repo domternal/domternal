@@ -71,9 +71,10 @@ test('everything the assembler derived is rederived from the committed files', (
 });
 
 test('the Markdown template renders the committed Markdown', () => {
-  // The digest of the committed JSON since the declared redaction 2026-10-03-home-paths (its MANIFEST.json).
+  // The digest of the committed JSON since the declared redaction 2026-10-03-home-paths and the new id
+  // the 2026-10-03 privacy rewrite gave its frozen head (both in its MANIFEST.json).
   const markdown = unit.renderMarkdown({
-    jsonSha256: '4e28ceeee274e59cebf84512b28b3d685dcf925d6ce05f52e164cfeba54eda86',
+    jsonSha256: '3ee9d58b767808c61f33873d316afd08b3c6e038457e4e1c17dae4526cee48dc',
     inventorySha256: committed.frozenInputs.inventorySha256,
     pasteCaseInventorySha256: committed.runs.paste.caseInventorySha256,
     legacyCaseInventorySha256: committed.runs.legacy.caseInventorySha256,

@@ -2,9 +2,9 @@
   "kind": "domternal-historical-evidence-tools",
   "version": 2,
   "report": "../../2026-09-27-list-markers.json",
-  "reportSha256": "4e28ceeee274e59cebf84512b28b3d685dcf925d6ce05f52e164cfeba54eda86",
+  "reportSha256": "3ee9d58b767808c61f33873d316afd08b3c6e038457e4e1c17dae4526cee48dc",
   "markdown": "../../2026-09-27-list-markers.md",
-  "markdownSha256": "0f0dbeb56940ccd5a8501f6e891ec2724e43d33c57d6fbab757461864b5a2345",
+  "markdownSha256": "8dd62589bcff4b88f03a1d42d66dab8f520649699701c1777798e3d98b5d83b5",
   "markdownWrittenBy": "domternal-n12-assemble-evidence.py",
   "executedByCI": false,
   "interpreter": "CPython 3.13.2 (the originals ran under it; the __pycache__ tag cpython-313 in the archive agrees)",
@@ -108,8 +108,9 @@
   ],
   "notes": [
     "The assembler printed jsonSha256 6b1e4af44113ed76751991a1f2700c3025c3852b4d6f530b88acafb1400566ce and mdSha256 5c78ace2915a37383dbd503576b6988b3f4c1fb55b56278920467674d5fc4125 at 09:00:32 +02:00 (/private/tmp/domternal-n12-free-evidence-assembly.log, archived). The digest of the committed JSON as the assembler wrote it is withheld since the 2026-10-03 redaction (see redactions). The committed JSON, the committed Markdown and this assembler all have mtime 09:02:46 +02:00, and the committed JSON records the digest of that final assembler at /artifacts/32/sha256, so the assembler was changed and run again without a recorded stdout. The committed files are not the output of the recorded 09:00:32 run. With verifiedAt fixed to the recorded value, the one-time Python replay of the preserved final assembler reproduced the committed JSON byte for byte after mapping its scratch mirror root back, and the committed Markdown up to the embedded digest of that relocated JSON (see pythonBaseline). The maintained Node port reproduces both committed files byte for byte (see replay).",
-    "The report was committed in b68a601 at 09:03:41 +02:00.",
-    "The originals contain absolute paths of the machine that produced the report and read inputs that existed only in its temporary directory. Some of them write files; running them against the current tree would fail or overwrite results."
+    "The report was committed in 1315f64 at 09:03:41 +02:00.",
+    "The originals contain absolute paths of the machine that produced the report and read inputs that existed only in its temporary directory. Some of them write files; running them against the current tree would fail or overwrite results.",
+    "On 2026-10-03 an owner-authorized privacy rewrite of this branch's history gave the commit that froze these inputs, and every later commit, a new id; it changed only committed evidence and fixture files. After the redaction, frozenInputs.gitHead in the JSON report and the commit the second note names were changed to the new ids of the same commits, so the digests recorded here for the JSON report and its Markdown, those under redactions included, and the JSON SHA256 the Markdown quotes are those of the files with the new ids. The input snapshot in the evidence archive still names the frozen head by its earlier id, so a replay from the archive needs that id mapped to the new one."
   ],
   "lost": [
     {
@@ -248,13 +249,13 @@
         {
           "path": "../../2026-09-27-list-markers.json",
           "occurrences": 5,
-          "redactedSha256": "4e28ceeee274e59cebf84512b28b3d685dcf925d6ce05f52e164cfeba54eda86",
+          "redactedSha256": "3ee9d58b767808c61f33873d316afd08b3c6e038457e4e1c17dae4526cee48dc",
           "redactedBytes": 735839
         },
         {
           "path": "../../2026-09-27-list-markers.md",
           "occurrences": 0,
-          "redactedSha256": "0f0dbeb56940ccd5a8501f6e891ec2724e43d33c57d6fbab757461864b5a2345",
+          "redactedSha256": "8dd62589bcff4b88f03a1d42d66dab8f520649699701c1777798e3d98b5d83b5",
           "redactedBytes": 4185
         },
         {

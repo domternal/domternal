@@ -11677,7 +11677,7 @@
     "playwright": "1.58.2"
   },
   "repository": {
-    "commit": "54e6966ced0b27cbde9fc1e29733e5f19e69b33a",
+    "commit": "d5b2ae40536607379a4071e14603d11a11d965ad",
     "dirty": false,
     "lockSha256": "e0e8b1f8bc2ed2a1f072d0ae721a7d6304257bd70dc3c56de2065bd38616d761"
   },

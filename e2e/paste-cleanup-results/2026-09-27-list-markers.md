@@ -18,7 +18,7 @@ The final frozen tarballs of Core, BlockControls and PasteCleanup pass installed
 
 [Detailed evidence](./2026-09-27-list-markers.json) records every case, selected input hash, report/raw-log digest and local artifact path.
 
-- JSON SHA256: `4e28ceeee274e59cebf84512b28b3d685dcf925d6ce05f52e164cfeba54eda86`
+- JSON SHA256: `3ee9d58b767808c61f33873d316afd08b3c6e038457e4e1c17dae4526cee48dc`
 - Frozen inventory SHA256: `a35be4e53c73d26ca722cbf12681c3bb4e7df98fe8956c764c4068a17f7e1248`
 - Paste case inventory SHA256: `f6e0a2cfaacc5a46870aeca3a789fec4477ec53d6a14d2ed3ffc9ab38dcce70e`
 - Legacy case inventory SHA256: `54ada46008598eecb9a2a640bbcb004fc884d4172603dfb24153900c8cb5d851`
