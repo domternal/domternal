@@ -6,7 +6,8 @@
  *     The body of the `test:evidence` gate (see check.mjs). Needs nothing but
  *     the repository. --history also proves, from Git, that every file a
  *     declared redaction changed is its original with only that redaction
- *     applied (local: CI clones are shallow).
+ *     applied, wherever the commit holding the original is in the history;
+ *     `test:evidence` passes it, and CI checks out the whole history.
  *   node tests/evidence/cli.mjs freeze --unit <stem> --out <file> [--root <dir>]
  *     Capture the unit's source and build inventory. Never replaces a file.
  *   node tests/evidence/cli.mjs verify --unit <stem> --inputs <inputs.json> [--live] [--out <file>] [--verified-at <iso>]

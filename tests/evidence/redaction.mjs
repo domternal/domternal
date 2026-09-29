@@ -7,10 +7,15 @@
  *
  * - a session scratchpad directory, `/private/tmp/claude-<uid>/<project>/
  *   <session uuid>/scratchpad`, becomes `$SCRATCHPAD`;
- * - a home folder, `/Users/<account>` or `/home/<account>`, becomes `$HOME`.
+ * - a home folder, `/Users/<account>` or `/home/<account>` (also under WSL's
+ *   `/mnt/c`, MSYS's `/c`, `/var` or `/export`, or with JSON's escaped
+ *   slashes) or Windows' `C:\Users\<account>` (with one or two backslashes, or
+ *   slashes), becomes `$HOME`.
  *
- * Both placeholders are literal shell variables, so a recorded command stays
- * meaningful, and both are ASCII, so every serializer writes them unescaped.
+ * Both placeholders are written as shell variables, so a recorded shell command
+ * stays meaningful; in other text, such as the preserved Python tools, they are
+ * inert placeholders, never expanded. Both are ASCII, so every serializer writes
+ * them unescaped.
  * The rule holds no value: it reads the same on every machine, and applying it
  * twice changes nothing.
  *
@@ -19,9 +24,10 @@
  * size and digest and the number of placeholders each holds, the commit that
  * still holds the unredacted bytes, and every digest the redaction replaced or
  * withheld. A digest of unredacted bytes is never recorded, because it would
- * confirm a guessed account name offline. `historyProblems` proves, locally,
- * that the committed bytes are the unredacted ones with only R1 and those
- * digests applied.
+ * confirm a guessed account name offline. `historyProblems` proves, wherever
+ * the commit named in `originalIn` is in the history (`pnpm test:evidence` runs
+ * it, and CI checks out the whole history), that the committed bytes are the
+ * unredacted ones with only R1 and those digests applied.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -40,8 +46,13 @@ export const RULE = Object.freeze([
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const SCRATCHPAD_PATH = new RegExp(`/private/tmp/claude-\\d+/[^/\\s"'\`<>]+/${UUID}/scratchpad`, 'g');
-// Not inside a URL path or a longer name: the folder starts a path.
-const HOME_PATH = /(?<![\w.~-])\/(?:Users|home)\/[A-Za-z0-9._-]+/g;
+// Not inside a URL path or a longer name: the folder starts a path. A Unix home with the prefix WSL, MSYS,
+// image-based Linux or Solaris puts before it, or JSON's escaped slashes; a Windows home with one or two
+// backslashes, as JSON writes it, or with slashes.
+const HOME_PATH = new RegExp([
+  String.raw`(?<![\w.~-])(?:\\?\/mnt\\?\/[a-z]|\\?\/[a-z](?=\\?\/Users\\?\/)|\\?\/var|\\?\/export)?\\?\/(?:Users|home)\\?\/[A-Za-z0-9._-]+`,
+  String.raw`\b[A-Za-z]:(?:\\\\|\\|\/)Users(?:\\\\|\\|\/)[A-Za-z0-9._-]+`,
+].join('|'), 'g');
 const PLACEHOLDER_TOKEN = /\$(?:HOME|SCRATCHPAD)(?![A-Za-z0-9_])/g;
 
 /** R1: a text with every scratchpad and home folder path replaced by its placeholder. */

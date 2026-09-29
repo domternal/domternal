@@ -226,7 +226,7 @@
       ]
     },
     "resultsNote": "The maintained Node port reproduced the committed JSON and Markdown and the original stored verifier output byte for byte, on Node 22.23.2 and 24.13.0 alike, from the archived inputs. The only declared normalization is the one lost dist file, accepted at its recorded size and digest. Compared with the Python baseline, the Node output is identical after mapping the scratch mirror root back and recomputing the Markdown digest of the relocated JSON. No committed report was rewritten.",
-    "redactionNote": "This replay ran on 2026-09-27, before the 2026-10-03 redaction: its comparisons name the committed files as they were then. A replay after the redaction reads the inputs the redaction changed through it, compares the archived outputs of the originals after it, and reports IDENTICAL_AFTER_DECLARED_NORMALIZATION where these say IDENTICAL."
+    "redactionNote": "This replay ran on 2026-09-27, before the 2026-10-03 redaction: its comparisons name the committed files as they were then. A replay after the redaction is built to read the inputs the redaction changed through it, to compare the archived outputs of the originals after it, and to report IDENTICAL_AFTER_DECLARED_NORMALIZATION where these say IDENTICAL; tests/evidence/replay.test.mjs proves that path on synthetic archives, and it has not been run against the evidence archive since the redaction."
   },
   "redactions": [
     {

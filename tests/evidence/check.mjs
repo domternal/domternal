@@ -369,8 +369,9 @@ export function checkDeclarations(root, reports = REPORTS, files = listRepositor
 }
 
 /**
- * The local history check (`cli.mjs check --history`): every declared file is
- * its unredacted original with only the declared redaction applied.
+ * The history check (`cli.mjs check --history`, part of `test:evidence`): every
+ * declared file is its unredacted original with only the declared redaction
+ * applied, wherever the commit holding the original is in the history.
  */
 export function checkHistory(root = repoRoot, reports = REPORTS) {
   return historyProblems(root, declaredFiles(readDeclarations(root, reports)));

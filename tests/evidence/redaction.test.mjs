@@ -53,6 +53,25 @@ test('R1 replaces home folders and session scratchpads by their placeholders, an
   assert.ok(RULE.every((step) => !step.replaces.includes('/')), 'the declared rule describes, it never records a path');
 });
 
+test('R1 also replaces the home folders of Windows, WSL, MSYS, image-based Linux and Solaris, in the forms JSON writes them', () => {
+  const bs = String.fromCharCode(92);
+  for (const [text, redacted] of [
+    [`C:${bs}Users${bs}${account}${bs}repo`, `$HOME${bs}repo`],
+    [`"cwd": "C:${bs}${bs}Users${bs}${bs}${account}${bs}${bs}repo"`, `"cwd": "$HOME${bs}${bs}repo"`],
+    [`D:/Users/${account}/repo`, '$HOME/repo'],
+    [`cd /mnt/c/Users/${account}/repo`, 'cd $HOME/repo'],
+    [`cd /c/Users/${account}/repo`, 'cd $HOME/repo'],
+    [`/var/home/${account}/x`, '$HOME/x'],
+    [`/export/home/${account}/x`, '$HOME/x'],
+    [`{"root": "${bs}/Users${bs}/${account}${bs}/repo"}`, `{"root": "$HOME${bs}/repo"}`],
+  ]) {
+    assert.equal(redactPaths(text), redacted, text);
+    assert.equal(holdsPersonalPath(redacted), false, redacted);
+  }
+  // A drive path that names no user folder, and URL paths, stay.
+  for (const text of [`C:${bs}Program Files${bs}x`, 'https://site.example/var/home/page', 'a/mnt/c/Users/b']) assert.equal(redactPaths(text), text);
+});
+
 test('placeholders are counted as whole tokens, and bytes R1 leaves alone are returned as they are', () => {
   assert.equal(countPlaceholders('$HOME/a $SCRATCHPAD/b $HOME'), 3);
   assert.equal(countPlaceholders('$HOMEPAGE $SCRATCHPADS $PATH'), 0);
