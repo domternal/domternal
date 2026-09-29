@@ -15,7 +15,8 @@ describe('routine source declarations', () => {
       + "<span lang=HR style='font-size:12.0pt;font-family:\"Aptos\",sans-serif;mso-ascii-theme-font:minor-latin;mso-fareast-font-family:\"Times New Roman\";mso-ansi-language:HR'>Text</span></p>";
     const preserve = normalizePasteHTML(html);
     expect(preserve.diagnostics).toEqual([]);
-    expect(preserve.html).toBe('<p style="line-height:107%"><span lang="HR"><span style="font-family:&#x22;Aptos&#x22;,sans-serif;font-size:12pt">Text</span></span></p>');
+    // 107 % is the spacing of Word's Normal style from 2013 to 2021, the style's own rather than formatting.
+    expect(preserve.html).toBe('<p><span lang="HR"><span style="font-family:&#x22;Aptos&#x22;,sans-serif;font-size:12pt">Text</span></span></p>');
     const adapt = normalizePasteHTML(html, { formatting: 'adapt' });
     expect(warnings(adapt.diagnostics)).toEqual([]);
     expect(adapt.html).toBe('<p><span lang="HR">Text</span></p>');

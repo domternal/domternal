@@ -141,16 +141,23 @@ function fontPixels(value: string | undefined): number | undefined {
   return match === null ? undefined : Number(match[1]) * (match[2] === 'pt' ? 4 / 3 : 1);
 }
 
+/** A positive ratio of at most 10 rounded to two places, the form LineHeight stores and renders. */
+const twoPlaceRatio = (ratio: number): string | undefined => ratio > 0 && ratio <= 10 ? String(Math.round(ratio * 100) / 100) : undefined;
+
 /**
- * A line height in pixels or points as a ratio of the element's own font size, rounded to two places:
- * WebKit writes the computed line height of each block it copies, Word's 115 % as 18.4px for 16px text.
+ * A line height as the ratio of the font size LineHeight renders, rounded to two places: a percentage, as
+ * Word's raw HTML writes 150 % in Chrome and Firefox, or a plain number, and a length in pixels or points as a
+ * ratio of the element's own font size, as WebKit writes the computed line height of each block it copies,
+ * Word's 115 % as 18.4px for 16px text.
  */
 function lineHeightRatio(value: string, fontSize: string | undefined): string | undefined {
-  const match = /^(\d{1,4}(?:\.\d{1,8})?)(px|pt)$/.exec(value.toLowerCase());
+  const lower = value.toLowerCase();
+  const relative = /^(\d{1,4}(?:\.\d{1,8})?|\.\d{1,8})(%?)$/.exec(lower);
+  if (relative !== null) return twoPlaceRatio(Number(relative[1]) / (relative[2] === '%' ? 100 : 1));
+  const match = /^(\d{1,4}(?:\.\d{1,8})?)(px|pt)$/.exec(lower);
   const size = fontPixels(fontSize);
   if (match === null || size === undefined || size <= 0) return undefined;
-  const ratio = Number(match[1]) * (match[2] === 'pt' ? 4 / 3 : 1) / size;
-  return ratio > 0 && ratio <= 10 ? String(Math.round(ratio * 100) / 100) : undefined;
+  return twoPlaceRatio(Number(match[1]) * (match[2] === 'pt' ? 4 / 3 : 1) / size);
 }
 
 /**
@@ -159,8 +166,8 @@ function lineHeightRatio(value: string, fontSize: string | undefined): string | 
  * a color equal to the element's caret color: WebKit copies a top-level element's inherited text color
  * with an equal caret color, which is the page's default color, Word's automatic color among them; a
  * color the source applied comes from its own rule, without one. Outside Word a container the page
- * colored also inherits its color into the caret, so there only a neutral color is the page default. A line height in pixels or points
- * becomes a ratio of the element's font size, and a routine one is the source's own spacing, which Word
+ * colored also inherits its color into the caret, so there only a neutral color is the page default. A line height
+ * becomes the ratio LineHeight renders, and a routine one is the source's own spacing, which Word
  * also writes on each run whose size differs from its paragraph's. A later declaration wins, a reset to
  * the initial value included. The names of the declarations not kept are returned for the caller's policy.
  */

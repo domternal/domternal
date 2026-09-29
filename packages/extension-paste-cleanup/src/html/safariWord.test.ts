@@ -188,7 +188,8 @@ describe('Safari copies of Word: computed styles read as Word means them', () =>
     expect(normalizePasteHTML('<p style="font-size: 16px; line-height: 18.4px">Text</p>').html).toBe('<p style="line-height:1.15"><span style="font-size:16px">Text</span></p>');
     // Without a font size of its own the length is read as before.
     expect(normalizePasteHTML('<p style="line-height: 24px">Text</p>').html).toBe('<p style="line-height:24px">Text</p>');
-    expect(normalizePasteHTML('<p style="line-height: 150%">Text</p>').html).toBe('<p style="line-height:150%">Text</p>');
+    // A percentage is a ratio of the font size whatever the size, so it becomes the ratio LineHeight renders.
+    expect(normalizePasteHTML('<p style="line-height: 150%">Text</p>').html).toBe('<p style="line-height:1.5">Text</p>');
   });
 
   it('drops Word\'s default line height that Safari writes on a sized run, without a warning', () => {

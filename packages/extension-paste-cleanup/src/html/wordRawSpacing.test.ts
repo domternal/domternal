@@ -59,3 +59,45 @@ describe('line-height: normal', () => {
     expect(normalizePasteHTML('<p style="line-height:normal;line-height:2">Text</p>').html).toBe('<p style="line-height:2">Text</p>');
   });
 });
+
+/** B08 to B12 as Word writes them: B12's 1.5 spacing as a percentage, the Normal style's 115 % only in the stylesheet. */
+const SPACING = `${HEAD}<h3>B08 Alignment and spacing<o:p></o:p></h3>\n\n<p class=MsoNormal align=center style='text-align:center'>B09 Centered\nparagraph.<o:p></o:p></p>\n\n`
+  + "<p class=MsoNormal align=right style='text-align:right'>B10 Right-aligned\nparagraph.<o:p></o:p></p>\n\n"
+  + "<p class=MsoNormal style='text-align:justify'>B11 This justified paragraph\nhas enough words.<o:p></o:p></p>\n\n"
+  + `<p class=MsoNormal style='line-height:150%'>B12 Paragraph with 1.5 line spacing.<o:p></o:p></p>${TAIL}`;
+
+describe('Word line spacing written as a percentage', () => {
+  it('becomes the ratio LineHeight renders, as Safari\'s computed 24px already does', () => {
+    const result = normalizePasteHTML(SPACING);
+    expect(warnings(result.diagnostics)).toEqual([]);
+    expect(markup(result.html)).toContain('<p style="line-height:1.5">B12 Paragraph with 1.5 line spacing.</p>');
+    expect(result.html).not.toContain('%');
+  });
+
+  it('is dropped in adapt, which removes spacing, without a warning', () => {
+    const result = normalizePasteHTML(SPACING, { formatting: 'adapt' });
+    expect(warnings(result.diagnostics)).toEqual([]);
+    expect(result.html).not.toContain('line-height');
+  });
+
+  it.each(policies)('is the Normal style\'s own spacing when it equals the 115 percent the stylesheet names, on a paragraph or a run, in %s', formatting => {
+    const html = SPACING.replace("<p class=MsoNormal style='line-height:150%'>B12 Paragraph with 1.5 line spacing.",
+      "<p class=MsoNormal style='line-height:115%'>B12 <span style='font-size:14.0pt;line-height:115%'>Paragraph</span> with line spacing.");
+    const result = normalizePasteHTML(html, { formatting });
+    expect(warnings(result.diagnostics)).toEqual([]);
+    expect(result.html).not.toContain('line-height');
+  });
+
+  it('reads Word\'s default spacing of 107 percent as the style\'s when the copy names no stylesheet', () => {
+    const result = normalizePasteHTML("<html xmlns:w=\"urn:schemas-microsoft-com:office:word\"><p class=MsoNormal style='line-height:107%'>Text</p></html>");
+    expect(result.html).toBe('<p>Text</p>');
+    expect(warnings(result.diagnostics)).toEqual([]);
+  });
+
+  it('keeps a percentage or a plain number from any source as a two-place ratio', () => {
+    expect(normalizePasteHTML('<p style="line-height:200%">A</p><p style="line-height:1.50">B</p><p style="line-height:1.149">C</p>').html)
+      .toBe('<p style="line-height:2">A</p><p style="line-height:1.5">B</p><p style="line-height:1.15">C</p>');
+    // Google Docs writes its spacing as a plain number, which stays.
+    expect(normalizePasteHTML('<p style="line-height:1.38">D</p>').html).toBe('<p style="line-height:1.38">D</p>');
+  });
+});
