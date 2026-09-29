@@ -169,6 +169,16 @@ Limits of this row:
 - Word's empty paragraph, a paragraph mark holding one no-break space, pastes
   as an empty paragraph. Safari leaves hidden text out of the copy. `1)` and `a)` paste as decimal and alphabetic lists, without
   the parenthesis.
+- A copy that is one paragraph, pasted into a paragraph, joins it the way
+  ProseMirror joins an open slice: the paragraph keeps its own alignment, so a
+  centered Word paragraph pasted into an empty one arrives left aligned, with no
+  notice. The captured selections start with a heading and do not show it.
+- A paragraph or heading background written as `background-color`, as web pages
+  write it, has no place in the editor and is dropped without a notice; the
+  `background` shorthand Word writes for paragraph shading is reported as
+  unsupported formatting, and table cell shading is kept. Reporting the
+  longhand too would show the notice for many web copies, such as a dark
+  container, so it waits for the owner's noise versus loss decision.
 - Large selections, own copies and every image scenario are not captured for
   this row.
 

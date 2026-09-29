@@ -165,7 +165,10 @@ color, whatever it computes to, and pastes as the editor's own color, as
 `windowtext` does; a color Word applied comes without one and stays. From another
 source a caret-equal color is the page's default text color only when it is a
 neutral gray, black or white (channels at most 16 apart), so a container the page
-colored, such as a red warning, keeps its color. A
+colored, such as a red warning, keeps its color. So does a light color a dark
+page gives its text: in `preserve` it pastes as that color and can read poorly in
+a light editor (a light blue about 1.8:1 on white), while `adapt` removes text
+colors. A
 background shorthand that paints one color, as Word writes a highlight
 (`background: yellow`) or cell shading, is read as that background color. A line
 height in pixels or points becomes a ratio of the element's own font size, the
@@ -925,7 +928,12 @@ three engines, qualify that path with the limits its support matrix lists. They
 are synthetic events with the captured flavors, not native pastes into the
 editor. Word list paragraphs carry their fonts only in Word's class rules, which
 cleanup does not resolve, so in `preserve` list items paste in the editor's font
-while the paragraphs and cells around them keep the fonts Safari writes inline. Large selections, own copies, images and every other source path are not
-qualified against native clipboard data.
+while the paragraphs and cells around them keep the fonts Safari writes inline.
+A copy that is one paragraph, pasted into a paragraph, joins it as ProseMirror
+joins an open slice and keeps that paragraph's alignment, without a notice. A
+`background-color` on a paragraph or heading has no place in the editor and is
+dropped without a notice, while the `background` shorthand Word writes for
+paragraph shading is reported. Large selections, own copies, images and every
+other source path are not qualified against native clipboard data.
 The current Core color parser does not retain alpha in RGBA text colors or
 partially transparent backgrounds. Exact transparency fidelity is not promised.
