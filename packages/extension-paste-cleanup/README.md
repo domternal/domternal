@@ -132,7 +132,8 @@ backgrounds and shadows, the `windowtext` default text color, which resets an
 inherited color), vertical block spacing, pagination and typesetting controls,
 letter spacing within half a point either way, as Word's Title style condenses
 its text, the initial values Safari writes on every element it copies (`start`
-alignment, `normal` white space, the `medium` font size, a zero text stroke,
+alignment, `normal` white space, the `medium` font size, which on a nested
+element resets the size it inherits to the editor's default, a zero text stroke,
 `auto` and `solid` text decoration, a `none` border image) and the caret color,
 table borders, cell padding and table layout, list indentation on semantic lists,
 the level indentation of reconstructed Office list paragraphs, and the style of a
@@ -158,10 +159,13 @@ as a paragraph mark holding one no-break space; that space is no text of the
 document, so the paragraph pastes empty, while a no-break space Word wrote as
 text stays.
 
-Safari copies the computed style of each top-level element it copies. A text
-color equal to the caret color it copies with it is the page's default text
-color, Word's automatic color among them, and pastes as the editor's own color,
-as `windowtext` does; a color the source applied comes without one and stays. A
+Safari copies the computed style of each top-level element it copies. In a Word
+copy a text color equal to the caret color it copies with it is Word's automatic
+color, whatever it computes to, and pastes as the editor's own color, as
+`windowtext` does; a color Word applied comes without one and stays. From another
+source a caret-equal color is the page's default text color only when it is a
+neutral gray, black or white (channels at most 16 apart), so a container the page
+colored, such as a red warning, keeps its color. A
 background shorthand that paints one color, as Word writes a highlight
 (`background: yellow`) or cell shading, is read as that background color. A line
 height in pixels or points becomes a ratio of the element's own font size, the
@@ -172,8 +176,13 @@ defaults 1.15 and 1.08 (written 107 %) stand for it. A copy cannot tell a
 paragraph that keeps its style's spacing from one set to the same value, so
 that value reads as the style's. A space WebKit converted to a
 no-break space in a `span.Apple-converted-space` pastes as a space in every
-engine, as ProseMirror's paste does in WebKit only. Word's Title style becomes a
-level 1 heading, as Pro's DOCX import reads it.
+engine, as ProseMirror's paste does in WebKit only, and so does a span left with
+nothing but one no-break space, as cleanup leaves the first space of a partial
+Word selection, which ProseMirror's paste turns into a space in Chromium only.
+Word's Title style becomes a level 1 heading, as Pro's DOCX import reads it, also
+when the Title runs over several paragraphs, which Word writes with the
+`MsoTitleCxSpFirst`, `MsoTitleCxSpMiddle` and `MsoTitleCxSpLast` classes: each
+paragraph is its own level 1 heading. A Subtitle stays a paragraph.
 
 Use `feedback: 'application'` with an `onPasteResult` handler to own presentation.
 Omitting that handler is a fatal configuration error. English definitions are
