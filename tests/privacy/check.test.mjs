@@ -251,6 +251,34 @@ test('a zip package of any kind is read part by part', () => {
   assert.deepEqual(scanFile('public/sample.zip', zip, names).map((finding) => [finding.location, finding.category]), [['public/sample.zip:notes/readme.txt', 'e-mail address']]);
 });
 
+test('an RTF text is read with its hexadecimal groups decoded: a theme package, a color scheme mapping, a picture', () => {
+  // Word's RTF flavor writes binary data as hexadecimal digits, wrapped in lines, which no reading of the text sees.
+  const hex = (bytes) => bytes.toString('hex').replace(/(.{128})/gu, '$1\n');
+  const chunk = (type, data) => {
+    const header = Buffer.alloc(8);
+    header.writeUInt32BE(data.length, 0);
+    header.write(type, 4, 'latin1');
+    return Buffer.concat([header, data, Buffer.alloc(4)]);
+  };
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('tEXt', Buffer.from(`Author\0${address}`, 'latin1'))]);
+  const theme = writePackage(new Map([['theme/theme/theme1.xml', Buffer.from(`<a:theme name="${address}"/>`)]]));
+  const mapping = Buffer.from(`<a:clrMap bg1="lt1"/><!-- ${slash('', 'Users', person, 'Library', 'x.xml')} -->`);
+  const rtf = `{\\rtf1\\ansi\\rsid1145325{\\*\\themedata ${hex(theme)}}\n{\\*\\colorschememapping ${hex(mapping)}}{\\pict\\pngblip\\bliptag255{\\*\\blipuid b40ec0e86951e96d9beeb5dde66a355c}${hex(png)}}}`;
+  const bundle = JSON.stringify({ payload: { text: { 'text/rtf': `${rtf}\0` } } });
+  // A picture is read by its text chunks and its printable runs, which both hold the address.
+  const distinct = (findings) => [...new Set(findings.map((finding) => `${finding.location} ${finding.category}`))];
+  assert.deepEqual(distinct(scanFile('capture.json', Buffer.from(bundle), names)), [
+    'capture.json:text/rtf#hex[0]:theme/theme/theme1.xml e-mail address',
+    'capture.json:text/rtf#hex[1] home folder path',
+    'capture.json:text/rtf#hex[2] e-mail address',
+  ]);
+  assert.deepEqual(distinct(scanFile('docs/sample.rtf', Buffer.from(rtf), names)), [
+    'docs/sample.rtf#hex[0]:theme/theme/theme1.xml e-mail address', 'docs/sample.rtf#hex[1] home folder path', 'docs/sample.rtf#hex[2] e-mail address']);
+  // Short hexadecimal runs, as revision ids, colors and picture ids, are no data; nor are hexadecimal digits outside RTF.
+  assert.deepEqual(categories('docs/plain.rtf', '{\\rtf1 {\\colortbl;\\red0\\green0\\blue0;}\\rsid0045fa12 Text}'), []);
+  assert.deepEqual(categories('src/hash.ts', `const digest = '${hex(Buffer.from(`write to ${address}`)).replace(/\n/gu, '')}';\n`), []);
+});
+
 test('the site carries the same scanner, byte for byte, where its checkout sits inside this one', (t) => {
   const here = new URL('./scan.mjs', import.meta.url);
   const site = new URL('../../domternal.dev/scripts/privacy-scan.mjs', import.meta.url);

@@ -9,8 +9,10 @@
  * Reading. A file is read as text, or, when it is binary, by its printable runs
  * as bytes and as UTF-16 in both alignments and by the text chunks of a PNG.
  * A zip package (a Word document, a zip download) is read part by part, a
- * capture bundle flavor by flavor and clipboard file by clipboard file, and a
- * base64 data URI by what it decodes to. Every text is read again with its
+ * capture bundle flavor by flavor and clipboard file by clipboard file, a
+ * base64 data URI by what it decodes to, and an RTF text also by what its
+ * hexadecimal groups decode to (Word's theme package, color scheme mapping,
+ * data store and pictures, list pictures among them). Every text is read again with its
  * escapes decoded: HTML character references, percent escapes (twice encoded
  * too), JSON and JavaScript escapes (\u0040, \x40, \/) and CSS escapes. A match
  * only the decoded reading holds is reported at `<location>#decoded`.
@@ -77,6 +79,7 @@ import { inflateRawSync, inflateSync } from 'node:zlib';
 const MAX_INFLATED = 1024 * 1024;
 const MAX_PARTS = 2048;
 const MAX_DATA_URI = 4 * 1024 * 1024;
+const MAX_RTF_HEX = 8 * 1024 * 1024;
 
 /** The parts of a zip package, read from its central directory; null when it is not one this reader can read. */
 export function zipParts(bytes) {
@@ -163,6 +166,26 @@ function dataUris(location, text, depth) {
   return found;
 }
 
+/**
+ * What the hexadecimal groups of an RTF text decode to, each as its own artifact: Word writes its theme package,
+ * color scheme mapping, data store and pictures as hexadecimal digits, wrapped in lines, which no reading of the
+ * text sees. A group is a run of at least 64 digits; shorter runs are revision ids, colors and picture ids.
+ */
+function rtfHexGroups(location, text, depth) {
+  if (!/^[\t\n\r ]*\{\\rtf/u.test(text)) return [];
+  const found = [];
+  let budget = MAX_RTF_HEX;
+  let index = 0;
+  for (const match of text.matchAll(/[0-9A-Fa-f][0-9A-Fa-f\r\n]{63,}/gu)) {
+    const digits = match[0].replace(/[\r\n]/gu, '');
+    if (digits.length < 64) continue;
+    if (digits.length > budget) break;
+    budget -= digits.length;
+    found.push(...readBytes(`${location}#hex[${String(index++)}]`, Buffer.from(digits.slice(0, digits.length - (digits.length % 2)), 'hex'), depth + 1, true));
+  }
+  return found;
+}
+
 /** Every text in some bytes, as { location, text, binary, inside }. */
 function readBytes(location, bytes, depth, inside) {
   if (depth > 3) return [];
@@ -172,7 +195,7 @@ function readBytes(location, bytes, depth, inside) {
   }
   if (!isText(bytes)) return [{ location, text: binaryText(bytes), binary: true, inside }];
   const text = bytes.toString('utf8');
-  return [{ location, text, binary: false, inside }, ...dataUris(location, text, depth)];
+  return [{ location, text, binary: false, inside }, ...dataUris(location, text, depth), ...rtfHexGroups(location, text, depth)];
 }
 
 /**
@@ -193,7 +216,7 @@ export function artifactTexts(name, bytes) {
       const files = Array.isArray(bundle.payload.files) ? bundle.payload.files : [];
       return [
         ...Object.entries(flavors).flatMap(([flavor, text]) => [{ location: `${name}:${flavor}`, text: String(text), binary: false, inside: true },
-          ...dataUris(`${name}:${flavor}`, String(text), 1)]),
+          ...dataUris(`${name}:${flavor}`, String(text), 1), ...rtfHexGroups(`${name}:${flavor}`, String(text), 1)]),
         ...files.flatMap((file, index) => (typeof file?.base64 === 'string' ? readBytes(`${name}:files[${String(index)}]`, Buffer.from(file.base64, 'base64'), 1, true) : [])),
         { location: `${name}:fields`, text: JSON.stringify({ ...bundle, payload: { ...bundle.payload, text: {}, files: files.map((file) => ({ ...file, base64: '' })) } }), binary: false, inside: true },
       ];
