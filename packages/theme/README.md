@@ -111,15 +111,32 @@ draws on it:
   background: a dark background uses the dark palette, a light one the light palette where the editor
   around it is dark. In the default light theme a light background changes no token, so your own light
   palette stays.
-- On a mid-tone background (gray, teal, Word's blue accent) links, muted text and quotes take the black
-  or white of the text; links keep their underline.
+- On a mid-tone background (gray, teal, Word's blue accent) links, muted text, quotes and mentions take
+  the black or white of the text; links keep their underline.
+- A mention sits on a lift (the opposite of the text color at 40%), and rules, quote bars and details
+  borders are drawn from the text color, so they reach 3:1 on any kept background; a code chip's
+  outline is lighter.
 - Colors the author chose stay as chosen: an inline text color, a token color on the highlighted run
-  (resolved in the background's palette) and a color a block sets for its content.
+  (resolved in the background's palette) and a color a block in the document sets for its content. A
+  `data-text-color` attribute on the page around the editor does not count.
+
+A value the browser does not paint, such as `rgb(0, 0, 50%)` (legacy syntax that mixes numbers and
+percentages) or a color followed by a no-break space, gets no mark, so its text keeps the theme's
+color. A value it paints but the editor cannot read itself, such as `var(--brand)`, `oklch()`,
+`color-mix()` or a system color, is marked `data-dm-tone="unknown"` with the value as
+`--dm-tone-surface`, and CSS computes pure black or white from the painted color (relative color
+syntax; engines without it keep the text color around it). A translucent color whose tone depends on
+what is behind it keeps the text color around it too.
 
 A dark theme of your own that does not use `dm-theme-dark` gets the light palette on light
 backgrounds through a style query on `--dm-color-scheme: dark` in Chromium and Safari; add the
 `dm-theme-dark` class as well for Firefox. To keep the theme's text color instead, set both tokens to
-`inherit`. Highlights and shaded cells print with their background (`print-color-adjust: exact`).
+`inherit`; separators then follow that text color. Highlights and shaded cells print with their
+background (`print-color-adjust: exact`).
+
+The marks exist only in a live editor view. To show stored HTML with readable text on kept backgrounds,
+render it in a read-only editor (`editable: false`) rather than inserting `getHTML()` output into the
+page.
 
 ## Floating menu descriptions
 

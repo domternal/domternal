@@ -58,6 +58,7 @@
   "pm/view": 70,
   "react": 21000,
   "$comment-theme-surface-tone-2026-10-03": "theme 15500 to 17000. Text on kept backgrounds (_surface-tone.scss: the light and dark palettes re-emitted on highlights and shaded cells, in the dark theme, in auto mode and under a style query on --dm-color-scheme, black or white automatic text and the mid-tone role colors; _derived-tokens.scss, the derived token list the paper layer now shares) raises the stylesheet from 15387 gzip bytes to 15835. The palettes repeat the existing mixins, which gzip keeps small; no font, image or new selector family outside the editor content was added. As the release review asks of any further growth, the ceiling rises only to the next multiple of 500 at least 1000 bytes above the measurement. This bump needs review.",
+  "$comment-theme-surface-tone-review-2026-10-03": "Measured with the same gate and toolchain after the F13 review fixes in _surface-tone.scss (mention lift and separators drawn from the black or white text on every kept background, mid-tone mentions, the authored-color mark scoped to the editor, and the unknown background rule that computes black or white with relative color syntax): theme 15835 to 16201 gzip bytes (95 percent of 17000). No ceiling changes.",
   "theme": 17000,
   "vanilla": 25500,
   "vue": 23000,
