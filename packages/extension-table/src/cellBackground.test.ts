@@ -57,9 +57,12 @@ describe('table cell background (G6)', () => {
     for (const cellType of ['tableCell', 'tableHeader'] as const) {
       const found = cells(table(value, cellType));
       expect(found).toHaveLength(3);
-      for (const element of found) {
+      for (const [index, element] of found.entries()) {
         expect(element.getAttribute('data-background')).toBe(value);
-        expect((element as HTMLElement).style.length).toBe(1);
+        // The editor view, and only it, hands a background it cannot read to the theme as --dm-tone-surface.
+        const surface = (element as HTMLElement).style.getPropertyValue('--dm-tone-surface').trim();
+        expect(surface).toBe(index === 0 && value.startsWith('var(') ? value : '');
+        expect((element as HTMLElement).style.length).toBe(surface ? 2 : 1);
         expect((element as HTMLElement).style.backgroundColor).not.toBe('');
       }
       editor?.destroy();

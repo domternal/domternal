@@ -5,9 +5,11 @@
  * background, as `data-dm-tone` (light or dark, and mid for a mid tone, see
  * `surfaceToneAttributes` in core). The theme draws text without a color of
  * its own in black or white on it, and links, code and quotes there in the
- * palette of that background. The attribute is a node decoration, so it lives
- * in the editor view only: getHTML, generateHTML, clipboard HTML and stored
- * content never carry it.
+ * palette of that background. A painted background core cannot read is
+ * `unknown`, and the decoration adds its value to the cell's style as
+ * `--dm-tone-surface` for the theme. The attributes are a node decoration,
+ * so they live in the editor view only: getHTML, generateHTML, clipboard HTML
+ * and stored content never carry them.
  *
  * The set is rebuilt when the document changes, from a walk over block nodes
  * that never enters a textblock. Rebuilding rather than mapping is what an
@@ -28,7 +30,7 @@ export function cellSurfaceTones(doc: PMNode): DecorationSet {
     const role = node.type.spec['tableRole'] as string | undefined;
     if (role === 'cell' || role === 'header_cell') {
       const tone = surfaceToneAttributes(node.attrs['background']);
-      if (tone) decorations.push(Decoration.node(pos, pos + node.nodeSize, tone));
+      if (tone) decorations.push(Decoration.node(pos, pos + node.nodeSize, { ...tone }));
     }
     return true;
   });

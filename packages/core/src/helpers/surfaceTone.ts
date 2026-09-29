@@ -45,8 +45,14 @@ const NAMED = ((): Map<string, SurfaceTone> => {
 
 type Rgba = [red: number, green: number, blue: number, alpha: number];
 
-const NUMBER = '[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?';
+// A CSS number: no trailing dot, an exponent allowed. CSS white space is space, tab and line breaks only; JS
+// trim() and \s also take a no-break space, U+2028 or U+3000, which make the declaration invalid.
+const NUMBER = '[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:e[+-]?\\d+)?';
 const COMPONENT = new RegExp(`^(${NUMBER})(%|deg|grad|rad|turn)?$`, 'i');
+const SPACE = '[ \\t\\n\\r\\f]';
+const TRIM = new RegExp(`^${SPACE}+|${SPACE}+$`, 'g');
+const SPACES = new RegExp(`${SPACE}+`);
+const trim = (text: string): string => text.replace(TRIM, '');
 
 /** One numeric component and its unit, or null. */
 function component(text: string | undefined): { value: number; unit: string } | null {
@@ -66,29 +72,31 @@ function alphaOf(text: string | undefined): number | null {
   return clamp(part.unit === '%' ? part.value / 100 : part.value, 0, 1);
 }
 
-/** The arguments of a color function, in its comma or its space syntax, with the alpha last or null. */
-function argumentsOf(body: string): { channels: string[]; alpha: string | undefined } | null {
-  const trimmed = body.trim();
+/**
+ * The arguments of a color function with the alpha last or undefined, and whether they came in the legacy
+ * comma syntax, whose channels CSS Color 4 types more strictly than the space syntax.
+ */
+function argumentsOf(body: string): { channels: string[]; alpha: string | undefined; legacy: boolean } | null {
+  const trimmed = trim(body);
   if (trimmed.includes(',')) {
-    const parts = trimmed.split(',').map((part) => part.trim());
+    const parts = trimmed.split(',').map(trim);
     if (parts.length !== 3 && parts.length !== 4) return null;
-    return { channels: parts.slice(0, 3), alpha: parts[3] };
+    return { channels: parts.slice(0, 3), alpha: parts[3], legacy: true };
   }
-  const [main = '', alpha, ...extra] = trimmed.split('/').map((part) => part.trim());
+  const [main = '', alpha, ...extra] = trimmed.split('/').map(trim);
   if (extra.length > 0 || alpha === '') return null;
-  const channels = main.split(/\s+/);
-  return channels.length === 3 ? { channels, alpha } : null;
+  const channels = main.split(SPACES);
+  return channels.length === 3 ? { channels, alpha, legacy: false } : null;
 }
 
 function rgbOf(body: string): Rgba | null {
   const parsed = argumentsOf(body);
   if (!parsed) return null;
-  const channels: number[] = [];
-  for (const text of parsed.channels) {
-    const part = component(text);
-    if (!part || (part.unit !== '' && part.unit !== '%')) return null;
-    channels.push(clamp(part.unit === '%' ? (part.value * 255) / 100 : part.value, 0, 255));
-  }
+  const parts = parsed.channels.map(component);
+  // The legacy syntax takes three numbers or three percentages, never a mix; the space syntax mixes them.
+  const units = new Set(parts.map((part) => part?.unit));
+  if (parts.some((part) => !part || (part.unit !== '' && part.unit !== '%')) || (parsed.legacy && units.size > 1)) return null;
+  const channels = parts.map((part) => (part ? clamp(part.unit === '%' ? (part.value * 255) / 100 : part.value, 0, 255) : 0));
   const alpha = alphaOf(parsed.alpha);
   return alpha === null ? null : [channels[0] ?? 0, channels[1] ?? 0, channels[2] ?? 0, alpha];
 }
@@ -103,7 +111,9 @@ function hslOf(body: string): Rgba | null {
   if (!hue || !saturation || !lightness) return null;
   const turns = { '': 1 / 360, deg: 1 / 360, grad: 1 / 400, rad: 1 / (2 * Math.PI), turn: 1 } as Record<string, number>;
   const perTurn = turns[hue.unit];
-  if (perTurn === undefined || ![saturation, lightness].every((part) => part.unit === '%' || part.unit === '')) return null;
+  // Saturation and lightness are percentages in the legacy syntax, and numbers or percentages in the space syntax.
+  const allowed = parsed.legacy ? ['%'] : ['%', ''];
+  if (perTurn === undefined || ![saturation, lightness].every((part) => allowed.includes(part.unit))) return null;
   const h = (((hue.value * perTurn) % 1) + 1) % 1;
   const s = clamp(saturation.value / 100, 0, 1);
   const l = clamp(lightness.value / 100, 0, 1);
@@ -139,31 +149,9 @@ function toneOfLuminance(luminance: number): SurfaceTone {
     : { tone: 'dark', mid: luminance > SURFACE_TONE_MID_DARK };
 }
 
-/**
- * The tone of a background color the document keeps: light, dark, and
- * whether it is a mid tone; or null when it paints no color the editor can
- * read.
- *
- * Reads hex colors (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`), `rgb()` and
- * `rgba()` in their comma and space syntax with numbers or percentages,
- * `hsl()` and `hsla()`, and the CSS named colors, in any letter case. A
- * translucent color is composited over white and over black: when both
- * composites agree that is its tone, and otherwise it has none, because the
- * surface behind it decides. Anything else is null: `transparent`,
- * `currentcolor`, CSS-wide keywords, system colors, `var()`, `color-mix()`,
- * `oklch()` and other functions, and unknown names.
- *
- * @example
- * ```ts
- * surfaceTone('#fef08a');            // { tone: 'light', mid: false }
- * surfaceTone('rgb(0, 32, 96)');     // { tone: 'dark', mid: false }
- * surfaceTone('teal');               // { tone: 'dark', mid: true }
- * surfaceTone('var(--highlight)');   // null
- * ```
- */
-export function surfaceTone(value: unknown): SurfaceTone | null {
-  if (typeof value !== 'string' || value.length > 256) return null;
-  const color = value.trim().toLowerCase();
+/** The tone of a value this reader understands; null when the surface behind it decides; undefined when it cannot read it. */
+function readTone(value: string): SurfaceTone | null | undefined {
+  const color = trim(value).toLowerCase();
   const named = NAMED.get(color);
   if (named) return { ...named };
   let rgba: Rgba | null = null;
@@ -172,7 +160,7 @@ export function surfaceTone(value: unknown): SurfaceTone | null {
     const match = /^(rgba?|hsla?)\(([^()]*)\)$/.exec(color);
     if (match) rgba = match[1]?.startsWith('rgb') ? rgbOf(match[2] ?? '') : hslOf(match[2] ?? '');
   }
-  if (!rgba) return null;
+  if (!rgba) return undefined;
   const [red, green, blue, alpha] = rgba;
   if (alpha >= 1) return toneOfLuminance(relativeLuminance(red, green, blue));
   const over = (base: number): SurfaceTone =>
@@ -184,21 +172,97 @@ export function surfaceTone(value: unknown): SurfaceTone | null {
 }
 
 /**
- * The view attribute that marks an element painting `value` as its
- * background: `data-dm-tone` with `light` or `dark`, followed by `mid` for a
- * mid tone. Null when the value would not be rendered (it is not a safe CSS
- * value) or has no tone. The theme draws text without a color of its own in
- * black or white on such an element.
+ * The tone of a background color the document keeps: light, dark, and
+ * whether it is a mid tone; or null when it paints no color the editor can
+ * read.
+ *
+ * Reads hex colors (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`), `rgb()` and
+ * `rgba()` in their comma and space syntax, `hsl()` and `hsla()`, and the CSS
+ * named colors, in any letter case, by the CSS Color 4 grammar: the comma
+ * syntax takes three numbers or three percentages for `rgb()` and
+ * percentages for the saturation and lightness of `hsl()`, a number never
+ * ends in a dot, and only CSS white space (space, tab, line breaks) may
+ * surround the value or its parts. A value outside that grammar is one the
+ * browser does not paint, so it has no tone. A translucent color is
+ * composited over white and over black: when both composites agree that is
+ * its tone, and otherwise it has none, because the surface behind it
+ * decides. Anything else is null: `transparent`, `currentcolor`, CSS-wide
+ * keywords, system colors, `var()`, `color-mix()`, `oklch()` and other
+ * functions, `none` components, and unknown names.
  *
  * @example
  * ```ts
- * surfaceToneAttributes('#002060'); // { 'data-dm-tone': 'dark' }
- * surfaceToneAttributes('#808080'); // { 'data-dm-tone': 'light mid' }
- * surfaceToneAttributes('url(x)');  // null
+ * surfaceTone('#fef08a');            // { tone: 'light', mid: false }
+ * surfaceTone('rgb(0, 32, 96)');     // { tone: 'dark', mid: false }
+ * surfaceTone('teal');               // { tone: 'dark', mid: true }
+ * surfaceTone('rgb(0, 0, 50%)');     // null: legacy syntax mixing numbers and percentages paints nothing
+ * surfaceTone('var(--highlight)');   // null
  * ```
  */
-export function surfaceToneAttributes(value: unknown): { 'data-dm-tone': string } | null {
-  if (!isSafeCssValue(value)) return null;
-  const tone = surfaceTone(value);
-  return tone ? { 'data-dm-tone': tone.mid ? `${tone.tone} mid` : tone.tone } : null;
+export function surfaceTone(value: unknown): SurfaceTone | null {
+  if (typeof value !== 'string' || value.length > 256) return null;
+  return readTone(value) ?? null;
+}
+
+/** The view attributes of an element that paints a kept background; see surfaceToneAttributes. */
+export interface SurfaceToneAttributes {
+  /** `light` or `dark`, followed by `mid` for a mid tone; or `unknown` for a painted value the editor cannot read. */
+  'data-dm-tone': string;
+  /** For `unknown` only: the value as `--dm-tone-surface`, from which the theme computes the text color in CSS. */
+  style?: string;
+}
+
+// Keywords that paint no color of their own: no background, the text's own color, and the CSS-wide keywords
+// (`inherit` paints the parent's background, whose tone the text around it follows already).
+const NO_PAINT = new Set(['transparent', 'currentcolor', 'inherit', 'initial', 'unset', 'revert', 'revert-layer']);
+
+/**
+ * Whether the engine paints `value` as a background color. Where no engine can be asked, as in SSR, the
+ * grammar this reader knows decides for the forms it reads (hex, `rgb()`, `hsl()`): one it cannot read there is
+ * not painted. A keyword or another function it cannot judge counts as painted.
+ */
+function painted(value: string, read: boolean): boolean {
+  const css = (globalThis as { CSS?: { supports?: (property: string, value: string) => boolean } }).CSS;
+  if (typeof css?.supports === 'function') return css.supports('background-color', value);
+  return read || /^(?!(?:rgba?|hsla?)\()[a-z][a-z0-9-]*(?:\(.*\))?$/.test(trim(value).toLowerCase());
+}
+
+// A cell plugin asks again for every shaded cell on each document change; the answer for a value never changes.
+const answers = new Map<string, SurfaceToneAttributes | null>();
+
+/**
+ * The view attributes that mark an element painting `value` as its
+ * background: `data-dm-tone` with `light` or `dark`, followed by `mid` for a
+ * mid tone, and the theme draws text without a color of its own in black or
+ * white on it. A value the browser paints but this reader cannot read, such
+ * as `var()`, `oklch()`, `color-mix()` or a system color, is marked
+ * `unknown` and handed to the theme as `--dm-tone-surface`, from which CSS
+ * computes black or white. Null when the value would not be rendered (it is
+ * not a safe CSS value), when the browser does not paint it (asked through
+ * `CSS.supports` where there is one), when it paints no color of its own
+ * (`transparent`, `currentcolor`, CSS-wide keywords), or when it is
+ * translucent and the surface behind it decides its tone.
+ *
+ * @example
+ * ```ts
+ * surfaceToneAttributes('#002060');      // { 'data-dm-tone': 'dark' }
+ * surfaceToneAttributes('#808080');      // { 'data-dm-tone': 'light mid' }
+ * surfaceToneAttributes('var(--brand)'); // { 'data-dm-tone': 'unknown', style: '--dm-tone-surface: var(--brand)' }
+ * surfaceToneAttributes('url(x)');       // null
+ * ```
+ */
+export function surfaceToneAttributes(value: unknown): SurfaceToneAttributes | null {
+  if (typeof value !== 'string' || !isSafeCssValue(value)) return null;
+  let answer = answers.get(value);
+  if (answer === undefined) {
+    answer = null;
+    const tone = readTone(value);
+    if (painted(value, tone !== undefined)) {
+      if (tone) answer = { 'data-dm-tone': tone.mid ? `${tone.tone} mid` : tone.tone };
+      else if (tone === undefined && !NO_PAINT.has(trim(value).toLowerCase())) answer = { 'data-dm-tone': 'unknown', style: `--dm-tone-surface: ${value}` };
+    }
+    if (answers.size >= 512) answers.clear();
+    answers.set(value, answer);
+  }
+  return answer && { ...answer };
 }

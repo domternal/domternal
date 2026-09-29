@@ -224,6 +224,7 @@ export {
   surfaceTone,
   surfaceToneAttributes,
   type SurfaceTone,
+  type SurfaceToneAttributes,
   generateHTML,
   generateJSON,
   generateText,

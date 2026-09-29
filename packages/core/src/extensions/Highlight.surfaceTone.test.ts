@@ -4,7 +4,7 @@
  * getHTML, the styled export, generateHTML and clipboard HTML stay byte
  * identical.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Plugin } from '@domternal/pm/state';
 import { Highlight } from './Highlight.js';
 import { TextColor } from './TextColor.js';
@@ -63,16 +63,42 @@ describe('Highlight surface tone', () => {
     expect(span?.getAttribute('style')).toBe('background-color: rgb(0, 32, 96);');
   });
 
-  it('gives no tone where the background is not drawn or cannot be read', () => {
+  it('gives no tone where the background is not drawn or the surface behind it decides', () => {
     const editor = mount(doc(
       run('token', { backgroundColorToken: 'yellow' }),
       run('token wins', { backgroundColor: '#002060', backgroundColorToken: 'yellow' }),
       run('unsafe', { backgroundColor: 'url(x)' }),
-      run('variable', { backgroundColor: 'var(--brand)' }),
       run('half', { backgroundColor: 'rgba(0, 0, 255, 0.5)' }),
+      run('clear', { backgroundColor: 'transparent' }),
+      run('legacy mix', { backgroundColor: 'rgb(0, 0, 50%)' }),
+      run('no-break space', { backgroundColor: '#002060\u00a0' }),
       run('text only', { color: '#ff0000' }),
     ));
     expect(tones(editor)).toEqual([]);
+  });
+
+  it('marks a painted background it cannot read unknown, with its value as --dm-tone-surface for the theme, in the view only', () => {
+    const editor = mount(doc(
+      run('variable', { backgroundColor: 'var(--brand, #fef08a)' }),
+      run('oklch', { backgroundColor: 'oklch(0.25 0.1 265)', color: '#ffcc00' }),
+    ));
+    expect(tones(editor)).toEqual(['unknown:variable', 'unknown:oklch']);
+    const [variable, oklch] = Array.from(editor.view.dom.querySelectorAll('[data-dm-tone="unknown"]'));
+    expect(variable?.getAttribute('style')).toBe('background-color: var(--brand, #fef08a); --dm-tone-surface: var(--brand, #fef08a)');
+    expect(oklch?.getAttribute('style')).toContain('color: rgb(255, 204, 0)');
+    expect(oklch?.getAttribute('style')).toContain('--dm-tone-surface: oklch(0.25 0.1 265)');
+    expect(editor.getHTML()).not.toContain('--dm-tone');
+    expect(editor.getHTML()).toContain('background-color: var(--brand, #fef08a)');
+  });
+
+  it('gives no tone to a value the engine does not paint, though it reads one', () => {
+    vi.stubGlobal('CSS', { supports: (_property: string, value: string) => value !== '#00205f' && value !== 'var(--unpainted)' });
+    try {
+      const editor = mount(doc(run('unpainted', { backgroundColor: '#00205f' }), run('unread', { backgroundColor: 'var(--unpainted)' }), run('painted', { backgroundColor: '#00205e' })));
+      expect(tones(editor)).toEqual(['dark:painted']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('keeps an explicit color on the run as authored', () => {
@@ -96,7 +122,11 @@ describe('Highlight surface tone', () => {
     editor.commands.setHighlight({ color: '#000080' });
     expect(tones(editor)).toEqual(['dark:word']);
     editor.commands.setHighlight({ color: 'var(--x)' });
+    expect(tones(editor)).toEqual(['unknown:word']);
+    editor.commands.setHighlight({ color: 'transparent' });
     expect(tones(editor)).toEqual([]);
+    editor.commands.undo();
+    expect(tones(editor)).toEqual(['unknown:word']);
     editor.commands.undo();
     expect(tones(editor)).toEqual(['dark:word']);
     editor.commands.undo();
@@ -110,18 +140,20 @@ describe('Highlight surface tone', () => {
       run('yellow', { backgroundColor: '#fef08a' }),
       run('navy', { backgroundColor: '#002060', color: '#ffffff' }),
       run('token', { backgroundColorToken: 'red' }),
+      run('variable', { backgroundColor: 'var(--brand)' }),
       { type: 'text', text: ' bold', marks: [{ type: 'bold' }] },
     );
     const withTone = mount(content);
     const NoTone = Highlight.extend({ addProseMirrorPlugins: () => [] });
     const without = mount(content, [...base, NoTone]);
-    expect(tones(withTone)).toHaveLength(2);
+    expect(tones(withTone)).toHaveLength(3);
     expect(tones(without)).toEqual([]);
     expect(withTone.getJSON()).toEqual(without.getJSON());
     expect(withTone.getHTML()).toBe(without.getHTML());
     expect(withTone.getHTML({ styled: true })).toBe(without.getHTML({ styled: true }));
     expect(withTone.getHTML()).not.toContain('data-dm-tone');
     expect(withTone.getHTML({ styled: true })).not.toContain('data-dm-tone');
+    expect(withTone.getHTML({ styled: true })).not.toContain('--dm-tone');
     expect(generateHTML(content, [...base, Highlight] as never)).toBe(generateHTML(content, [...base, NoTone] as never));
     expect(generateHTML(content, [...base, Highlight] as never)).not.toContain('data-dm-tone');
     withTone.commands.selectAll();
@@ -130,6 +162,7 @@ describe('Highlight surface tone', () => {
     const plain = without.view.serializeForClipboard(without.state.selection.content());
     expect(copied.dom.innerHTML).toBe(plain.dom.innerHTML);
     expect(copied.dom.innerHTML).not.toContain('data-dm-tone');
+    expect(copied.dom.innerHTML).not.toContain('--dm-tone');
   });
 
   it('renders every other run exactly as ProseMirror does by default', () => {

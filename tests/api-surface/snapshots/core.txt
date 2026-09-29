@@ -327,6 +327,7 @@ SuperscriptOptions
 surfaceTone
 SurfaceTone
 surfaceToneAttributes
+SurfaceToneAttributes
 TaskItem
 TaskItemOptions
 TaskList

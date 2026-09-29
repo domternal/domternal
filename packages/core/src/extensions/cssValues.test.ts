@@ -86,12 +86,15 @@ function rendered(content: JSONContent, list: AnyExtension[] = extensions): Rend
 function expectDeclaration(result: Rendered, property: string): void {
   expect(result.editor).toHaveLength(1);
   expect(result.html).toHaveLength(2);
-  for (const style of [...result.editor, ...result.html]) {
+  for (const [index, style] of [...result.editor, ...result.html].entries()) {
     const element = document.createElement('span');
     element.setAttribute('style', style);
-    expect(element.style.length, style).toBe(1);
+    // The editor view, and only it, hands a highlight it cannot read to the theme as --dm-tone-surface.
+    const surface = index === 0 && element.style.getPropertyValue('--dm-tone-surface') !== '' ? 1 : 0;
+    expect(element.style.length - surface, style).toBe(1);
     expect(element.style.getPropertyValue(property), style).not.toBe('');
   }
+  for (const style of result.html) expect(style).not.toContain('--dm-tone');
 }
 
 /** The style a global attribute renderer of `extension` writes for `attributes`. */

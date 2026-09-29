@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   relativeLuminance,
   surfaceTone,
@@ -156,6 +156,51 @@ describe('surfaceTone', () => {
   it.each([null, undefined, 0, 1, {}, [], true])('has no tone for a stored %j', (value) => {
     expect(surfaceTone(value)).toBeNull();
   });
+
+  // Each of these is a value the browser does not paint (CSS.supports is false in Chromium, Firefox and WebKit),
+  // so a tone for it would draw black or white text on a background that is not there.
+  it.each([
+    // Legacy comma syntax takes three numbers or three percentages, never a mix.
+    'rgb(0, 0, 50%)', 'rgb(100%, 255, 0)', 'rgba(0%, 0, 0, 1)',
+    // Legacy hsl() takes its saturation and lightness as percentages.
+    'hsl(60, 100, 50)', 'hsl(60, 100%, 50)', 'hsla(60, 100, 50%, 1)',
+    // A CSS number never ends in a dot.
+    'rgb(255., 255., 0)', 'rgb(0 0 128 / 1.)', 'hsl(60., 100%, 50%)', 'hsl(60, 100.0%, 50.%)', 'rgba(0, 0, 128, 1.)',
+    // White space CSS does not have, around the value or inside it.
+    'navy\u00a0', '\u00a0navy', 'navy\ufeff', 'navy\u3000', '\u2028#000080', '#000080\u00a0', 'rgb(0,\u00a00, 128)', 'rgb(0\u00a00 128)',
+    'rgb(0 0 128 /\u00a00.5)',
+    // A space between a number and its unit, and commas mixed with spaces.
+    'rgb(0, 0, 50 %)', 'hsl(60 deg 100% 50%)', 'rgb(0, 0 128)', 'rgb(0 0, 128)',
+  ])('has no tone for %j, which no engine paints', (value) => {
+    expect(surfaceTone(value)).toBeNull();
+  });
+
+  it('reads the modern syntax, which mixes numbers and percentages and takes unitless hsl() lightness', () => {
+    expect(surfaceTone('rgb(100% 255 0)')).toEqual(surfaceTone('#ffff00'));
+    expect(surfaceTone('rgb(0 0 50%)')).toEqual(surfaceTone('#000080'));
+    expect(surfaceTone('hsl(60 100 50)')).toEqual(surfaceTone('#ffff00'));
+    expect(surfaceTone('hsl(60deg 100 50)')).toEqual(surfaceTone('#ffff00'));
+    expect(surfaceTone('hsl(240 100% 25 / 1)')).toEqual(surfaceTone('#000080'));
+  });
+
+  it('reads CSS numbers in every form the engines paint, and CSS white space', () => {
+    const navy = surfaceTone('#000080');
+    expect(surfaceTone('rgb(.5, 0, 128)')).toEqual(navy);
+    expect(surfaceTone('rgb(+0, -0, 128)')).toEqual(navy);
+    expect(surfaceTone('rgb(0.0, 0.0, 128.0)')).toEqual(navy);
+    expect(surfaceTone('rgb(00, 00, 0128)')).toEqual(navy);
+    expect(surfaceTone('rgb(0E0 0e+0 1.28e2)')).toEqual(navy);
+    expect(surfaceTone('rgba(0, 0, 128, .95)')).toEqual(navy);
+    expect(surfaceTone('rgba(0, 0, 128, 95%)')).toEqual(navy);
+    expect(surfaceTone('rgb(0%, 0%, 50.2%)')).toEqual(navy);
+    expect(surfaceTone('hsl(+240, 100%, 25%)')).toEqual(navy);
+    expect(surfaceTone('hsl(2.4e2, 100%, 25%)')).toEqual(navy);
+    expect(surfaceTone('rgb( 0 , 0 , 128 )')).toEqual(navy);
+    expect(surfaceTone('rgb(0 0 128/1)')).toEqual(navy);
+    expect(surfaceTone('\t navy\n')).toEqual(navy);
+    expect(surfaceTone('rgb(0\t0\n128)')).toEqual(navy);
+    expect(surfaceTone('rgb(0,\r\f0, 128)')).toEqual(navy);
+  });
 });
 
 describe('surfaceToneAttributes', () => {
@@ -170,8 +215,58 @@ describe('surfaceToneAttributes', () => {
     expect(surfaceToneAttributes('red;position:fixed')).toBeNull();
     expect(surfaceToneAttributes('url(x)')).toBeNull();
     expect(surfaceToneAttributes(' ')).toBeNull();
-    expect(surfaceToneAttributes('var(--brand)')).toBeNull();
     expect(surfaceToneAttributes(42)).toBeNull();
+  });
+
+  it('marks a painted value it cannot read unknown and hands its value to the theme as --dm-tone-surface', () => {
+    for (const value of ['var(--brand)', 'var(--x, #fef08a)', 'oklch(0.97 0.21 110)', 'hwb(60 0% 0%)', 'color-mix(in srgb, yellow 60%, white)',
+      'lab(50% 40 59.5)', 'color(srgb 1 0 0)', 'light-dark(#fff, #000)', 'Mark', 'Canvas', ' ButtonFace ']) {
+      expect(surfaceToneAttributes(value), value).toEqual({ 'data-dm-tone': 'unknown', style: `--dm-tone-surface: ${value}` });
+    }
+  });
+
+  it('trusts its own grammar where no engine can be asked: a hex, rgb() or hsl() value it cannot read paints nothing', () => {
+    for (const value of ['rgb(0, 0, 50%)', 'hsl(240, 100, 20)', '#002060\u00a0', 'navy\u00a0', '#00f0f', 'rgb(none 0 64)', 'rgba(calc(1), 0, 0)', '12px']) {
+      expect(surfaceToneAttributes(value), value).toBeNull();
+    }
+  });
+
+  it('leaves a value that paints nothing of its own, or whose tone the surface behind it decides, unmarked', () => {
+    for (const value of ['transparent', 'TRANSPARENT', 'currentcolor', 'currentColor', 'inherit', 'initial', 'unset', 'revert', 'revert-layer', ' transparent ']) {
+      expect(surfaceToneAttributes(value), value).toBeNull();
+    }
+    // Translucent with a tone over white and the other over black: the theme's text around it stays.
+    expect(surfaceToneAttributes('#0000ff80')).toBeNull();
+    expect(surfaceToneAttributes('rgba(0, 0, 0, 0.5)')).toBeNull();
+    expect(surfaceToneAttributes('rgba(0, 0, 0, 0)')).toBeNull();
+  });
+
+  describe('in an engine that reports what it paints', () => {
+    afterEach(() => { vi.unstubAllGlobals(); });
+    const engine = (painted: (value: string) => boolean): void => {
+      vi.stubGlobal('CSS', { supports: (property: string, value: string) => property === 'background-color' && painted(value) });
+    };
+
+    it('marks no value the engine does not paint, whether it reads a tone in it or not', () => {
+      engine((value) => !value.includes('50%') && !value.startsWith('mystery'));
+      expect(surfaceToneAttributes('#002060')).toEqual({ 'data-dm-tone': 'dark' });
+      expect(surfaceToneAttributes('rgb(0 0 50%)')).toBeNull();
+      expect(surfaceToneAttributes('mystery-color')).toBeNull();
+      expect(surfaceToneAttributes('oklch(0.5 0.1 200)')).toEqual({ 'data-dm-tone': 'unknown', style: '--dm-tone-surface: oklch(0.5 0.1 200)' });
+    });
+
+    it('marks a form it reads but the engine paints from a component it does not read, `none` or calc(), unknown', () => {
+      engine(() => true);
+      expect(surfaceToneAttributes('rgb(none 0 128)')).toEqual({ 'data-dm-tone': 'unknown', style: '--dm-tone-surface: rgb(none 0 128)' });
+      expect(surfaceToneAttributes('rgb(calc(1) 0 0)')).toEqual({ 'data-dm-tone': 'unknown', style: '--dm-tone-surface: rgb(calc(1) 0 0)' });
+    });
+
+    it('asks the engine about the exact value it renders', () => {
+      const asked: string[] = [];
+      engine((value) => { asked.push(value); return true; });
+      surfaceToneAttributes(' #FEF08A ');
+      expect(asked).toEqual([' #FEF08A ']);
+    });
   });
 
   it('is exported from the package root', () => {

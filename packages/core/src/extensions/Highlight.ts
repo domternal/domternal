@@ -92,7 +92,9 @@ export const highlightSurfaceToneKey = new PluginKey('highlightSurfaceTone');
  * A textStyle mark view that renders exactly what ProseMirror renders by
  * default, and adds `data-dm-tone` when the mark draws its own background
  * color: light or dark, and mid for a mid tone (surfaceToneAttributes). The
- * theme draws text without a color of its own in black or white on it. It
+ * theme draws text without a color of its own in black or white on it. A
+ * painted color the editor cannot read is marked `unknown`, and its value
+ * goes to the theme as `--dm-tone-surface` after the run's own style. It
  * lives in the view only, so stored content, getHTML, generateHTML and
  * clipboard HTML never carry it. A textStyle mark view an application
  * registers in a plugin of higher priority takes its place.
@@ -106,7 +108,12 @@ function surfaceToneMarkView(mark: PMMark, view: EditorView, inline: boolean): M
   const rendered = render(view.dom.ownerDocument, toDOM ? toDOM(mark, inline) : ['span', 0], null, mark.attrs);
   const tone = mark.attrs['backgroundColorToken'] ? null : surfaceToneAttributes(mark.attrs['backgroundColor']);
   // An element node; the default rendering of a mark always is one.
-  if (tone && rendered.dom.nodeType === 1) (rendered.dom as Element).setAttribute('data-dm-tone', tone['data-dm-tone']);
+  if (tone && rendered.dom.nodeType === 1) {
+    const element = rendered.dom as Element;
+    element.setAttribute('data-dm-tone', tone['data-dm-tone']);
+    const style = element.getAttribute('style')?.replace(/[\s;]+$/, '');
+    if (tone.style) element.setAttribute('style', style ? `${style}; ${tone.style}` : tone.style);
+  }
   const dom = rendered.dom as HTMLElement;
   return rendered.contentDOM ? { dom, contentDOM: rendered.contentDOM } : { dom };
 }
