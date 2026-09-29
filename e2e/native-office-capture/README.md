@@ -140,7 +140,12 @@ path this evidence is meant to show.
   mark, a text style value, an alignment, a line spacing or a cell shading the
   specification does not author is a problem, and a kept text style must be the
   one Word shows. A result without the attribute, such as the default schema
-  without LineHeight, has no spacing to compare; the notice reports it. Given the
+  without LineHeight, has no spacing to compare; the notice reports it. A stored
+  line height must be a plain ratio, the only form LineHeight renders: a
+  percentage or a length stays in the document without changing the spacing, so
+  it is a problem. HTML white space reads as the editor parses it, one space
+  for each run of it, so a source line Word wraps inside an item's text does not
+  separate the item from its marker. Given the
   destination's profile (its mark types and textStyle attributes, which the
   browser regression reads from the live schema), a mark or text style the
   destination cannot hold is expected absent rather than missing, and one that
@@ -183,8 +188,9 @@ Word for Mac to Safari, Chrome and Firefox (record the exact versions at capture
 time), for every `word-*` scenario and the `domternal-own-copy` scenario, with
 both preserve and adapt. Safari is captured; Chrome and Firefox are next. A
 selection that a scenario names as a separate one, such as
-`word-headings-styles-b06`, has a scenario of its own, which `capturedAs` maps to
-the scenario an earlier capture recorded. Windows, Word on the web and
+`word-headings-styles-b06`, has a scenario of its own. Its capture may record that
+scenario, as the Chrome and Firefox captures do, or the one `capturedAs` names, as
+the Safari captures do. Windows, Word on the web and
 LibreOffice stay unqualified and Google Docs pending in the
 [support matrix](./SUPPORT-MATRIX.md).
 

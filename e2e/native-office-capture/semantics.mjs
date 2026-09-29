@@ -111,6 +111,29 @@ const BLOCK_TAGS = new Set(['p', 'div', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
 const INLINE_MARKS = Object.freeze({ strong: 'bold', b: 'bold', em: 'italic', i: 'italic', u: 'underline', s: 'strike', del: 'strike', sub: 'subscript', sup: 'superscript', mark: 'highlight' });
 const STYLE_ATTRIBUTES = Object.freeze({ 'font-family': 'fontFamily', 'font-size': 'fontSize', color: 'color', 'background-color': 'backgroundColor' });
 
+/**
+ * The runs of a textblock with HTML white space read as ProseMirror's parser reads it outside `pre`: each run of
+ * it is one space, none at the start of the block, after a line break or after a space, and none at its end. Word's
+ * raw HTML wraps source lines inside text, which a reader and the editor see as a space. A no-break space stays.
+ */
+function parsedWhiteSpace(runs) {
+  const parsed = [];
+  let afterSpace = true;
+  for (const run of runs) {
+    if (run.lineBreak) { parsed.push({ text: '\n', marks: run.marks }); afterSpace = true; continue; }
+    let text = run.text.replace(/[\t\n\f\r ]+/gu, ' ');
+    if (afterSpace && text.startsWith(' ')) text = text.slice(1);
+    if (text === '') continue;
+    afterSpace = text.endsWith(' ');
+    parsed.push({ text, marks: run.marks });
+  }
+  const last = parsed.at(-1);
+  if (last !== undefined && last.text !== '\n' && last.text.endsWith(' ')) {
+    if (last.text === ' ') parsed.pop(); else parsed[parsed.length - 1] = { ...last, text: last.text.slice(0, -1) };
+  }
+  return parsed;
+}
+
 /** Flat blocks from normalized HTML, the same model; span styles become a text style mark as the editor parses them. */
 export function blocksFromHTML(html) {
   const { parseFragment } = cleanupRequire('parse5');
@@ -138,7 +161,7 @@ export function blocksFromHTML(html) {
   const inline = (node, marks, runs, images) => {
     for (const child of node.childNodes ?? []) {
       if (child.nodeName === '#text') runs.push({ text: child.value, marks });
-      else if (child.tagName === 'br') runs.push({ text: '\n', marks: [] });
+      else if (child.tagName === 'br') runs.push({ text: '\n', marks: [], lineBreak: true });
       else if (child.tagName === 'img') images.push(child);
       else if (child.tagName) inline(child, withMarks(child, marks), runs, images);
     }
@@ -150,7 +173,8 @@ export function blocksFromHTML(html) {
     const runs = [];
     const images = [];
     for (const child of nodes) inline({ childNodes: [child] }, [], runs, images);
-    const text = runs.map(run => run.text).join('');
+    const parsed = parsedWhiteSpace(runs);
+    const text = parsed.map(run => run.text).join('');
     const inItem = context.list !== undefined && context.first === true;
     blocks.push({
       type: empty(text) ? 'empty' : tag === 'p' ? inItem ? 'listItem' : context.cell ? 'tableCell' : 'paragraph' : 'heading',
@@ -158,7 +182,7 @@ export function blocksFromHTML(html) {
       ...(inItem ? { list: context.list } : {}),
       ...(context.cell ? { cell: context.cell } : {}),
       ...(context.list !== undefined && !inItem ? { insideListItem: true } : {}),
-      lineHeight, align, text, runs,
+      lineHeight, align, text, runs: parsed,
     });
     for (const child of images) image(child, context);
   };
@@ -464,6 +488,9 @@ function runExhaustiveness(block, found, where, problems, formatting, exhaustive
   }
 }
 
+/** Whether a stored line height is none or a plain ratio, the only form the destination's LineHeight renders. */
+const renderedLineHeight = value => value === undefined || value === null || value === '' || /^\d+(?:\.\d+)?$/u.test(String(value).trim());
+
 /** A line height as a number: a ratio, or a percentage of the font size. Undefined for a length, which no ratio can equal. */
 function lineHeightNumber(value) {
   if (value === undefined || value === null || value === '') return null;
@@ -482,8 +509,10 @@ function blockFormatting(block, found, where, problems, formatting, tables, exha
   // A result without the attribute, as the default schema without LineHeight, has no spacing to compare: the notice reports it.
   if (exhaustive && Object.hasOwn(found, 'lineHeight')) {
     const expected = preserve && block.lineHeight !== undefined ? lineHeightNumber(block.lineHeight) : null;
-    const actual = lineHeightNumber(found.lineHeight);
-    if (actual !== expected) problems.push(`${where}: line height is ${found.lineHeight ?? 'none'}, expected ${expected === null ? 'none' : String(block.lineHeight)}`);
+    const shown = expected === null ? 'none' : String(block.lineHeight);
+    // The editor stores the value it parses, and LineHeight draws a plain ratio only: a percentage or a length stays in the document unrendered.
+    if (!renderedLineHeight(found.lineHeight)) problems.push(`${where}: line height is ${String(found.lineHeight)}, which the destination does not render; expected ${shown}`);
+    else if (lineHeightNumber(found.lineHeight) !== expected) problems.push(`${where}: line height is ${found.lineHeight ?? 'none'}, expected ${shown}`);
   }
   if (block.cell !== undefined && found.cell !== undefined) {
     if (exhaustive && Object.hasOwn(found.cell, 'background')) {
@@ -672,9 +701,10 @@ export function checkScenario(spec, scenarioId, input, options = {}) {
     // Replay the captured HTML exactly as the offline verifier does: no remote images, data images allowed.
     const html = input.payload?.text?.['text/html'];
     if (input.status !== 'complete' || typeof html !== 'string') throw new Error('The capture bundle is incomplete or has no text/html');
-    // A separate selection of a scenario was captured under that scenario's name, which capturedAs gives.
-    const recorded = expectedBlocks(spec, scenarioId).scenario.capturedAs ?? scenarioId;
-    if (input.operator?.scenario !== recorded) problems.push(`capture: recorded scenario is ${String(input.operator?.scenario)}, expected ${recorded}`);
+    // A separate selection of a scenario is recorded under its own name or, as Safari's were, under the name capturedAs gives.
+    const { capturedAs } = expectedBlocks(spec, scenarioId).scenario;
+    const recorded = capturedAs === undefined ? [scenarioId] : [scenarioId, capturedAs];
+    if (!recorded.includes(input.operator?.scenario)) problems.push(`capture: recorded scenario is ${String(input.operator?.scenario)}, expected ${recorded.join(' or ')}`);
     const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
     const result = normalizePasteHTML(html, { formatting, allowRemoteImages: false, allowDataImages: true });
     replay = { html: result.html, diagnostics: result.diagnostics };

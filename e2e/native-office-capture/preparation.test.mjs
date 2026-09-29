@@ -167,6 +167,60 @@ test('replayed HTML is checked with the same block model, including per item alp
   assert.equal(blocksFromHTML('<ul><li><p>x</p><p>y</p></li></ul>')[1].insideListItem, true);
 });
 
+test('the HTML model reads white space as the editor parses it, so a line Word wraps inside an item keeps its marker run apart', () => {
+  const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
+  // English authored variant of the raw Word Chrome/Firefox shape (word-unsupported-list-profiles, L66), with a
+  // wrapped source line inside the item text. The picture's local temporary path is left out of the excerpt.
+  const html = '<style>@list l0:level1 {mso-level-number-format:image;mso-level-text:;font-family:Symbol;color:windowtext;}</style>'
+    + "<p class=MsoListParagraphCxSpMiddle style='text-indent:-18.0pt;mso-list:l0 level1 lfo4'><![if !supportLists]><span\r\n"
+    + "style='font-family:Symbol;mso-fareast-font-family:Symbol;mso-bidi-font-family:\r\nSymbol'><span style='mso-list:Ignore'><img width=10 height=10\r\n"
+    + 'src="clip_image001.png"\r\nalt="*"><span style=\'font:7.0pt "Times New Roman"\'>&nbsp;&nbsp;&nbsp; </span></span></span><![endif]>L66\r\n'
+    + 'Picture bullet<o:p></o:p></p>';
+  const specification = { documents: [{ textStyle: { fontFamily: 'Aptos', fontSize: '12pt' },
+    blocks: [{ id: 'L66', type: 'literalItem', wordLabel: 'picture', text: 'L66 Picture bullet' }] }],
+  scenarios: [{ id: 'picture-bullet', blocks: ['L66'], outcome: { notice: 'observe' } }] };
+  const result = normalizePasteHTML(html, { formatting: 'preserve', allowRemoteImages: false, allowDataImages: true });
+  const [block] = blocksFromHTML(result.html);
+  assert.match(block.text, /L66 Picture bullet$/u);
+  // The marker run keeps the font of its list level; only the item's own text is checked for formatting.
+  assert.deepEqual(compareBlocks(specification, 'picture-bullet', blocksFromHTML(result.html)), []);
+  // Runs of HTML white space read as one space, none at the start or end of a block or after a space, as ProseMirror parses them.
+  assert.equal(blocksFromHTML('<p>\n  B03 <b> Lowercase</b>\r\n\tletters  </p>')[0].text, 'B03 Lowercase letters');
+  assert.equal(blocksFromHTML('<p>a<br>\n b</p>')[0].text, 'a\nb');
+  // A no-break space is no HTML white space: it stays.
+  assert.equal(blocksFromHTML('<p>10  kg</p>')[0].text, '10  kg');
+});
+
+test('a capture of a separate selection may record its own scenario or the one it was captured as', async () => {
+  const bundle = JSON.parse(await readFile(join(here, 'fixtures/word-headings-styles-b06-safari/capture.json'), 'utf8'));
+  assert.equal(bundle.operator.scenario, 'word-headings-styles');
+  assert.deepEqual(checkScenario(spec, 'word-headings-styles-b06', bundle).problems, []);
+  // Chrome and Firefox record the selection's own scenario.
+  const own = { ...bundle, operator: { ...bundle.operator, scenario: 'word-headings-styles-b06' } };
+  assert.deepEqual(checkScenario(spec, 'word-headings-styles-b06', own).problems, []);
+  const other = { ...bundle, operator: { ...bundle.operator, scenario: 'word-headings-styles-b08' } };
+  assert.match(checkScenario(spec, 'word-headings-styles-b06', other).problems.join('\n'), /capture: recorded scenario is word-headings-styles-b08, expected word-headings-styles-b06 or word-headings-styles/u);
+});
+
+test('a stored line height must be a ratio the destination renders, not a percentage or a length it keeps unrendered', () => {
+  const doc = lineHeight => {
+    const result = syntheticEditorResult(spec, 'word-alignment-spacing', 'preserve').doc;
+    for (const block of result.content) block.attrs = { ...block.attrs, lineHeight: /^B12/u.test(block.content?.[0]?.text ?? '') ? lineHeight : null };
+    return result;
+  };
+  assert.deepEqual(compareBlocks(spec, 'word-alignment-spacing', blocksFromEditorJSON(doc('1.5'))), []);
+  // LineHeight renders only its listed ratios: 150 % is stored and never drawn, so B12 shows the editor's default spacing.
+  assert.match(compareBlocks(spec, 'word-alignment-spacing', blocksFromEditorJSON(doc('150%'))).join('\n'), /B12: line height is 150%, which the destination does not render; expected 1\.5/u);
+  assert.match(compareBlocks(spec, 'word-alignment-spacing', blocksFromEditorJSON(doc('24px'))).join('\n'), /B12: line height is 24px, which the destination does not render/u);
+  // Replayed HTML is what the editor parses and stores, so the same holds there.
+  const html = '<h3>B08 Alignment and spacing</h3><p style="text-align:center">B09 Centered paragraph.</p><p style="text-align:right">B10 Right-aligned paragraph.</p>'
+    + `<p style="text-align:justify">${blocksById(spec).get('B11').text}</p><p style="line-height:150%">B12 Paragraph with 1.5 line spacing.</p>`;
+  const styled = (source, value) => source.replace('line-height:150%', `line-height:${value}`);
+  assert.match(compareBlocks(spec, 'word-alignment-spacing', blocksFromHTML(html)).join('\n'), /B12: line height is 150%, which the destination does not render/u);
+  assert.doesNotMatch(compareBlocks(spec, 'word-alignment-spacing', blocksFromHTML(styled(html, '1.5'))).join('\n'), /B12/u);
+  assert.match(compareBlocks(spec, 'word-alignment-spacing', blocksFromHTML(styled(html, '2'))).join('\n'), /B12: line height is 2, expected 1\.5/u);
+});
+
 async function claimedFixture(t) {
   const base = await mkdtemp(join(tmpdir(), 'domternal-prepare-fixture-'));
   t.after(() => rm(base, { recursive: true, force: true }));
@@ -354,7 +408,8 @@ test('the HTML model reads Google Docs list nesting, cell spans, links, text sty
   assert.deepEqual(blocks.slice(4, 6).map(block => [block.cell.colspan, block.cell.rowspan]), [[2, 1], [1, 2]]);
   assert.deepEqual(blocks[6].runs[0].marks.map(mark => mark.type), ['link', 'textStyle', 'underline']);
   assert.equal(blocks[6].runs[0].marks[1].attrs.fontFamily, 'Arial,sans-serif');
-  assert.deepEqual(blocks.slice(7).map(block => [block.type, block.text]), [['paragraph', 'GI02 '], ['image', 'GI03 alt']]);
+  // The space before the image ends the paragraph's text, which the editor's parse drops, as it drops any at a block's end.
+  assert.deepEqual(blocks.slice(7).map(block => [block.type, block.text]), [['paragraph', 'GI02'], ['image', 'GI03 alt']]);
   assert.equal(blocks[8].src, 'https');
   assert.deepEqual(imageInventory('<img src="https://a.invalid/x" alt=""><p><img src="data:image/png;base64,AA" alt="b"><img></p>'),
     { count: 3, withAlt: 1, schemes: { https: 1, data: 1, none: 1 } });
