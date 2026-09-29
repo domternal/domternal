@@ -140,9 +140,12 @@ path this evidence is meant to show.
   mark, a text style value, an alignment, a line spacing or a cell shading the
   specification does not author is a problem, and a kept text style must be the
   one Word shows. A result without the attribute, such as the default schema
-  without LineHeight, has no spacing to compare; the notice reports it. A capture
-  replayed offline has no destination, so warnings only a destination reports are
-  not required of it. It never compares exact HTML and never qualifies. `--dry-run <content.json>` checks a synthetic
+  without LineHeight, has no spacing to compare; the notice reports it. Given the
+  destination's profile (its mark types and textStyle attributes, which the
+  browser regression reads from the live schema), a mark or text style the
+  destination cannot hold is expected absent rather than missing, and one that
+  is there anyway is a problem. A capture replayed offline has no destination,
+  so warnings only a destination reports are not required of it. It never compares exact HTML and never qualifies. `--dry-run <content.json>` checks a synthetic
   result built from the specification for every scenario and both policies, and
   `--print <content.json>` lists the texts an operator enters.
 - [`prepare-fixture.mjs`](./prepare-fixture.mjs) checks a downloaded bundle's
@@ -247,7 +250,8 @@ Safari ones were; nothing in the tooling is specific to a browser:
    for the selection, author the outcome of each policy (`expected.preserve` and
    `expected.adapt`: the status, the source, the sorted warning and error codes
    of the offline replay, and the notice and codes of the fixture editor with
-   its default schema, or with every capability where the content needs it) from
+   its default schema, or with every capability where the content needs it, or a
+   list with one entry per schema to pin the fixture in both) from
    the specification and the reviewed editor results, never by copying
    normalizer output, delete `redactions.json` once the manifest holds it, and
    run `node e2e/native-office-capture/offline.mjs` on the directory. Keep
@@ -499,7 +503,8 @@ holds a semantic oracle instead: the blocks the content specification authors
 for the selection, and for each policy the status, the source and the sorted
 warning and error codes, which the replay must match exactly, with the block
 model of [`semantics.mjs`](./semantics.mjs) rather than exact HTML, plus the
-notice and codes the fixture editor regression checks. A Word package source is
+notice and codes the fixture editor regression checks, as one outcome or a list
+with one outcome per editor schema; the regression runs once per entry. A Word package source is
 read as a bounded ZIP only when a redaction is declared for it. Relative
 artifact paths reject traversal, absolute paths and symlinks escaping that root.
 Symlinks resolving within the selected root are allowed. The tool is local

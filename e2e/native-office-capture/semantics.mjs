@@ -367,7 +367,19 @@ function markRange(block, expected) {
   return { from, to: from + expected.text.length };
 }
 
-function markCoverage(block, expected, where, problems, formatting) {
+/**
+ * Whether the destination's schema can hold a semantic mark of the specification: its mark type, or a highlight as a
+ * textStyle background. Without a destination profile, as for HTML from the offline replay, every mark is held.
+ */
+function destinationHolds(destination, name) {
+  if (destination === undefined) return true;
+  if (name === 'highlight') return destination.marks.includes('textStyle') && destination.textStyle.includes('backgroundColor');
+  if (name === 'link') return destination.marks.includes('link');
+  return destination.marks.includes(MARKS[name]);
+}
+const destinationStyle = (destination, key) => destination === undefined || (destination.marks.includes('textStyle') && destination.textStyle.includes(key));
+
+function markCoverage(block, expected, where, problems, formatting, destination) {
   // A mark expectation can name the one policy it belongs to, for example a highlight that adapt removes.
   if (expected.formatting !== undefined && expected.formatting !== formatting) return;
   const range = markRange(block, expected);
@@ -380,15 +392,18 @@ function markCoverage(block, expected, where, problems, formatting) {
     const names = run.marks.map(mark => mark.type);
     // Core keeps highlighting as a text style background; HTML keeps it as mark or background color.
     const background = run.marks.some(mark => mark.type === 'textStyle' && typeof mark.attrs?.backgroundColor === 'string');
+    // A mark the destination cannot hold is expected absent; runExhaustiveness reports one that is there.
     for (const mark of expected.marks ?? []) {
+      if (!destinationHolds(destination, mark)) continue;
       if (!names.includes(MARKS[mark]) && !(mark === 'highlight' && background)) problems.push(`${where}: ${JSON.stringify(expected.text)} lacks ${mark}`);
     }
-    if (expected.link !== undefined && !run.marks.some(mark => mark.type === 'link' && mark.attrs?.href === expected.link)) {
+    if (expected.link !== undefined && destinationHolds(destination, 'link') && !run.marks.some(mark => mark.type === 'link' && mark.attrs?.href === expected.link)) {
       problems.push(`${where}: ${JSON.stringify(expected.text)} is not a link to ${expected.link}`);
     }
     if (expected.style && formatting === 'preserve') {
       const attrs = run.marks.find(mark => mark.type === 'textStyle')?.attrs ?? {};
       for (const [key, value] of Object.entries(expected.style)) {
+        if (!destinationStyle(destination, key)) continue;
         if (styleValue(key, attrs[key]) !== styleValue(key, value)) problems.push(`${where}: ${JSON.stringify(expected.text)} ${key} is ${String(attrs[key])}, expected ${value}`);
       }
     }
@@ -413,7 +428,7 @@ function runMarks(run) {
  * block's style under the expectations that cover it. A kept value is checked, an absent one is not: the
  * editor's default stands in for a style the copy does not carry inline, and the notice reports real losses.
  */
-function runExhaustiveness(block, found, where, problems, formatting, exhaustive = true) {
+function runExhaustiveness(block, found, where, problems, formatting, exhaustive = true, destination = undefined) {
   if (!exhaustive) return;
   const expectations = (block.marks ?? []).filter(mark => mark.formatting === undefined || mark.formatting === formatting)
     .map(mark => ({ mark, range: markRange(found, mark) })).filter(entry => entry.range !== undefined);
@@ -431,14 +446,19 @@ function runExhaustiveness(block, found, where, problems, formatting, exhaustive
     const allowed = new Set(covering.flatMap(({ mark }) => [...(mark.marks ?? []), ...(mark.link === undefined ? [] : ['link']),
       ...(mark.style?.backgroundColor === undefined ? [] : ['highlight'])]));
     const label = JSON.stringify(run.text.trim().slice(0, 40));
-    for (const name of runMarks(run)) if (!allowed.has(name)) problems.push(`${where}: ${label} is ${name === 'link' ? 'a link' : name}, which the source is not`);
+    for (const name of runMarks(run)) {
+      const shown = name === 'link' ? 'a link' : name;
+      if (!destinationHolds(destination, name)) problems.push(`${where}: ${label} is ${shown}, which the destination lacks`);
+      else if (!allowed.has(name)) problems.push(`${where}: ${label} is ${shown}, which the source is not`);
+    }
     if (formatting !== 'preserve' || block.textStyle === undefined) continue;
     const expected = Object.assign({}, block.textStyle, ...covering.map(({ mark }) => mark.style ?? {}));
     const attrs = run.marks.find(mark => mark.type === 'textStyle')?.attrs ?? {};
     for (const key of ADAPTED_STYLES) {
       const value = attrs[key];
       if (value === undefined || value === null || value === '') continue;
-      if (expected[key] === undefined) problems.push(`${where}: ${label} ${key} is ${String(value)}, expected none`);
+      if (!destinationStyle(destination, key)) problems.push(`${where}: ${label} ${key} is ${String(value)}, which the destination lacks`);
+      else if (expected[key] === undefined) problems.push(`${where}: ${label} ${key} is ${String(value)}, expected none`);
       else if (styleValue(key, value) !== styleValue(key, expected[key])) problems.push(`${where}: ${label} ${key} is ${String(value)}, expected ${String(expected[key])}`);
     }
   }
@@ -497,7 +517,7 @@ function blockFormatting(block, found, where, problems, formatting, tables, exha
 const spacesDiffer = (left, right) => left !== right && left.replace(/\u00a0/gu, ' ') === right.replace(/\u00a0/gu, ' ');
 
 /** Problems between the authored scenario and actual blocks. An empty list means the capture matches. */
-export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'preserve' } = {}) {
+export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'preserve', destination } = {}) {
   const { scenario, expected } = expectedBlocks(spec, scenarioId);
   const problems = [];
   const actual = [...actualBlocks];
@@ -561,7 +581,7 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     if (partialFirst || partialLast) {
       const text = partialFirst ? scenario.partial.first : scenario.partial.last;
       if (normalizeText(found.text) !== text) problems.push(`${block.id}: partial text is ${JSON.stringify(found.text)}, expected ${JSON.stringify(text)}`);
-      runExhaustiveness({ textStyle: block.textStyle }, found, block.id, problems, formatting, exhaustive);
+      runExhaustiveness({ textStyle: block.textStyle }, found, block.id, problems, formatting, exhaustive, destination);
       return;
     }
     if (block.type === 'empty') return;
@@ -569,13 +589,13 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
       if (found.type === 'listItem' || !normalizeText(found.text).endsWith(block.text) || normalizeText(found.text) === block.text) {
         problems.push(`${block.id}: expected a literal paragraph that keeps its visible marker`);
       }
-      runExhaustiveness(block, found, block.id, problems, formatting, exhaustive);
+      runExhaustiveness(block, found, block.id, problems, formatting, exhaustive, destination);
       return;
     }
     if (block.type === 'textOnly') {
       // A profile without an expected structure: its text arrives in order, with or without a visible marker.
       if (!normalizeText(found.text).endsWith(block.text)) problems.push(`${block.id}: text is ${JSON.stringify(normalizeText(found.text))}, expected it to end with ${JSON.stringify(block.text)}`);
-      runExhaustiveness(block, found, block.id, problems, formatting, exhaustive);
+      runExhaustiveness(block, found, block.id, problems, formatting, exhaustive, destination);
       return;
     }
     const type = block.type === 'heading' ? 'heading' : block.type;
@@ -599,8 +619,8 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
         .flatMap(mark => ADAPTED_STYLES.filter(key => mark.attrs?.[key]))));
       for (const key of kept) problems.push(`${block.id}: adapt kept ${key}`);
     }
-    for (const mark of block.marks ?? []) markCoverage(found, mark, block.id, problems, formatting);
-    runExhaustiveness(block, found, block.id, problems, formatting, exhaustive);
+    for (const mark of block.marks ?? []) markCoverage(found, mark, block.id, problems, formatting, destination);
+    runExhaustiveness(block, found, block.id, problems, formatting, exhaustive, destination);
   });
   // Everything else the paste added: blocks the selection does not hold, text without an identifier, empty paragraphs.
   const excluded = new Set(scenario.excluded ?? []);

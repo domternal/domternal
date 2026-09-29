@@ -62,6 +62,35 @@ test('the large Word source is deterministic, about ten thousand words, and pinn
   assert.equal(spec.documents.find(document => document.file === 'word-mac-v1-large.docx')?.blocks[0]?.tokens, first.tokens.length);
 });
 
+test('a destination without a mark or text style the source used expects it absent and checks everything else', async () => {
+  const manifest = JSON.parse(await readFile(join(here, 'fixtures/word-inline-formatting-safari/manifest.json'), 'utf8'));
+  const specification = semanticSpecification(manifest.expected);
+  const scenario = manifest.expected.scenario;
+  const without = (doc, names) => JSON.parse(JSON.stringify(doc), (key, value) => (key === 'marks' && Array.isArray(value)
+    ? value.filter(mark => !names.includes(mark.type)) : value));
+  // The fixture editor's default schema: no subscript or superscript, every text style.
+  const destination = { marks: ['bold', 'italic', 'underline', 'strike', 'link', 'code', 'textStyle'], textStyle: ['color', 'backgroundColor', 'fontFamily', 'fontSize'] };
+  for (const formatting of ['preserve', 'adapt']) {
+    const full = syntheticEditorResult(specification, scenario, formatting).doc;
+    assert.deepEqual(compareBlocks(specification, scenario, blocksFromEditorJSON(full), { formatting }), [], formatting);
+    const lacking = without(full, ['subscript', 'superscript']);
+    // Without a destination profile the missing marks are findings, which a default schema paste could never pass.
+    assert.match(compareBlocks(specification, scenario, blocksFromEditorJSON(lacking), { formatting }).join('\n'), /lacks subscript/u);
+    assert.deepEqual(compareBlocks(specification, scenario, blocksFromEditorJSON(lacking), { formatting, destination }), [], formatting);
+    // A run that keeps a mark the destination lacks is a finding, and a mark it holds is still required.
+    assert.match(compareBlocks(specification, scenario, blocksFromEditorJSON(full), { formatting, destination }).join('\n'), /"2" is subscript, which the destination lacks/u);
+    assert.match(compareBlocks(specification, scenario, blocksFromEditorJSON(without(lacking, ['bold'])), { formatting, destination }).join('\n'), /lacks bold/u);
+  }
+  // A destination without a text style attribute expects that style absent, and a kept one is a finding.
+  const noFonts = { ...destination, marks: [...destination.marks, 'subscript', 'superscript'], textStyle: ['color', 'backgroundColor'] };
+  const preserved = syntheticEditorResult(specification, scenario, 'preserve').doc;
+  const findings = compareBlocks(specification, scenario, blocksFromEditorJSON(preserved), { formatting: 'preserve', destination: noFonts });
+  assert.ok(findings.length > 0 && findings.every(problem => /fontFamily|fontSize/u.test(problem)), findings.join('\n'));
+  const unstyled = JSON.parse(JSON.stringify(preserved), (key, value) => (value && typeof value === 'object' && value.type === 'textStyle'
+    ? { ...value, attrs: Object.fromEntries(Object.entries(value.attrs ?? {}).filter(([name]) => !['fontFamily', 'fontSize'].includes(name))) } : value));
+  assert.deepEqual(compareBlocks(specification, scenario, blocksFromEditorJSON(unstyled), { formatting: 'preserve', destination: noFonts }), []);
+});
+
 test('a generated large document is checked by consecutive tokens from its start', () => {
   const doc = count => ({ type: 'doc', content: Array.from({ length: count }, (_, index) => paragraph(text(`G${String(index + 1).padStart(5, '0')} text`))) });
   assert.deepEqual(compareBlocks(spec, 'word-large-document', blocksFromEditorJSON(doc(300))), []);

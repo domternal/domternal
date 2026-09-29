@@ -136,6 +136,10 @@ What the captures show and the fixtures pin:
   Word's 12 pt arrives as WebKit's `medium`, the editor's default size. A copy in
   Chrome or Firefox may carry fewer styles, since cleanup resolves no
   stylesheet; that is for their rows to show.
+- B07 is pinned in both the editor's default schema and the full one. The
+  default schema has no Subscript or Superscript, so the 2 of H2O and of x2
+  paste without them, the oracle expects them absent there, and the visible
+  notice reports `destination-formatting-unconfirmed` in both policies.
 
 Limits of this row:
 

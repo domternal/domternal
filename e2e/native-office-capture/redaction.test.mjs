@@ -434,3 +434,15 @@ test('prepare-fixture refuses artifacts that still hold personal data', async t 
     error => /Personal data found/u.test(error.message) && /author property in source\.docx:docProps\/core\.xml/u.test(error.message)
       && /home folder path in capture\.json:text\/html/u.test(error.message) && !error.message.includes(ACCOUNT));
 });
+
+test('an oracle can pin a fixture in each destination schema once, and nothing else', async t => {
+  const { base } = await fixture(t);
+  const outcome = schema => ({ schema, notice: 'visible', warnings: ['image-removed'] });
+  await rewrite(base, manifest => { for (const policy of ['preserve', 'adapt']) manifest.expected[policy].editor = [outcome('capability-full'), outcome('default')]; });
+  assert.equal((await verifyCaptureFixture(base)).replay.kind, 'offline-semantic-replay');
+  for (const editors of [[], [outcome('default'), outcome('default')], [outcome('default'), { ...outcome('capability-full'), extra: true }],
+    [outcome('default'), outcome('other')], [outcome('default'), outcome('capability-full'), outcome('default')]]) {
+    await rewrite(base, manifest => { manifest.expected.preserve.editor = editors; });
+    await assert.rejects(verifyCaptureFixture(base), failure('evidence-schema'), JSON.stringify(editors));
+  }
+});

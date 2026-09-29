@@ -251,7 +251,8 @@ function sortedCodes(value) {
 /**
  * Check a reviewed semantic oracle: the blocks a content specification authors for one selection and,
  * for each policy, the replay's status, source and notice codes, plus the notice and codes the fixture
- * editor with the named schema is expected to show. Nothing in it is normalizer output.
+ * editor with the named schema is expected to show, as one outcome or a list with one per schema.
+ * Nothing in it is normalizer output.
  */
 export function readSemanticExpected(expected) {
   if (!expected || typeof expected !== 'object' || Array.isArray(expected)) fail('evidence-schema');
@@ -274,11 +275,22 @@ export function readSemanticExpected(expected) {
     const oracle = shape(expected[formatting], ['status', 'source', 'warnings', 'editor']);
     if (!['cleaned', 'rejected'].includes(oracle.status) || !['word', 'google-docs', 'libreoffice', 'html'].includes(oracle.source)) fail('evidence-schema');
     sortedCodes(oracle.warnings);
-    const editor = shape(oracle.editor, ['schema', 'notice', 'warnings']);
-    if (!NOTICES.has(editor.notice) || !EDITOR_SCHEMAS.has(editor.schema)) fail('evidence-schema');
-    sortedCodes(editor.warnings);
+    // One editor outcome, or one per destination schema the fixture is pinned in.
+    const editors = Array.isArray(oracle.editor) ? oracle.editor : [oracle.editor];
+    if (editors.length === 0 || editors.length > EDITOR_SCHEMAS.size) fail('evidence-schema');
+    for (const entry of editors) {
+      const editor = shape(entry, ['schema', 'notice', 'warnings']);
+      if (!NOTICES.has(editor.notice) || !EDITOR_SCHEMAS.has(editor.schema)) fail('evidence-schema');
+      sortedCodes(editor.warnings);
+    }
+    if (new Set(editors.map(editor => editor.schema)).size !== editors.length) fail('evidence-schema');
   }
   return expected;
+}
+
+/** The editor outcomes of one policy's oracle, one per destination schema. */
+export function editorOutcomes(oracle) {
+  return Array.isArray(oracle.editor) ? oracle.editor : [oracle.editor];
 }
 
 /** The content specification a semantic oracle stands for: its blocks and one scenario that selects them in order. */

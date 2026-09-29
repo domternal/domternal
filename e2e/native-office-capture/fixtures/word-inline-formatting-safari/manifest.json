@@ -105,27 +105,45 @@
       "status": "cleaned",
       "source": "word",
       "warnings": [],
-      "editor": {
-        "schema": "capability-full",
-        "notice": "quiet",
-        "warnings": []
-      }
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      ]
     },
     "adapt": {
       "status": "cleaned",
       "source": "word",
       "warnings": [],
-      "editor": {
-        "schema": "capability-full",
-        "notice": "quiet",
-        "warnings": []
-      }
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      ]
     }
   },
   "derivation": {
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "074cc1f8c043d0400d752b118a9bbe5f4c75aeb8a03598ea383f0ca2c575afc1",
-    "manifestSha256": "aae5bec69319c11b9bf3fc175cb1d25ed15afc99cc53224e728f27afdbc4ac51"
+    "manifestSha256": "d98a3172841b2bb8962db399254b7bd9f537d5cc226c3da693c4cc4e1fb93df9"
   }
 }

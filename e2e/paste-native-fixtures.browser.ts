@@ -17,7 +17,7 @@ import { expect, type Page } from '@playwright/test';
 import type { Editor, JSONContent } from '@domternal/core';
 import type { PasteOperationResult } from '@domternal/extension-paste-cleanup';
 import { test } from './fixtures.js';
-import type { SemanticExpected } from './native-office-capture/offline.mjs';
+import type { EditorOutcome, PolicyOracle, SemanticExpected } from './native-office-capture/offline.mjs';
 import type * as Offline from './native-office-capture/offline.mjs';
 import type * as Semantics from './native-office-capture/semantics.mjs';
 
@@ -34,6 +34,8 @@ interface Replay {
   doc: JSONContent;
   notice: { visible: boolean; status: string | null };
   contrast: { text: string; ratio: number }[];
+  /** What the live editor schema holds: its mark types and the attributes of its textStyle mark. */
+  destination: { marks: string[]; textStyle: string[] };
 }
 
 const FIXTURES = join(__dirname, 'native-office-capture', 'fixtures');
@@ -108,8 +110,10 @@ async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'def
       const [lighter, darker] = [luminance(getComputedStyle(node.parentElement).color), luminance(background(node.parentElement))].sort((left, right) => right - left);
       contrast.push({ text: (node.textContent ?? '').slice(0, 24), ratio: ((lighter ?? 0) + 0.05) / ((darker ?? 0) + 0.05) });
     }
+    const textStyle = probe.editor.schema.marks['textStyle'];
     return {
       operations: probe.operations, doc: probe.editor.getJSON(), contrast,
+      destination: { marks: Object.keys(probe.editor.schema.marks), textStyle: Object.keys(textStyle?.spec.attrs ?? {}) },
       notice: { visible: notice !== null && !notice.hidden && notice.getBoundingClientRect().height > 0,
         status: notice?.querySelector('.dm-paste-feedback__status')?.textContent ?? null },
     };
@@ -117,6 +121,11 @@ async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'def
 }
 
 const fixtures = nativeFixtures();
+
+/** A policy oracle's editor outcomes, one per schema, as offline.mjs editorOutcomes reads them; synchronous for test titles. */
+function editorOutcomesOf(oracle: PolicyOracle): readonly EditorOutcome[] {
+  return Array.isArray(oracle.editor) ? oracle.editor as readonly EditorOutcome[] : [oracle.editor as EditorOutcome];
+}
 
 test('the native fixture directory holds claimed native fixtures to replay', () => {
   expect(fixtures.length).toBeGreaterThan(0);
@@ -133,34 +142,43 @@ for (const fixture of fixtures) {
     });
 
     for (const formatting of policies) {
-      test(`${formatting}: pastes the reviewed blocks, notice and codes, readable`, async ({ page }) => {
-        const expected = fixture.expected;
-        if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes: author expected.preserve and expected.adapt`);
-        const oracle = expected[formatting];
-        const [{ blocksFromEditorJSON, compareBlocks }, { noticeCodes, semanticSpecification }] = await evidence();
-        const result = await replay(page, formatting, oracle.editor.schema, fixture.flavors);
-        const operation = result.operations.at(-1);
-        expect(operation?.status).toBe(oracle.status === 'cleaned' ? 'applied' : 'rejected');
-        expect(operation?.source).toBe(oracle.source);
-        expect(noticeCodes(operation?.diagnostics ?? [])).toEqual(oracle.editor.warnings);
-        expect(result.notice.visible).toBe(oracle.editor.notice === 'visible');
-        if (oracle.editor.notice === 'visible') expect(result.notice.status).toBe('Review the pasted content.');
-        expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc), { formatting })).toEqual([]);
-        // Large text needs 3:1 (WCAG 1.4.3); every run is held to it, so no text vanishes into its background.
-        expect(result.contrast.filter(run => run.ratio < 3)).toEqual([]);
-      });
+      // One test per destination schema the oracle pins the fixture in; a single schema keeps the plain title.
+      const outcomes = fixture.expected === undefined ? [undefined] : editorOutcomesOf(fixture.expected[formatting]);
+      for (const outcome of outcomes) {
+        const schemaTitle = outcomes.length > 1 && outcome !== undefined ? ` in the ${outcome.schema} schema` : '';
+        test(`${formatting}${schemaTitle}: pastes the reviewed blocks, notice and codes, readable`, async ({ page }) => {
+          const expected = fixture.expected;
+          if (expected === undefined || outcome === undefined) throw new Error(`${fixture.id} has no reviewed outcomes: author expected.preserve and expected.adapt`);
+          const oracle = expected[formatting];
+          const [{ blocksFromEditorJSON, compareBlocks }, { noticeCodes, semanticSpecification }] = await evidence();
+          const result = await replay(page, formatting, outcome.schema, fixture.flavors);
+          const operation = result.operations.at(-1);
+          expect(operation?.status).toBe(oracle.status === 'cleaned' ? 'applied' : 'rejected');
+          expect(operation?.source).toBe(oracle.source);
+          expect(noticeCodes(operation?.diagnostics ?? [])).toEqual(outcome.warnings);
+          expect(result.notice.visible).toBe(outcome.notice === 'visible');
+          if (outcome.notice === 'visible') expect(result.notice.status).toBe('Review the pasted content.');
+          // The oracle reads what the destination holds from the live schema: a mark it lacks is expected absent.
+          expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc),
+            { formatting, destination: result.destination })).toEqual([]);
+          // Large text needs 3:1 (WCAG 1.4.3); every run is held to it, so no text vanishes into its background.
+          expect(result.contrast.filter(run => run.ratio < 3)).toEqual([]);
+        });
+      }
 
       // Image preparation refuses a paste whose image it cannot bind, so an image the capture holds must not be one it is offered.
       if (fixture.flavors.some(([format, value]) => format === 'text/html' && /<img\b/iu.test(value))) {
         test(`${formatting}: pastes the same with image preparation, which no marker picture reaches`, async ({ page }) => {
           const expected = fixture.expected;
           if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
-          const oracle = expected[formatting];
+          const [outcome] = editorOutcomesOf(expected[formatting]);
+          if (outcome === undefined) throw new Error(`${fixture.id} has no editor outcome`);
           const [{ blocksFromEditorJSON, compareBlocks }, { noticeCodes, semanticSpecification }] = await evidence();
-          const result = await replay(page, formatting, oracle.editor.schema, fixture.flavors, true);
+          const result = await replay(page, formatting, outcome.schema, fixture.flavors, true);
           expect(result.operations.at(-1)?.status).toBe('applied');
-          expect(noticeCodes(result.operations.at(-1)?.diagnostics ?? [])).toEqual(oracle.editor.warnings);
-          expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc), { formatting })).toEqual([]);
+          expect(noticeCodes(result.operations.at(-1)?.diagnostics ?? [])).toEqual(outcome.warnings);
+          expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc),
+            { formatting, destination: result.destination })).toEqual([]);
         });
       }
     }
