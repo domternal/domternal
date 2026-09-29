@@ -11,7 +11,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { writePackage } from '../../e2e/native-office-capture/redact.mjs';
-import { GENERIC_ACCOUNTS, machineNames, main, placeholderUser, scanFile, scanRepository } from './check.mjs';
+import { existsSync, readFileSync } from 'node:fs';
+import { deflateRawSync } from 'node:zlib';
+import { GENERIC_ACCOUNTS, localMachineNames, machineNames, main, placeholderUser, scanFile, scanRepository } from './check.mjs';
 
 const at = (...parts) => parts.join('@');
 const slash = (...parts) => parts.join('/');
@@ -70,8 +72,9 @@ test('home, encoded home and drive paths are reported unless the user is a place
 
 test('file URLs are reported when they name a person\'s folder or another host', () => {
   assert.deepEqual(categories('a.md', `file://${slash('', 'Users', person, 'a.html')}`), ['home folder path', 'file URL in a home folder']);
-  assert.deepEqual(categories('a.md', slash('file:', '', 'fileserver', 'share', 'a.html')), ['file URL with a host']);
-  for (const allowed of ['file:///etc/passwd', 'file://localhost/etc/hosts', 'file:///Users/me/a.html', 'file://$HOME/a.html', 'file:', 'file:x']) {
+  assert.deepEqual(categories('a.md', slash('file:', '', `${person}-nas`, 'share', 'a.html')), ['file URL with a host']);
+  for (const allowed of ['file:///etc/passwd', 'file://localhost/etc/hosts', 'file:///Users/me/a.html', 'file://$HOME/a.html', 'file:', 'file:x',
+    slash('file:', '', 'server', 'share'), slash('file:', '', 'files.example', 'a')]) {
     assert.deepEqual(categories('a.md', allowed), [], allowed);
   }
 });
@@ -133,4 +136,128 @@ test('the gate fails with locations and categories only, and passes a clean tree
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// Windows and other home forms as JSON, JavaScript, WSL and MSYS write them, assembled from fragments.
+const bs = String.fromCharCode(92);
+const homeForms = {
+  'Windows path in a JSON or JavaScript string': `{"rootDir": "C:${bs}${bs}Users${bs}${bs}${person}${bs}${bs}src"}`,
+  'Windows path with slashes': `D:/Users/${person}/src`,
+  'JSON escaped slashes': `{"rootDir": "${bs}/Users${bs}/${person}${bs}/repo"}`,
+  'WSL path': `cwd /mnt/c/Users/${person}/repo`,
+  'MSYS path': `cd /c/Users/${person}/repo`,
+  'Fedora Silverblue home': `/var/home/${person}/repo`,
+  'Solaris home': `/export/home/${person}/x`,
+};
+
+test('home folders are found in the forms JSON, JavaScript, WSL, MSYS and other systems write them', () => {
+  for (const [form, text] of Object.entries(homeForms)) {
+    assert.ok(categories(form.includes('JSON') ? 'e2e/report.json' : 'a.log', text).length >= 1, form);
+  }
+});
+
+test('an allowed match never hides a personal one that only its escapes show, in either order', () => {
+  const encoded = address.replace('@', '&#64;');
+  const allowed = at('team', 'example.com');
+  for (const text of [`${encoded} wrote to ${allowed}`, `${allowed} wrote to ${encoded}`]) {
+    assert.deepEqual(categories('docs/a.md', text), ['e-mail address'], text);
+  }
+  for (const text of [`%2FUsers%2F${person}%2Fx and /Users/me/y`, `/Users/me/y and %2FUsers%2F${person}%2Fx`]) {
+    assert.deepEqual(categories('docs/a.md', text), ['home folder path'], text);
+  }
+});
+
+test('further hidden forms are read: a tilde home, twice percent-encoded paths, JSON and JavaScript escapes, encoded homes, network paths, data URIs', () => {
+  const forms = {
+    'tilde home': [`see ~${person}/notes.txt`, 'tilde home folder'],
+    'twice percent-encoded home': [`x=%252FUsers%252F${person}%252Fx`, 'home folder path'],
+    'JSON unicode escape for @': [`{"a": "${person}${bs}u0040corp.co.uk"}`, 'e-mail address'],
+    'JavaScript hex escape for @': [`'${person}${bs}x40corp.co.uk'`, 'e-mail address'],
+    'address split by a soft hyphen': [`${person}${String.fromCharCode(0xad)}${at('', 'corp.co.uk')}`, 'e-mail address'],
+    'lowercase encoded home': [`/private/tmp/claude-1/-users-${person}-repo/x`, 'encoded home folder'],
+    'encoded home at the end of a folder name': [`projects/-Users-${person}/x`, 'encoded home folder'],
+    'network path': [`${bs}${bs}fileserver${bs}home$${bs}${person}${bs}x`, 'UNC path'],
+    'network path in a JavaScript string': [`'${bs}${bs}${bs}${bs}${person}-pc${bs}${bs}docs'`, 'UNC path'],
+    'base64 data URI': [`data:text/plain;base64,${Buffer.from(slash('', 'Users', person, 'x')).toString('base64')}`, 'home folder path'],
+  };
+  for (const [form, [text, category]] of Object.entries(forms)) {
+    assert.ok(categories('a.md', text).includes(category), form);
+  }
+});
+
+test('URL paths, CI and container homes, system folders and file names that look like addresses are not personal', () => {
+  for (const text of [
+    '[Home](/home/intro)', "app.get('/users/:id', handler)", '<a href="/users/settings">Settings</a>', '"/Users/{id}"',
+    '/home/runner/work/domternal/domternal/e2e', '/Users/runner/work/domternal', 'WORKDIR /home/node/app', '/Users/Shared/Relocated Items',
+    `C:${bs}Users${bs}Public${bs}Documents`, `${bs}${bs}server${bs}share`, at('font', '2x.woff2'), at('img', '1.5x.png'), at('jquery', '3.7.1.min.js'),
+    'prosemirror-model@1.25.0', '@domternal/core.js', `ssh ${at('deploy', 'server.example.com')}`, `/\\${bs}nbreak${bs}.ts/`,
+  ]) {
+    assert.deepEqual(categories('docs/a.md', text), [], text);
+  }
+  // A capital /Users/ folder and a home path that goes on into the folder are still a person's.
+  assert.deepEqual(categories('a.md', `/home/${person}/repo`), ['home folder path']);
+  assert.deepEqual(categories('a.md', `cd /Users/${person}`), ['home folder path']);
+});
+
+test('the default names of CI runners, containers and new machines identify nobody', () => {
+  for (const name of ['localhost', 'vscode', 'codespace', 'gitpod', 'github', 'build', 'test', 'jenkins', 'circleci', 'macbook-pro', 'raspberrypi']) {
+    assert.deepEqual(machineNames({ login: name, host: name }), [], name);
+  }
+});
+
+test('in binary data, one-character address parts are noise; a real address is still found', () => {
+  const binary = (path, text) => scanFile(path, Buffer.concat([Buffer.from([0x89, 0, 0, 0]), Buffer.from(text, 'latin1')]), names).map((finding) => finding.category);
+  assert.deepEqual(binary('media/clip.mp4', `\x01${at('G', 'Eo.mf')}\x01${at('GC9', 'D.gz')}\x01~noise/\x01`), []);
+  assert.deepEqual(binary('media/clip.mp4', `xxxx ${address} yyyy`), ['e-mail address']);
+});
+
+test('addresses that look like policy exceptions but name a person are reported', () => {
+  for (const text of [at(person, 'domternal.dev'), at('noreply', 'gmail.com'), at('git', `${person}.co.uk`)]) {
+    assert.deepEqual(categories('docs/a.md', text), ['e-mail address'], text);
+  }
+  for (const text of [at('support', 'domternal.dev'), at('user', 'domternal.dev'), at('noreply', 'anthropic.com'), at('git', 'gitlab.com')]) {
+    assert.deepEqual(categories('docs/a.md', text), [], text);
+  }
+});
+
+test('names a CI secret lists are looked for, and a runner\'s own login and host are not', () => {
+  const listed = ['quill', 'ion'].join('');
+  const inCi = localMachineNames({ CI: 'true', PRIVACY_NAMES: `${listed}, ${['studio', 'mac'].join('-')}\nab` });
+  assert.deepEqual(inCi.filter(([category]) => category !== 'Git e-mail address'), [['listed name', listed], ['listed name', 'studio-mac']]);
+  assert.deepEqual(categories('a.md', `by ${listed.toUpperCase()}`, inCi), ['listed name']);
+});
+
+test('a zip package of any kind is read part by part', () => {
+  const entry = (name, data) => {
+    const deflated = deflateRawSync(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(8, 8); local.writeUInt32LE(deflated.length, 18); local.writeUInt32LE(data.length, 22); local.writeUInt16LE(name.length, 26);
+    return { name, local: Buffer.concat([local, Buffer.from(name), deflated]), deflated, size: data.length };
+  };
+  const parts = [entry('notes/readme.txt', Buffer.from(`write to ${address}`))];
+  const central = [];
+  let offset = 0;
+  for (const part of parts) {
+    const header = Buffer.alloc(46);
+    header.writeUInt32LE(0x02014b50, 0); header.writeUInt16LE(8, 10); header.writeUInt32LE(part.deflated.length, 20); header.writeUInt32LE(part.size, 24);
+    header.writeUInt16LE(part.name.length, 28); header.writeUInt32LE(offset, 42);
+    central.push(Buffer.concat([header, Buffer.from(part.name)]));
+    offset += part.local.length;
+  }
+  const directory = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(parts.length, 8); end.writeUInt16LE(parts.length, 10); end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(offset, 16);
+  const zip = Buffer.concat([...parts.map((part) => part.local), directory, end]);
+  assert.deepEqual(scanFile('public/sample.zip', zip, names).map((finding) => [finding.location, finding.category]), [['public/sample.zip:notes/readme.txt', 'e-mail address']]);
+});
+
+test('the site carries the same scanner, byte for byte, where its checkout sits inside this one', (t) => {
+  const here = new URL('./scan.mjs', import.meta.url);
+  const site = new URL('../../domternal.dev/scripts/privacy-scan.mjs', import.meta.url);
+  if (!existsSync(new URL('../../domternal.dev/scripts/', import.meta.url))) {
+    t.skip('no site checkout here, as in CI');
+    return;
+  }
+  assert.ok(existsSync(site), 'domternal.dev/scripts/privacy-scan.mjs is missing');
+  assert.ok(readFileSync(here).equals(readFileSync(site)), 'tests/privacy/scan.mjs and domternal.dev/scripts/privacy-scan.mjs differ');
 });
