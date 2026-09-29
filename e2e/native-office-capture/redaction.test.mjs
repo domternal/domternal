@@ -427,6 +427,23 @@ test('the privacy scan reads image metadata, people and custom properties, clipb
   assert.deepEqual(await scanFiles([join(base, 'plain.docx')], []), []);
 });
 
+test('a tilde, a word and a slash that compressed picture data spells by chance is noise, as the gate judges it; in text it is a home folder', async t => {
+  const base = await mkdtemp(join(tmpdir(), 'domternal-privacy-'));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  // Chrome's picture of a Word selection held these bytes in its compressed image data: a printable run that starts with ~x/.
+  const noise = Buffer.from([0x00, 0x7e, 0x71, 0x2f, 0x38, 0x5a, 0x01, 0x9c]);
+  const picture = pngWith([['IDAT', noise]]);
+  const tilde = ['~', 'syntheticperson', '/'].join('');
+  const bundle = originalBundle('0'.repeat(64), `<p>B01 ${tilde}notes</p>`);
+  bundle.payload.files = [{ itemIndex: 2, byteLength: picture.length, sha256: digest(picture), base64: picture.toString('base64') }];
+  await writeFile(join(base, 'capture.json'), JSON.stringify(bundle));
+  const findings = (await scanFiles([join(base, 'capture.json')], [])).map(entry => `${entry.location.slice(base.length + 1)} ${entry.category}`);
+  assert.deepEqual(findings, ['capture.json:text/html tilde home folder']);
+  const spelled = ['~', 'q/8Z'].join('');
+  assert.deepEqual(scanText('runs', `\u0000${spelled}\u0001`, [], { binary: true }), []);
+  assert.deepEqual(scanText('text', ` ${spelled}`, []).map(entry => entry.category), ['tilde home folder']);
+});
+
 test('prepare-fixture refuses artifacts that still hold personal data', async t => {
   const { base } = await fixture(t, { source: false, capture: false });
   await rm(join(base, 'manifest.json'));

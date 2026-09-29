@@ -9,7 +9,9 @@
  * clipboard file, and a data URI by what it decodes to; text is also read with its HTML, percent, JSON,
  * JavaScript and CSS escapes decoded, so an encoded address is found too. The policy here is stricter than
  * the gate's: nothing is allowed, and this machine's names are matched inside longer words from three
- * characters on. Findings name a category, a location and an offset, never the matched text.
+ * characters on, with one exception the gate makes for the same reason: in the printable runs of binary
+ * data, such as a clipboard picture's compressed pixels, a tilde, a word and a slash is what the bytes spell
+ * by chance, not a home folder. Findings name a category, a location and an offset, never the matched text.
  */
 import { readdir, readFile } from 'node:fs/promises';
 import { hostname, userInfo } from 'node:os';
@@ -40,8 +42,15 @@ function matches(location, value, names) {
   return located(location, value, names).map(({ location: where, category, offset }) => ({ location: where, category, offset }));
 }
 
-/** Findings in one text: category and offset only. Text that only its escapes hide is reported at `#decoded`. */
-export function scanText(location, value, names = machineNames()) {
+// What compressed binary data spells by chance in its printable runs, which the gate's policy calls noise too.
+const BINARY_NOISE = new Set(['tilde home folder']);
+
+/**
+ * Findings in one text: category and offset only. Text that only its escapes hide is reported at `#decoded`.
+ * `binary` marks the printable runs of binary data, where a tilde home folder is noise.
+ */
+export function scanText(location, value, names = machineNames(), { binary = false } = {}) {
+  if (binary) return scanText(location, value, names).filter(entry => !BINARY_NOISE.has(entry.category));
   const findings = matches(location, value, names);
   const plain = decoded(value);
   if (plain !== value) {
@@ -69,7 +78,7 @@ export function artifactTexts(name, bytes) {
 export async function scanFiles(paths, names = machineNames()) {
   const findings = [];
   for (const path of paths) {
-    for (const [location, value] of artifactTexts(path, await readFile(path))) findings.push(...scanText(location, value, names));
+    for (const { location, text, binary } of gateTexts(path, await readFile(path))) findings.push(...scanText(location, text, names, { binary }));
   }
   return findings;
 }
