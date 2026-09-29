@@ -48,10 +48,12 @@ const neutralValues: Readonly<Record<string, readonly string[]>> = {
   'mso-hide': ['none'], 'text-underline': ['none'],
   'text-decoration-thickness': ['auto', 'from-font'], 'text-decoration-style': ['solid'], 'border-image': ['none'],
 };
-// Supported properties whose initial value WebKit writes on every top-level element it copies. They are
-// dropped like the property's absence rather than kept as formatting the source did not apply.
+// Supported properties whose initial value WebKit writes on every top-level element it copies, and the initial
+// line height Word writes for a style's single spacing, as Table Grid does on every cell paragraph. They are
+// dropped like the property's absence rather than kept as formatting the source did not apply; LineHeight
+// never renders `normal` either.
 const initialValues: Readonly<Record<string, readonly string[]>> = {
-  'text-align': ['start'], 'white-space': ['normal'],
+  'text-align': ['start'], 'white-space': ['normal'], 'line-height': ['normal'],
 };
 // The caret's color is editor chrome, never document formatting; WebKit copies it with the text color.
 const editorChrome = new Set(['caret-color']);

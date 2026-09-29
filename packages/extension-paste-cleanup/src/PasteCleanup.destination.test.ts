@@ -456,3 +456,31 @@ describe('table capability rejection before application', () => {
     expect(fixture.completed).toHaveBeenCalledOnce(); expect(fixture.normalized).toHaveBeenCalledOnce();
   });
 });
+
+describe('spacing a Word copy carries that the destination cannot show', () => {
+  // Word's raw clipboard HTML in Chrome and Firefox: Table Grid writes its single spacing on every cell paragraph.
+  const wordTable = "<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:w=\"urn:schemas-microsoft-com:office:word\"><head><meta name=ProgId content=Word.Document></head><body>"
+    + "<table class=MsoTableGrid border=1 cellspacing=0 cellpadding=0 style='border-collapse:collapse;border:none;mso-border-alt:solid windowtext .5pt'>"
+    + "<tr><td width=200 valign=top style='width:150.25pt;border:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'>"
+    + "<p class=MsoNormal style='margin-bottom:0cm;line-height:normal'>T02 Column A<o:p></o:p></p></td>"
+    + "<td width=200 valign=top style='width:150.25pt;border:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'>"
+    + "<p class=MsoNormal style='margin-bottom:0cm;line-height:normal'>T03 Column B<o:p></o:p></p></td></tr></table></body></html>";
+
+  it('stays quiet for the single spacing Word writes on table cells, in a destination without LineHeight', async () => {
+    const fixture = mount({}, [Table, TableRow, TableCell, TableHeader]);
+    paste(fixture.editor, wordTable);
+    const result = await terminal(fixture, 'applied');
+    expect(result.diagnostics).toEqual([]);
+    expect(notice(fixture).hidden).toBe(true);
+    expect(fixture.editor.state.doc.textContent).toBe('T02 Column AT03 Column B');
+  });
+
+  it('stores no line height for it in a destination with LineHeight', async () => {
+    const fixture = mount({}, [Table, TableRow, TableCell, TableHeader, LineHeight]);
+    paste(fixture.editor, wordTable);
+    await terminal(fixture, 'applied');
+    const heights: unknown[] = [];
+    fixture.editor.state.doc.descendants(node => { if (node.type.name === 'paragraph') heights.push(node.attrs['lineHeight']); });
+    expect(heights).toEqual([null, null]);
+  });
+});

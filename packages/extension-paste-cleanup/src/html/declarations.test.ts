@@ -47,7 +47,8 @@ describe('routine source declarations', () => {
       + '<p class=MsoNormal>Next</p></td></tr></table>';
     const result = normalizePasteHTML(html);
     expect(result.diagnostics).toEqual([]);
-    expect(result.html).toBe('<table><tbody><tr style="height:15.0pt"><td style="width:225.4pt"><p style="line-height:normal">Cell</p></td><td><p>Next</p></td></tr></tbody></table>');
+    // Table Grid's single spacing, line-height:normal, is the initial value: it renders like no line height.
+    expect(result.html).toBe('<table><tbody><tr style="height:15.0pt"><td style="width:225.4pt"><p>Cell</p></td><td><p>Next</p></td></tr></tbody></table>');
   });
 
   it('drops neutral values, pagination and typesetting controls without a warning', () => {
