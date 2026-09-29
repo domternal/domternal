@@ -5,7 +5,9 @@
  * policy: one paste event whose DataTransfer holds exactly the captured text flavors, in captured order. The
  * editor result is checked against the fixture's reviewed semantic oracle, which is authored from the content
  * specification: blocks, list structure and markers, marks, the notice and its codes. Pasted text must stay
- * readable against what it lands on, which white automatic color text was not.
+ * readable against what it lands on, which white automatic color text was not: text without a color of its own
+ * reaches 4.5:1 in the light theme and, after a switch, in the dark one; a color the source authored keeps 3:1
+ * in the light theme, and where the dark theme takes it below 3:1 the run is annotated (owner question Q1).
  *
  * The event is synthetic, so this is not a native paste: no engine computes styles in the receiving page, and
  * a capture's blob: URLs are dead here. Chromium and Firefox parse Safari's HTML in these runs; that is no
@@ -29,11 +31,13 @@ interface ProbeWindow {
   __pasteCleanup: { ready: boolean; editor: Editor; operations: PasteOperationResult[]; clearObservations: () => void };
 }
 interface Fixture { id: string; directory: string; expected: SemanticExpected | undefined; flavors: [string, string][] }
+interface Run { text: string; ratio: number; authored: boolean }
 interface Replay {
   operations: PasteOperationResult[];
   doc: JSONContent;
   notice: { visible: boolean; status: string | null };
-  contrast: { text: string; ratio: number }[];
+  /** Each text run's contrast against what it lands on, in the light theme and after a switch to the dark one. */
+  contrast: { light: Run[]; dark: Run[] };
   /** What the live editor schema holds: its mark types and the attributes of its textStyle mark. */
   destination: { marks: string[]; textStyle: string[] };
 }
@@ -84,9 +88,8 @@ async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'def
   }, flavors);
   await page.waitForFunction(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.length > 0);
   await page.evaluate(() => new Promise(resolve => { requestAnimationFrame(() => { requestAnimationFrame(resolve); }); }));
-  return page.evaluate(() => {
-    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
-    const notice = document.querySelector<HTMLElement>('.dm-paste-feedback');
+  const measure = (): Promise<Run[]> => page.evaluate(() => {
+    const root = (window as unknown as ProbeWindow).__pasteCleanup.editor.view.dom;
     // WCAG relative luminance and contrast of each text run against the first painted background behind it.
     const channels = (value: string): number[] => (value.match(/[\d.]+/g) ?? []).map(Number);
     const luminance = (value: string): number => {
@@ -103,21 +106,50 @@ async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'def
       }
       return 'rgb(255, 255, 255)';
     };
-    const contrast: { text: string; ratio: number }[] = [];
-    const walker = document.createTreeWalker(probe.editor.view.dom, NodeFilter.SHOW_TEXT);
+    // A run whose color the source authored: an inline color or a color token on it or an element around it in the document.
+    const authored = (element: Element): boolean => {
+      for (let node: Element | null = element; node !== null && node !== root; node = node.parentElement) {
+        if (node instanceof HTMLElement && node.style.color !== '') return true;
+        if (node.hasAttribute('data-text-color')) return true;
+      }
+      return false;
+    };
+    const runs: Run[] = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
       if (!/\S/u.test(node.textContent ?? '') || node.parentElement === null) continue;
       const [lighter, darker] = [luminance(getComputedStyle(node.parentElement).color), luminance(background(node.parentElement))].sort((left, right) => right - left);
-      contrast.push({ text: (node.textContent ?? '').slice(0, 24), ratio: ((lighter ?? 0) + 0.05) / ((darker ?? 0) + 0.05) });
+      runs.push({ text: (node.textContent ?? '').slice(0, 24), ratio: ((lighter ?? 0) + 0.05) / ((darker ?? 0) + 0.05), authored: authored(node.parentElement) });
     }
+    return runs;
+  });
+  const light = await measure();
+  // The same document after a runtime switch to the dark theme, as an application toggles it.
+  await page.evaluate(() => new Promise(resolve => { document.body.classList.add('dm-theme-dark'); requestAnimationFrame(() => { requestAnimationFrame(resolve); }); }));
+  const dark = await measure();
+  await page.evaluate(() => { document.body.classList.remove('dm-theme-dark'); });
+  return page.evaluate(({ light, dark }) => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    const notice = document.querySelector<HTMLElement>('.dm-paste-feedback');
     const textStyle = probe.editor.schema.marks['textStyle'];
     return {
-      operations: probe.operations, doc: probe.editor.getJSON(), contrast,
+      operations: probe.operations, doc: probe.editor.getJSON(), contrast: { light, dark },
       destination: { marks: Object.keys(probe.editor.schema.marks), textStyle: Object.keys(textStyle?.spec.attrs ?? {}) },
       notice: { visible: notice !== null && !notice.hidden && notice.getBoundingClientRect().height > 0,
         status: notice?.querySelector('.dm-paste-feedback__status')?.textContent ?? null },
     };
-  });
+  }, { light, dark });
+}
+
+/** Text without a color of its own reaches 4.5:1 in both themes; an authored color keeps 3:1 in the light theme and is annotated below 3:1 in the dark one. */
+function checkContrast(contrast: Replay['contrast']): void {
+  const failing = (runs: Run[], floor: number): string[] => runs.filter(run => run.ratio < floor).map(run => `${run.text}: ${run.ratio.toFixed(2)}`);
+  expect(failing(contrast.light.filter(run => !run.authored), 4.5)).toEqual([]);
+  expect(failing(contrast.dark.filter(run => !run.authored), 4.5)).toEqual([]);
+  expect(failing(contrast.light.filter(run => run.authored), 3)).toEqual([]);
+  for (const finding of failing(contrast.dark.filter(run => run.authored), 3)) {
+    test.info().annotations.push({ type: 'authored color below 3:1 in the dark theme', description: finding });
+  }
 }
 
 const fixtures = nativeFixtures();
@@ -161,8 +193,8 @@ for (const fixture of fixtures) {
           // The oracle reads what the destination holds from the live schema: a mark it lacks is expected absent.
           expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc),
             { formatting, destination: result.destination })).toEqual([]);
-          // Large text needs 3:1 (WCAG 1.4.3); every run is held to it, so no text vanishes into its background.
-          expect(result.contrast.filter(run => run.ratio < 3)).toEqual([]);
+          // Text without a color of its own needs 4.5:1 (WCAG 1.4.3) against what it lands on, in either theme.
+          checkContrast(result.contrast);
         });
       }
 
