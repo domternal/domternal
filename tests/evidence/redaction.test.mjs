@@ -1,15 +1,15 @@
 /**
  * Declared redactions: the value-free rule R1, the version 2 declaration the
- * gate checks, the local history check, the writers' guard, and the replay
- * reading archived inputs through a redaction. Account names here are
+ * gate checks with the redacted bytes alone, the writers' guard, and the
+ * replay reading archived inputs through a redaction. Account names here are
  * assembled at run time, so no path in this file names a real account.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { EvidenceArchive, INPUTS_KIND, InputSet } from './artifacts.mjs';
 import { check, checkDeclarations, checkHistoricalTools, readDeclarations } from './check.mjs';
 import { refusePersonalPaths } from './cli.mjs';
@@ -19,7 +19,6 @@ import {
   checkRedactions,
   countPlaceholders,
   declaredFiles,
-  historyProblems,
   holdsPersonalPath,
   redactBytes,
   redactPaths,
@@ -28,11 +27,11 @@ import {
 } from './redaction.mjs';
 import { buildInputsFromArchive, classifyReplay, compareWithPythonBaseline, compareWithRedaction, declaredRedaction } from './replay.mjs';
 
+const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const account = ['dev', 'eloper'].join('');
 const home = `/Users/${account}`;
 const linuxHome = `/home/${account}`;
 const scratchpad = `/private/tmp/claude-501/-Users-${account}-Documents-Domternal-domternal/0123abcd-4567-89ab-cdef-0123456789ab/scratchpad`;
-const GIT = ['-c', 'user.name=Evidence Test', '-c', 'user.email=evidence@example.invalid', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null'];
 
 test('R1 replaces home folders and session scratchpads by their placeholders, and holds no value', () => {
   assert.equal(redactPaths(`PATH=${home}/.nvm/versions/node/v22/bin:$PATH`), 'PATH=$HOME/.nvm/versions/node/v22/bin:$PATH');
@@ -106,9 +105,10 @@ function declaration(overrides = {}) {
     date: '2026-10-03',
     reason: 'Home folder paths of the producing machine are replaced; digests of the unredacted bytes are withheld.',
     rule: RULE.map((step) => ({ ...step })),
+    originals: 'Removed from the repository history on the owner request. No check reads them.',
     files: [
-      { path: '../../unit.json', occurrences: 1, redactedSha256: sha256(report), redactedBytes: report.length, originalIn: 'abc1234' },
-      { path: 'tool.py', occurrences: 1, redactedSha256: sha256(tool), redactedBytes: tool.length, originalIn: 'abc1234' },
+      { path: '../../unit.json', occurrences: 1, redactedSha256: sha256(report), redactedBytes: report.length },
+      { path: 'tool.py', occurrences: 1, redactedSha256: sha256(tool), redactedBytes: tool.length },
     ],
     digestsReplaced: ['../../unit.json#/artifacts/0/sha256', 'MANIFEST.json#/reportSha256'],
     digestsWithheld: ['MANIFEST.json#/pythonOutput/sha256', 'MANIFEST.json#/notes/0'],
@@ -152,12 +152,13 @@ test('a complete declaration passes', () => {
   assert.deepEqual(redactionProblems(declaration()), []);
 });
 
-test('a declaration names each changed file with its redacted size, digest, placeholder count and original commit', () => {
+test('a declaration names each changed file with its redacted size, digest and placeholder count', () => {
   const files = declaration().files;
   expectRedactionProblem(declaration({ files: [{ ...files[0], redactedSha256: '0'.repeat(64) }, files[1]] }), /is not the redacted file declared/);
   expectRedactionProblem(declaration({ files: [{ ...files[0], redactedBytes: 1 }, files[1]] }), /is not the redacted file declared/);
   expectRedactionProblem(declaration({ files: [{ ...files[0], occurrences: 2 }, files[1]] }), /holds 1 placeholders, redactions\[0\] declares 2/);
-  expectRedactionProblem(declaration({ files: [{ ...files[0], originalIn: 'HEAD' }, files[1]] }), /needs the commit that holds its unredacted bytes/);
+  // No file names a commit holding its original: the originals are described once, under originals.
+  expectRedactionProblem(declaration({ files: [{ ...files[0], originalIn: 'abc1234' }, files[1]] }), /unknown key originalIn/);
   expectRedactionProblem(declaration({ files: [{ ...files[0], originalSha256: 'a'.repeat(64) }, files[1]] }), /unknown key originalSha256/);
   expectRedactionProblem(declaration({ files: [{ ...files[0], path: '../../../../../outside.json' }, files[1]] }), /leaves the repository/);
   expectRedactionProblem(declaration({ files: [...files, { ...files[1] }] }), /declared by more than one redaction/);
@@ -169,13 +170,15 @@ test('a declaration names each changed file with its redacted size, digest, plac
   );
 });
 
-test('the declaration itself is complete: id, date, reason and rule, and nothing else', () => {
+test('the declaration itself is complete: id, date, reason, rule and where the originals are, and nothing else', () => {
   expectRedactionProblem(declaration({ id: 'home paths' }), /needs a unique id/);
   expectRedactionProblem(declaration({ date: 'today' }), /needs a date/);
   expectRedactionProblem(declaration({ reason: ' ' }), /needs a reason/);
   expectRedactionProblem(declaration({ rule: [] }), /needs its rule/);
   expectRedactionProblem(declaration({ rule: [{ replaces: 'the login', with: '<redacted>' }] }), /must replace a described value by \$HOME or \$SCRATCHPAD/);
-  expectRedactionProblem(declaration({ originals: [] }), /unknown key originals/);
+  expectRedactionProblem(declaration({ originals: ' ' }), /must say where the unredacted originals are/);
+  expectRedactionProblem(declaration({ originals: undefined }), /must say where the unredacted originals are/);
+  expectRedactionProblem(declaration({ originalsIn: 'abc1234' }), /unknown key originalsIn/);
   const problems = redactionProblems(declaration(), { extra: { redactions: [] } });
   assert.ok(problems.some((problem) => /must declare its redactions/.test(problem)), problems.join('\n'));
 });
@@ -259,46 +262,27 @@ test('the committed evidence passes with its declarations', () => {
   assert.deepEqual(check(), []);
 });
 
-/** A throwaway repository holding `original` files at one commit and `redacted` ones in the work tree. */
-function historyRepository(original, redacted) {
-  const root = mkdtempSync(join(tmpdir(), 'evidence-history-'));
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  for (const [path, text] of Object.entries(original)) {
-    mkdirSync(dirname(join(root, path)), { recursive: true });
-    writeFileSync(join(root, path), text);
+test('the committed declarations say their originals were removed from the history, and name no commit holding them', () => {
+  const declarations = readDeclarations(repoRoot);
+  assert.ok(declarations.length > 0);
+  for (const { directory, manifest } of declarations) {
+    for (const redaction of manifest.redactions) {
+      assert.match(redaction.originals, /^Removed from the repository history on the owner's request on 2026-10-03\. No check reads them/, directory);
+      assert.ok(redaction.files.every((file) => !Object.hasOwn(file, 'originalIn')), directory);
+      assert.doesNotMatch(redaction.reason, /--history|originalIn/, directory);
+    }
   }
-  execFileSync('git', [...GIT, 'add', '-A'], { cwd: root });
-  execFileSync('git', [...GIT, 'commit', '-q', '-m', 'original'], { cwd: root });
-  const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
-  for (const [path, text] of Object.entries(redacted)) writeFileSync(join(root, path), text);
-  return { root, commit };
-}
+});
 
-test('the history check proves the committed files are their originals with only the declared redaction applied', () => {
+test('archived bytes of the originals read through the redaction: R1, then each redacted digest and the size beside it', () => {
   const toolOriginal = `ROOT = '${home}/repo'\n`;
-  const report = (tool) => `{\n  "command": "PATH=${home}/bin:$PATH",\n  "artifacts": [\n    {\n      "bytes": ${Buffer.byteLength(tool)},\n      "sha256": "${sha256(tool)}"\n    }\n  ]\n}\n`;
   const toolRedacted = redactPaths(toolOriginal);
-  const reportRedacted = redactPaths(report(toolRedacted));
-  const original = { 'r/report.json': report(toolOriginal), 'r/tool.py': toolOriginal };
-  const redacted = { 'r/report.json': reportRedacted, 'r/tool.py': toolRedacted };
-  const { root, commit } = historyRepository(original, redacted);
-  try {
-    const all = new Map(Object.keys(original).map((path) => [path, { file: { originalIn: commit } }]));
-    const result = historyProblems(root, all);
-    assert.deepEqual(result.problems, []);
-    assert.equal(result.compared, 2);
-    assert.equal(applyDeclaredRedaction(Buffer.from(original['r/report.json']), [
-      { originalSha256: sha256(toolOriginal), redactedSha256: sha256(toolRedacted), originalBytes: Buffer.byteLength(toolOriginal), redactedBytes: Buffer.byteLength(toolRedacted) },
-    ]).toString(), reportRedacted);
-    writeFileSync(join(root, 'r/tool.py'), `${toolRedacted}# and one more change\n`);
-    assert.match(historyProblems(root, all).problems.join('\n'), /r\/tool\.py: the committed bytes are not the original/);
-    const gone = new Map([...all].map(([path]) => [path, { file: { originalIn: 'ffffffff' } }]));
-    const missing = historyProblems(root, gone);
-    assert.deepEqual(missing.problems, [], 'an original Git no longer holds is reported, not failed');
-    assert.equal(missing.unavailable.length, 2);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  const report = (tool) => `{\n  "command": "PATH=${home}/bin:$PATH",\n  "artifacts": [\n    {\n      "bytes": ${Buffer.byteLength(tool)},\n      "sha256": "${sha256(tool)}"\n    }\n  ]\n}\n`;
+  const mapping = [
+    { originalSha256: sha256(toolOriginal), redactedSha256: sha256(toolRedacted), originalBytes: Buffer.byteLength(toolOriginal), redactedBytes: Buffer.byteLength(toolRedacted) },
+  ];
+  assert.equal(applyDeclaredRedaction(Buffer.from(report(toolOriginal)), mapping).toString(), redactPaths(report(toolRedacted)));
+  assert.equal(applyDeclaredRedaction(Buffer.from(report(toolOriginal)), []).toString(), redactPaths(report(toolOriginal)), 'without a mapping only R1 applies');
 });
 
 test('the writers refuse evidence that records a home folder or scratchpad', () => {

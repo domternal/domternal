@@ -252,7 +252,7 @@
     {
       "id": "2026-10-03-home-paths",
       "date": "2026-10-03",
-      "reason": "On the owner's request, the absolute home folder and session scratchpad paths of the machine that produced this evidence are replaced by $HOME and $SCRATCHPAD, which name the same places without naming the account. Every digest the change touched is replaced by the digest of the redacted bytes, and every digest of unredacted bytes that a guessed account name could be checked against is withheld. Nothing else changed: node tests/evidence/cli.mjs check --history proves it from the commit named in originalIn.",
+      "reason": "On the owner's request, the absolute home folder and session scratchpad paths of the machine that produced this evidence are replaced by $HOME and $SCRATCHPAD, which name the same places without naming the account. Every digest the change touched is replaced by the digest of the redacted bytes, and every digest of unredacted bytes that a guessed account name could be checked against is withheld.",
       "rule": [
         {
           "replaces": "the producing machine's home folder",
@@ -263,34 +263,31 @@
           "with": "$SCRATCHPAD"
         }
       ],
+      "originals": "Removed from the repository history on the owner's request on 2026-10-03. No check reads them: every check of this declaration holds with the redacted bytes alone.",
       "files": [
         {
           "path": "../../2026-09-27-styled-breaks.json",
           "occurrences": 2,
           "redactedSha256": "74d2c5c66a4ee7ed3d5e2c5f928dec1141396bc386f2d299e22be4586441e05b",
-          "redactedBytes": 415689,
-          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+          "redactedBytes": 415689
         },
         {
           "path": "../../2026-09-27-styled-breaks.md",
           "occurrences": 2,
           "redactedSha256": "fa8ae16bbe007005aa3daf687fc3f3716284c5104b843abbf2c831c53ce7fa02",
-          "redactedBytes": 8764,
-          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+          "redactedBytes": 8764
         },
         {
           "path": "domternal-n10c-free-evidence.py",
           "occurrences": 1,
           "redactedSha256": "435e4c78f2a3cc2d3f73b7ccb3029eb015812b81fd8f1ac013746b9a555b7de7",
-          "redactedBytes": 5080,
-          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+          "redactedBytes": 5080
         },
         {
           "path": "domternal-n10c-free-verify.py",
           "occurrences": 3,
           "redactedSha256": "e83f775f49193bcb1946ecade0c9997e3e8eaa60d6f3af905a393d4af2ad0219",
-          "redactedBytes": 14271,
-          "originalIn": "15bdb09b9e9e8b18ae996a5216f09e60031da08c"
+          "redactedBytes": 14271
         }
       ],
       "digestsReplaced": [

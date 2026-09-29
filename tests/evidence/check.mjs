@@ -16,8 +16,8 @@
  *   derived.
  * - Declared redactions: a version 2 MANIFEST.json declares every file a
  *   redaction changed, with its redacted size, digest and placeholder count,
- *   and every digest it replaced or withheld; a placeholder no manifest
- *   declares fails (see redaction.mjs).
+ *   where the unredacted originals are, and every digest it replaced or
+ *   withheld; a placeholder no manifest declares fails (see redaction.mjs).
  * - A 2 MiB ceiling per committed evidence JSON file.
  * - Nothing executes the historical tools or Python: no package script, no
  *   workflow, no test or script, and this tool itself only ever spawns `git`.
@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { inventoryDigest } from './inventory.mjs';
 import { getPointer, indentedBytes, parseJson, sha256 } from './json.mjs';
 import { caseInventorySha256 } from './playwright.mjs';
-import { checkRedactions, declaredFiles, historyProblems, undeclaredPlaceholders } from './redaction.mjs';
+import { checkRedactions, declaredFiles, undeclaredPlaceholders } from './redaction.mjs';
 import { unitFor } from './units/index.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -368,15 +368,6 @@ export function checkDeclarations(root, reports = REPORTS, files = listRepositor
   return undeclaredPlaceholders(root, evidence, declaredFiles(declarations), manifests);
 }
 
-/**
- * The history check (`cli.mjs check --history`, part of `test:evidence`): every
- * declared file is its unredacted original with only the declared redaction
- * applied, wherever the commit holding the original is in the history.
- */
-export function checkHistory(root = repoRoot, reports = REPORTS) {
-  return historyProblems(root, declaredFiles(readDeclarations(root, reports)));
-}
-
 /** Registry against the files: no unregistered report or historical-tools entry. */
 export function checkRegistry(root, reports = REPORTS, files = listRepositoryFiles(root)) {
   const problems = [];
@@ -533,14 +524,8 @@ export function check(root = repoRoot, { reports = REPORTS, files, testFiles = T
 }
 
 /** CLI entry: print the result and set the exit code. */
-export function runCheck(root = repoRoot, { log = console.log, error = console.error, history = false } = {}) {
+export function runCheck(root = repoRoot, { log = console.log, error = console.error } = {}) {
   const problems = check(root);
-  if (history) {
-    const result = checkHistory(root);
-    problems.push(...result.problems);
-    for (const note of result.unavailable) log(`[evidence] history: ${note}`);
-    if (result.problems.length === 0 && result.compared > 0) log(`[evidence] history: ${result.compared} declared files are their originals with only the declared redaction applied`);
-  }
   if (problems.length > 0) {
     error('[evidence] FAILED:');
     for (const problem of problems) error(`  - ${problem}`);

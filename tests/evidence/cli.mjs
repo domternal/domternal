@@ -2,12 +2,12 @@
 /**
  * The maintained evidence tool.
  *
- *   node tests/evidence/cli.mjs check [--history]
+ *   node tests/evidence/cli.mjs check
  *     The body of the `test:evidence` gate (see check.mjs). Needs nothing but
- *     the repository. --history also proves, from Git, that every file a
- *     declared redaction changed is its original with only that redaction
- *     applied, wherever the commit holding the original is in the history;
- *     `test:evidence` passes it, and CI checks out the whole history.
+ *     the repository, and holds every declared redaction with the redacted
+ *     bytes alone. The --history option that compared declared files with
+ *     their unredacted originals is retired: the originals were removed from
+ *     the repository history on the owner's request on 2026-10-03.
  *   node tests/evidence/cli.mjs freeze --unit <stem> --out <file> [--root <dir>]
  *     Capture the unit's source and build inventory. Never replaces a file.
  *   node tests/evidence/cli.mjs verify --unit <stem> --inputs <inputs.json> [--live] [--out <file>] [--verified-at <iso>]
@@ -44,7 +44,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export class UsageError extends Error {}
 
 const COMMANDS = {
-  check: { history: { type: 'boolean' } },
+  check: {},
   freeze: { unit: { type: 'string' }, out: { type: 'string' }, root: { type: 'string' } },
   verify: {
     unit: { type: 'string' },
@@ -121,13 +121,16 @@ export function run(argv, { log = console.log, error = console.error } = {}) {
   if (!command || !Object.hasOwn(COMMANDS, command)) {
     throw new UsageError(`Usage: cli.mjs <${Object.keys(COMMANDS).join('|')}> [options]`);
   }
+  if (command === 'check' && rest.includes('--history')) {
+    throw new UsageError('check --history is retired: the unredacted originals it compared were removed from the repository history on 2026-10-03, so every check holds with the redacted bytes alone');
+  }
   let values;
   try {
     ({ values } = parseArgs({ args: rest, options: COMMANDS[command], strict: true, allowPositionals: false }));
   } catch (error) {
     throw new UsageError(error.message);
   }
-  if (command === 'check') return runCheck(repoRoot, { log, error, history: Boolean(values.history) });
+  if (command === 'check') return runCheck(repoRoot, { log, error });
 
   if (command === 'freeze') {
     const unit = unitOf(required(values, 'unit'));

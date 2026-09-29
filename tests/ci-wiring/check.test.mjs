@@ -937,17 +937,19 @@ test('mandatory gates are declared with their reviewed command and run by ci.yml
   assert.equal(mandatoryGateProblems(hollowed, realCi).length, 1);
 });
 
-test('the evidence gate proves declared redactions against Git history, and the build checkout keeps that history', () => {
-  assert.equal(MANDATORY_GATES.get('test:evidence'), 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check --history');
-  const withoutHistory = { scripts: { ...realManifest.scripts, 'test:evidence': 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check' } };
-  assert.deepEqual(mandatoryGateProblems(withoutHistory, realCi), [
-    'package.json must declare the mandatory gate "test:evidence" as "node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check --history"',
-  ]);
-  // A shallow checkout has no original to compare, so the history check would only read the declarations.
-  const shallow = realCi.replace('          fetch-depth: 0\n', '');
-  assert.notEqual(shallow, realCi, 'the fixture removes the full history checkout');
+test('the evidence gate holds declared redactions with the committed bytes alone, so the build checkout needs no history', () => {
+  const command = 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check';
+  assert.equal(MANDATORY_GATES.get('test:evidence'), command);
+  // The history check is retired: the originals it compared were removed from the history on 2026-10-03.
+  const withHistory = { scripts: { ...realManifest.scripts, 'test:evidence': `${command} --history` } };
+  assert.deepEqual(mandatoryGateProblems(withHistory, realCi), [`package.json must declare the mandatory gate "test:evidence" as "${command}"`]);
+  const hollowed = { scripts: { ...realManifest.scripts, 'test:evidence': 'node --test tests/evidence/*.test.mjs' } };
+  assert.equal(mandatoryGateProblems(hollowed, realCi).length, 1);
+  assert.equal(/fetch-depth: 0/.test(realCi), false, 'the build checkout fetches only the tested commit');
   assert.deepEqual(pnpmSetupProblems(realManifest, realCi), []);
-  assert.notDeepEqual(pnpmSetupProblems(realManifest, shallow), []);
+  const deep = realCi.replace('          persist-credentials: false\n', '          fetch-depth: 0\n          persist-credentials: false\n');
+  assert.notEqual(deep, realCi, 'the fixture adds a full history checkout');
+  assert.notDeepEqual(pnpmSetupProblems(realManifest, deep), []);
 });
 
 test('the privacy step may read the names a CI secret lists, and nothing else from its environment', () => {

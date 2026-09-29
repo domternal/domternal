@@ -121,6 +121,7 @@
           "with": "$SCRATCHPAD"
         }
       ],
+      "originals": "Removed from the repository history on the owner's request on 2026-10-03. No check reads them: every check of this declaration holds with the redacted bytes alone.",
       "files": [],
       "digestsReplaced": [],
       "digestsWithheld": []

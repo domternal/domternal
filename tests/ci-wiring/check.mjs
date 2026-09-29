@@ -194,12 +194,11 @@ const EXPECTED_ACTIONLINT_STEP = {
   ].join('\n'),
 };
 
-// The whole history, so test:evidence --history can compare each redacted
-// evidence file with the commit its declaration names (an 11 MiB pack today).
+// No gate reads Git history, so the default single-commit checkout suffices.
 const EXPECTED_BUILD_CHECKOUT_STEP = {
   name: 'Checkout',
   uses: CHECKOUT_ACTION,
-  with: { 'fetch-depth': 0, 'persist-credentials': false },
+  with: { 'persist-credentials': false },
 };
 
 function expectedPnpmSetupStep(version) {
@@ -711,11 +710,11 @@ export function focusedBrowserWorkflowProblems(manifest, workflow) {
 // wiring checks only hold what package.json declares: deleting a gate and its
 // step together would leave them green. test:privacy keeps personal data
 // (addresses, home folders, this machine's names) out of every tracked file;
-// test:evidence with --history proves that a declared redaction of committed
-// evidence changed nothing but the paths, where the original commit is there.
+// test:evidence holds every declared redaction of committed evidence with the
+// redacted bytes alone, since the originals were removed from the history.
 export const MANDATORY_GATES = new Map([
   ['test:privacy', 'node --test tests/privacy/check.test.mjs && node tests/privacy/check.mjs'],
-  ['test:evidence', 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check --history'],
+  ['test:evidence', 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check'],
 ]);
 
 /** Each mandatory gate is declared with its reviewed command and invoked by ci.yml. */

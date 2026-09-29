@@ -12,4 +12,4 @@ A read-only comparison on 2026-09-27 rebuilt the committed bytes exactly from th
 
 The raw `report.json` and `samples.jsonl` are kept in the evidence archive outside Git (see `rawInputArchive` in MANIFEST.json). `pnpm test:evidence` covers the summary with a serialization golden: its bytes are exactly what `JSON.stringify(value, null, 2)` writes for its content, and MANIFEST.json pins its SHA-256.
 
-On 2026-10-03, on the owner's request, the home folder in the archive location MANIFEST.json records was replaced by `$HOME`. MANIFEST.json declares that redaction under `redactions`; no recorded digest covers the manifest, so none changed.
+On 2026-10-03, on the owner's request, the home folder in the archive location MANIFEST.json records was replaced by `$HOME`. MANIFEST.json declares that redaction under `redactions`; no recorded digest covers the manifest, so none changed. The unredacted manifest was removed from the repository history on the owner's request on 2026-10-03, so no check reads it: `pnpm test:evidence` holds the declaration with the redacted bytes alone.

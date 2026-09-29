@@ -21,15 +21,14 @@
  *
  * A historical-tools MANIFEST.json of version 2 declares each redaction it
  * applied (see `checkRedactions`): the files it changed with their redacted
- * size and digest and the number of placeholders each holds, the commit that
- * still holds the unredacted bytes, and every digest the redaction replaced or
- * withheld. A digest of unredacted bytes is never recorded, because it would
- * confirm a guessed account name offline. `historyProblems` proves, wherever
- * the commit named in `originalIn` is in the history (`pnpm test:evidence` runs
- * it, and CI checks out the whole history), that the committed bytes are the
- * unredacted ones with only R1 and those digests applied.
+ * size and digest and the number of placeholders each holds, where the
+ * unredacted originals are (`originals`), and every digest the redaction
+ * replaced or withheld. A digest of unredacted bytes is never recorded,
+ * because it would confirm a guessed account name offline. The originals of
+ * the redaction of 2026-10-03 were removed from the repository history on the
+ * owner's request on 2026-10-03, so no check reads them: everything here holds
+ * with the redacted bytes alone.
  */
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { getPointer, parseJson, sha256 } from './json.mjs';
@@ -78,10 +77,9 @@ export function countPlaceholders(text) {
 }
 
 const SHA256 = /^[0-9a-f]{64}$/;
-const COMMIT = /^[0-9a-f]{7,40}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const REDACTION_KEYS = new Set(['id', 'date', 'reason', 'rule', 'files', 'digestsReplaced', 'digestsWithheld']);
-const FILE_KEYS = new Set(['path', 'occurrences', 'redactedSha256', 'redactedBytes', 'originalIn']);
+const REDACTION_KEYS = new Set(['id', 'date', 'reason', 'rule', 'originals', 'files', 'digestsReplaced', 'digestsWithheld']);
+const FILE_KEYS = new Set(['path', 'occurrences', 'redactedSha256', 'redactedBytes']);
 const RULE_KEYS = new Set(['replaces', 'with']);
 export const WITHHELD = 'withheld';
 
@@ -178,6 +176,7 @@ export function checkRedactions(root, directory, manifest, all) {
       for (const key of unknownKeys(step, RULE_KEYS)) say(`${where} rule has an unknown key ${key}`);
       if (!PLACEHOLDERS.includes(step.with) || typeof step.replaces !== 'string' || step.replaces === '') say(`${where} rule must replace a described value by $HOME or $SCRATCHPAD`);
     }
+    if (typeof redaction.originals !== 'string' || redaction.originals.trim() === '') say(`${where} must say where the unredacted originals are`);
     const files = Array.isArray(redaction.files) ? redaction.files : null;
     if (!files) say(`${where} needs a files list`);
     for (const file of files ?? []) {
@@ -198,7 +197,6 @@ export function checkRedactions(root, directory, manifest, all) {
       if ((all.get(path)?.count ?? 1) > 1) say(`${path} is declared by more than one redaction`);
       if (!Number.isSafeInteger(file.occurrences) || file.occurrences < 0) say(`${where} file ${path} needs its count of placeholders`);
       if (!SHA256.test(file.redactedSha256 ?? '') || !Number.isSafeInteger(file.redactedBytes)) say(`${where} file ${path} needs its redacted size and digest`);
-      if (typeof file.originalIn !== 'string' || !COMMIT.test(file.originalIn)) say(`${where} file ${path} needs the commit that holds its unredacted bytes`);
       const full = join(root, path);
       if (!existsSync(full)) {
         say(`${where} declares ${path}, which is missing`);
@@ -247,19 +245,11 @@ export function undeclaredPlaceholders(root, files, all, manifestsWithRedactions
   return problems;
 }
 
-/** Read a file as committed at a revision, or null when Git cannot show it. */
-export function gitShowOrNull(root, revision, path) {
-  try {
-    return execFileSync('git', ['show', `${revision}:${path}`], { cwd: root, maxBuffer: 1 << 30, stdio: ['ignore', 'pipe', 'ignore'] });
-  } catch {
-    return null;
-  }
-}
-
 /**
- * The unredacted bytes of a declared file as the redaction turns them into
- * the committed ones: R1, then every digest and size of a declared original
- * replaced by its redacted counterpart.
+ * Unredacted bytes, such as an output of the originals kept in the evidence
+ * archive outside Git, as the redaction turns them: R1, then every digest and
+ * size of a redacted input replaced by its redacted counterpart. Replay
+ * compares archived outputs through it.
  */
 export function applyDeclaredRedaction(original, mapping) {
   let text = redactPaths(original.toString('utf8'));
@@ -269,37 +259,4 @@ export function applyDeclaredRedaction(original, mapping) {
     text = text.replace(new RegExp(`("bytes": )${originalBytes}(,\\s*"sha256": "${redactedSha256}")`, 'g'), `$1${redactedBytes}$2`);
   }
   return Buffer.from(text, 'utf8');
-}
-
-/**
- * The local history check: for every declared file whose unredacted bytes Git
- * still holds, the committed bytes are exactly those with the declared
- * redaction applied. An original Git no longer has, as in a shallow clone or
- * after a history rewrite, is reported as unavailable, not as a failure.
- */
-export function historyProblems(root, all, { show = (revision, path) => gitShowOrNull(root, revision, path) } = {}) {
-  const problems = [];
-  const unavailable = [];
-  const originals = new Map();
-  for (const [path, { file }] of all) {
-    const original = typeof file.originalIn === 'string' ? show(file.originalIn, path) : null;
-    if (original === null) unavailable.push(`${path}: the original at ${String(file.originalIn)} is not available, so only the declaration was checked`);
-    else originals.set(path, original);
-  }
-  const mapping = [];
-  for (const [path, original] of originals) {
-    const committed = readFileSync(join(root, path));
-    if (!original.equals(committed)) {
-      mapping.push({ originalSha256: sha256(original), redactedSha256: sha256(committed), originalBytes: original.length, redactedBytes: committed.length });
-    }
-  }
-  for (const [path, original] of originals) {
-    if (unavailable.length > 0) break;
-    const committed = readFileSync(join(root, path));
-    if (!applyDeclaredRedaction(original, mapping).equals(committed)) {
-      problems.push(`${path}: the committed bytes are not the original at ${all.get(path).file.originalIn} with only the declared redaction applied`);
-    }
-  }
-  if (unavailable.length > 0 && originals.size > 0) unavailable.push('the declared files were not compared, because a digest of an unavailable original cannot be mapped');
-  return { problems, unavailable, compared: unavailable.length > 0 ? 0 : originals.size };
 }

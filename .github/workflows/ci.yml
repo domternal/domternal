@@ -33,9 +33,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The whole history: test:evidence --history compares each redacted
-          # evidence file with the commit its declaration names.
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Lint GitHub Actions workflows
@@ -240,9 +237,8 @@ jobs:
         # The preserved historical tools must keep the bytes their reports
         # record, every committed evidence report must still round-trip through
         # the maintained tool, and nothing may execute the historical tools.
-        # A declared redaction is compared with the commit holding the original
-        # where that commit is in the history. Needs no build: it reads
-        # committed files, git ls-files and git show only.
+        # A declared redaction is held with the redacted bytes alone. Needs no
+        # build: it reads committed files and git ls-files only.
         run: pnpm test:evidence
 
       - name: Type check demo apps

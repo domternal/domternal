@@ -110,6 +110,10 @@ test('an explicit verifiedAt must be a Python UTC isoformat timestamp', () => {
   }
 });
 
+test('check --history is retired and says why: the originals it compared are no longer in the history', () => {
+  assert.throws(() => run(['check', '--history'], quiet), (error) => usage(error) && /retired/.test(error.message) && /removed from the repository history/.test(error.message));
+});
+
 test('check passes on this repository', () => {
   const lines = [];
   assert.equal(run(['check'], { log: (line) => lines.push(line), error: (line) => lines.push(line) }), 0, lines.join('\n'));
