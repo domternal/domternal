@@ -293,3 +293,29 @@ describe('PasteCleanup with image assets', () => {
     expect(text(fixture.editor)).toBe('CaptionA cat');
   });
 });
+
+describe('PasteCleanup and the picture Word adds of its selection', () => {
+  // Word's raw clipboard HTML of two empty paragraphs as Chrome carries it, next to Word's picture of the selection.
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office"\r\nxmlns:w="urn:schemas-microsoft-com:office:word"\r\n'
+    + 'xmlns="http://www.w3.org/TR/REC-html40">\r\n\r\n<head>\r\n<meta http-equiv=Content-Type content="text/html; charset=utf-8">\r\n'
+    + '<meta name=ProgId content=Word.Document>\r\n</head>\r\n\r\n<body lang=en-HR>\r\n<!--StartFragment-->\r\n\r\n'
+    + '<p class=MsoNormal><o:p>&nbsp;</o:p></p>\r\n\r\n<p class=MsoNormal><o:p>&nbsp;</o:p></p>\r\n\r\n<!--EndFragment-->\r\n</body>\r\n\r\n</html>';
+  const configurations: [string, PasteCleanupOptions, Partial<ImageOptions> | false][] = [
+    ['without image assets', {}, { uploadHandler: file => Promise.resolve(`https://cdn.example/${file.name}`) }],
+    ['with embedded image assets', { imageAssets: { mode: 'embedded', unresolved: 'reject' } }, {}],
+    ['with embedded image assets that omit unresolved images', { imageAssets: { mode: 'embedded', unresolved: 'omit' } }, {}],
+  ];
+
+  it.each(configurations)('pastes the empty paragraphs of a Word copy without text and no picture, %s', async (_name, cleanup, image) => {
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const fixture = mount({ ...cleanup, formatting }, image);
+      paste(fixture.editor, { html, text: '\r\n\r\n', files: [png('image.png')] });
+      const result = await settled(fixture);
+      expect(result).toMatchObject({ status: 'applied', diagnostics: [] });
+      expect(images(fixture.editor)).toEqual([]);
+      expect(fixture.editor.state.doc.childCount).toBeGreaterThanOrEqual(2);
+      expect(text(fixture.editor).trim()).toBe('');
+      fixture.editor.destroy();
+    }
+  });
+});

@@ -110,6 +110,18 @@ describe('pasting image files without PasteCleanup', () => {
     expect(ed.getText()).toBe(text);
   });
 
+  it('keeps the paste of a Word copy without text that places no image, whose file is Word\'s picture of the selection', async () => {
+    // Word's raw clipboard HTML of two empty paragraphs, as Chrome carries it next to Word's picture of the selection.
+    const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office"\r\nxmlns:w="urn:schemas-microsoft-com:office:word">\r\n<head>\r\n'
+      + '<meta name=ProgId content=Word.Document>\r\n</head>\r\n<body>\r\n<!--StartFragment-->\r\n\r\n<p class=MsoNormal><o:p>&nbsp;</o:p></p>\r\n\r\n'
+      + '<p class=MsoNormal><o:p>&nbsp;</o:p></p>\r\n\r\n<!--EndFragment-->\r\n</body>\r\n</html>';
+    const ed = mount();
+    paste(ed, { html, text: '\r\n\r\n', files: [png('image.png')] });
+    await settle();
+    expect(images(ed)).toEqual([]);
+    expect(ed.getText().trim()).toBe('Start');
+  });
+
   it('keeps text next to a local image the Image refuses as an image without a source, and ignores the file', async () => {
     const ed = mount();
     paste(ed, { html: '<p>Text</p><img src="file:///C:/cat.png" alt="A cat">', files: [png()] });

@@ -271,8 +271,12 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   `dropClipboardImageFiles(view, event, slice)` does the same for a drop at its position, where
   the files win over whatever else the drop carries.
   A paste whose content has text of its own keeps that content, because Office applications and
-  Google Docs put a picture of the copied selection next to it. The Image extension, Paste Cleanup
-  and the Link paste all ask this rule, so their paste handlers cannot disagree.
+  Google Docs put a picture of the copied selection next to it. So does a Word or Excel copy that
+  places no image (HTML whose `ProgId` meta names `Word.Document` or `Excel.Sheet`, or whose root
+  declares Word's or Excel's namespace, without an `<img>` or VML image data), such as a copy of
+  empty paragraphs or cells: Chrome exposes Word's picture of the selection as a file next to it.
+  The Image extension, Paste Cleanup and the Link paste all ask this rule, so their paste handlers
+  cannot disagree.
 
 ## Pasted clipboard context
 

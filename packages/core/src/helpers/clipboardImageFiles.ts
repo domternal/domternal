@@ -1,9 +1,10 @@
 /**
  * When a paste's image files are the paste. Office applications and Google Docs put a picture of
  * the copied selection next to its HTML, so a paste whose content has text of its own keeps that
- * content and ignores the files. A paste whose content has no text of its own, such as a copied
- * image (an `<img>` with its file) or a screenshot, inserts the files instead. One rule, decided
- * here, so the paste handlers of Image, PasteCleanup and Link cannot disagree.
+ * content and ignores the files, and so does a Word or Excel copy that places no image, such as a
+ * selection of empty paragraphs or cells. A paste whose content has no text of its own, such as a
+ * copied image (an `<img>` with its file) or a screenshot, inserts the files instead. One rule,
+ * decided here, so the paste handlers of Image, PasteCleanup and Link cannot disagree.
  */
 import type { Slice } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
@@ -99,17 +100,47 @@ function lineFileName(line: string): string {
   return name.normalize('NFC');
 }
 
+// Word and Excel declare their namespaces on the root element and name themselves in a ProgId meta, at the
+// start of the HTML they copy.
+const OFFICE_HEAD = 8_192;
+const OFFICE_NAMESPACE = /\bxmlns:[\w-]{1,32}[\t\n\f\r ]*=[\t\n\f\r ]*["']?urn:schemas-microsoft-com:office:(?:word|excel)\b/i;
+const META = /<meta\b[^<>]{0,512}>/gi;
+const PROG_ID = /\bname[\t\n\f\r ]*=[\t\n\f\r ]*["']?ProgId\b/i;
+const OFFICE_PROG_ID = /\bcontent[\t\n\f\r ]*=[\t\n\f\r ]*["']?(?:Word\.Document|Excel\.Sheet)\b/i;
+// An image the copied content places: an img element, the downlevel copy of a VML shape included, or a VML shape's image data.
+const PLACED_IMAGE = /<(?:img|v:imagedata)\b/i;
+
+/**
+ * Whether the clipboard's HTML is a Word or Excel document that places no image. Its clipboard image
+ * files are then the application's picture of the selection, as Chrome exposes Word's, not content.
+ */
+function officeSelectionPicture(data: DataTransfer | null | undefined): boolean {
+  if (!data || !hasType(data, 'text/html')) return false;
+  let html: string;
+  try {
+    html = data.getData('text/html');
+  } catch {
+    return false;
+  }
+  const head = html.slice(0, OFFICE_HEAD);
+  const office = OFFICE_NAMESPACE.test(head) || Array.from(head.matchAll(META)).some(([tag]) => PROG_ID.test(tag) && OFFICE_PROG_ID.test(tag));
+  return office && !PLACED_IMAGE.test(html);
+}
+
 /**
  * @experimental Whether a paste's content has text of its own, so the clipboard's image files are
  * ignored. Characters that show nothing (white space and Unicode format characters) do not count,
  * nor alt text a handler left in place of images it removed (`imageStandIns`), nor a plain-text
  * clipboard without HTML whose lines name its image files in order, as file managers copy files:
  * each line the file's name, its absolute path or its `file:` URL, in any Unicode normalization
- * form. A web address that ends in the name stays text.
+ * form. A web address that ends in the name stays text. Content without text of its own still
+ * counts as the paste when the HTML is a Word or Excel document that places no image, such as a
+ * copy of empty paragraphs or cells: the image file next to it is the application's picture of
+ * the selection, which Chrome exposes for Word.
  */
 export function pasteHasOwnText(event: ClipboardEvent, slice: Slice, options: ClipboardPasteTextOptions = {}): boolean {
   const own = visible(sliceText(slice));
-  if (own === '') return false;
+  if (own === '') return officeSelectionPicture(event.clipboardData);
   const standIns = visible((options.imageStandIns ?? []).join(''));
   if (standIns !== '' && own === standIns) return false;
   const data = event.clipboardData;

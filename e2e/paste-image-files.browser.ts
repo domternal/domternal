@@ -41,6 +41,22 @@ interface Row { name: string; clipboard: Clipboard; expect: Partial<Record<Confi
 // Default expectations: files inserted in every configuration.
 const FILE: Expected = { file: 1 };
 const ALL_FILE: Row['expect'] = { off: FILE, cleanup: FILE, assets: FILE, 'assets-omit': FILE, upload: FILE, 'no-base64': { nothing: true } };
+const NO_PICTURE: Row['expect'] = { off: { nothing: true }, cleanup: { nothing: true }, assets: { nothing: true }, 'assets-omit': { nothing: true }, upload: { nothing: true }, 'no-base64': { nothing: true } };
+
+/**
+ * Word's raw clipboard HTML in the shape Chrome carries it (Word 16.113 for Mac, Chrome 154), for selections
+ * without text of their own, which no owner capture holds. The links Word writes to its local temporary files are left out.
+ */
+const wordCopy = (body: string): string => '<html xmlns:o="urn:schemas-microsoft-com:office:office"\r\nxmlns:w="urn:schemas-microsoft-com:office:word"\r\n'
+  + 'xmlns:m="http://schemas.microsoft.com/office/2004/12/omml"\r\nxmlns="http://www.w3.org/TR/REC-html40">\r\n\r\n<head>\r\n'
+  + '<meta http-equiv=Content-Type content="text/html; charset=utf-8">\r\n<meta name=ProgId content=Word.Document>\r\n'
+  + '<meta name=Generator content="Microsoft Word 15">\r\n<meta name=Originator content="Microsoft Word 15">\r\n</head>\r\n\r\n'
+  + `<body lang=en-HR style='tab-interval:36.0pt;word-wrap:break-word'>\r\n<!--StartFragment-->${body}<!--EndFragment-->\r\n</body>\r\n\r\n</html>`;
+const WORD_EMPTY = '\r\n\r\n<p class=MsoNormal><o:p>&nbsp;</o:p></p>\r\n\r\n<p class=MsoNormal><o:p>&nbsp;</o:p></p>\r\n\r\n';
+const WORD_CELL = "\r\n\r\n<table class=MsoTableGrid border=1 cellspacing=0 cellpadding=0 style='border-collapse:collapse;border:none'>\r\n <tr>\r\n"
+  + "  <td width=200 valign=top style='width:150.25pt;border:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'>\r\n"
+  + "  <p class=MsoNormal style='margin-bottom:0cm;line-height:normal'><o:p>&nbsp;</o:p></p>\r\n  </td>\r\n </tr>\r\n</table>\r\n\r\n";
+const WORD_SPACES = '\r\n<p class=MsoNormal>&nbsp;&nbsp;<o:p></o:p></p>\r\n';
 
 const ROWS: Row[] = [
   { name: 'one image file', clipboard: { files: 1 }, expect: ALL_FILE },
@@ -84,6 +100,11 @@ const ROWS: Row[] = [
     expect: { off: FILE, cleanup: FILE, assets: FILE, 'assets-omit': FILE, upload: FILE },
   },
   { name: 'HTML text without a file', clipboard: { html: '<p>Hello</p>' }, expect: { off: { text: 'Hello' }, cleanup: { text: 'Hello' }, assets: { text: 'Hello' }, upload: { text: 'Hello' } } },
+  // Chrome exposes Word's picture of the copied selection as an image file next to Word's HTML. A Word copy
+  // without text of its own that places no image keeps its content, not the picture.
+  { name: 'a Word copy of empty paragraphs and Word\'s picture of it', clipboard: { html: wordCopy(WORD_EMPTY), text: '\r\n\r\n', files: 1 }, expect: NO_PICTURE },
+  { name: 'a Word copy of an empty table cell and Word\'s picture of it', clipboard: { html: wordCopy(WORD_CELL), text: '\r\n', files: 1 }, expect: NO_PICTURE },
+  { name: 'a Word copy of spaces and Word\'s picture of it', clipboard: { html: wordCopy(WORD_SPACES), text: '  \r\n', files: 1 }, expect: NO_PICTURE },
 ];
 
 async function open(page: Page, framework: string, config: Config): Promise<void> {

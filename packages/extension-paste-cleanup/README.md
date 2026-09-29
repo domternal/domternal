@@ -225,7 +225,9 @@ the input limit, since that content is not inserted: the drop reports `untracked
 findings and no blocked notice. One dropped file keeps the alt text cleanup left in place of the
 one image that drop's content held; a later drop of files alone, as an operating system's file
 drag carries them, keeps none. Content with text of its own keeps the paste, since Word, Excel
-and Google Docs put a picture of the copied selection next to it. A rejected paste never reaches
+and Google Docs put a picture of the copied selection next to it, and so does a Word or Excel copy
+that places no image, such as empty paragraphs or cells, whose file Chrome exposes as that
+picture. A rejected paste never reaches
 the files. With `allowBase64: false` and no `uploadHandler`, the Image cannot store
 files and the cleaned content pastes as it would without them.
 

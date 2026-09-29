@@ -344,3 +344,63 @@ describe('dropClipboardImageFiles', () => {
     expect(dropClipboardImageFiles(ed.view, drop([png()]), Slice.empty)).toBe(false);
   });
 });
+
+describe('the picture an Office application adds of its selection', () => {
+  // Word's raw clipboard HTML as Chrome carries it, with Word's picture of the selection as an image/png file, here
+  // for selections without text of their own: two empty paragraphs, an empty table cell, spaces. The links Word
+  // writes to its local temporary files are left out.
+  const word = (body: string, head = '<meta name=ProgId content=Word.Document>\r\n<meta name=Generator content="Microsoft Word 15">'): string =>
+    '<html xmlns:o="urn:schemas-microsoft-com:office:office"\r\nxmlns:w="urn:schemas-microsoft-com:office:word"\r\n'
+    + `xmlns="http://www.w3.org/TR/REC-html40">\r\n\r\n<head>\r\n<meta http-equiv=Content-Type content="text/html; charset=utf-8">\r\n${head}\r\n</head>\r\n\r\n`
+    + `<body lang=en-HR style='tab-interval:36.0pt;word-wrap:break-word'>\r\n<!--StartFragment-->${body}<!--EndFragment-->\r\n</body>\r\n\r\n</html>`;
+  const EMPTY = '\r\n\r\n<p class=MsoNormal><o:p>&nbsp;</o:p></p>\r\n\r\n<p class=MsoNormal><o:p>&nbsp;</o:p></p>\r\n\r\n';
+  const CELL = "\r\n\r\n<table class=MsoTableGrid border=1 cellspacing=0 cellpadding=0 style='border-collapse:collapse;border:none'>\r\n <tr>\r\n"
+    + "  <td width=200 valign=top style='width:150.25pt;border:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'>\r\n"
+    + "  <p class=MsoNormal style='margin-bottom:0cm;line-height:normal'><o:p>&nbsp;</o:p></p>\r\n  </td>\r\n </tr>\r\n</table>\r\n\r\n";
+  const SPACES = '\r\n<p class=MsoNormal>&nbsp;&nbsp;<o:p></o:p></p>\r\n';
+  // A picture Word places: its VML shape in a conditional comment and the downlevel image Chrome and Firefox carry.
+  const PICTURE = "\r\n<p class=MsoNormal><!--[if gte vml 1]><v:shape id=\"Picture_x0020_1\" style='width:120pt;height:80pt'>"
+    + '<v:imagedata src="clip_image001.png" o:title=""/></v:shape><![endif]--><![if !vml]><img width=160 height=107\r\nsrc="clip_image002.png" v:shapes="Picture_x0020_1"><![endif]><o:p></o:p></p>\r\n';
+  const VML = "\r\n<p class=MsoNormal><!--[if gte vml 1]><v:shape id=\"Picture_x0020_1\" style='width:120pt;height:80pt'>"
+    + '<v:imagedata src="clip_image001.png" o:title=""/></v:shape><![endif]--><o:p></o:p></p>\r\n';
+
+  it.each([['two empty paragraphs', EMPTY], ['an empty table cell', CELL], ['spaces', SPACES]])('keeps the content of a Word copy of %s, whose file is Word\'s picture of it', (_name, body) => {
+    const ed = mount();
+    const html = word(body);
+    expect(pasteHasOwnText(pasteEvent({ html, text: '\r\n', files: [png()] }), sliceOf(ed, html))).toBe(true);
+  });
+
+  it('reads an Excel copy the same way, by its ProgId or its namespace', () => {
+    const ed = mount();
+    const excel = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head></head><body><table><tr><td></td></tr></table></body></html>';
+    for (const html of [excel, '<html><head><meta name=ProgId content=Excel.Sheet></head><body><table><tr><td></td></tr></table></body></html>']) {
+      expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), sliceOf(ed, html)), html).toBe(true);
+    }
+  });
+
+  it.each([['an image Word places', PICTURE], ['a VML picture alone', VML]])('still pastes the files of a Word copy that holds %s, which is the paste', (_name, body) => {
+    const ed = mount();
+    const html = word(body);
+    expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), sliceOf(ed, html))).toBe(false);
+  });
+
+  it('still pastes the files of HTML no Word or Excel document wrote, as a copied image or a screenshot', () => {
+    for (const html of ['<meta charset="utf-8"><p></p>', '<html><head><meta name=ProgId content=PowerPoint.Slide></head><body><p></p></body></html>',
+      // The namespace named in text, not declared on an element.
+      '<p>urn:schemas-microsoft-com:office:word</p>']) {
+      expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty), html).toBe(false);
+    }
+  });
+
+  it('hands no file to the destination for a Word copy without text of its own, and the content stays the paste', () => {
+    const insert = vi.fn(() => true);
+    const ed = mount();
+    registerClipboardImageDestination(ed.view, () => policy, insert);
+    const html = word(EMPTY);
+    expect(pasteClipboardImageFiles(ed.view, pasteEvent({ html, text: '\r\n\r\n', files: [png('image.png')] }), sliceOf(ed, html))).toBe(false);
+    expect(insert).not.toHaveBeenCalled();
+    const picture = word(PICTURE);
+    expect(pasteClipboardImageFiles(ed.view, pasteEvent({ html: picture, files: [png('image.png')] }), sliceOf(ed, picture))).toBe(true);
+    expect(insert).toHaveBeenCalledOnce();
+  });
+});
