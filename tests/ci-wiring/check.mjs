@@ -194,10 +194,12 @@ const EXPECTED_ACTIONLINT_STEP = {
   ].join('\n'),
 };
 
+// The whole history, so test:evidence --history can compare each redacted
+// evidence file with the commit its declaration names (an 11 MiB pack today).
 const EXPECTED_BUILD_CHECKOUT_STEP = {
   name: 'Checkout',
   uses: CHECKOUT_ACTION,
-  with: { 'persist-credentials': false },
+  with: { 'fetch-depth': 0, 'persist-credentials': false },
 };
 
 function expectedPnpmSetupStep(version) {
@@ -579,6 +581,21 @@ function isExactCiWiringStep(step) {
   return exactStructureProblems(step, EXPECTED_CI_WIRING_STEP, 'ci.yml wiring step').length === 0;
 }
 
+// The privacy gate's one reviewed environment: names a CI secret lists, since
+// a runner's own login and host name identify nobody. Any other variable, or
+// another value, could change what the gate runs, so the step stops counting.
+const EXPECTED_PRIVACY_STEP = {
+  name: 'No personal data in tracked files',
+  env: { PRIVACY_NAMES: '${{ secrets.PRIVACY_NAMES }}' },
+  run: 'pnpm test:privacy',
+};
+
+function isExactPrivacyStep(step) {
+  return exactStructureProblems(step, EXPECTED_PRIVACY_STEP, 'ci.yml privacy step').length === 0;
+}
+
+const isReviewedOverride = (step) => isExactCiWiringStep(step) || isExactPrivacyStep(step);
+
 function stepHasExecutionOverrides(step) {
   return ['env', 'shell', 'working-directory'].some((key) =>
     Object.prototype.hasOwnProperty.call(step, key)
@@ -604,7 +621,7 @@ export function scriptInvocations(workflow) {
     for (const step of Array.isArray(job.steps) ? job.steps : []) {
       if (!isRecord(step) || typeof step.run !== 'string') continue;
       if (Object.prototype.hasOwnProperty.call(step, 'if') || failureCanBeIgnored(step)) continue;
-      if (stepHasExecutionOverrides(step) && !isExactCiWiringStep(step)) continue;
+      if (stepHasExecutionOverrides(step) && !isReviewedOverride(step)) continue;
       for (const name of standaloneRootScripts(step.run)) found.add(name);
     }
   }
@@ -640,7 +657,7 @@ export function gateExecutionProblems(workflow, gateNames = []) {
       if (jobId !== 'build') {
         problems.push(`root gate ${names.join(', ')} must execute in the unconditional build job`);
       }
-      if (stepHasExecutionOverrides(step) && !isExactCiWiringStep(step)) {
+      if (stepHasExecutionOverrides(step) && !isReviewedOverride(step)) {
         problems.push(
           `root gate ${names.join(', ')} must not override env, shell or working-directory`
         );
@@ -693,9 +710,12 @@ export function focusedBrowserWorkflowProblems(manifest, workflow) {
 // Gates that must exist, with the reviewed command each runs. The generic
 // wiring checks only hold what package.json declares: deleting a gate and its
 // step together would leave them green. test:privacy keeps personal data
-// (addresses, home folders, this machine's names) out of every tracked file.
+// (addresses, home folders, this machine's names) out of every tracked file;
+// test:evidence with --history proves that a declared redaction of committed
+// evidence changed nothing but the paths, where the original commit is there.
 export const MANDATORY_GATES = new Map([
   ['test:privacy', 'node --test tests/privacy/check.test.mjs && node tests/privacy/check.mjs'],
+  ['test:evidence', 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check --history'],
 ]);
 
 /** Each mandatory gate is declared with its reviewed command and invoked by ci.yml. */

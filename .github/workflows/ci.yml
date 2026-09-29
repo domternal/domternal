@@ -33,6 +33,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The whole history: test:evidence --history compares each redacted
+          # evidence file with the commit its declaration names.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Lint GitHub Actions workflows
@@ -80,9 +83,13 @@ jobs:
         run: pnpm test:ci-wiring
 
       - name: No personal data in tracked files
-        # E-mail addresses, home and drive paths, file URLs and the runner's own
-        # names in every tracked file, read the way the native capture scanner
-        # reads them. It needs nothing built, so it fails early.
+        # E-mail addresses, home, drive and network paths, file URLs and author
+        # data in every tracked file, read the way the native capture scanner
+        # reads them. A runner's own login and host name identify nobody, so
+        # the names to look for come from the PRIVACY_NAMES secret; unset, the
+        # rest still runs. It needs nothing built, so it fails early.
+        env:
+          PRIVACY_NAMES: ${{ secrets.PRIVACY_NAMES }}
         run: pnpm test:privacy
 
       - name: Check committed locale output before builds
@@ -233,7 +240,9 @@ jobs:
         # The preserved historical tools must keep the bytes their reports
         # record, every committed evidence report must still round-trip through
         # the maintained tool, and nothing may execute the historical tools.
-        # Needs no build: it reads committed files and git ls-files only.
+        # A declared redaction is compared with the commit holding the original
+        # where that commit is in the history. Needs no build: it reads
+        # committed files, git ls-files and git show only.
         run: pnpm test:evidence
 
       - name: Type check demo apps

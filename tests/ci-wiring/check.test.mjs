@@ -936,3 +936,30 @@ test('mandatory gates are declared with their reviewed command and run by ci.yml
   const hollowed = { scripts: { ...realManifest.scripts, 'test:privacy': 'node --test tests/privacy/check.test.mjs' } };
   assert.equal(mandatoryGateProblems(hollowed, realCi).length, 1);
 });
+
+test('the evidence gate proves declared redactions against Git history, and the build checkout keeps that history', () => {
+  assert.equal(MANDATORY_GATES.get('test:evidence'), 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check --history');
+  const withoutHistory = { scripts: { ...realManifest.scripts, 'test:evidence': 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check' } };
+  assert.deepEqual(mandatoryGateProblems(withoutHistory, realCi), [
+    'package.json must declare the mandatory gate "test:evidence" as "node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check --history"',
+  ]);
+  // A shallow checkout has no original to compare, so the history check would only read the declarations.
+  const shallow = realCi.replace('          fetch-depth: 0\n', '');
+  assert.notEqual(shallow, realCi, 'the fixture removes the full history checkout');
+  assert.deepEqual(pnpmSetupProblems(realManifest, realCi), []);
+  assert.notDeepEqual(pnpmSetupProblems(realManifest, shallow), []);
+});
+
+test('the privacy step may read the names a CI secret lists, and nothing else from its environment', () => {
+  assert.deepEqual(gateExecutionProblems(realCi, ['test:privacy']), []);
+  assert.ok(scriptInvocations(realCi).has('test:privacy'));
+  const secret = '          PRIVACY_NAMES: ${{ secrets.PRIVACY_NAMES }}\n';
+  assert.ok(realCi.includes(secret), 'ci.yml passes the secret to the privacy step');
+  for (const changed of [
+    realCi.replace(secret, `${secret}          PATH: ./attacker-bin\n`),
+    realCi.replace(secret, '          PRIVACY_NAMES: nobody\n'),
+  ]) {
+    assert.notDeepEqual(gateExecutionProblems(changed, ['test:privacy']), [], changed.slice(0, 0));
+    assert.equal(scriptInvocations(changed).has('test:privacy'), false);
+  }
+});
