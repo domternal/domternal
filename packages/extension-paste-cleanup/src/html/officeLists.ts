@@ -190,9 +190,18 @@ function trivia(node: RootContent | undefined): node is Comment | Text {
   return node?.type === 'comment' || (node?.type === 'text' && prefixWhitespace.test(node.value));
 }
 
+// Marker spacing: CSS white space and the no-break spaces of Word's spacer runs.
+const markerSpacing = /[\t\n\f\r \xa0]/gu;
+// The longest label a marker may hold, and the most spacing around it: Word right aligns a level's label by
+// padding it with a 7 pt spacer that fills the indent before it, about 900 no-break spaces at the widest
+// indent Word allows (22 inches), so the spacing has a bound of its own and only the label counts toward 64.
+const maxLabelLength = 64;
+const maxMarkerText = 1_024;
+
 /** The visible marker text without surrounding spacing, or undefined for anything but plain marker spans. */
 function markerLabel(marker: Element): string | undefined {
   let text = '';
+  let label = 0;
   let visited = 0;
   const pending: RootContent[] = [marker];
   while (pending.length > 0) {
@@ -201,7 +210,8 @@ function markerLabel(marker: Element): string | undefined {
     if (++visited > 32) return undefined;
     if (node.type === 'text') {
       text += node.value;
-      if (text.length > 64) return undefined;
+      label += node.value.replace(markerSpacing, '').length;
+      if (label > maxLabelLength || text.length > maxMarkerText) return undefined;
     } else if (node.type === 'element') {
       if (node.tagName !== 'span' || Object.keys(node.properties).some(key => !markerProperties.has(key))) return undefined;
       if (node !== marker && listDeclaration(node.properties.style).present) return undefined;
