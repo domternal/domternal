@@ -2,8 +2,9 @@
  * WCAG 2 contrast read in the page, shared by the contrast specs. Colors come from computed styles in
  * whatever form the engine serializes them: rgb() and rgba(), and anything else (color(srgb-linear ...)
  * from a relative color, oklch(), a system color) through a one pixel canvas, which paints it in sRGB.
- * A background is every layer behind the element, translucent ones included, composited down to the
- * white page; a text or border color is composited over what it is painted on before the ratio is taken.
+ * A background is every layer behind the element, translucent ones included (a details summary row,
+ * which its box paints with a ::before, too), composited down to the white page; a text or border color is
+ * composited over what it is painted on before the ratio is taken.
  *
  * installContrastTools runs in the page and is self-contained, so page.evaluate can ship its source.
  */
@@ -66,7 +67,14 @@ export function installContrastTools(): void {
   };
   const background = (element: Element | null): Rgba => {
     const layers: Rgba[] = [];
+    // A details box paints its summary row with a ::before behind the summary, above its own background.
+    const summaryBox = element?.closest('summary')?.closest('div[data-type="details"]') ?? null;
     for (let current = element; current; current = current.parentElement) {
+      if (current === summaryBox) {
+        const row = rgba(getComputedStyle(current, '::before').backgroundColor);
+        if (row[3] > 0) layers.push(row);
+        if (row[3] >= 1) break;
+      }
       const layer = rgba(getComputedStyle(current).backgroundColor);
       if (layer[3] > 0) layers.push(layer);
       if (layer[3] >= 1) break;

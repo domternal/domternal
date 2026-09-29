@@ -118,6 +118,14 @@ const CONTENT: JSONContent = {
       cell('var(--dm-probe-unset, #fef08a)', paragraph(text(probe('rdcell', 'unread in cells', 'automatic')), text(' '),
         text(probe('rdcellnavy', 'unread in cells', 'automatic'), [style({ backgroundColor: '#000080' })]))),
     ),
+    // Surfaces inside an unread cell (a details box, a nested header cell) sit on its lift, not on the theme's surface.
+    table(...['oklch(0.25 0.1 265)', 'var(--dm-probe-unset, #fef08a)'].map((color, index) => cell(color,
+      { type: 'details', attrs: { open: true }, content: [
+        { type: 'detailsSummary', content: [text(probe(`rdsum${String(index)}`, 'unread surfaces', 'automatic'))] },
+        { type: 'detailsContent', content: [paragraph(text(probe(`rdbody${String(index)}`, 'unread surfaces', 'automatic')))] },
+      ] },
+      { type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableHeader', content: [paragraph(text(probe(`rdth${String(index)}`, 'unread surfaces', 'automatic')))] }] }] },
+    ))),
     // Roles on an unread background take its black or white, as on a mid tone.
     paragraph(
       text(probe('rdlink', 'unread roles', 'role'), [LINK, style({ backgroundColor: 'oklch(0.3 0.1 265)' })]), text(' '),
