@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import type { Editor, JSONContent } from '@domternal/core';
 import type { PasteOperationResult } from '@domternal/extension-paste-cleanup';
+import { installContrastTools, type ContrastTools } from './contrast-tools.js';
 import { test } from './fixtures.js';
 import type { EditorOutcome, PolicyOracle, SemanticExpected } from './native-office-capture/offline.mjs';
 import type * as Offline from './native-office-capture/offline.mjs';
@@ -29,6 +30,7 @@ const evidence = async (): Promise<[typeof Semantics, typeof Offline]> =>
 
 interface ProbeWindow {
   __pasteCleanup: { ready: boolean; editor: Editor; operations: PasteOperationResult[]; clearObservations: () => void };
+  __contrastTools: ContrastTools;
 }
 interface Fixture { id: string; directory: string; expected: SemanticExpected | undefined; flavors: [string, string][] }
 interface Run { text: string; ratio: number; authored: boolean }
@@ -88,24 +90,12 @@ async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'def
   }, flavors);
   await page.waitForFunction(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.length > 0);
   await page.evaluate(() => new Promise(resolve => { requestAnimationFrame(() => { requestAnimationFrame(resolve); }); }));
+  await page.evaluate(installContrastTools);
   const measure = (): Promise<Run[]> => page.evaluate(() => {
     const root = (window as unknown as ProbeWindow).__pasteCleanup.editor.view.dom;
-    // WCAG relative luminance and contrast of each text run against the first painted background behind it.
-    const channels = (value: string): number[] => (value.match(/[\d.]+/g) ?? []).map(Number);
-    const luminance = (value: string): number => {
-      const [red = 0, green = 0, blue = 0] = channels(value).map(channel => {
-        const part = channel / 255;
-        return part <= 0.03928 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4;
-      });
-      return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-    };
-    const background = (element: Element | null): string => {
-      for (let node = element; node !== null; node = node.parentElement) {
-        const color = getComputedStyle(node).backgroundColor;
-        if ((channels(color)[3] ?? 1) > 0) return color;
-      }
-      return 'rgb(255, 255, 255)';
-    };
+    // WCAG contrast of each text run against every background behind it, translucent layers composited down to
+    // the page, and its text color composited over that (contrast-tools.ts).
+    const tools = (window as unknown as ProbeWindow).__contrastTools;
     // A run whose color the source authored: an inline color or a color token on it or an element around it in the document.
     const authored = (element: Element): boolean => {
       for (let node: Element | null = element; node !== null && node !== root; node = node.parentElement) {
@@ -118,8 +108,7 @@ async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'def
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
       if (!/\S/u.test(node.textContent ?? '') || node.parentElement === null) continue;
-      const [lighter, darker] = [luminance(getComputedStyle(node.parentElement).color), luminance(background(node.parentElement))].sort((left, right) => right - left);
-      runs.push({ text: (node.textContent ?? '').slice(0, 24), ratio: ((lighter ?? 0) + 0.05) / ((darker ?? 0) + 0.05), authored: authored(node.parentElement) });
+      runs.push({ text: (node.textContent ?? '').slice(0, 24), ratio: tools.text(node.parentElement).ratio, authored: authored(node.parentElement) });
     }
     return runs;
   });

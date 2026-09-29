@@ -2,7 +2,7 @@ import {
   Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight, Code, BlockColor,
   FontFamily, FontSize, TextAlign, Heading, BulletList, OrderedList, ListItem,
   Blockquote, CodeBlock, HardBreak, UniqueID, Extension, Subscript, Superscript, LineHeight, TaskList, TaskItem,
-  CharacterCount, TrailingNode,
+  CharacterCount, TrailingNode, HorizontalRule,
 } from '@domternal/core';
 import { Plugin, TextSelection } from '@domternal/pm/state';
 import { undoDepth, redoDepth, closeHistory } from '@domternal/pm/history';
@@ -40,7 +40,7 @@ const listMarkers = query.get('list-markers') === '1';
 const themed = query.get('theme') === '1';
 // A theme class on the page around the editor: dm-theme-dark, dm-theme-auto or dm-theme-light.
 const themeMode = ['dark', 'auto', 'light'].includes(query.get('theme-mode') ?? '') ? query.get('theme-mode') : null;
-// Inline code, block colors and task lists, for the contrast checks on kept backgrounds.
+// Inline code, block colors, task lists and rules, for the contrast checks on kept backgrounds.
 const contrast = query.get('contrast') === '1';
 // Core paste without PasteCleanup, for behavior applications see without the extension.
 const withoutPasteCleanup = query.get('paste-cleanup') === 'off';
@@ -295,7 +295,7 @@ const extensions = [
   ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),
   ...(lists ? [...markerLists, ListItem] : []),
   ...(listMarkers || contrast ? [TaskList, TaskItem] : []),
-  ...(contrast ? [Code, BlockColor] : []),
+  ...(contrast ? [Code, BlockColor, HorizontalRule] : []),
   Blockquote, CodeBlock, HardBreak, UniqueID,
   ...(tableFirst ? tableExtensions : []), ...(imagePolicy === 'missing' ? [] : [Image.configure({
     allowBase64: imagePolicy !== 'no-base64',
