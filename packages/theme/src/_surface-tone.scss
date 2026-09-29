@@ -32,8 +32,9 @@
 //    from its text.
 // 5. On an unknown background CSS computes the black or white of rule 1 from
 //    the painted color itself (relative color syntax over its WCAG luminance),
-//    and every role takes it, as on a mid tone. Engines without relative color
-//    syntax keep the color around it.
+//    and every role takes it, as on a mid tone; the surfaces content paints
+//    there sit on the lift. Engines without relative color syntax keep the
+//    color around it.
 //
 // Authored colors stay as authored: an inline color always wins, a token color
 // on the run itself resolves in the background's palette, and a color a block
@@ -167,11 +168,19 @@ $-black: 'calc(1 - #{$-white})';
     --dm-tone-lift: color(from var(--dm-tone-surface) srgb-linear #{$-black} #{$-black} #{$-black} / 0.4);
     @include mid-roles(var(--dm-tone-text));
     @include edges(var(--dm-tone-text));
+    // No palette is re-emitted here, so every surface content paints on the
+    // background (code, mentions, a details summary row, a header cell, the
+    // theme's own surface and hover) sits on the lift, under the same text.
+    --dm-text: var(--dm-tone-text);
+    --dm-surface: var(--dm-tone-lift);
+    --dm-hover: color-mix(in srgb, var(--dm-tone-text) 10%, transparent);
     --dm-mention-bg: var(--dm-tone-lift);
     --dm-code-bg: var(--dm-tone-lift);
     --dm-code-text: currentColor;
     --dm-code-block-bg: var(--dm-tone-lift);
     --dm-code-block-text: currentColor;
+    --dm-details-bg: var(--dm-tone-lift);
+    --dm-table-header-bg: var(--dm-tone-lift);
   }
 
   .dm-editor .ProseMirror :where([data-dm-tone~="unknown"]) {
