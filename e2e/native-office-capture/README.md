@@ -150,7 +150,10 @@ path this evidence is meant to show.
   browser regression reads from the live schema), a mark or text style the
   destination cannot hold is expected absent rather than missing, and one that
   is there anyway is a problem. A capture replayed offline has no destination,
-  so warnings only a destination reports are not required of it. It never compares exact HTML and never qualifies. `--dry-run <content.json>` checks a synthetic
+  so warnings only a destination reports are not required of it, and an editor
+  result whose blocks carry the line height attribute comes from a destination
+  with LineHeight, which stores the spacing a scenario authors, so a warning the
+  scenario requires of a destination without it is not required there. It never compares exact HTML and never qualifies. `--dry-run <content.json>` checks a synthetic
   result built from the specification for every scenario and both policies, and
   `--print <content.json>` lists the texts an operator enters.
 - [`prepare-fixture.mjs`](./prepare-fixture.mjs) checks a downloaded bundle's

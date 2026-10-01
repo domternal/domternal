@@ -221,6 +221,22 @@ test('a stored line height must be a ratio the destination renders, not a percen
   assert.match(compareBlocks(spec, 'word-alignment-spacing', blocksFromHTML(styled(html, '2'))).join('\n'), /B12: line height is 2, expected 1\.5/u);
 });
 
+test('an editor result from a destination with LineHeight needs no warning the scenario requires of one without it', () => {
+  const lacking = syntheticEditorResult(spec, 'word-alignment-spacing', 'preserve');
+  assert.deepEqual(checkScenario(spec, 'word-alignment-spacing', lacking).problems, []);
+  // Without LineHeight, B12's spacing is unconfirmed: a paste that does not say so is a finding.
+  assert.match(checkScenario(spec, 'word-alignment-spacing', { ...lacking, results: [{ diagnostics: [] }] }).problems.join('\n'),
+    /destination-formatting-unconfirmed is required/u);
+  // With LineHeight every paragraph and heading carries the attribute and B12 stores 1.5, so nothing is unconfirmed.
+  const holding = structuredClone(lacking);
+  for (const block of holding.doc.content) block.attrs = { ...block.attrs, lineHeight: /^B12/u.test(block.content?.[0]?.text ?? '') ? '1.5' : null };
+  holding.results = [{ diagnostics: [] }];
+  assert.deepEqual(checkScenario(spec, 'word-alignment-spacing', holding).problems, []);
+  // The warning stays allowed there.
+  const reported = { ...holding, results: [{ diagnostics: [{ code: 'destination-formatting-unconfirmed', severity: 'warning' }] }] };
+  assert.deepEqual(checkScenario(spec, 'word-alignment-spacing', reported).problems, []);
+});
+
 async function claimedFixture(t) {
   const base = await mkdtemp(join(tmpdir(), 'domternal-prepare-fixture-'));
   t.after(() => rm(base, { recursive: true, force: true }));

@@ -712,8 +712,12 @@ export function checkScenario(spec, scenarioId, input, options = {}) {
   }
   const blocks = typeof replay.html === 'string' ? blocksFromHTML(replay.html) : blocksFromEditorJSON(replay.doc);
   const diagnostics = replay.diagnostics ?? replay.results?.at(-1)?.diagnostics ?? [];
+  // An editor result whose blocks carry the line height attribute comes from a destination with LineHeight, which stores
+  // the spacing the scenario authors: a destination warning required of one without it is not required of this one.
+  const holdsSpacing = typeof replay.html !== 'string' && blocks.some(block => Object.hasOwn(block, 'lineHeight'))
+    && expectedBlocks(spec, scenarioId).expected.some(block => block.lineHeight !== undefined);
   problems.push(...compareBlocks(spec, scenarioId, blocks, { formatting }),
-    ...compareOutcome(spec, scenarioId, diagnostics, { formatting, destination: images === undefined }));
+    ...compareOutcome(spec, scenarioId, diagnostics, { formatting, destination: images === undefined && !holdsSpacing }));
   return Object.freeze({ kind: 'native-capture-semantics', scenario: scenarioId, formatting, qualification: false,
     ...(images ? { capture: { replayed: true, images } } : {}), matches: problems.length === 0, problems });
 }
