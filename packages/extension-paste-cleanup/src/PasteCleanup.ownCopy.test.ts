@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  Bold, BulletList, Document, Editor, FontFamily, FontSize, History, ListItem, OrderedList, Paragraph,
+  Bold, BulletList, Document, Editor, FontFamily, FontSize, History, LineHeight, ListItem, OrderedList, Paragraph,
   Text, TextAlign, TextColor, TextStyle,
 } from '@domternal/core';
 import type { EditorOptions } from '@domternal/core';
@@ -60,6 +60,26 @@ describe('PasteCleanup own-copy recognition', () => {
 
     expect(target.getJSON()).toEqual(source.getJSON());
     expect(target.getHTML()).not.toContain('data-domternal-copy');
+  });
+
+  it('keeps a paragraph\'s normal line height that LineHeight writes when the host lists it, in both policies', () => {
+    const mountSpacing = (content: string, formatting: 'preserve' | 'adapt'): Editor => {
+      const editor = new Editor({ extensions: [Document, Text, Paragraph, LineHeight.configure({ lineHeights: [], defaultLineHeight: '1.5' }),
+        PasteCleanup.configure({ formatting })], content });
+      editors.push(editor);
+      return editor;
+    };
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const source = mountSpacing('<p style="line-height: normal">Single</p><p>Default</p>', formatting);
+      expect(source.state.doc.firstChild?.attrs['lineHeight']).toBe('normal');
+      const copied = copyAll(source);
+      expect(copied).toContain('line-height: normal');
+      const target = mountSpacing('<p></p>', formatting);
+
+      paste(target, copied);
+
+      expect(target.getJSON()).toEqual(source.getJSON());
+    }
   });
 
   it('treats a copy from an editor without PasteCleanup as external content', () => {

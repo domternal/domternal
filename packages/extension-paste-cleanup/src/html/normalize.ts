@@ -233,7 +233,7 @@ export function normalizeClipboardHTML(
           if (context !== undefined) clean['dataPmSlice'] = context;
           if (context !== anchorContext) report('formatting-adapted', child, 'info');
         }
-        const { styles, removedNames } = readSafeStyles(styleToRead(child), child.tagName === 'img', child.tagName);
+        const { styles, removedNames } = readSafeStyles(styleToRead(child), child.tagName === 'img', child.tagName, own);
         // Typography that adapt removes anyway is its adaptation there, as in the inheritance pass.
         if (removedNames.some(name => !adapt || !adaptedTypography(name))) report('unsupported-formatting', child);
         else if (removedNames.length > 0) report('formatting-adapted', child, 'info');

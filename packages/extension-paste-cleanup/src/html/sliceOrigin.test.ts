@@ -124,6 +124,17 @@ describe('Domternal own copies', () => {
     }
   });
 
+  it('keeps a line height a verified own copy writes as normal, which only an external copy drops as the initial value', () => {
+    // LineHeight writes `normal` when the host lists it, so a copy and paste inside the editor keeps the paragraph's spacing.
+    const html = '<p data-pm-slice="0 0 []" style="line-height: normal">Own normal</p><p style="line-height:normal">Second</p>';
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const result = own(html.replace('<p ', `<p ${copyMarker} `), { formatting });
+      expect(result.html).toBe('<p data-pm-slice="0 0 []" style="line-height:normal">Own normal</p><p style="line-height:normal">Second</p>');
+      expect(result.diagnostics).toEqual([]);
+      expect(normalizePasteHTML(html, { formatting }).html).toBe('<p data-pm-slice="0 0 []">Own normal</p><p>Second</p>');
+    }
+  });
+
   it('keeps Office list reconstruction off for a verified own copy', () => {
     const html = `<div ${copyMarker} data-pm-slice="0 0 []">${officeItem('1.', 'Literal')}</div>`;
     expect(own(html).html).not.toContain('<ol');

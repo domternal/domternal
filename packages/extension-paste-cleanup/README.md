@@ -135,7 +135,8 @@ its text, the initial values Safari writes on every element it copies (`start`
 alignment, `normal` white space, the `medium` font size, which on a nested
 element resets the size it inherits to the editor's default, a zero text stroke,
 `auto` and `solid` text decoration, a `none` border image), the `normal` line
-height Word's Table Grid style writes for single spacing on every cell paragraph,
+height Word's Table Grid style writes for single spacing on every cell paragraph
+(a verified own copy keeps it, as LineHeight writes it when the host lists it),
 and the caret color,
 table borders, cell padding and table layout, list indentation on semantic lists,
 the level indentation of reconstructed Office list paragraphs, and the style of a

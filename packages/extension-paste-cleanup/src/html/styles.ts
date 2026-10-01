@@ -51,7 +51,7 @@ const neutralValues: Readonly<Record<string, readonly string[]>> = {
 // Supported properties whose initial value WebKit writes on every top-level element it copies, and the initial
 // line height Word writes for a style's single spacing, as Table Grid does on every cell paragraph. They are
 // dropped like the property's absence rather than kept as formatting the source did not apply; LineHeight
-// never renders `normal` either.
+// renders `normal` only when the host lists it, so a verified own copy keeps that line height as written.
 const initialValues: Readonly<Record<string, readonly string[]>> = {
   'text-align': ['start'], 'white-space': ['normal'], 'line-height': ['normal'],
 };
@@ -196,8 +196,11 @@ export interface SafeStyles {
   cleared: Set<string>;
 }
 
-/** A deliberately small CSS value grammar: no functions that can load resources. */
-export function readSafeStyles(value: unknown, imagePlacement = false, tag = ''): SafeStyles {
+/**
+ * A deliberately small CSS value grammar: no functions that can load resources. A verified own copy (`own`) keeps
+ * the line height the editor wrote, `normal` included: LineHeight writes it when the host lists it.
+ */
+export function readSafeStyles(value: unknown, imagePlacement = false, tag = '', own = false): SafeStyles {
   const styles = new Map<string, string>();
   const removedNames: string[] = [];
   const cleared = new Set<string>();
@@ -218,7 +221,9 @@ export function readSafeStyles(value: unknown, imagePlacement = false, tag = '')
     const placement = ownRule(imagePlacementRules, name);
     const rule = ownRule(rules, name) ?? (imagePlacement ? placement : undefined);
     if (separator < 0) { removedNames.push(''); continue; }
-    if (Object.hasOwn(initialValues, name) && initialValues[name]?.includes(content.toLowerCase()) === true) { reset(name); continue; }
+    if (Object.hasOwn(initialValues, name) && initialValues[name]?.includes(content.toLowerCase()) === true && !(own && name === 'line-height')) {
+      reset(name); continue;
+    }
     if (name === 'background') {
       // A later declaration wins, so the shorthand replaces an earlier background color and a later one replaces it.
       const painted = backgroundColor(content);
