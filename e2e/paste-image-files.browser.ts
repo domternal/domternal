@@ -33,15 +33,20 @@ const QUERIES: Record<Config, Record<string, string>> = {
 };
 
 interface Clipboard { html?: string; text?: string; files?: number; pdf?: boolean }
-/** What the document shows: the pasted file as an image (with its alt), the content's own text, or nothing. */
-interface Expected { file?: number; alt?: string; text?: string; htmlImage?: boolean; nothing?: boolean; rejected?: boolean }
+/**
+ * What the document shows: the pasted file as an image (with its alt), the content's own text, or nothing, and
+ * optionally its top-level blocks (`outline`), as a copy without text of its own keeps them.
+ */
+interface Expected { file?: number; alt?: string; text?: string; htmlImage?: boolean; nothing?: boolean; rejected?: boolean; outline?: string }
 
 interface Row { name: string; clipboard: Clipboard; expect: Partial<Record<Config, Expected>> }
 
 // Default expectations: files inserted in every configuration.
 const FILE: Expected = { file: 1 };
 const ALL_FILE: Row['expect'] = { off: FILE, cleanup: FILE, assets: FILE, 'assets-omit': FILE, upload: FILE, 'no-base64': { nothing: true } };
-const NO_PICTURE: Row['expect'] = { off: { nothing: true }, cleanup: { nothing: true }, assets: { nothing: true }, 'assets-omit': { nothing: true }, upload: { nothing: true }, 'no-base64': { nothing: true } };
+/** No picture of the selection in any configuration, and the copy's own blocks in its place: a table as rows x columns. */
+const KEPT = (outline: string, text?: string): Row['expect'] => Object.fromEntries((['off', 'cleanup', 'assets', 'assets-omit', 'upload', 'no-base64'] as const)
+  .map(config => [config, { nothing: true, outline, ...(text === undefined ? {} : { text }) }]));
 
 /**
  * Word's raw clipboard HTML in the shape Chrome carries it (Word 16.113 for Mac, Chrome 154), for selections
@@ -102,9 +107,9 @@ const ROWS: Row[] = [
   { name: 'HTML text without a file', clipboard: { html: '<p>Hello</p>' }, expect: { off: { text: 'Hello' }, cleanup: { text: 'Hello' }, assets: { text: 'Hello' }, upload: { text: 'Hello' } } },
   // Chrome exposes Word's picture of the copied selection as an image file next to Word's HTML. A Word copy
   // without text of its own that places no image keeps its content, not the picture.
-  { name: 'a Word copy of empty paragraphs and Word\'s picture of it', clipboard: { html: wordCopy(WORD_EMPTY), text: '\r\n\r\n', files: 1 }, expect: NO_PICTURE },
-  { name: 'a Word copy of an empty table cell and Word\'s picture of it', clipboard: { html: wordCopy(WORD_CELL), text: '\r\n', files: 1 }, expect: NO_PICTURE },
-  { name: 'a Word copy of spaces and Word\'s picture of it', clipboard: { html: wordCopy(WORD_SPACES), text: '  \r\n', files: 1 }, expect: NO_PICTURE },
+  { name: 'a Word copy of empty paragraphs and Word\'s picture of it', clipboard: { html: wordCopy(WORD_EMPTY), text: '\r\n\r\n', files: 1 }, expect: KEPT('paragraph paragraph') },
+  { name: 'a Word copy of an empty table cell and Word\'s picture of it', clipboard: { html: wordCopy(WORD_CELL), text: '\r\n', files: 1 }, expect: KEPT('table(1x1)') },
+  { name: 'a Word copy of spaces and Word\'s picture of it', clipboard: { html: wordCopy(WORD_SPACES), text: '  \r\n', files: 1 }, expect: KEPT('paragraph', '\u00a0\u00a0') },
 ];
 
 async function open(page: Page, framework: string, config: Config): Promise<void> {
@@ -114,7 +119,7 @@ async function open(page: Page, framework: string, config: Config): Promise<void
   await expect(page.locator('.ProseMirror')).toBeVisible();
 }
 
-interface Outcome { prevented: boolean; files: string[]; alts: (string | null)[]; htmlImages: number; text: string; statuses: string[]; codes: string[] }
+interface Outcome { prevented: boolean; files: string[]; alts: (string | null)[]; htmlImages: number; text: string; outline: string; statuses: string[]; codes: string[] }
 
 /** Pastes or drops the clipboard into an empty document and reports what it holds once every file settled. */
 async function transfer(page: Page, clipboard: Clipboard, transport: 'paste' | 'drop'): Promise<Outcome> {
@@ -161,8 +166,13 @@ async function transfer(page: Page, clipboard: Clipboard, transport: 'paste' | '
         alts.push(node.attrs['alt'] as string | null);
       } else htmlImages++;
     });
+    // The top-level blocks, a table as its rows and the columns of its first row.
+    const outline: string[] = [];
+    editor.state.doc.forEach(node => {
+      outline.push(node.type.name === 'table' ? `table(${String(node.childCount)}x${String(node.firstChild?.childCount ?? 0)})` : node.type.name);
+    });
     return {
-      prevented: event.defaultPrevented, files, alts, htmlImages, text,
+      prevented: event.defaultPrevented, files, alts, htmlImages, text, outline: outline.join(' '),
       statuses: probe.operations.map(operation => operation.status),
       codes: probe.operations.flatMap(operation => operation.diagnostics.map(diagnostic => diagnostic.code)),
     };
@@ -191,6 +201,7 @@ function check(outcome: Outcome, expected: Expected, config: Config): void {
     expect(outcome.htmlImages).toBe(0);
     expect(outcome.text.replace(/[\s\u200b-\u200d\u00ad]/g, '')).toBe('');
   }
+  if (expected.outline !== undefined) expect(outcome.outline).toBe(expected.outline);
   if (expected.rejected === true) {
     expect(outcome.files).toEqual([]);
     expect(outcome.statuses).toContain('rejected');
