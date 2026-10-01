@@ -3,15 +3,15 @@
   "fixtureId": "word-mixed-nesting-safari",
   "qualification": false,
   "reviewed": true,
-  "baselineSourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
-  "baselineCaptureSha256": "3c39769640406227b64ca808305394886948abd11e3e1a0da2cfb2630199de05",
+  "baselineSourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+  "baselineCaptureSha256": "0dde2ea19c744f5d1a2f4bf90aaf65d974a915b3a0ff6b451083d3d11eaef349",
   "operator": {
     "os": "Authored variant of macOS 26.5.2 (25F84)",
     "application": "Authored variant of Microsoft Word 16.113.3 (16.113.26092714)",
     "browser": "Authored variant of Safari 26.5.2 (21624.2.5.11.8)",
     "scenario": "word-mixed-nesting",
     "fixtureId": "word-mixed-nesting-safari",
-    "fixtureSha256": "9aa08e8a5e993f147c2048b7df08b8d4585d85784e6b251d0e305842c1edc0f8",
+    "fixtureSha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207",
     "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
     "syntheticSourceConfirmed": true
   },
@@ -22,10 +22,10 @@
     "text/plain"
   ],
   "formatUnits": {
-    "text/html": 10642,
+    "text/html": 10273,
     "text/plain": 112
   },
-  "textBytes": 10793,
+  "textBytes": 10434,
   "fileBytes": 0,
   "itemCount": 2,
   "fileCount": 0,

@@ -5,11 +5,11 @@
   "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
   "source": {
     "path": "source.docx",
-    "sha256": "49b7d4f949c35e3c06a0a3b3679839de034acb7595625cb904516bc3fde3f9bf"
+    "sha256": "22d34aaaa0b420681e98c6c27d2bc79c79c7442512a5970c6fbf754a4622f842"
   },
   "capture": {
     "path": "capture.json",
-    "sha256": "67c3679d356bc08285b76b3a3a7675ffbce7f02b1ca9b7b49523971af3516136"
+    "sha256": "825b6749bd0c525da4471d460816afa5418f5ecb7c431c74dd4dc2ad21c0a4f3"
   },
   "redactions": [],
   "expected": {
@@ -257,40 +257,49 @@
       {
         "id": "T15a",
         "type": "empty",
-        "word": "Style: Normal, an empty paragraph after the last table",
-        "correction": "The document ends with two empty paragraphs after the last table, which Select All copies; they were missing from the blocks."
-      },
-      {
-        "id": "T15b",
-        "type": "empty",
-        "word": "Style: Normal, the document's last paragraph, empty"
+        "word": "Style: Normal, the document's last paragraph, empty, which Word keeps after the last table",
+        "correction": "The recreated document ends with the one empty paragraph Word keeps after a table, which Select All copies; the first document had a second one, T15b, which is gone."
       }
     ],
     "preserve": {
       "status": "cleaned",
       "source": "word",
       "warnings": [],
-      "editor": {
-        "schema": "default",
-        "notice": "quiet",
-        "warnings": []
-      }
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
     },
     "adapt": {
       "status": "cleaned",
       "source": "word",
       "warnings": [],
-      "editor": {
-        "schema": "default",
-        "notice": "quiet",
-        "warnings": []
-      }
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
     }
   },
   "derivation": {
     "kind": "english-text-variant",
-    "sourceSha256": "db663ef644d83d5cc21d36a2a3e7572e8c9c99617156d9a0498491485c6dada6",
-    "captureSha256": "0f657336f09a8f88e53f0d44b539aecb6ee2e3f8fa9aef4377908c27060cec56",
-    "manifestSha256": "33c30591d585d4a37af5c6f97bf12a13ec3241b324dd9d496f55ad9a97be0049"
+    "sourceSha256": "425c8bb5b4b3d0f172a782cb003cbcf3a5ae56cd7696e75852079f8382d04e76",
+    "captureSha256": "0ec91db36ab9d0ffe7dba97ee6cb9589b8319b2de2d907947be6bafc06a88373",
+    "manifestSha256": "b8940fd0f1bc98ce2acaf59a9b6317dfa4bf1e044820cd3446c0a0f59c5f3e3c"
   }
 }

@@ -3,15 +3,15 @@
   "fixtureId": "word-default-numbering-safari",
   "qualification": false,
   "reviewed": true,
-  "baselineSourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
-  "baselineCaptureSha256": "b88f9f7bbb71cb6437c584b2c39af6d67335f4317961d8d43f9d921d3e35416b",
+  "baselineSourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+  "baselineCaptureSha256": "00c1533f3079adff416a85cb76f3cb48063ab04592e0098e4c073a65cf64557d",
   "operator": {
     "os": "Authored variant of macOS 26.5.2 (25F84)",
     "application": "Authored variant of Microsoft Word 16.113.3 (16.113.26092714)",
     "browser": "Authored variant of Safari 26.5.2 (21624.2.5.11.8)",
     "scenario": "word-default-numbering",
     "fixtureId": "word-default-numbering-safari",
-    "fixtureSha256": "9aa08e8a5e993f147c2048b7df08b8d4585d85784e6b251d0e305842c1edc0f8",
+    "fixtureSha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207",
     "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
     "syntheticSourceConfirmed": true
   },
@@ -22,10 +22,10 @@
     "text/plain"
   ],
   "formatUnits": {
-    "text/html": 8785,
+    "text/html": 8890,
     "text/plain": 111
   },
-  "textBytes": 8949,
+  "textBytes": 9234,
   "fileBytes": 0,
   "itemCount": 2,
   "fileCount": 0,

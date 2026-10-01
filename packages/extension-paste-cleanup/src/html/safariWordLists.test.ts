@@ -7,8 +7,11 @@ import { normalizeClipboardHTML } from './normalize.js';
 
 /*
  * English text variants of recorded Word for Mac 16.113 to Safari 26.5 clipboard shapes, not new native captures.
- * The list level definitions and paragraph shapes come from the reviewed captures in
- * e2e/native-office-capture/fixtures (the synthetic word-mac-v1 lists document).
+ * The list level definitions and paragraph shapes come from the first reviewed captures of the
+ * synthetic word-mac-v1 lists document (2026-10-02, admitted in d01af47). That document defined its lists as
+ * named list definitions from templates, whose o level names its font per script; the fixtures now hold
+ * captures of a document made with Word's own libraries (wordLibraryLists.test.ts), and these stay as
+ * regression coverage of the template shape.
  */
 const WORD = '<html xmlns:o="urn:schemas-microsoft-com:office:office"\nxmlns:w="urn:schemas-microsoft-com:office:word"\n'
   + 'xmlns:m="http://schemas.microsoft.com/office/2004/12/omml"\nxmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"></head>';

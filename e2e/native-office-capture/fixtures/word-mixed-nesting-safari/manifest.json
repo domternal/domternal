@@ -5,11 +5,11 @@
   "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
   "source": {
     "path": "source.docx",
-    "sha256": "9aa08e8a5e993f147c2048b7df08b8d4585d85784e6b251d0e305842c1edc0f8"
+    "sha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207"
   },
   "capture": {
     "path": "capture.json",
-    "sha256": "661717b441d9bf08c89c01cc0e223b073e700007e816969796205c9fefbe839f"
+    "sha256": "3ac9c0ead4b493eba134b6a26f1b070be507c89643d74011488d35af36a42e3e"
   },
   "redactions": [],
   "expected": {
@@ -129,8 +129,8 @@
   },
   "derivation": {
     "kind": "english-text-variant",
-    "sourceSha256": "1a894b14887ea7eb1339686a3b5f1d6624ceb6aee682393b486b3901e20e3c68",
-    "captureSha256": "3c39769640406227b64ca808305394886948abd11e3e1a0da2cfb2630199de05",
-    "manifestSha256": "34a650d1e89fe52ba80a8dfda71fb54998e148b274152260dde72f62bbd1795d"
+    "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+    "captureSha256": "0dde2ea19c744f5d1a2f4bf90aaf65d974a915b3a0ff6b451083d3d11eaef349",
+    "manifestSha256": "31364954b0f68aa9672d57df6203abbe7d78d560b49a8906eb6ef20ef47d3fec"
   }
 }

@@ -253,7 +253,7 @@
         "fontFamily": "Aptos",
         "fontSize": "12pt"
       },
-      "provenance": "In the captured document the lists are defined as named lists (mso-list-name D3 ...), not taken from the Home tab libraries the blocks name. Their level texts and fonts are those of the libraries, except that the o level names its font per script (mso-ascii-font-family) instead of in font-family; cleanup reads both. A document made with the libraries is still to be captured.",
+      "provenance": "The captured document was recreated on 2026-10-03 after Word's Normal template was reset, so its lists are the Home tab libraries the blocks name: unnamed list definitions whose levels name their fonts in font-family. The third level of the numbering library is right aligned, and Word pads its label with a spacer run of 7 pt no-break spaces that fills the indent before it. The document of the first Safari captures defined its lists as named lists (mso-list-name D3 ...) from templates, whose o level named its font per script; cleanup reads both, and its unit tests keep that shape.",
       "blocks": [
         {
           "id": "L01",
@@ -943,13 +943,8 @@
         {
           "id": "T15a",
           "type": "empty",
-          "word": "Style: Normal, an empty paragraph after the last table",
-          "correction": "The document ends with two empty paragraphs after the last table, which Select All copies; they were missing from the blocks."
-        },
-        {
-          "id": "T15b",
-          "type": "empty",
-          "word": "Style: Normal, the document's last paragraph, empty"
+          "word": "Style: Normal, the document's last paragraph, empty, which Word keeps after the last table",
+          "correction": "The recreated document ends with the one empty paragraph Word keeps after a table, which Select All copies; the first document had a second one, T15b, which is gone."
         }
       ]
     },
@@ -1298,8 +1293,7 @@
         "T13",
         "T14",
         "T15",
-        "T15a",
-        "T15b"
+        "T15a"
       ],
       "outcome": {
         "notice": "quiet",
@@ -1307,7 +1301,7 @@
           "destination-formatting-unconfirmed"
         ]
       },
-      "correction": "Select All holds the empty paragraphs T12a, T15a and T15b."
+      "correction": "Select All holds the empty paragraphs T12a and T15a; the recreated document ends with one empty paragraph after the last table, so T15b is gone."
     },
     {
       "id": "word-large-document",
@@ -1344,15 +1338,24 @@
       "browser": "Safari 26.5.2 (21624.2.5.11.8)",
       "scenarios": "Every scenario except word-large-document and domternal-own-copy, word-headings-styles as its three selections",
       "fixtures": "fixtures/<scenario>-safari",
-      "note": "The specification was prepared for Word 16.111; the owner authored the documents and made these captures with Word 16.113.3. Chrome, Firefox, the large document and the own copy are not captured yet."
+      "note": "The specification was prepared for Word 16.111; the owner authored the documents and made these captures with Word 16.113.3. The list and table scenarios were captured again in Safari on 2026-10-04 from recreated documents, which replace these captures of them; Chrome, Firefox, the large document and the own copy are not captured yet."
+    },
+    {
+      "date": "2026-10-04",
+      "application": "Microsoft Word 16.113.3 (16.113.26092714)",
+      "os": "macOS 26.5.2 (25F84)",
+      "browser": "Safari 26.5.2 (21624.2.5.11.8)",
+      "scenarios": "word-default-bullets to word-table-text: the list and table scenarios",
+      "fixtures": "fixtures/<scenario>-safari",
+      "note": "Captured again from the recreated lists and tables documents, in the session of the Chrome and Firefox captures; the bundles record 2026-10-03T22:46Z to 23:08Z (UTC). They replace the 2026-10-02 captures of these scenarios, whose documents defined their lists from templates rather than Word's libraries."
     }
   ],
   "sourceContext": "Historical authoring-specification context only. The source application versions and destinations above do not describe production of the offline edited English variant. Original capture facts are retained separately in historicalBaselineCaptures; their fixture paths identify scenario lineage, not an attestation of the current edited bytes.",
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "5601629403d7edaee45383e10f9f3298821bef6a",
-    "originalSpecificationSha256": "17242a5e5b0082d6c92e4be8ff7ee948fb40a7056f5f143ba829d70276b8cd60",
+    "originalSpecificationBlob": "6d44988384cce9fcc50286f88bfad47359de46e5",
+    "originalSpecificationSha256": "d9477b06a5ac32796540835ea9475478f2f30f831721c5a804580b4d175fc77c",
     "originalKind": "domternal-native-capture-content",
     "originalStatus": "captured-in-part",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",

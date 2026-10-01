@@ -438,6 +438,7 @@ test('the Google Docs dry run fixture passes the offline verifier, and its repla
 test('every committed English regression variant passes the offline verifier and holds its authored scenario blocks', async () => {
   const directories = (await readdir(join(here, 'fixtures'), { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => join(here, 'fixtures', entry.name));
   const variants = [];
+  const sources = new Map();
   for (const directory of directories) {
     const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
     if (manifest.schemaVersion !== 2) continue;
@@ -453,16 +454,26 @@ test('every committed English regression variant passes the offline verifier and
     assert.deepEqual(manifest.expected.blocks, specifiedExpectation(spec, scenario.id).blocks, manifest.id);
     assert.deepEqual(manifest.expected.partial, scenario.partial, manifest.id);
     const bundle = JSON.parse(await readFile(join(directory, manifest.capture.path), 'utf8'));
-    assert.equal(bundle.operator.scenario, scenario.capturedAs ?? scenario.id);
+    const browser = manifest.id.slice(manifest.id.lastIndexOf('-') + 1);
+    // Safari's captures record the scenario a separate selection was captured as, Chrome's and Firefox's its own.
+    assert.equal(bundle.operator.scenario, browser === 'safari' ? scenario.capturedAs ?? scenario.id : scenario.id, manifest.id);
     assert.equal(bundle.operator.fixtureId, manifest.id);
+    // Chrome exposes Word's picture of the selection as one image/png file next to Word's HTML; Safari and Firefox expose none.
+    assert.deepEqual(bundle.payload.items.filter(item => item.kind === 'file').map(item => item.type), browser === 'chrome' ? ['image/png'] : [], manifest.id);
+    sources.set(scenario.document, (sources.get(scenario.document) ?? new Set()).add(manifest.source.sha256));
     // The replay also meets the scenario's own outcome: its required warnings, nothing it does not allow.
     for (const formatting of ['preserve', 'adapt']) assert.deepEqual(checkScenario(spec, scenario.id, bundle, { formatting }).problems, [], `${manifest.id} ${formatting}`);
     const summary = JSON.parse(await readFile(join(directory, 'capture-summary.json'), 'utf8'));
     assert.equal(summary.reviewed, true); assert.equal(summary.qualification, false); assert.equal(summary.fixtureId, manifest.id);
   }
-  // Every Word for Mac to Safari selection the owner captured on 2026-10-02.
-  assert.deepEqual(variants.filter(id => id.endsWith('-safari')).sort(), spec.scenarios
-    .filter(entry => entry.document.startsWith('word-mac-v1-') && entry.id !== 'word-large-document').map(entry => `${entry.id}-safari`).sort());
+  // Keep every baseline Word selection in each browser row as a separate English regression.
+  const selections = spec.scenarios.filter(entry => entry.document.startsWith('word-mac-v1-') && entry.id !== 'word-large-document').map(entry => entry.id);
+  for (const browser of CAPTURED_BROWSERS) {
+    assert.deepEqual(variants.filter(id => id.endsWith(`-${browser}`)).sort(), selections.map(id => `${id}-${browser}`).sort(), browser);
+  }
+  assert.deepEqual(variants.filter(id => !CAPTURED_BROWSERS.some(browser => id.endsWith(`-${browser}`))), []);
+  // The fixtures of one document share its committed source, so no capture of an earlier version of it stays beside them.
+  for (const [document, hashes] of sources) assert.equal(hashes.size, 1, document);
 });
 
 test('the printed specification lists every text an operator enters', () => {
@@ -472,6 +483,9 @@ test('the printed specification lists every text an operator enters', () => {
     'GI03  Image gdocs-v1-blue-320x200.png, alt text: GI03 Blue rectangle.']) assert.ok(printed.split('\n').some(entry => entry.startsWith(line)), line);
   assert.match(printSpecification(spec), /^L60 Item 27$/mu);
 });
+
+/** Historical Word browser rows, each retained with every selection as an English regression. */
+const CAPTURED_BROWSERS = ['safari'];
 
 const blocksById = specification => new Map(specification.documents.flatMap(document => document.blocks.map(block => [block.id, block])));
 
