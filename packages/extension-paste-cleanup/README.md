@@ -4,10 +4,10 @@ Opt-in clipboard HTML cleanup for Domternal. MIT licensed and part of Free.
 
 **Development status:** unreleased. This package is not a DOCX importer and makes
 no claim of complete Word, Google Docs, or LibreOffice fidelity. Its behavior is
-verified with synthetic clipboard input and, for one source path, with reviewed
-native captures: Word 16.113.3 for Mac copied in Safari 26.5.2 on macOS. Word for
-Mac in Chrome and Firefox and Google Docs are not yet captured; Word for Windows,
-Word on the web, LibreOffice and Collabora are unqualified. Strict inline Office list metadata, read
+verified with synthetic clipboard input and, for Word 16.113.3 for Mac on macOS
+26.5.2, with reviewed native captures copied in Safari 26.5.2, Chrome 154 and
+Firefox 155. Google Docs is not yet captured; Word for Windows, Word on the web,
+LibreOffice and Collabora are unqualified. Strict inline Office list metadata, read
 together with Word's list level definitions and marker fonts, and a bounded subset
 of inherited formatting are supported. Optional local image preparation supports
 image-only pastes and explicit application-supplied bindings. An explicit resolver
@@ -134,7 +134,9 @@ letter spacing within half a point either way, as Word's Title style condenses
 its text, the initial values Safari writes on every element it copies (`start`
 alignment, `normal` white space, the `medium` font size, which on a nested
 element resets the size it inherits to the editor's default, a zero text stroke,
-`auto` and `solid` text decoration, a `none` border image) and the caret color,
+`auto` and `solid` text decoration, a `none` border image), the `normal` line
+height Word's Table Grid style writes for single spacing on every cell paragraph,
+and the caret color,
 table borders, cell padding and table layout, list indentation on semantic lists,
 the level indentation of reconstructed Office list paragraphs, and the style of a
 span that only draws the box of the one image it holds (no border, `inline-block`,
@@ -171,10 +173,13 @@ a light editor (a light blue about 1.8:1 on white), while `adapt` removes text
 colors. A
 background shorthand that paints one color, as Word writes a highlight
 (`background: yellow`) or cell shading, is read as that background color. A line
-height in pixels or points becomes a ratio of the element's own font size, the
-form a LineHeight destination renders. In a Word paste the spacing of Word's
-Normal style is no formatting of its own: the copy names it when it carries
-Word's stylesheet, as Safari's copies with lists do, and otherwise Word's
+height becomes the ratio of the font size a LineHeight destination renders,
+rounded to two places: a percentage, as Word's raw HTML in Chrome and Firefox
+writes 150 %, or a plain number by itself, and a length in pixels or points as a
+ratio of the element's own font size, as Safari writes it. In a Word paste the
+spacing of Word's Normal style is no formatting of its own, on a paragraph or a
+run: the copy names it when it carries Word's stylesheet, as Chrome's and
+Firefox's copies always and Safari's copies with lists do, and otherwise Word's
 defaults 1.15 and 1.08 (written 107 %) stand for it. A copy cannot tell a
 paragraph that keeps its style's spacing from one set to the same value, so
 that value reads as the style's. A space WebKit converted to a
@@ -460,7 +465,12 @@ Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
 Word's stylesheet, its `@list lN:levelN` level definition, with a matching
 `lfoN` instance override applied over it, and the font of the marker run identify
 the list profile. The visible label must be exactly what that definition produces
-for the paragraph's level:
+for the paragraph's level. It is read without the spacing around it: Word right
+aligns a level, as the third level of its numbering library, by padding the label
+with a spacer run of 7 pt no-break spaces that fills the indent before it. The
+label may hold at most 64 characters other than that spacing, and the marker at
+most 1,024 UTF-16 units of text with it, more than the widest indent Word allows
+needs:
 
 | Word level definition | Visible marker | Marker class |
 | --- | --- | --- |
@@ -923,14 +933,26 @@ feedback and optional image-preparation progress. It has no built-in preview or
 paste-choice dialog. Local image association still requires an explicit host
 mapping for mixed HTML; these fixtures do not prove native Office association.
 The repository's `e2e/native-office-capture` tooling holds reviewed native
-captures for one path, Word 16.113.3 for Mac to Safari 26.5.2: its routine
-envelope, text and inline formatting, alignment, spacing, indentation, hidden
-text, empty paragraph, list and table scenarios, replayed in the real editor in
-three engines, qualify that path with the limits its support matrix lists. They
-are synthetic events with the captured flavors, not native pastes into the
-editor. Word list paragraphs carry their fonts only in Word's class rules, which
-cleanup does not resolve, so in `preserve` list items paste in the editor's font
-while the paragraphs and cells around them keep the fonts Safari writes inline.
+captures for three paths, Word 16.113.3 for Mac to Safari 26.5.2, to Chrome 154
+and to Firefox 155: their routine envelope, text and inline formatting,
+alignment, spacing, indentation, hidden text, empty paragraph, list and table
+scenarios, replayed in the real editor in three engines, qualify those paths
+with the limits their support matrix lists. They are synthetic events with the
+captured items, not native pastes into the editor. Chrome and Firefox deliver
+Word's raw HTML, whose class rules cleanup does not resolve, so `preserve` keeps
+the formatting Word writes inline: fonts, sizes and colors applied to words, the
+highlight, alignment, line spacing other than the Normal style's and cell
+shading, without the Normal and heading styles' fonts, sizes and colors. Safari
+writes computed styles inline, so the same copy keeps more typography there,
+though its list paragraphs carry their fonts only in Word's class rules too, so
+list items paste in the editor's font. Word for Mac exposes its pictures as
+local `file:` URLs in Chrome and Firefox and page-local `blob:` URLs in Safari;
+neither is fetched or bound, and a picture bullet stays its marker. Chrome adds
+one `image/png` file, Word's picture of the whole selection, which is never
+inserted when the content has text of its own or, as a Word copy, places no
+image; Firefox and Safari expose no files. Chrome and Firefox also expose
+`text/rtf`, which PasteCleanup never reads. Hidden Word text pastes visible with
+a warning in Chrome and Firefox, while Safari leaves it out of the copy.
 A copy that is one paragraph, pasted into a paragraph, joins it as ProseMirror
 joins an open slice and keeps that paragraph's alignment, without a notice. A
 `background-color` on a paragraph or heading has no place in the editor and is

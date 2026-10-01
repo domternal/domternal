@@ -13,15 +13,16 @@
 > qualification claim. Future native admission still needs an actual capture.
 
 
-Matrix version: `free-paste-evidence-v3`. Recorded on 2026-10-03 for the
-unreleased paste cleanup work; it replaces `free-paste-evidence-v2` of 2026-09-28,
-which added the quiet routine envelope, same-page own copy recognition, Word list
-profiles from level definitions, per-item list fallback, the large paste
-measurement and the prepared Word for Mac and Google Docs capture scenarios.
-Version 3 qualifies the first native row, Word for Mac to Safari, with nineteen
-reviewed native fixtures of the owner's captures of 2026-10-02, and records the
-cleanup changes those captures required, the declared redactions they carry and
-the decisions that waited on them. Every other row stays pending or unqualified.
+Matrix version: `free-paste-evidence-v4`. Recorded on 2026-10-04 for the
+unreleased paste cleanup work; it replaces `free-paste-evidence-v3` of 2026-10-03,
+which qualified the first native row, Word for Mac to Safari, with nineteen
+reviewed native fixtures of the owner's captures of 2026-10-02. Version 4
+qualifies Word for Mac to Chrome and to Firefox with nineteen reviewed native
+fixtures each, from the owner's captures of 2026-10-04, replaces the ten Safari
+list and table fixtures with captures of documents recreated with Word's own
+list libraries, and records the cleanup changes those captures required, the
+declared redactions they carry and the decisions that waited on them. Google
+Docs stays pending; every other row stays unqualified.
 This is an evidence inventory, not a fidelity score or a release approval. The
 [package contract](../../packages/extension-paste-cleanup/README.md) defines
 current behavior and its limits.
@@ -34,10 +35,10 @@ current behavior and its limits.
 | Stored native claim | A complete bundle claims a trusted event and records operator metadata. Its stored bytes match a reviewed manifest. | Authenticity of saved JSON, source application identity, completeness of OS formats or correct image association. |
 | Reviewed native fixture | A separately documented source, copy action, exact application/OS/browser versions, capture and independently checked expected result have been reviewed together. | Other versions, platforms, clipboard managers or remote desktop paths. |
 
-This directory holds **nineteen reviewed native fixtures for one row**: Word
-16.113.3 for Mac to Safari 26.5.2 on macOS 26.5.2 (see
-[Native source matrix](#native-source-matrix)). The offline validator still
-returns `qualification: false` and `nativeEvidenceAuthenticated: false` for each,
+This directory holds **fifty-seven reviewed native fixtures for three rows**:
+Word 16.113.3 for Mac to Safari 26.5.2, to Chrome 154 and to Firefox 155 on
+macOS 26.5.2 (see [Native source matrix](#native-source-matrix)). The offline
+validator still returns `qualification: false` and `nativeEvidenceAuthenticated: false` for each,
 since saved JSON cannot authenticate its origin; the qualification is this
 matrix's reviewed statement, bounded by the limits it lists. Editing a bundle and its manifest can produce matching hashes. Hashes
 detect disagreement with a reviewed manifest; they are not signatures or proof of
@@ -52,16 +53,16 @@ Domternal, not from Office.
 
 | Area | Current bounded behavior | Evidence | Remaining qualification or limit |
 | --- | --- | --- | --- |
-| HTML safety and formatting | Shared resource-free normalizer, preserve/adapt policies, supported inline/inherited styles and bounded loss diagnostics. Routine clipboard envelope elements, Office wrappers and Office private, neutral or destination-owned declarations are removed without a warning, including the computed declarations Safari writes on every element it copies; a text color equal to Safari's copied caret color is Word's automatic color in a Word copy, and from another source the page's default color only when neutral, so a colored web container keeps its color. | [Normalizer tests](../../packages/extension-paste-cleanup/src/html/), [Safari Word tests](../../packages/extension-paste-cleanup/src/html/safariWord.test.ts), [browser contracts](../paste-cleanup.browser.ts), [feedback contracts](../paste-feedback.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | General stylesheet cascade, all Office-specific markup and exact RGBA transparency are not promised. Native Word for Mac envelopes stay quiet in Safari (reviewed fixtures); in Chrome and Firefox, and for Google Docs, that still needs the captures. |
+| HTML safety and formatting | Shared resource-free normalizer, preserve/adapt policies, supported inline/inherited styles and bounded loss diagnostics. Routine clipboard envelope elements, Office wrappers and Office private, neutral or destination-owned declarations are removed without a warning, including the computed declarations Safari writes on every element it copies; a text color equal to Safari's copied caret color is Word's automatic color in a Word copy, and from another source the page's default color only when neutral, so a colored web container keeps its color. | [Normalizer tests](../../packages/extension-paste-cleanup/src/html/), [Safari Word tests](../../packages/extension-paste-cleanup/src/html/safariWord.test.ts), [browser contracts](../paste-cleanup.browser.ts), [feedback contracts](../paste-feedback.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | General stylesheet cascade, all Office-specific markup and exact RGBA transparency are not promised. Native Word for Mac envelopes stay quiet in Safari, Chrome and Firefox (reviewed fixtures); for Google Docs that still needs the captures. Word's raw HTML in Chrome and Firefox keeps its formatting in class rules, which cleanup does not resolve: `preserve` keeps what Word writes inline. |
 | Own copies and ProseMirror slices | A `data-pm-slice` marker is structural context. Only a same-page PasteCleanup copy marker keeps editor formatting; nested or duplicate markers are removed. | [Slice origin tests](../../packages/extension-paste-cleanup/src/html/sliceOrigin.test.ts), [own copy tests](../../packages/extension-paste-cleanup/src/PasteCleanup.ownCopy.test.ts), [list marker contracts](../paste-list-markers.browser.ts) | Copies across tabs, applications or separate package instances are external by design. |
-| Office-shaped lists | Explicit inline list metadata reconstructs bounded lists. Word level definitions from the clipboard stylesheet, a level font named per script among them, and the marker run font identify default bullets (disc, circle, square) and decimal, alphabetic and Roman numbering; without definitions only decimal numbers and Unicode bullets are admitted. A selection that starts in a nested item opens the levels above it from their definitions, each with one empty item; a level skipped later in a run stays literal. An unsupported item stays a literal paragraph while the rest of its run is reconstructed; a picture bullet stays its marker, never an image. | [List tests](../../packages/extension-paste-cleanup/src/html/officeLists.test.ts), [level definition tests](../../packages/extension-paste-cleanup/src/html/officeListStyles.test.ts), [Safari Word list tests](../../packages/extension-paste-cleanup/src/html/safariWordLists.test.ts), [list marker contracts](../paste-list-markers.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | Native list profiles are qualified for Word for Mac in Safari only, from a document whose lists are named list definitions with the libraries' level texts and fonts. Legal multilevel numbering below its first level, prefixed or custom level text, picture and symbol bullets other than the Word defaults, and letters past z stay literal; `1)` and `a)` keep their marker class, not their parenthesis. |
+| Office-shaped lists | Explicit inline list metadata reconstructs bounded lists. Word level definitions from the clipboard stylesheet, a level font named per script among them, and the marker run font identify default bullets (disc, circle, square) and decimal, alphabetic and Roman numbering; without definitions only decimal numbers and Unicode bullets are admitted. A marker's label is read without the spacer runs Word pads it with, so a right aligned level, as the third level of Word's numbering library, keeps its list. A selection that starts in a nested item opens the levels above it from their definitions, each with one empty item; a level skipped later in a run stays literal. An unsupported item stays a literal paragraph while the rest of its run is reconstructed; a picture bullet stays its marker, never an image. | [List tests](../../packages/extension-paste-cleanup/src/html/officeLists.test.ts), [level definition tests](../../packages/extension-paste-cleanup/src/html/officeListStyles.test.ts), [Safari Word list tests](../../packages/extension-paste-cleanup/src/html/safariWordLists.test.ts), [list marker contracts](../paste-list-markers.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | Native list profiles are qualified for Word for Mac in Safari, Chrome and Firefox, from a document whose lists come from Word's own libraries; named list definitions from templates are covered by unit tests of the earlier Safari captures. Legal multilevel numbering below its first level, prefixed or custom level text, picture and symbol bullets other than the Word defaults, and letters past z stay literal; `1)` and `a)` keep their marker class, not their parenthesis. |
 | Destination capabilities | Resource-free probes inspect the actual destination schema. Unrepresentable table structure blocks insertion; supported formatting demands receive bounded diagnostics. | [Capability tests](../../packages/extension-paste-cleanup/src/destinationCapabilities.test.ts), [browser contracts](../paste-destination.browser.ts) | A successful probe is not exact source-style fidelity or support for every custom node. |
-| Local embedded images | Explicit host bindings connect rich HTML references to exposed items. Validated inline raster URLs retain their own placements. | [Asset browser contracts](../paste-assets.browser.ts), [resolver browser contracts](../paste-resolver.browser.ts) | No automatic general CID, filename, position or byte-similarity association. No remote source fetching. |
+| Local embedded images | Explicit host bindings connect rich HTML references to exposed items. Validated inline raster URLs retain their own placements. A clipboard image file is the paste only when the content has no text of its own and, for a Word or Excel copy, places an image: Chrome's picture of a Word selection is never inserted, read or bound. | [Asset browser contracts](../paste-assets.browser.ts), [resolver browser contracts](../paste-resolver.browser.ts), [image file contracts](../paste-image-files.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | No automatic general CID, filename, position or byte-similarity association. No remote source fetching. Word's `file:` image URLs in Chrome and Firefox and `blob:` URLs in Safari are never fetched or bound. |
 | Persistent images | Host resolver, exact allowed origins, source data-image transport, resource ownership and recovery notifications. | [Resolver contracts](../paste-resolver.browser.ts), [private lifecycle tests](../../packages/extension-paste-cleanup/src/clipboard/resolverLifecycle.test.ts) | Mock adapters do not certify a production storage service or prove that aborted remote work stopped. |
 | Receipt, cancellation and history | Accepted-operation receipts, target revalidation, deferred image cancellation, history boundaries and four framework integrations. | [Feedback browser contracts](../paste-feedback.browser.ts), [asset browser contracts](../paste-assets.browser.ts) | No built-in import preview or paste-choice dialog. Host callbacks and feedback are explicit integration seams. |
 | Existing comment anchors | Actual Free paste and Pro Comments share real editor parsing, copy/cut rules, image replay and history. | Cross-repository gate in the Domternal Pro repository (`tests/paste-comments`), which is not public | This does not import Word discussions or qualify Yjs document collaboration. |
 | Performance | Recorded paired local runs cover synchronous synthetic input and default feedback, with and without `imageAssets`. | [Reference report](../paste-performance/results/2026-10-01-macos-arm64.md), [earlier report](../paste-performance/results/2026-09-26-macos-arm64.md) | One machine and fixed inputs only. Observed paired p95 was 4.0 to 31.0 ms, 6.0 to 31.0 ms with `imageAssets`. Known limit: in Firefox, the engine's cycle collector can run inside a paste and add several hundred milliseconds to it (up to 873 ms observed, about 0.7 percent of enabled dispatches at 100 ms or more); the routes without PasteCleanup show it too, but less often, since cleanup allocates more per paste: enabled dispatches reached 100 ms 1.8 times as often as those without PasteCleanup, and 9 times as often with `imageAssets`. No universal latency bound. |
-| Large pastes | Seven synthetic profiles swept to their largest accepted size; every larger input is rejected explicitly with nothing inserted, never truncated. | [Large paste report](../paste-performance/results/2026-09-28-large-macos-arm64.md) | Synthetic profiles on one machine. The parser allocation bound stops most Word profiles below the D4 target of 10,000 words. A Word RTF flavor of any size does not reject a paste: PasteCleanup never reads it. |
+| Large pastes | Seven synthetic profiles swept to their largest accepted size; every larger input is rejected explicitly with nothing inserted, never truncated. | [Large paste report](../paste-performance/results/2026-09-28-large-macos-arm64.md) | Synthetic profiles on one machine. The parser allocation bound stops most Word profiles below the D4 target of 10,000 words. A Word RTF flavor of any size does not reject a paste: PasteCleanup never reads it. Chrome and Firefox expose one of 38,484 to 57,215 bytes, 0.91 to 1.10 times the HTML, with every captured Word copy, and every one of them pasted. |
 | Offline capture integrity | Versioned complete bundle schema, bounded artifacts, checksums, provenance claims, declared redactions and replay through public Free `/html`: exact HTML for version 1 manifests, a reviewed semantic oracle for the version 2 manifests of claimed native fixtures. | [Offline tests](./offline.test.mjs), [redaction tests](./redaction.test.mjs), [synthetic manifest](./fixtures/synthetic-v1/manifest.json) | No native acquisition, resource matching or automatic qualification. A redaction's original is never read, and no hash of one is recorded. |
 
 ## Native source matrix
@@ -74,9 +75,9 @@ release advertises: the macOS rows below; every other source is unqualified.
 
 | Source | Platform and path | Reviewed native fixtures | Status |
 | --- | --- | --- | --- |
-| Word desktop | Microsoft Word 16.113.3 (16.113.26092714) for Mac to Safari 26.5.2 (21624.2.5.11.8), macOS 26.5.2 (25F84) | Nineteen: `fixtures/word-*-safari`, every `word-*` [scenario](./content/word-mac-v1.json) except `word-large-document`, `word-headings-styles` as its three selections | **Qualified** for the text, heading, inline formatting, alignment, spacing, indentation, hidden text, empty paragraph, list and table scenarios, with the limits below. The large document and `domternal-own-copy` are not captured. |
-| Word desktop | Word for Mac to Chrome, macOS | None | Pending until captured. |
-| Word desktop | Word for Mac to Firefox, macOS | None | Pending until captured. |
+| Word desktop | Microsoft Word 16.113.3 (16.113.26092714) for Mac to Safari 26.5.2 (21624.2.5.11.8), macOS 26.5.2 (25F84) | Nineteen: `fixtures/word-*-safari`, every `word-*` [scenario](./content/word-mac-v1.json) except `word-large-document`, `word-headings-styles` as its three selections; the ten list and table fixtures from the 2026-10-04 recapture | **Qualified** for the text, heading, inline formatting, alignment, spacing, indentation, hidden text, empty paragraph, list and table scenarios, with the limits below. The large document and `domternal-own-copy` are not captured. |
+| Word desktop | Microsoft Word 16.113.3 (16.113.26092714) for Mac to Google Chrome 154.0.8037.93, macOS 26.5.2 (25F84) | Nineteen: `fixtures/word-*-chrome`, the same scenarios | **Qualified** for the same scenarios, with the limits below. The large document and `domternal-own-copy` are not captured. |
+| Word desktop | Microsoft Word 16.113.3 (16.113.26092714) for Mac to Mozilla Firefox 155.0.1 (BuildID 20260903215306), macOS 26.5.2 (25F84) | Nineteen: `fixtures/word-*-firefox`, the same scenarios | **Qualified** for the same scenarios, with the limits below. The large document and `domternal-own-copy` are not captured. |
 | Google Docs | macOS to Chrome, Safari and Firefox, with the capture date and source context | None | Pending until captured: [content specification](./content/google-docs-v1.json), generated images and the [runbook](./GOOGLE-DOCS-RUNBOOK.md) are prepared. |
 | Word desktop | Windows to Chrome, Edge and Firefox | None | Unqualified; not inferred from the macOS rows. |
 | Word web | Each source browser to each destination | None | Unqualified; separate from desktop Word. |
@@ -90,8 +91,9 @@ a declared redaction where one was needed, a capture summary and a version 2
 manifest whose oracle is authored from the content specification and the
 reviewed editor results. `offline.mjs` replays every capture through public
 `/html`, and the [native fixture regressions](../paste-native-fixtures.browser.ts)
-paste every capture's exact flavors into the fixture editor in Chromium,
-Firefox and WebKit, with both policies, in the paste cleanup browser workflow:
+paste every captured item, in captured order and with each file rebuilt from its
+bytes, into the fixture editor in Chromium, Firefox and WebKit, with both
+policies, in the paste cleanup browser workflow:
 blocks, list kinds, markers, depths and ordinals, the table, row, column and
 spans of each cell, marks and text styles, the notice and its codes, and a
 contrast check of every pasted run. The check is exhaustive: a block, an empty
@@ -144,9 +146,19 @@ What the captures show and the fixtures pin:
   do not pin that a run keeps a font: Word list paragraphs carry theirs only in
   Word's class rules, which cleanup does not resolve, so list items paste in the
   editor's font next to paragraphs and cells that keep Aptos, and Normal text at
-  Word's 12 pt arrives as WebKit's `medium`, the editor's default size. A copy in
-  Chrome or Firefox may carry fewer styles, since cleanup resolves no
-  stylesheet; that is for their rows to show.
+  Word's 12 pt arrives as WebKit's `medium`, the editor's default size. Chrome
+  and Firefox carry fewer styles, since they pass Word's class rules through
+  unresolved (see their row below).
+- Word's numbering library writes its third level right aligned and pads the
+  label with a spacer of 7 pt no-break spaces that fills the indent before it
+  (89 to 92 of them in these captures). The label is read without that spacing,
+  so `i.` and `ii.` paste as a lower-roman list at the third level, in the full
+  selections and in the partial one.
+- Word's Table Grid style writes its single spacing as `line-height: normal` on
+  every cell paragraph. That is the initial value, which renders like no line
+  height, so it is dropped quietly: the table pastes without a notice in an
+  editor without LineHeight and stores no line height in one with it, which the
+  table fixture pins in both schemas.
 - B07 is pinned in both the editor's default schema and the full one. The
   default schema has no Subscript or Superscript, so the 2 of H2O and of x2
   paste without them, the oracle expects them absent there, and the visible
@@ -158,11 +170,16 @@ Limits of this row:
   the captured flavors. A native paste into the editor (the procedure's step 4)
   was not recorded, so styles WebKit would compute in the receiving page are not
   covered; Playwright WebKit 26.0 is not Safari 26.5.2.
-- The lists document defines its lists as named list definitions
-  (`mso-list-name` `D3 ...`) rather than through the Home tab libraries its
-  blocks name. Their level texts and fonts are the libraries', except that the
-  `o` level names its font per script; a library-made document is still to be
-  captured.
+- The list and table fixtures are the 2026-10-04 recapture of documents the
+  owner recreated after resetting Word's Normal template, so their lists are
+  Word's own libraries, whose level fonts are named in `font-family` and whose
+  numbering's third level is right aligned. They replace the 2026-10-02 captures
+  of a document whose lists were named list definitions from templates (the
+  `o` level naming its font per script), which the admitting commit `d01af47`
+  keeps in history and the unit tests keep as regression coverage; see the
+  [README](./README.md#archived-captures). The recreated tables document ends
+  with one empty paragraph after the last table, so the specification's `T15b`
+  is gone.
 - Header Row is a Word table style option: Safari's HTML has no header cells,
   so the first row pastes as ordinary cells. Cell borders, padding and widths
   follow the destination table.
@@ -192,6 +209,86 @@ image association and CSS claims stay narrow: no image is associated
 automatically, a `blob:` URL is not a file binding, and Safari's computed inline
 styles are read as such, without a stylesheet cascade.
 
+### Word for Mac to Chrome and Firefox
+
+The thirty-eight fixtures are built and replayed like the Safari ones, from the
+same three documents: the basics document of the Safari fixtures and the
+recreated lists and tables documents. Each Chrome capture's image file is
+rebuilt from its bytes and pasted with the other flavors. Every Chrome fixture
+and its Firefox counterpart share their oracle, and each pastes the same in
+Chromium, Firefox and WebKit.
+
+What the captures show and the fixtures pin:
+
+- Chrome and Firefox pass Word's raw clipboard HTML through: Word's whole
+  stylesheet with its fonts, styles and the `@list` definitions of every list
+  used, which with the head makes up almost all of a copy of 38,454 to 53,920
+  characters, conditional comments, downlevel
+  revealed `<![if !supportLists]>` markers, `o:p` elements, `mso-*` properties
+  and formatting Word keeps in class rules. Both browsers deliver the same HTML,
+  except that Chrome ends its lines with CRLF and Firefox with LF; their
+  `text/plain` is identical.
+- Both expose `text/rtf` too: 38,484 to 57,215 bytes, 0.91 to 1.10 times the
+  HTML, which PasteCleanup never reads. Every paste carries it and applies.
+- Chrome adds one `image/png` file, `image.png`: Word's picture of the whole
+  selection (451 to 468 pixels wide, 5,712 to 48,652 bytes), not an image of the
+  content. It is in every replayed Chrome paste and is never inserted, read,
+  offered to a matcher or a reason to refuse the paste, also with image
+  preparation and with byte limits no captured file fits. A Word copy without
+  text of its own that places no image, such as empty paragraphs or cells, keeps
+  its content as well; core's file rule decides it for the Image, PasteCleanup
+  and the Link paste. Firefox exposes no files.
+- Word writes links to its local temporary files under the user's home folder:
+  the clipboard file list, theme data and color scheme mapping in the head, and
+  a picture bullet as a `file:` image with a `list-style-image` URL. Cleanup
+  drops the links with the head and keeps a picture bullet as its marker's alt
+  text; nothing is fetched. The fixtures carry these paths redacted (see the
+  inventory).
+- Class rules are not resolved, so `preserve` keeps the formatting Word writes
+  inline: fonts, sizes and colors applied to words, the highlight, alignment,
+  line spacing other than the Normal style's, and cell shading. The Normal
+  style's Aptos, the heading fonts, sizes and colors and the Title's size live
+  in class rules and paste as the editor's own, so a Chrome or Firefox copy keeps
+  less typography than Safari's. `adapt` gives the same result in all three.
+- Word writes line spacing as a percentage: B12's 1.5 is `line-height:150%`,
+  which becomes the ratio 1.5 that a LineHeight destination stores and draws, and
+  the Normal style's 115 % on a paragraph or a run is the style's own. The
+  alignment fixtures pin B12's drawn 1.5 in the editor's full schema and the
+  notice in its default schema without LineHeight.
+- Word writes no color for its automatic color in the raw HTML, so that text
+  pastes in the editor's own color; T05's explicit black stays, drawn on its
+  kept shading. Text without a color of its own holds 4.5:1 in the light and
+  the dark theme. Safari's white automatic color was WebKit's computed color in
+  the capture page, not Word's.
+- Hidden text arrives as a run Word hides (`display:none` with `mso-hide:all`).
+  It pastes visible with `unsupported-formatting`, as the specification says;
+  Safari leaves it out of the copy instead.
+- The right aligned third level, Table Grid's single spacing and the empty
+  paragraphs behave as in Safari: the lists, tables and routine scenarios paste
+  without a notice in both policies (D9 holds for these rows).
+
+Limits of these rows:
+
+- Synthetic paste events with the captured items, in Playwright Chromium
+  145.0.7632.6, Firefox 146.0.1 and WebKit 26.0, not Chrome 154 or Firefox 155;
+  no native paste into the editor was recorded.
+- Header Row arrives as ordinary cells, `1)` and `a)` without the parenthesis,
+  and letters past `z`, legal numbering below its first level, dash, check
+  mark, arrow and picture bullets stay literal, as in Safari. A Wingdings marker
+  keeps the 7 pt spacer after it in the marker's font, which can draw a stray
+  glyph in `preserve` (deferred with DF-07).
+- Large selections, own copies and every image scenario are not captured for
+  these rows; Word's images are local `file:` URLs here and stay unbound.
+
+Decisions that waited on the captures, for these rows: D9 holds after the
+list and table fixes above; PCL-03 keeps the glyph-only fallback, which no
+captured row needs, since Chrome and Firefox carry Word's stylesheet with every
+list; RTF flavor sizes are recorded above and confirm that a large RTF flavor
+never rejects a paste (F8 item 4), a size test waits for `word-large-document`;
+V2-2 is confirmed for Word copies with text and refined for Word copies without
+it, while V2-1 and the image-only, mixed and Copy Image shapes still need
+captures; OD-01 and OD-53 hold, no capture proves them wrong.
+
 RTF/RTFD image matching, local blob URL retrieval and general source-specific
 association profiles are not implemented by this harness. A native capture that
 contains these representations documents a gap; it does not enable a production
@@ -204,7 +301,8 @@ outcome. This increment does not retry native automation.
 | --- | --- | --- | --- |
 | `synthetic-office-evidence-v1` | Independently authored HTML, a Node synthetic event and an arbitrary four-byte File. No Office application or OS clipboard. | Preserve/adapt retain `Alpha` in bold, `Beta` in italic and the image alt text; unresolved `cid:2` is removed with `image-removed`. | False. The file is evidence for byte checks, not a raster or a proved image binding. |
 | `synthetic-google-docs-dry-run-v1` | Authored HTML in the Google Docs clipboard shape for `gdocs-mixed-document`, a Node synthetic event and a custom flavor whose bytes the capture omits. No Google Docs session or OS clipboard. | Preserve/adapt keep the heading, marks, link, nested lists, the merged cell and the alt text of the URL image, which is removed with `image-removed`; the list markers written on each `li` move to their lists, and the sized span around the image is routine, as the oracle records. | False. A dry run of the procedure, not a capture of Google Docs. |
-| `word-*-safari` (nineteen) | The owner's native Word 16.113.3 for Mac to Safari 26.5.2 captures of 2026-10-02, from the synthetic `word-mac-v1` documents. Every source document declares its emptied author properties, every capture its withheld source hash, and `word-unsupported-list-profiles-safari` its replaced home folder path (version 2 manifests). | The blocks of the scenario's selection as the content specification authors them, and per policy the replay's warning codes and the editor's notice and codes, authored from the specification and reviewed against the editor results. | Reviewed: this matrix qualifies the Safari row with them. The tooling still reports `qualification: false`. |
+| `word-*-safari` (nineteen) | The owner's native Word 16.113.3 for Mac to Safari 26.5.2 captures of the synthetic `word-mac-v1` documents: nine of 2026-10-02 and the ten list and table captures of 2026-10-04. Every source document declares its emptied author properties, every capture its withheld source hash, and `word-unsupported-list-profiles-safari` its replaced home folder path (version 2 manifests). | The blocks of the scenario's selection as the content specification authors them, and per policy the replay's warning codes and the editor's notice and codes, authored from the specification and reviewed against the editor results. | Reviewed: this matrix qualifies the Safari row with them. The tooling still reports `qualification: false`. |
+| `word-*-chrome` and `word-*-firefox` (nineteen each) | The owner's native Word 16.113.3 for Mac to Chrome 154.0.8037.93 and Firefox 155.0.1 captures of 2026-10-04, from the same documents. Every capture declares Word's replaced local paths, and each capture of the lists or tables document its withheld source hash, whose source declares its emptied author properties; the basics captures name the committed basics document's hash. | As for Safari, with Chrome's picture of the selection in every Chrome paste and pinned as never inserted, read or bound. | Reviewed: this matrix qualifies the Chrome and Firefox rows with them. The tooling still reports `qualification: false`. |
 
 Owner documents and captures were redacted on the owner's request before
 anything was committed: the author e-mail address in each document's properties
@@ -213,6 +311,18 @@ Each declaration holds fingerprints taken from the redacted copy and no hash of
 an original, and each capture withholds the hash it recorded of its source
 document, which held the address, because an unsalted hash of it would confirm a
 guessed address; see [Declared redactions](./README.md#declared-redactions).
+
+The captures of 2026-10-04 hold Word's links to its local temporary files, which
+name the home folder: three in each Chrome and Firefox copy, five with the
+picture bullet, and one in Safari's picture bullet. At the owner's request the
+account name had been replaced in every local copy before review, and no
+original exists; each path is redacted from its scheme or home folder prefix
+through that name by a same-length token, the picture bullet's image source
+thereby reading as a relative reference. The recreated lists and tables
+documents hold the generic author name Word gives a user who set none; their
+author properties are emptied, the owner keeps the originals, and their
+captures withhold the hash they recorded. No privacy scan finds anything in the
+committed files, including what the RTF flavors' hexadecimal groups decode to.
 
 The [manifest](./fixtures/synthetic-v1/manifest.json) pins the exact source and
 capture SHA-256 values and an explicitly reviewed output for both policies. The

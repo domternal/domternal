@@ -108,13 +108,15 @@ local blob adapter would need its own capture and lifetime evidence.
 
 ## Word for Mac capture preparation
 
-Status: **captured for Safari.** The owner made the Safari captures on
-2026-10-02 with Microsoft Word 16.113.3 (16.113.26092714) on macOS 26.5.2 (25F84)
-and Safari 26.5.2 (21624.2.5.11.8): every `word-*` scenario except the large
-document, `word-headings-styles` as its three selections. They are the reviewed
-fixtures `fixtures/<scenario>-safari`; Chrome, Firefox, the large document and
-`domternal-own-copy` are pending. The owner or a named tester creates the
-documents and performs every copy and paste. Native Word is not automated:
+Status: **captured for Safari, Chrome and Firefox.** The owner made the captures
+with Microsoft Word 16.113.3 (16.113.26092714) on macOS 26.5.2 (25F84): in Safari
+26.5.2 (21624.2.5.11.8) on 2026-10-02, and in Google Chrome 154.0.8037.93 and
+Mozilla Firefox 155.0.1 on 2026-10-04, when the list and table scenarios were
+also captured again in Safari from recreated documents. Each covers every
+`word-*` scenario except the large document, `word-headings-styles` as its three
+selections. They are the reviewed fixtures `fixtures/<scenario>-<browser>`; the
+large document and `domternal-own-copy` are pending. The owner or a named tester
+creates the documents and performs every copy and paste. Native Word is not automated:
 earlier automation attempts timed out, and a scripted copy would not be the user
 path this evidence is meant to show.
 
@@ -189,34 +191,39 @@ Word-saved `.docx` locally and save it as `.odt`.
 
 Word for Mac to Safari, Chrome and Firefox (record the exact versions at capture
 time), for every `word-*` scenario and the `domternal-own-copy` scenario, with
-both preserve and adapt. Safari is captured; Chrome and Firefox are next. A
-selection that a scenario names as a separate one, such as
+both preserve and adapt. All three are captured, except the large document and
+the own copy. A selection that a scenario names as a separate one, such as
 `word-headings-styles-b06`, has a scenario of its own. Its capture may record that
 scenario, as the Chrome and Firefox captures do, or the one `capturedAs` names, as
 the Safari captures do. Windows, Word on the web and
 LibreOffice stay unqualified and Google Docs pending in the
 [support matrix](./SUPPORT-MATRIX.md).
 
-### Admitting the next browser
+### Admitting a browser
 
-The Chrome and Firefox captures of the same scenarios are admitted the way the
-Safari ones were; nothing in the tooling is specific to a browser:
+The Chrome and Firefox captures were admitted the way the Safari ones were;
+nothing in the tooling is specific to a browser:
 
 1. Capture each scenario as [Per capture](#per-capture) describes, into
-   `fixtures/<scenario>-<browser>/`, with the redacted documents of the Safari
-   fixtures as sources. They hash to what the owner's documents hash to now, so
-   a capture that names that hash needs no source redaction. One that names the
-   hash of a document that still held personal data declares the source
-   redaction with `redact.mjs package ... --redacted-copy` and withholds the hash
-   it names with `redact.mjs capture ... --withhold-fixture-hash`.
-2. Expect personal data where Safari had it: Word writes a picture bullet as a
-   local file, under the user's home folder, which Chrome and Firefox may carry
-   as a `file:` URL. `prepare-fixture.mjs` refuses what its scan finds; remove it
-   with `redact.mjs capture`. The scan also reads image metadata in the document
-   and in clipboard files, people and custom document properties, and text
-   written with HTML, percent or CSS escapes. `redact.mjs` cannot edit an image
-   or a clipboard file: when one holds personal data, capture again from a
-   document whose pictures carry none.
+   `fixtures/<scenario>-<browser>/`. A capture of a document that is committed
+   as it is, such as the basics document of the Safari fixtures, names its hash
+   and needs no source redaction. One that names the hash of a document whose
+   properties had to be emptied declares the source redaction with
+   `redact.mjs package` and withholds the hash it names with
+   `redact.mjs capture ... --withhold-fixture-hash`.
+2. Expect Word's local paths. Chrome and Firefox carry Word's raw clipboard
+   HTML, which links Word's temporary files under the user's home folder in its
+   head (the clipboard file list, theme data and color scheme mapping) and writes
+   a picture bullet as a `file:` image with a `list-style-image` URL; Safari
+   keeps only the latter. `prepare-fixture.mjs` refuses what its scan finds;
+   remove it with `redact.mjs capture`, naming the home folder prefix through the
+   account name with the `file:` scheme and its slashes and without it, so each
+   link becomes one token and a picture bullet's image source a relative
+   reference. The scan also reads image metadata in the document and in
+   clipboard files, people and custom document properties, text written with
+   HTML, percent or CSS escapes, and what an RTF flavor's hexadecimal groups
+   decode to. `redact.mjs` cannot edit an image or a clipboard file: when one
+   holds personal data, capture again from a document whose pictures carry none.
 3. Prepare with `--specification` and `--scenario`, then run
    `pnpm exec playwright test --config e2e/paste-cleanup.config.ts paste-native-fixtures.browser.ts`.
    It fails for a fixture whose outcomes are not authored yet: review that
@@ -224,6 +231,25 @@ Safari ones were; nothing in the tooling is specific to a browser:
    then author both outcomes.
 4. Run `offline.mjs` on each directory and the regression spec again, add the
    row to the support matrix with the recorded versions and limits, and commit.
+
+What Chrome and Firefox expose besides Word's HTML is part of the evidence:
+both expose `text/rtf` (38,484 to 57,215 bytes in these captures, about the size
+of the HTML), which PasteCleanup never reads, and Chrome exposes one `image/png`
+file, Word's picture of the whole selection, which the regression pastes with
+the other items and which is never inserted, read or bound. The capture summary
+records each flavor's length, and the bundle the file's bytes and hash.
+
+### Archived captures
+
+The first Safari captures of the ten list and table scenarios, of 2026-10-02,
+were admitted in commit `d01af47` and replaced on 2026-10-04 by captures of the
+same scenarios from recreated documents, under the same fixture identifiers. The
+first lists document defined its lists as named list definitions from
+templates rather than Word's own libraries, so it showed no right aligned
+numbering level, and the first tables document ended with two empty paragraphs
+after the last table. Those captures stay in Git history; the unit tests in
+`packages/extension-paste-cleanup/src/html/safariWordLists.test.ts` keep their
+shape as regression coverage.
 
 ### Per capture
 
@@ -549,7 +575,10 @@ claimed to be erased from engine memory.
 
 Every committed version 2 fixture is also replayed into the real fixture editor
 by [`paste-native-fixtures.browser.ts`](../paste-native-fixtures.browser.ts), which
-the paste cleanup browser workflow runs in Chromium, Firefox and WebKit:
+the paste cleanup browser workflow runs in Chromium, Firefox and WebKit. The
+paste carries every captured item in captured order, each file rebuilt from its
+bytes with its name, type and modification time, so Chrome's picture of a Word
+selection reaches the editor as it did the capture page:
 
 ```sh
 pnpm exec playwright test --config e2e/paste-cleanup.config.ts paste-native-fixtures.browser.ts
