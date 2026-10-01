@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 2,
+  "id": "word-inline-formatting-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "818e9be9c1509f937b6eb60881a53f1b96c8b7f9962d8804bc21866dcef559af"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-inline-formatting",
+    "blocks": [
+      {
+        "id": "B07",
+        "type": "paragraph",
+        "word": "Style: Normal. Apply each format to the named word only.",
+        "text": "B07 bold italic underlined strikethrough H2O x2 Georgia red highlighted",
+        "marks": [
+          {
+            "text": "bold",
+            "marks": [
+              "bold"
+            ],
+            "word": "Bold"
+          },
+          {
+            "text": "italic",
+            "marks": [
+              "italic"
+            ],
+            "word": "Italic"
+          },
+          {
+            "text": "underlined",
+            "marks": [
+              "underline"
+            ],
+            "word": "Underline"
+          },
+          {
+            "text": "strikethrough",
+            "marks": [
+              "strike"
+            ],
+            "word": "Strikethrough"
+          },
+          {
+            "text": "2",
+            "occurrence": 1,
+            "marks": [
+              "subscript"
+            ],
+            "word": "Subscript on the 2 of H2O"
+          },
+          {
+            "text": "2",
+            "occurrence": 2,
+            "marks": [
+              "superscript"
+            ],
+            "word": "Superscript on the 2 of x2"
+          },
+          {
+            "text": "Georgia",
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": "14pt"
+            },
+            "word": "Font Georgia, 14 pt"
+          },
+          {
+            "text": "red",
+            "style": {
+              "color": "#FF0000"
+            },
+            "word": "Font color red (#FF0000)"
+          },
+          {
+            "text": "highlighted",
+            "marks": [
+              "highlight"
+            ],
+            "style": {
+              "backgroundColor": "#FFFF00"
+            },
+            "formatting": "preserve",
+            "word": "Text highlight color yellow",
+            "expectation": "Word writes the highlight as a background shorthand (background: yellow in the Safari capture), which cleanup reads as the highlight color.",
+            "correction": "A highlight is a text style that adapt removes, so the mark is expected in preserve only."
+          }
+        ],
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
+    "captureSha256": "269752e15b9cb89e27538da09f7e4bfcbb0f541b3e30a02d2fdde7ec974c1f6e",
+    "manifestSha256": "83ba0754960ffd484f470420663d108e9a07431999bdf61cfe67ff20c7d27456"
+  }
+}

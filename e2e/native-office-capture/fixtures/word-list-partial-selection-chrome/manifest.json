@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 2,
+  "id": "word-list-partial-selection-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "ac15ffdbbebff6fa7c030118b5e2199c3d12d1fefeee195d227c15025113b3fc"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-list-partial-selection",
+    "partial": {
+      "first": "a",
+      "last": "L11 Letter"
+    },
+    "blocks": [
+      {
+        "id": "L08",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 1,
+          "wordLabel": "a."
+        },
+        "word": "Tab: Word shows a.",
+        "text": "L08 Letter a",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L09",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 1,
+          "wordLabel": "i."
+        },
+        "word": "Tab: Word shows i.",
+        "text": "L09 Roman i",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L10",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 2,
+          "wordLabel": "ii."
+        },
+        "word": "Enter",
+        "text": "L10 Roman ii",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L11",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 2,
+          "wordLabel": "b."
+        },
+        "word": "Shift+Tab",
+        "text": "L11 Letter b",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+    "captureSha256": "4f4fbd82c5b1c3a234919814ab9c21617e564304d2ed86778d2185c9d726e38e",
+    "manifestSha256": "fbdaea3fcefac7191c4dea147d31143c94d75f612e932338af6e1a5bb58d46fb"
+  }
+}

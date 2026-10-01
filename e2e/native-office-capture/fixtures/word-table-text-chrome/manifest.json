@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 2,
+  "id": "word-table-text-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "22d34aaaa0b420681e98c6c27d2bc79c79c7442512a5970c6fbf754a4622f842"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "a6497abd8a4669084d0c389e95786e822d6f30a23528f6c49a0f9131a1efe72e"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-table-text",
+    "blocks": [
+      {
+        "id": "T01",
+        "type": "heading",
+        "level": 1,
+        "word": "Style: Heading 1",
+        "text": "T01 Table",
+        "textStyle": {
+          "fontFamily": "Aptos Display",
+          "fontSize": "20pt",
+          "color": "#0F4761"
+        }
+      },
+      {
+        "id": "T02",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 1,
+          "headerRow": true
+        },
+        "word": "Insert > Table 3x3, Table Design: Header Row on",
+        "text": "T02 Column A",
+        "expectation": "Header Row is a table style option: the clipboard HTML has no header cells, so the first row arrives as ordinary cells, which the checker accepts.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T03",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 2,
+          "headerRow": true
+        },
+        "text": "T03 Column B",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T04",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 3,
+          "headerRow": true
+        },
+        "text": "T04 Column C",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T05",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 1,
+          "shading": "light gray",
+          "background": "#D9D9D9"
+        },
+        "word": "Shading: light gray",
+        "text": "T05 Gray cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt",
+          "color": "#000000"
+        },
+        "expectation": "Word writes the automatic color of the text on the shading as black, which is how it shows it; light gray is White, Background 1, Darker 15 %, #D9D9D9."
+      },
+      {
+        "id": "T06",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 2
+        },
+        "text": "T06 Plain cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T07",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 3
+        },
+        "text": "T07 Third cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T08",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 3,
+          "column": 1,
+          "colspan": 2
+        },
+        "word": "Merge the first two cells of row 3",
+        "text": "T08 Merged cells",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T09",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 3,
+          "column": 3
+        },
+        "text": "T09 Last cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T10",
+        "type": "paragraph",
+        "word": "Style: Normal, between the tables",
+        "text": "T10 Between tables.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T11",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 1,
+          "column": 1
+        },
+        "word": "Insert > Table 2x1, Borders: No Border",
+        "text": "T11 Borderless left",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T12",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 1,
+          "column": 2
+        },
+        "text": "T12 Borderless right",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T12a",
+        "type": "empty",
+        "word": "Style: Normal, the empty paragraph Word keeps between two tables",
+        "correction": "Word keeps an empty paragraph between the second and the third table, which Select All copies; it was missing from the blocks."
+      },
+      {
+        "id": "T13",
+        "type": "tableCell",
+        "cell": {
+          "table": 3,
+          "row": 1,
+          "column": 1
+        },
+        "word": "Insert > Table 1x1 with a bulleted list inside the cell",
+        "text": "T13 List in a cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T14",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "wordLabel": "•"
+        },
+        "cell": {
+          "table": 3,
+          "row": 1,
+          "column": 1
+        },
+        "word": "In the same cell: Home > Bullets",
+        "text": "T14 First bullet in a cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T15",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "wordLabel": "•"
+        },
+        "cell": {
+          "table": 3,
+          "row": 1,
+          "column": 1
+        },
+        "word": "Enter",
+        "text": "T15 Second bullet in a cell",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "T15a",
+        "type": "empty",
+        "word": "Style: Normal, the document's last paragraph, empty, which Word keeps after the last table",
+        "correction": "The recreated document ends with the one empty paragraph Word keeps after a table, which Select All copies; the first document had a second one, T15b, which is gone."
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "425c8bb5b4b3d0f172a782cb003cbcf3a5ae56cd7696e75852079f8382d04e76",
+    "captureSha256": "f2cad1aec14ac1869bf2598db4e354a5b4f45f69cc2eb2e339321679f34eba8a",
+    "manifestSha256": "dd62ce3f02afdb2ced3e5b04a503dc399ac2b26d34956390776a68848deefa6d"
+  }
+}

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "id": "word-hidden-text-safari",
+  "id": "word-headings-styles-chrome",
   "origin": "synthetic",
   "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
   "source": {
@@ -9,24 +9,34 @@
   },
   "capture": {
     "path": "capture.json",
-    "sha256": "bebc8c7caa9ed1d941cfb8634a1365fc25f08c17bb7bda2abc3e914b3d79ab78"
+    "sha256": "f354113e756bf2039be1565333bd395d747f2fe41a2d4645e40a440c293b421a"
   },
   "redactions": [],
   "expected": {
     "specification": "word-mac-v1",
-    "scenario": "word-hidden-text",
+    "scenario": "word-headings-styles",
     "blocks": [
       {
-        "id": "B15",
-        "type": "paragraph",
-        "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
-        "text": "B15 Visible part HIDDEN end.",
-        "hidden": "HIDDEN",
-        "expectation": "When the copy holds the hidden word, it becomes visible with unsupported-formatting. Safari leaves it out of the copy; Chrome and Firefox carry Word's raw HTML, which keeps it in a run Word hides (display:none with mso-hide:all).",
-        "correction": "Records what Word copies, which the specification asked to observe: the captures show it per browser.",
+        "id": "B01",
+        "type": "heading",
+        "level": 1,
+        "word": "Style: Title",
+        "text": "B01 Paste test document",
         "textStyle": {
-          "fontFamily": "Aptos",
-          "fontSize": "12pt"
+          "fontFamily": "Aptos Display",
+          "fontSize": "28pt"
+        }
+      },
+      {
+        "id": "B02",
+        "type": "heading",
+        "level": 1,
+        "word": "Style: Heading 1",
+        "text": "B02 Croatian characters and quotation marks",
+        "textStyle": {
+          "fontFamily": "Aptos Display",
+          "fontSize": "20pt",
+          "color": "#0F4761"
         }
       }
     ],
@@ -54,7 +64,7 @@
   "derivation": {
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
-    "captureSha256": "ed690cd66f38560e732cc9411e344fb11c8cf30a002766626e1ce928a21c85a2",
-    "manifestSha256": "7aec1ac2f56fa8ca718666e4c405d34c9332fd99851b69e93185a02f3a543bdd"
+    "captureSha256": "34dc78bf72bba3db60877fa25914055721ece9b66967f74b9e80b6b19e5fa8c1",
+    "manifestSha256": "8caa2fb68df74f5ab1040bc430396c831ddd089024c1dbea1a40ce998f99792e"
   }
 }

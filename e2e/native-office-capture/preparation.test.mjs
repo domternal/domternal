@@ -485,7 +485,7 @@ test('the printed specification lists every text an operator enters', () => {
 });
 
 /** Historical Word browser rows, each retained with every selection as an English regression. */
-const CAPTURED_BROWSERS = ['safari'];
+const CAPTURED_BROWSERS = ['safari', 'chrome'];
 
 const blocksById = specification => new Map(specification.documents.flatMap(document => document.blocks.map(block => [block.id, block])));
 

@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 2,
+  "id": "word-default-numbering-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "4d12006723d4cb2d57639308d53a2a965fb3751225b2bbcbaf07e93a45a501db"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-default-numbering",
+    "blocks": [
+      {
+        "id": "L07",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1."
+        },
+        "word": "Home > Numbering (default 1.)",
+        "text": "L07 First number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L08",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 1,
+          "wordLabel": "a."
+        },
+        "word": "Tab: Word shows a.",
+        "text": "L08 Letter a",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L09",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 1,
+          "wordLabel": "i."
+        },
+        "word": "Tab: Word shows i.",
+        "text": "L09 Roman i",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L10",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 2,
+          "wordLabel": "ii."
+        },
+        "word": "Enter",
+        "text": "L10 Roman ii",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L11",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 2,
+          "wordLabel": "b."
+        },
+        "word": "Shift+Tab",
+        "text": "L11 Letter b",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L12",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "2."
+        },
+        "word": "Shift+Tab",
+        "text": "L12 Second number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+    "captureSha256": "a04243cf8aab4e19f55bf283d8f21cfb8a7a53fef4ef6a4bd0259052127f17ca",
+    "manifestSha256": "db7df0e1218dd4f336081873062b6bf3e9ad2ebe8e92ffb50dc5e22027bd5586"
+  }
+}

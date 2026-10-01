@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 2,
+  "id": "word-single-list-item-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "b9fb0c1d1f3c521f8fdbf9a7bf61a7d3d224ee3ece3a789869278166a4bfa32c"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-single-list-item",
+    "blocks": [
+      {
+        "id": "L03",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "circle",
+          "depth": 2,
+          "wordLabel": "o"
+        },
+        "word": "Tab: Word shows o",
+        "text": "L03 Second level",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+    "captureSha256": "804ab7399b03aa69b91bb4901f20e47476d917d1575983242b06430a413eaa46",
+    "manifestSha256": "08f660803dbaef7273932738f2ffc63e848a56c34ccb9c56cb1a6c117e72a1a1"
+  }
+}

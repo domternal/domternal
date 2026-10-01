@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 2,
+  "id": "word-default-bullets-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "4374b97676fa8999b180a4b3932dec07975e35004f0f27d4069a2da29db2246b"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-default-bullets",
+    "blocks": [
+      {
+        "id": "L02",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "wordLabel": "•"
+        },
+        "word": "Home > Bullets (default library bullet)",
+        "text": "L02 First level",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L03",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "circle",
+          "depth": 2,
+          "wordLabel": "o"
+        },
+        "word": "Tab: Word shows o",
+        "text": "L03 Second level",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L04",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "square",
+          "depth": 3,
+          "wordLabel": "▪"
+        },
+        "word": "Tab: Word shows a small square",
+        "text": "L04 Third level",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L05",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "wordLabel": "•"
+        },
+        "word": "Shift+Tab twice",
+        "text": "L05 First level again",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+    "captureSha256": "ac7bcc7c43dc5f11d1a62a0c35313925b81988e1b06f5d667ce4f169a36122e1",
+    "manifestSha256": "11cc31487a356ba7ab4bd993b3d953873607b7d57b09342e476cb6361d7a3a8e"
+  }
+}

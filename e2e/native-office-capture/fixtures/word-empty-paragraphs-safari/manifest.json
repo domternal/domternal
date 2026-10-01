@@ -33,7 +33,8 @@
         "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
         "text": "B15 Visible part HIDDEN end.",
         "hidden": "HIDDEN",
-        "expectation": "Record whether Word copies the hidden word. When present, it becomes visible with unsupported-formatting.",
+        "expectation": "When the copy holds the hidden word, it becomes visible with unsupported-formatting. Safari leaves it out of the copy; Chrome and Firefox carry Word's raw HTML, which keeps it in a run Word hides (display:none with mso-hide:all).",
+        "correction": "Records what Word copies, which the specification asked to observe: the captures show it per browser.",
         "textStyle": {
           "fontFamily": "Aptos",
           "fontSize": "12pt"
@@ -93,6 +94,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "4959cebcce9012f18e299691c4ed6452098dd6510653e95bfca75cc1b45363ae",
-    "manifestSha256": "c1adfd6ef851c788e002a1695a56cc5fb44440984291119d9d59ce3a3d77039a"
+    "manifestSha256": "320a54bdf429cee58be2716062d8def394c276e5fd8a855ecd18f618fefc441d"
   }
 }

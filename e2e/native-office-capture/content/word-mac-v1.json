@@ -227,7 +227,8 @@
           "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
           "text": "B15 Visible part HIDDEN end.",
           "hidden": "HIDDEN",
-          "expectation": "Record whether Word copies the hidden word. When present, it becomes visible with unsupported-formatting."
+          "expectation": "When the copy holds the hidden word, it becomes visible with unsupported-formatting. Safari leaves it out of the copy; Chrome and Firefox carry Word's raw HTML, which keeps it in a run Word hides (display:none with mso-hide:all).",
+          "correction": "Records what Word copies, which the specification asked to observe: the captures show it per browser."
         },
         {
           "id": "B16a",
@@ -1338,7 +1339,7 @@
       "browser": "Safari 26.5.2 (21624.2.5.11.8)",
       "scenarios": "Every scenario except word-large-document and domternal-own-copy, word-headings-styles as its three selections",
       "fixtures": "fixtures/<scenario>-safari",
-      "note": "The specification was prepared for Word 16.111; the owner authored the documents and made these captures with Word 16.113.3. The list and table scenarios were captured again in Safari on 2026-10-04 from recreated documents, which replace these captures of them; Chrome, Firefox, the large document and the own copy are not captured yet."
+      "note": "The specification was prepared for Word 16.111; the owner authored the documents and made these captures with Word 16.113.3. The list and table scenarios were captured again in Safari on 2026-10-04 from recreated documents, which replace these captures of them. Chrome and Firefox have records of their own; the large document and the own copy are not captured yet."
     },
     {
       "date": "2026-10-04",
@@ -1348,14 +1349,23 @@
       "scenarios": "word-default-bullets to word-table-text: the list and table scenarios",
       "fixtures": "fixtures/<scenario>-safari",
       "note": "Captured again from the recreated lists and tables documents, in the session of the Chrome and Firefox captures; the bundles record 2026-10-03T22:46Z to 23:08Z (UTC). They replace the 2026-10-02 captures of these scenarios, whose documents defined their lists from templates rather than Word's libraries."
+    },
+    {
+      "date": "2026-10-04",
+      "application": "Microsoft Word 16.113.3 (16.113.26092714)",
+      "os": "macOS 26.5.2 (25F84)",
+      "browser": "Google Chrome 154.0.8037.93 (bundle build 8037.93)",
+      "scenarios": "Every scenario except word-large-document and domternal-own-copy, word-headings-styles as its three selections",
+      "fixtures": "fixtures/<scenario>-chrome",
+      "note": "Captured from the basics document of the Safari captures and the lists and tables documents the owner recreated with Word's own libraries; the bundles record 2026-10-03T22:29Z to 23:17Z (UTC). Chrome exposes Word's raw HTML, text/rtf and Word's picture of the selection as an image/png file."
     }
   ],
   "sourceContext": "Historical authoring-specification context only. The source application versions and destinations above do not describe production of the offline edited English variant. Original capture facts are retained separately in historicalBaselineCaptures; their fixture paths identify scenario lineage, not an attestation of the current edited bytes.",
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "6d44988384cce9fcc50286f88bfad47359de46e5",
-    "originalSpecificationSha256": "d9477b06a5ac32796540835ea9475478f2f30f831721c5a804580b4d175fc77c",
+    "originalSpecificationBlob": "f12796f7e153c479838347e4cf3b4d785fa42956",
+    "originalSpecificationSha256": "82db9de86d9a35e451343f9212b056a6e5d61289ab9675b3d7e55714c1fa7f99",
     "originalKind": "domternal-native-capture-content",
     "originalStatus": "captured-in-part",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",
