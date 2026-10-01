@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 2,
+  "id": "word-indentation-loss-firefox",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "098fe71d38ecd2dcb23a1833fb6d98fca2a558c7d95967b570e96b1d255415ba"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-indentation-loss",
+    "blocks": [
+      {
+        "id": "B13",
+        "type": "paragraph",
+        "word": "Style: Normal, Format > Paragraph > Left indentation 1.27 cm",
+        "text": "B13 Paragraph with a 1.27 cm left indent.",
+        "expectation": "Nonzero horizontal indentation is a reported loss: unsupported-formatting.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "B14",
+        "type": "paragraph",
+        "word": "Style: Normal, Format > Paragraph > Special: First line 1.27 cm",
+        "text": "B14 Paragraph with a first-line indent.",
+        "expectation": "First-line indentation is a reported loss: unsupported-formatting.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "unsupported-formatting"
+        ]
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "unsupported-formatting"
+        ]
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
+    "captureSha256": "0c218d6ab94aadde89b6f1045dc19ec40e76b4fc74e37416cfd6d618536431ae",
+    "manifestSha256": "7ce3debba0d09e69b1baa63d49f3d45117870b151208a12419916e1c1a5f2e89"
+  }
+}

@@ -1358,14 +1358,23 @@
       "scenarios": "Every scenario except word-large-document and domternal-own-copy, word-headings-styles as its three selections",
       "fixtures": "fixtures/<scenario>-chrome",
       "note": "Captured from the basics document of the Safari captures and the lists and tables documents the owner recreated with Word's own libraries; the bundles record 2026-10-03T22:29Z to 23:17Z (UTC). Chrome exposes Word's raw HTML, text/rtf and Word's picture of the selection as an image/png file."
+    },
+    {
+      "date": "2026-10-04",
+      "application": "Microsoft Word 16.113.3 (16.113.26092714)",
+      "os": "macOS 26.5.2 (25F84)",
+      "browser": "Mozilla Firefox 155.0.1 (BuildID 20260903215306; bundle build 15526.9.3)",
+      "scenarios": "Every scenario except word-large-document and domternal-own-copy, word-headings-styles as its three selections",
+      "fixtures": "fixtures/<scenario>-firefox",
+      "note": "Captured from the same documents as the Chrome captures, in the same session; the bundles record 2026-10-03T22:29Z to 23:16Z (UTC). Firefox exposes Word's raw HTML, text/rtf and text/plain, no files."
     }
   ],
   "sourceContext": "Historical authoring-specification context only. The source application versions and destinations above do not describe production of the offline edited English variant. Original capture facts are retained separately in historicalBaselineCaptures; their fixture paths identify scenario lineage, not an attestation of the current edited bytes.",
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "f12796f7e153c479838347e4cf3b4d785fa42956",
-    "originalSpecificationSha256": "82db9de86d9a35e451343f9212b056a6e5d61289ab9675b3d7e55714c1fa7f99",
+    "originalSpecificationBlob": "caff14da80fb29036e622e34d451e21a387ba843",
+    "originalSpecificationSha256": "4dec9befe5582b646d1a094614bead8baf0dc1a10c5945f84552900c8965d894",
     "originalKind": "domternal-native-capture-content",
     "originalStatus": "captured-in-part",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",

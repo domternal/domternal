@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 2,
+  "id": "word-headings-styles-b06-firefox",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "c70e7aa5279cf19e2f03c75257dd56f10552b2b4d5d49d06802246eca9cafebc"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-headings-styles-b06",
+    "blocks": [
+      {
+        "id": "B06",
+        "type": "heading",
+        "level": 2,
+        "word": "Style: Heading 2",
+        "text": "B06 Inline formatting",
+        "textStyle": {
+          "fontFamily": "Aptos Display",
+          "fontSize": "16pt",
+          "color": "#0F4761"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
+    "captureSha256": "9a66eb98ee02a6430fc045461aaa1f181b51b9174581bb5f6bdf93322ccd7f21",
+    "manifestSha256": "8dea8b41663c0cf6e332cfec25aac5d7f02aa79966bf9840f8ec97e0c766f2b8"
+  }
+}
