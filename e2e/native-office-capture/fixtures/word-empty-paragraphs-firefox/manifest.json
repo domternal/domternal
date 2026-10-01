@@ -15,6 +15,7 @@
   "expected": {
     "specification": "word-mac-v1",
     "scenario": "word-empty-paragraphs",
+    "hiddenText": "copied",
     "blocks": [
       {
         "id": "B14",
@@ -94,6 +95,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "b684405003dc81c400368c8eed9342f5daf590244c886047592b0121e943a726",
-    "manifestSha256": "104723aa40333dada35cbad4066a7046f00614a1a20561bda9a0d3f67c64b4e6"
+    "manifestSha256": "33ebb8f112dd1958097dd331b55143af67a6430e264cfdbb312333e767f18080"
   }
 }

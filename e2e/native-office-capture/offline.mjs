@@ -24,6 +24,8 @@ const SEMANTIC_BLOCK_TYPES = new Set(['heading', 'paragraph', 'listItem', 'liter
 const NOTICES = new Set(['quiet', 'visible']);
 // The fixture editor's schema an editor oracle holds for: the default one, or every capability, for content that needs it.
 const EDITOR_SCHEMAS = new Set(['default', 'capability-full']);
+// Whether a copy holds the hidden text a block authors: copied (it then pastes) or omitted by the browser.
+const HIDDEN_TEXT = new Set(['copied', 'omitted']);
 const stored = new WeakMap();
 const cleanupRequire = createRequire(new URL('../../packages/extension-paste-cleanup/package.json', import.meta.url));
 const normalize = value => value.toLowerCase();
@@ -258,7 +260,7 @@ export function readSemanticExpected(expected) {
   if (!expected || typeof expected !== 'object' || Array.isArray(expected)) fail('evidence-schema');
   const required = ['specification', 'scenario', 'blocks', 'preserve', 'adapt'];
   const keys = Object.keys(expected);
-  if (required.some(key => !keys.includes(key)) || keys.some(key => !required.includes(key) && key !== 'partial')) fail('evidence-schema');
+  if (required.some(key => !keys.includes(key)) || keys.some(key => !required.includes(key) && key !== 'partial' && key !== 'hiddenText')) fail('evidence-schema');
   text(expected.specification, 64); text(expected.scenario, 128);
   if (expected.partial !== undefined) {
     shape(expected.partial, ['first', 'last']); text(expected.partial.first, 256); text(expected.partial.last, 256);
@@ -271,6 +273,9 @@ export function readSemanticExpected(expected) {
       || !/^[A-Z][A-Za-z0-9]{0,15}$/u.test(block.id) || ids.has(block.id) || !SEMANTIC_BLOCK_TYPES.has(block.type)) fail('evidence-schema');
     ids.add(block.id);
   }
+  // Whether the copy holds a block's hidden text is the browser's, so the oracle says it exactly when a block authors one.
+  const hidden = expected.blocks.some(block => block.hidden !== undefined);
+  if (hidden ? !HIDDEN_TEXT.has(expected.hiddenText) : expected.hiddenText !== undefined) fail('evidence-schema');
   for (const formatting of ['preserve', 'adapt']) {
     const oracle = shape(expected[formatting], ['status', 'source', 'warnings', 'editor']);
     if (!['cleaned', 'rejected'].includes(oracle.status) || !['word', 'google-docs', 'libreoffice', 'html'].includes(oracle.source)) fail('evidence-schema');
@@ -298,7 +303,8 @@ export function semanticSpecification(expected) {
   return {
     documents: [{ blocks: expected.blocks }],
     scenarios: [{ id: expected.scenario, blocks: expected.blocks.map(block => block.id),
-      ...(expected.partial === undefined ? {} : { partial: expected.partial }), outcome: { notice: 'observe' } }],
+      ...(expected.partial === undefined ? {} : { partial: expected.partial }),
+      ...(expected.hiddenText === undefined ? {} : { hiddenText: expected.hiddenText }), outcome: { notice: 'observe' } }],
   };
 }
 

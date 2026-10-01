@@ -13,6 +13,8 @@ export interface SemanticExpected {
   readonly specification: string;
   readonly scenario: string;
   readonly partial?: { readonly first: string; readonly last: string };
+  /** Whether the copy holds the hidden text a block authors, which the browser decides; present exactly when a block authors one. */
+  readonly hiddenText?: 'copied' | 'omitted';
   readonly blocks: readonly { readonly id: string; readonly type: string; readonly [key: string]: unknown }[];
   readonly preserve: PolicyOracle;
   readonly adapt: PolicyOracle;

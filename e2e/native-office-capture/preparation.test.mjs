@@ -10,7 +10,7 @@ import { HARD_LIMITS } from './capture.mjs';
 import { CaptureEvidenceError, semanticSpecification, verifyCaptureFixture } from './offline.mjs';
 import { prepareFixture, specifiedExpectation } from './prepare-fixture.mjs';
 import { inflateSync } from 'node:zlib';
-import { blocksFromEditorJSON, blocksFromHTML, checkScenario, compareBlocks, compareOutcome, dryRun, expectedBlocks, imageInventory,
+import { blocksFromEditorJSON, blocksFromHTML, checkScenario, compareBlocks, compareOutcome, copiedHiddenText, dryRun, expectedBlocks, imageInventory,
   printSpecification, syntheticEditorResult } from './semantics.mjs';
 import { largeSourceDocument } from './content/large-source.mjs';
 import { GOOGLE_DOCS_IMAGES, renderImage, writeGoogleDocsImages } from './content/google-docs-images.mjs';
@@ -477,6 +477,8 @@ test('every committed English regression variant passes the offline verifier and
     // Chrome exposes Word's picture of the selection as one image/png file next to Word's HTML; Safari and Firefox expose none.
     assert.deepEqual(bundle.payload.items.filter(item => item.kind === 'file').map(item => item.type), browser === 'chrome' ? ['image/png'] : [], manifest.id);
     sources.set(scenario.document, (sources.get(scenario.document) ?? new Set()).add(manifest.source.sha256));
+    // Whether the copy holds a block's hidden text is the browser's: the oracle states what the captured HTML shows.
+    assert.equal(manifest.expected.hiddenText, copiedHiddenText(spec, scenario.id, bundle.payload.text['text/html']), manifest.id);
     // The replay also meets the scenario's own outcome: its required warnings, nothing it does not allow.
     for (const formatting of ['preserve', 'adapt']) assert.deepEqual(checkScenario(spec, scenario.id, bundle, { formatting }).problems, [], `${manifest.id} ${formatting}`);
     const summary = JSON.parse(await readFile(join(directory, 'capture-summary.json'), 'utf8'));
@@ -570,6 +572,33 @@ test('the semantic oracle pins the line spacing, the cell shading and the empty 
   assert.match(check('word-table-text-safari', table.replace(/<\/tr>\s*<tr>/u, '')), /row is 1, expected 2/u);
   const empties = normalizePasteHTML(fixtures.get('word-empty-paragraphs-safari').html).html;
   assert.match(check('word-empty-paragraphs-safari', empties.replace('<p></p>', '<p>\u00a0</p>')), /no-break space|unexpected/u);
+});
+
+test('the semantic oracle requires hidden text where the browser copies it and its absence where the browser leaves it out', async () => {
+  const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
+  const pinned = [];
+  for (const { manifest, html } of await semanticFixtures()) {
+    const block = manifest.expected.blocks.find(entry => entry.hidden !== undefined);
+    if (block === undefined) continue;
+    const browser = manifest.id.slice(manifest.id.lastIndexOf('-') + 1);
+    // Safari leaves Word's hidden run out of the copy; Chrome and Firefox carry Word's raw HTML, which keeps it.
+    assert.equal(manifest.expected.hiddenText, browser === 'safari' ? 'omitted' : 'copied', manifest.id);
+    for (const formatting of ['preserve', 'adapt']) {
+      const output = normalizePasteHTML(html, { formatting, allowRemoteImages: false, allowDataImages: true }).html;
+      const check = value => compareBlocks(semanticSpecification(manifest.expected), manifest.expected.scenario, blocksFromHTML(value), { formatting }).join('\n');
+      assert.equal(check(output), '', `${manifest.id} ${formatting}`);
+      // A cleanup that drops the hidden run, or one that a browser's copy would reveal, is a finding either way.
+      const broken = manifest.expected.hiddenText === 'copied' ? output.replace(block.hidden, '') : output.replace('end.', `${block.hidden} end.`);
+      assert.notEqual(broken, output, manifest.id);
+      assert.match(check(broken), new RegExp(`${block.id}: text is`, 'u'), `${manifest.id} ${formatting}`);
+    }
+    pinned.push(manifest.id);
+  }
+  assert.deepEqual(pinned.sort(), ['word-empty-paragraphs', 'word-hidden-text'].flatMap(id => ['chrome', 'firefox', 'safari'].map(browser => `${id}-${browser}`)).sort());
+  // The specification itself records both forms, and a capture bundle is checked by what its HTML holds.
+  const hidden = { type: 'doc', content: [paragraph(text('B15 Visible part HIDDEN end.'))] };
+  assert.deepEqual(compareBlocks(spec, 'word-hidden-text', blocksFromEditorJSON(hidden)), []);
+  assert.match(compareBlocks(spec, 'word-hidden-text', blocksFromEditorJSON(hidden), { hiddenText: 'omitted' }).join('\n'), /B15: text is "B15 Visible part HIDDEN end\.", expected "B15 Visible part end\."/u);
 });
 
 test('the semantic oracle reads the fixture editor result the same way: added blocks and formatting are reported', () => {

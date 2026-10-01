@@ -545,9 +545,14 @@ function blockFormatting(block, found, where, problems, formatting, tables, exha
 /** Whether two texts differ only where one has a no-break space and the other a space. */
 const spacesDiffer = (left, right) => left !== right && left.replace(/\u00a0/gu, ' ') === right.replace(/\u00a0/gu, ' ');
 
-/** Problems between the authored scenario and actual blocks. An empty list means the capture matches. */
-export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'preserve', destination } = {}) {
+/**
+ * Problems between the authored scenario and actual blocks. An empty list means the capture matches. `hiddenText`, or
+ * the scenario's own, says whether the copy holds the hidden text a block authors (`copied`, which then pastes) or the
+ * browser left it out (`omitted`); without it both forms are recorded observations, as for the specification itself.
+ */
+export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'preserve', destination, hiddenText } = {}) {
   const { scenario, expected } = expectedBlocks(spec, scenarioId);
+  const copied = hiddenText ?? scenario.hiddenText;
   const problems = [];
   const actual = [...actualBlocks];
   const positions = new Map();
@@ -634,13 +639,14 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     for (const key of ['colspan', 'rowspan']) {
       if (block.cell?.[key] !== undefined && found.cell?.[key] !== block.cell[key]) problems.push(`${block.id}: ${key} is ${String(found.cell?.[key])}, expected ${String(block.cell[key])}`);
     }
-    // Word may leave hidden text out of the copy; both forms are recorded observations.
-    const texts = block.hidden === undefined ? [block.text] : [block.text, normalizeText(block.text.replace(block.hidden, ''))];
+    // Whether the copy holds hidden text is the browser's: the text with it, without it, or either when nobody says.
+    const shown = block.hidden === undefined ? undefined : normalizeText(block.text.replace(block.hidden, ''));
+    const texts = shown === undefined || copied === 'copied' ? [block.text] : copied === 'omitted' ? [shown] : [block.text, shown];
     const text = normalizeText(found.text);
     if (block.text !== undefined && !texts.includes(text)) {
       problems.push(texts.some(entry => spacesDiffer(text, entry))
         ? `${block.id}: text has a no-break space where the specification has a space, or the reverse: ${JSON.stringify(text)}`
-        : `${block.id}: text is ${JSON.stringify(text)}, expected ${JSON.stringify(block.text)}`);
+        : `${block.id}: text is ${JSON.stringify(text)}, expected ${JSON.stringify(texts[0])}`);
     }
     blockFormatting(block, found, block.id, problems, formatting, tables, exhaustive);
     if (formatting === 'adapt') {
@@ -691,6 +697,19 @@ export function compareOutcome(spec, scenarioId, diagnostics, { formatting = 'pr
 
 const isCaptureBundle = input => typeof input?.harnessVersion === 'string' && typeof input?.provenance === 'object';
 
+/**
+ * Whether a copy holds the hidden text the scenario's blocks author, read from its captured HTML: `copied` when every
+ * hidden text is in the HTML's text, `omitted` when none is, undefined for a scenario without hidden text. The browser
+ * decides it: Safari leaves Word's hidden run out of the copy, Chrome and Firefox carry Word's raw HTML, which keeps it.
+ */
+export function copiedHiddenText(spec, scenarioId, html) {
+  const hidden = expectedBlocks(spec, scenarioId).expected.filter(block => block.hidden !== undefined).map(block => block.hidden);
+  if (hidden.length === 0) return undefined;
+  const text = String(html).replace(/<!--[\s\S]*?-->|<[^>]*>/gu, ' ');
+  const held = hidden.filter(value => text.includes(value)).length;
+  return held === hidden.length ? 'copied' : held === 0 ? 'omitted' : 'mixed';
+}
+
 /** Check one saved editor result `{ results, doc }`, one HTML replay or one capture bundle against a scenario. */
 export function checkScenario(spec, scenarioId, input, options = {}) {
   const formatting = options.formatting ?? 'preserve';
@@ -716,7 +735,10 @@ export function checkScenario(spec, scenarioId, input, options = {}) {
   // the spacing the scenario authors: a destination warning required of one without it is not required of this one.
   const holdsSpacing = typeof replay.html !== 'string' && blocks.some(block => Object.hasOwn(block, 'lineHeight'))
     && expectedBlocks(spec, scenarioId).expected.some(block => block.lineHeight !== undefined);
-  problems.push(...compareBlocks(spec, scenarioId, blocks, { formatting }),
+  // A capture shows whether its browser copied the hidden text; a saved editor result or HTML replay does not say.
+  const hiddenText = typeof input?.payload?.text?.['text/html'] === 'string' && isCaptureBundle(input)
+    ? copiedHiddenText(spec, scenarioId, input.payload.text['text/html']) : undefined;
+  problems.push(...compareBlocks(spec, scenarioId, blocks, { formatting, ...(hiddenText === 'copied' || hiddenText === 'omitted' ? { hiddenText } : {}) }),
     ...compareOutcome(spec, scenarioId, diagnostics, { formatting, destination: images === undefined && !holdsSpacing }));
   return Object.freeze({ kind: 'native-capture-semantics', scenario: scenarioId, formatting, qualification: false,
     ...(images ? { capture: { replayed: true, images } } : {}), matches: problems.length === 0, problems });

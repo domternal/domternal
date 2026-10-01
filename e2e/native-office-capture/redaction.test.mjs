@@ -463,3 +463,24 @@ test('an oracle can pin a fixture in each destination schema once, and nothing e
     await assert.rejects(verifyCaptureFixture(base), failure('evidence-schema'), JSON.stringify(editors));
   }
 });
+
+test('an oracle says whether the copy holds a block\'s hidden text exactly when a block authors one, and the replay must agree', async t => {
+  const { base } = await fixture(t);
+  const hidden = (manifest, value) => {
+    manifest.expected.blocks[0].hidden = 'Test';
+    if (value === undefined) delete manifest.expected.hiddenText; else manifest.expected.hiddenText = value;
+  };
+  // The capture holds the word, so the oracle that says so passes and the one that says the browser left it out fails.
+  await rewrite(base, manifest => { hidden(manifest, 'copied'); });
+  assert.equal((await verifyCaptureFixture(base)).replay.kind, 'offline-semantic-replay');
+  await rewrite(base, manifest => { hidden(manifest, 'omitted'); });
+  await assert.rejects(verifyCaptureFixture(base), failure('evidence-replay-mismatch'));
+  for (const [name, mutate] of [
+    ['a hidden block without the statement', manifest => { hidden(manifest, undefined); }],
+    ['an unknown statement', manifest => { hidden(manifest, 'shown'); }],
+    ['a statement without a hidden block', manifest => { delete manifest.expected.blocks[0].hidden; manifest.expected.hiddenText = 'copied'; }],
+  ]) {
+    await rewrite(base, mutate);
+    await assert.rejects(verifyCaptureFixture(base), failure('evidence-schema'), name);
+  }
+});
