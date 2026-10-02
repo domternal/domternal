@@ -29,7 +29,7 @@ import { wrapLooseInlineRuns } from './looseInline.js';
 import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
 import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
 import { routineLineHeights } from './wordSpacing.js';
-import { removeWordHiddenText } from './hiddenText.js';
+import { wordHiddenText } from './hiddenText.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -196,12 +196,17 @@ export function normalizeClipboardHTML(
     // A slice marker alone is structural context. Only a verified own copy keeps editor formatting as is.
     const { anchor, own } = readSliceOrigin(tree, ownCopy);
     if (!own) {
-      // Word's hidden text is not pasted, so neither its lists, its styles nor its images are read.
-      if (result.source === 'word') removeWordHiddenText(tree, node => { report('hidden-text-removed', node); });
+      const hidden = result.source === 'word' ? wordHiddenText(tree) : undefined;
       if (/\bmso-list\s*:/i.test(html)) {
-        const lists = reconstructOfficeLists(tree, { ...limits, ...capabilities?.() }, report);
+        // A list item Word hides is not pasted, so an item cleanup cannot rebuild is no finding when it is hidden.
+        const lists = reconstructOfficeLists(tree, { ...limits, ...capabilities?.() }, (code, node) => {
+          if (hidden?.conceals(node) !== true) report(code, node);
+        });
         preserveOrderedListStart = lists.reconstructedLists > 0;
       }
+      // Word's hidden text is not pasted. After the lists, so a hidden item leaves one list numbered as if it were not
+      // there; before the styles and images are read, so the hidden ones are neither reported nor prepared.
+      hidden?.remove(node => { report('hidden-text-removed', node); });
       hoistListItemMarkers(tree);
       // After the markers moved, so the added item does not stop a list's items from agreeing on one.
       nestLeadingLists(tree);

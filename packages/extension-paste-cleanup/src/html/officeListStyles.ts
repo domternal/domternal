@@ -212,11 +212,11 @@ function blockEnd(css: string, open: number): number {
 }
 
 /**
- * Scan one style text once, front to back. Every character is visited by at most the rule
- * scan and, for a referenced level rule, one declaration pass over its bounded body.
- * Unterminated syntax stops this style text: later definitions stay unknown.
+ * Visit each top-level rule of one style text once, front to back, with the index its prelude starts at, the index
+ * of its opening brace and the index of the brace that closes it. HTML comment delimiters around the text are
+ * skipped; unterminated syntax stops the text, so later rules stay unknown.
  */
-function scanStyle(css: string, referenced: ReadonlySet<string>, rules: Map<string, LevelRule | null>): void {
+export function forEachStyleRule(css: string, visit: (start: number, open: number, end: number) => void): void {
   let index = 0;
   while (index < css.length) {
     const char = css.charAt(index);
@@ -237,6 +237,18 @@ function scanStyle(css: string, referenced: ReadonlySet<string>, rules: Map<stri
     if (css.charAt(open) !== '{') { index = open + 1; continue; }
     const end = blockEnd(css, open);
     if (end < 0) return;
+    visit(index, open, end);
+    index = end + 1;
+  }
+}
+
+/**
+ * Scan one style text once, front to back. Every character is visited by at most the rule
+ * scan and, for a referenced level rule, one declaration pass over its bounded body.
+ * Unterminated syntax stops this style text: later definitions stay unknown.
+ */
+function scanStyle(css: string, referenced: ReadonlySet<string>, rules: Map<string, LevelRule | null>): void {
+  forEachStyleRule(css, (index, open, end) => {
     levelRule.lastIndex = index;
     const match = levelRule.exec(css);
     if (match !== null && levelRule.lastIndex === open + 1) {
@@ -248,8 +260,7 @@ function scanStyle(css: string, referenced: ReadonlySet<string>, rules: Map<stri
         else if (previous !== null && (rule === null || !sameRule(previous, rule))) rules.set(key, null);
       }
     }
-    index = end + 1;
-  }
+  });
 }
 
 /** Read the referenced level definitions from clipboard style texts. */

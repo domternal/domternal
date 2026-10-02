@@ -163,20 +163,32 @@ document, so the paragraph pastes empty, while a no-break space Word wrote as
 text stays.
 
 Word's hidden text (Format > Font > Hidden) is not pasted, as Word does not show
-it. In a Word source, such as Word's raw HTML in Chrome and Firefox, an element
-whose own style hides it with `display: none` or `mso-hide: all`, the two
-declarations Word writes on a hidden run, is removed with its content; a later
-`display` that shows it again wins, as in CSS, unless `mso-hide: all` hides it. A paragraph,
-heading or list item that held nothing else goes with it, its list marker too;
-a table cell stays, without its text. Each removed element that held text or an
-image reports `hidden-text-removed`, a warning the notice names as "Hidden text
-from Word was not pasted.", in both policies, and its images are neither
-prepared nor reported. Safari leaves hidden text out of its copy, which then
-holds no trace of it, so nothing is reported there. Only a Word source is read
-this way: in other HTML an element with `display: none` keeps its text and
-reports `unsupported-formatting`, since a page hides interface parts such as
-menus that way, and `visibility: hidden`, which keeps its room, is reported the
-same way in every source.
+it. Word's raw HTML, which Chrome and Firefox pass through, writes a hidden run
+with two declarations: `display: none`, which hides it in a browser, and
+`mso-hide: all`, Word's own. A hidden character or paragraph style writes both
+into its class rule in the copy's stylesheet. In a Word source an element with
+both is removed with its content, whether its style attribute or a class rule
+with a simple selector, such as `span.HiddenChar` or `.Hidden`, declares them.
+They are read as CSS reads them: `!important` wins, then the style attribute
+over a rule, then the more specific and the later rule, and a semicolon in a
+string or a comment separates nothing. Either declaration alone is no hidden
+text of Word's and keeps its text with `unsupported-formatting`, as other hidden
+elements do: `display: none` with `mso-hide: screen` is Word's web hidden text,
+such as a table of contents' leaders and page numbers, which Word shows on the
+page, and a web page hides interface parts such as menus with `display: none`
+alone, also a page that only names Office's properties in its text.
+`visibility: hidden`, which keeps its room, is reported the same way in every
+source. A paragraph, heading or list item that held nothing else goes with the
+hidden text when its paragraph mark is hidden too, its list marker with it, and
+stays as an empty paragraph, the empty line Word shows, when its mark is
+visible. A hidden list item leaves one list, numbered as if it were not there,
+and a table cell or column keeps its place without its content. Each removed
+element that held text or an image reports `hidden-text-removed`, a warning the
+notice names as "Hidden text from Word was not pasted.", in both policies. Its
+images are neither prepared nor reported.
+Safari leaves hidden text out of its copy, which then holds no trace of it, so
+nothing is reported there. A style rule with another selector, such as one with
+a combinator, is not read.
 
 Safari copies the computed style of each top-level element it copies. In a Word
 copy a text color equal to the caret color it copies with it is Word's automatic

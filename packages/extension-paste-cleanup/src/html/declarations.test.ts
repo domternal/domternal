@@ -82,6 +82,8 @@ describe('routine source declarations', () => {
     ['a background image', '<p style="background-image:linear-gradient(red,blue)">Text</p>'],
     ['hidden text', '<p><span style="display:none">Text</span></p>'],
     ['invisible text', '<p><span style="visibility:hidden">Text</span></p>'],
+    // Word hides text with mso-hide:all together with display:none; either alone shows in one of them.
+    ['Office hidden text', '<p><span style="mso-hide:all">Text</span></p>'],
     ['a font shorthand', '<p><span style=\'font:7.0pt "Times New Roman"\'>Text</span></p>'],
     ['positioning', '<p style="position:fixed">Text</p>'],
     ['an image box that crops its image', imageBox('width:100px;height:50px', 'margin-left:0px;margin-top:0px')],
