@@ -470,8 +470,9 @@ for the paragraph's level. It is read without the spacing around it: Word right
 aligns a level, as the third level of its numbering library, by padding the label
 with a spacer run of 7 pt no-break spaces that fills the indent before it. The
 label may hold at most 64 characters other than that spacing, and the marker at
-most 1,024 UTF-16 units of text with it, more than the widest indent Word allows
-needs:
+most 2,048 UTF-16 units of text with it: Word writes about one no-break space per
+point of the label's position, so about 1,600 at the widest indent it allows
+(22 inches):
 
 | Word level definition | Visible marker | Marker class |
 | --- | --- | --- |

@@ -193,10 +193,11 @@ function trivia(node: RootContent | undefined): node is Comment | Text {
 // Marker spacing: CSS white space and the no-break spaces of Word's spacer runs.
 const markerSpacing = /[\t\n\f\r \xa0]/gu;
 // The longest label a marker may hold, and the most spacing around it: Word right aligns a level's label by
-// padding it with a 7 pt spacer that fills the indent before it, about 900 no-break spaces at the widest
-// indent Word allows (22 inches), so the spacing has a bound of its own and only the label counts toward 64.
+// padding it with a 7 pt spacer that fills the indent before it, about one no-break space per point (92 before
+// a label at 99 pt), so about 1,600 at the widest indent Word allows (22 inches, 1,584 pt). The spacing has a
+// bound of its own, with room for that, and only the label counts toward 64.
 const maxLabelLength = 64;
-const maxMarkerText = 1_024;
+const maxMarkerText = 2_048;
 
 /** The visible marker text without surrounding spacing, or undefined for anything but plain marker spans. */
 function markerLabel(marker: Element): string | undefined {

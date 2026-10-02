@@ -110,12 +110,18 @@ describe('Word library numbering with a right aligned level', () => {
     }
   });
 
-  it('keeps a marker literal whose spacing passes the widest indent Word writes', () => {
-    // Word indents at most 22 inches, which its 7 pt spacer fills with about 900 no-break spaces; more is no Word marker.
-    const item = (lead: number): Item[] => [{ kind: '', level: 1, label: '1.', text: 'Spacing', lead, trail: 7 }];
-    for (const [, html] of shapes) {
-      expect(warnings(normalizePasteHTML(html(item(900))).diagnostics)).toEqual([]);
-      expect(codes(normalizePasteHTML(html(item(1_020))).diagnostics)).toContain('office-list-unsupported');
+  it('keeps the list of a label right aligned at the widest indent Word allows, and a marker literal whose spacing passes it', () => {
+    // The captured spacer holds about one no-break space per point of the label's position: 92 before i. at 99 pt,
+    // 89 before ii. So a label at Word's widest indent, 22 inches or 1,584 pt, follows about 1,600 of them.
+    const item = (lead: number): Item[] => [{ kind: '', level: 3, label: 'i.', text: 'Spacing', lead, trail: 8 }];
+    const ROMAN = '<ol style="list-style-type:lower-roman" start="1"><li><p><span></span>Spacing</p></li></ol>';
+    for (const [browser, html] of shapes) {
+      for (const lead of [900, 1_584, 1_650]) {
+        const result = normalizePasteHTML(html(item(lead)));
+        expect(warnings(result.diagnostics), `${browser} ${String(lead)}`).toEqual([]);
+        expect(markup(result.html), `${browser} ${String(lead)}`).toContain(ROMAN);
+      }
+      expect(codes(normalizePasteHTML(html(item(2_100))).diagnostics), browser).toContain('office-list-unsupported');
     }
   });
 });
