@@ -5,7 +5,7 @@ import { open, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { crc32, inflateRawSync } from 'node:zlib';
+import { crc32, inflateRawSync, inflateSync } from 'node:zlib';
 import { HARD_LIMITS, TEXT_FORMATS } from './capture.mjs';
 import { blocksFromHTML, compareBlocks } from './semantics.mjs';
 
@@ -26,6 +26,16 @@ const NOTICES = new Set(['quiet', 'visible']);
 const EDITOR_SCHEMAS = new Set(['default', 'capability-full']);
 // Whether a copy holds the hidden text a block authors: copied (it then pastes) or omitted by the browser.
 const HIDDEN_TEXT = new Set(['copied', 'omitted']);
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_LIMITS = Object.freeze({ chunks: 4096, profileBytes: 4 * 1024 * 1024, profileTags: 1024 });
+// Clipboard files a manifest may declare a redaction of, at most this many.
+const MAX_FILE_REDACTIONS = 8;
+/**
+ * The fields of Apple's make and model tag ('mmod') in an ICC display profile that name the display unit rather than
+ * its model, by their offset in the tag: the serial number and the manufacture date. macOS embeds the profile of the
+ * display a picture was taken on, so a screenshot or Chrome's picture of a Word selection carries them.
+ */
+export const DEVICE_FIELDS = Object.freeze({ serialNumber: 16, manufactureDate: 20 });
 const stored = new WeakMap();
 const cleanupRequire = createRequire(new URL('../../packages/extension-paste-cleanup/package.json', import.meta.url));
 const normalize = value => value.toLowerCase();
@@ -406,17 +416,135 @@ function clearedPart(content, elements) {
 }
 
 /**
- * The capture with every declared replacement and withheld operator field masked. It is equal for an
- * original and its redaction when nothing else changed.
+ * The capture with every declared replacement and withheld operator field masked, and the record of every clipboard
+ * file whose redaction is declared (`files`, by item index): its bytes, hash and size, and the file total. It is equal
+ * for an original and its redaction when nothing else changed, whichever redaction came first.
  */
-export function maskedCaptureDigest(bundle, replacements, withheld = []) {
+export function maskedCaptureDigest(bundle, replacements, withheld = [], files = []) {
   const masked = structuredClone(bundle);
   for (const { flavor, offset, length } of replacements) {
     const value = masked.payload.text[flavor];
     masked.payload.text[flavor] = `${value.slice(0, offset)}${'\u0000'.repeat(length)}${value.slice(offset + length)}`;
   }
   for (const field of withheld) masked.operator[field] = null;
+  for (const itemIndex of files) {
+    const record = masked.payload.files.find(file => file?.itemIndex === itemIndex);
+    if (record !== undefined) Object.assign(record, { byteLength: null, sha256: null, base64: null });
+    const file = masked.payload.items[itemIndex]?.file;
+    if (file) file.size = null;
+  }
+  if (files.length > 0) masked.payload.totals.fileBytes = null;
   return digest(JSON.stringify(masked));
+}
+
+/** The chunks of a PNG as [type, data], read within fixed bounds: the signature, every length and CRC, IHDR first and IEND last. */
+export function readPngChunks(input) {
+  const view = Buffer.from(input.buffer, input.byteOffset, input.byteLength);
+  if (view.length < PNG_SIGNATURE.length || !view.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) fail('evidence-file');
+  const chunks = [];
+  let at = PNG_SIGNATURE.length;
+  while (at < view.length) {
+    if (chunks.length >= PNG_LIMITS.chunks || at + 12 > view.length) fail('evidence-file');
+    const length = view.readUInt32BE(at);
+    if (length > view.length - at - 12) fail('evidence-file');
+    const type = view.toString('latin1', at + 4, at + 8);
+    if (!/^[A-Za-z]{4}$/u.test(type) || crc32(view.subarray(at + 4, at + 8 + length)) !== view.readUInt32BE(at + 8 + length)) fail('evidence-file');
+    chunks.push([type, view.subarray(at + 8, at + 8 + length)]);
+    at += 12 + length;
+    if (type === 'IEND') break;
+  }
+  if (at !== view.length || chunks[0]?.[0] !== 'IHDR' || chunks.at(-1)?.[0] !== 'IEND') fail('evidence-file');
+  return chunks;
+}
+
+/**
+ * The display profile a PNG embeds: its one iCCP chunk before the image data, with the chunk's index, the profile's
+ * name and the profile, inflated within bounds. A PNG without one has nothing a profile redaction can name.
+ */
+export function readPngProfile(chunks) {
+  const indexes = chunks.flatMap(([type], index) => (type === 'iCCP' ? [index] : []));
+  const image = chunks.findIndex(([type]) => type === 'IDAT');
+  if (indexes.length !== 1 || image < indexes[0]) fail('evidence-redaction');
+  const [index] = indexes;
+  const data = chunks[index][1];
+  const separator = data.indexOf(0);
+  if (separator < 1 || separator > 79 || data[separator + 1] !== 0) fail('evidence-file');
+  let profile;
+  try { profile = inflateSync(data.subarray(separator + 2), { maxOutputLength: PNG_LIMITS.profileBytes }); } catch { fail('evidence-file'); }
+  return { index, name: Buffer.from(data.subarray(0, separator)), profile };
+}
+
+/** Where a profile's one Apple make and model tag ('mmod') starts, read within the profile's declared size and tag table. */
+export function deviceTagOffset(profile) {
+  if (profile.length < 132 || profile.readUInt32BE(0) !== profile.length || profile.toString('latin1', 36, 40) !== 'acsp') fail('evidence-file');
+  const count = profile.readUInt32BE(128);
+  if (count > PNG_LIMITS.profileTags || 132 + count * 12 > profile.length) fail('evidence-file');
+  let found;
+  for (let index = 0; index < count; index++) {
+    const at = 132 + index * 12;
+    const offset = profile.readUInt32BE(at + 4);
+    const size = profile.readUInt32BE(at + 8);
+    if (offset < 132 + count * 12 || size > profile.length - offset) fail('evidence-file');
+    if (profile.toString('latin1', at, at + 4) !== 'mmod') continue;
+    if (found !== undefined || size < 24 || profile.toString('latin1', offset, offset + 4) !== 'mmod') fail('evidence-file');
+    found = offset;
+  }
+  if (found === undefined) fail('evidence-redaction');
+  return found;
+}
+
+/** A profile's ID as the ICC specification computes it: the MD5 of the profile with its flags, rendering intent and ID zeroed. */
+export function profileIdentifier(profile) {
+  const copy = Buffer.from(profile);
+  copy.fill(0, 44, 48); copy.fill(0, 64, 68); copy.fill(0, 84, 100);
+  return createHash('md5').update(copy).digest();
+}
+
+/**
+ * The PNG with its display profile inflated, the named device fields zeroed and the profile ID, which hashes them,
+ * zeroed too. It is equal for an original picture and its redaction when nothing else changed, and it holds none of
+ * the cleared values.
+ */
+export function maskedPngDigest(input, fields) {
+  const chunks = readPngChunks(input);
+  const { index, name, profile } = readPngProfile(chunks);
+  const masked = Buffer.from(profile);
+  const tag = deviceTagOffset(masked);
+  for (const field of fields) masked.fill(0, tag + DEVICE_FIELDS[field], tag + DEVICE_FIELDS[field] + 4);
+  masked.fill(0, 84, 100);
+  const hash = createHash('sha256');
+  chunks.forEach(([type, data], at) => {
+    const content = at === index ? Buffer.concat([name, Buffer.from([0, 0]), masked]) : data;
+    const length = Buffer.alloc(4); length.writeUInt32BE(content.length);
+    hash.update(type, 'latin1'); hash.update(length); hash.update(content);
+  });
+  return hash.digest('hex');
+}
+
+/**
+ * The committed picture equals its original outside the declared device fields of its display profile, which are
+ * zero, and the profile's ID, which is zero or computed again.
+ */
+export function verifyFileRedaction(picture, declaration) {
+  if (digest(picture) !== declaration.redactedSha256) fail('evidence-redaction');
+  const { profile } = readPngProfile(readPngChunks(picture));
+  const tag = deviceTagOffset(profile);
+  if (declaration.clearedFields.some(field => profile.readUInt32BE(tag + DEVICE_FIELDS[field]) !== 0)) fail('evidence-redaction');
+  const id = profile.subarray(84, 100);
+  if (id.some(byte => byte !== 0) && !id.equals(profileIdentifier(profile))) fail('evidence-redaction');
+  if (maskedPngDigest(picture, declaration.clearedFields) !== declaration.maskedSha256) fail('evidence-redaction');
+}
+
+/** Every declared clipboard file redaction names a PNG file of the bundle, which its verification holds. */
+export function verifyFileRedactions(bundle, declarations = []) {
+  for (const declaration of declarations) {
+    const item = bundle.payload.items[declaration.itemIndex];
+    const record = bundle.payload.files.find(file => file.itemIndex === declaration.itemIndex);
+    if (item?.kind !== 'file' || item.type !== 'image/png' || item.file?.type !== 'image/png' || record === undefined
+      || record.sha256 !== declaration.redactedSha256) fail('evidence-redaction');
+    const picture = Buffer.from(record.base64, 'base64');
+    try { verifyFileRedaction(picture, declaration); } finally { picture.fill(0); }
+  }
 }
 
 /** The reserved token of a replaced span of the given length. */
@@ -427,15 +555,18 @@ export function redactionToken(length) {
 export const WITHHELD_SOURCE_HASH = REDACTION_TOKEN.padEnd(64, '-');
 
 /**
- * Declared redactions of a version 2 manifest: at most one for the source document and one for the
- * capture. Each records the redacted hash, whether the original is retained, whether its fingerprints
- * were taken from the original or from an already redacted copy, and what changed. None records a hash
- * of the original: an unsalted hash of text that held a name or an address confirms a guess of it. For
- * the same reason a capture whose source was redacted withholds the source hash its operator recorded.
+ * Declared redactions of a version 2 manifest: at most one for the source document, one for the
+ * capture's text and one for each clipboard file of the capture (`files`, in item order). Each records
+ * the redacted hash, whether the original is retained, whether its fingerprints were taken from the
+ * original or from an already redacted copy, and what changed. None records a hash of the original: an
+ * unsalted hash of text that held a name or an address confirms a guess of it, and one of a picture
+ * whose profile held a serial number confirms a guess of that number. For the same reason a capture
+ * whose source was redacted withholds the source hash its operator recorded.
  */
 export function readRedactions(value) {
-  list(value, 2);
+  list(value, 2 + MAX_FILE_REDACTIONS);
   const declared = {};
+  const files = new Map();
   for (const entry of value) {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) fail('evidence-schema');
     if (entry.artifact === 'source') {
@@ -465,13 +596,25 @@ export function readRedactions(value) {
         if (replacement.token !== redactionToken(replacement.length)) fail('evidence-schema');
       }
       hash(entry.maskedSha256);
+    } else if (entry.artifact === 'clipboard-file') {
+      // A PNG clipboard file whose display profile named its display unit.
+      shape(entry, ['artifact', 'format', 'reason', 'redactedSha256', 'originalRetained', 'basis', 'itemIndex', 'clearedFields', 'maskedSha256']);
+      if (entry.format !== 'png-display-profile') fail('evidence-schema');
+      integer(entry.itemIndex, HARD_LIMITS.maxItems - 1);
+      list(entry.clearedFields, Object.keys(DEVICE_FIELDS).length);
+      if (entry.clearedFields.length === 0 || entry.clearedFields.some((field, index) => !Object.hasOwn(DEVICE_FIELDS, field)
+        || entry.clearedFields.indexOf(field) !== index)) fail('evidence-schema');
+      hash(entry.maskedSha256);
+      if (files.has(entry.itemIndex)) fail('evidence-schema');
+      files.set(entry.itemIndex, entry);
     } else fail('evidence-schema');
-    if (Object.hasOwn(declared, entry.artifact)) fail('evidence-schema');
+    if (entry.artifact !== 'clipboard-file' && Object.hasOwn(declared, entry.artifact)) fail('evidence-schema');
     text(entry.reason, 1024); hash(entry.redactedSha256);
     if (typeof entry.originalRetained !== 'boolean' || !['original', 'redacted-copy'].includes(entry.basis)
       || (entry.basis === 'redacted-copy' && entry.originalRetained)) fail('evidence-schema');
-    declared[entry.artifact] = entry;
+    if (entry.artifact !== 'clipboard-file') declared[entry.artifact] = entry;
   }
+  declared.files = [...files.values()].sort((left, right) => left.itemIndex - right.itemIndex);
   return declared;
 }
 
@@ -503,10 +646,11 @@ export function verifyPackageRedaction(source, declaration) {
 
 /**
  * The capture equals its original outside the declared replacements and withheld fields, each of which holds
- * its token, and the reserved token appears nowhere else, in any letter case: a redaction without a
- * declaration cannot pass as captured text.
+ * its token, and outside the records of the clipboard files whose redaction is declared (`files`, by item
+ * index), which their own declarations hold. The reserved token appears nowhere else, in any letter case: a
+ * redaction without a declaration cannot pass as captured text.
  */
-export function verifyCaptureRedaction(bundle, declaration) {
+export function verifyCaptureRedaction(bundle, declaration, files = []) {
   const flavors = bundle.payload.text;
   const spans = new Map();
   if (declaration !== undefined) {
@@ -521,7 +665,7 @@ export function verifyCaptureRedaction(bundle, declaration) {
       spans.set(replacement.flavor, [...(spans.get(replacement.flavor) ?? []), [replacement.offset, previous.end]]);
     }
     for (const field of declaration.withheld) if (bundle.operator[field] !== WITHHELD_SOURCE_HASH) fail('evidence-redaction');
-    if (maskedCaptureDigest(bundle, declaration.replacements, declaration.withheld) !== declaration.maskedSha256) fail('evidence-redaction');
+    if (maskedCaptureDigest(bundle, declaration.replacements, declaration.withheld, files) !== declaration.maskedSha256) fail('evidence-redaction');
   }
   // The token in any letter case: an undeclared redaction written in capitals is still a redaction.
   for (const [flavor, value] of Object.entries(flavors)) {
@@ -536,10 +680,12 @@ export function verifyCaptureRedaction(bundle, declaration) {
 }
 
 function redactionSummary(declaration) {
+  const changes = declaration.artifact === 'source' ? declaration.clearedElements.reduce((sum, entry) => sum + entry.elements.length, 0)
+    : declaration.artifact === 'capture' ? declaration.replacements.length : declaration.clearedFields.length;
   return { artifact: declaration.artifact, basis: declaration.basis, originalRetained: declaration.originalRetained,
-    redactedSha256: declaration.redactedSha256, originalVerified: false,
-    changes: declaration.artifact === 'source' ? declaration.clearedElements.reduce((sum, entry) => sum + entry.elements.length, 0) : declaration.replacements.length,
-    withheld: declaration.artifact === 'capture' ? [...declaration.withheld] : [] };
+    redactedSha256: declaration.redactedSha256, originalVerified: false, changes,
+    withheld: declaration.artifact === 'capture' ? [...declaration.withheld] : [],
+    ...(declaration.artifact === 'clipboard-file' ? { itemIndex: declaration.itemIndex } : {}) };
 }
 
 /** Archived baseline references identify an authored variant, not a new native capture. */
@@ -606,10 +752,12 @@ export async function verifyCaptureFixture(directory) {
         fixtureSha256: redactions.source === undefined ? manifest.source.sha256 : null, fixtureId: manifest.id, origin: manifest.origin });
       handle = evidence.handle;
       if (redactions.source !== undefined) verifyPackageRedaction(source, redactions.source);
-      verifyCaptureRedaction(parseJSON(capture, HARD_LIMITS.maxJSONBytes), redactions.capture);
+      const bundle = parseJSON(capture, HARD_LIMITS.maxJSONBytes);
+      verifyCaptureRedaction(bundle, redactions.capture, redactions.files.map(entry => entry.itemIndex));
+      verifyFileRedactions(bundle, redactions.files);
       const replay = replaySemanticEvidence(handle, manifest.expected);
       return freeze({ integrity: { ...evidence.report, sourceSha256: manifest.source.sha256,
-        redactions: Object.values(redactions).map(redactionSummary), ...(derivation === undefined ? {} : { derivation }) }, replay });
+        redactions: manifest.redactions.map(redactionSummary), ...(derivation === undefined ? {} : { derivation }) }, replay });
     }
     shape(manifest, ['schemaVersion', 'id', 'origin', 'license', 'source', 'capture', 'expected']);
     if (manifest.schemaVersion !== 1) fail('evidence-schema'); text(manifest.id); text(manifest.license);

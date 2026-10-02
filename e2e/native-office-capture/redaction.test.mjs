@@ -4,12 +4,12 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { crc32, deflateSync } from 'node:zlib';
+import { crc32, deflateSync, inflateSync } from 'node:zlib';
 import { HARD_LIMITS } from './capture.mjs';
 import { CaptureEvidenceError, maskedCaptureDigest, readPackageParts, verifyCaptureFixture } from './offline.mjs';
 import { prepareFixture } from './prepare-fixture.mjs';
 import { scanFiles, scanText } from './privacy.mjs';
-import { redactCaptureBytes, redactPackageBytes, writePackage } from './redact.mjs';
+import { redactCaptureBytes, redactCaptureFileBytes, redactPackageBytes, writePackage } from './redact.mjs';
 
 // Authored stand-ins for personal data. They are not anybody's data; the tests only need them to be removed.
 const AUTHOR = 'Synthetic Author Name';
@@ -483,4 +483,224 @@ test('an oracle says whether the copy holds a block\'s hidden text exactly when 
     await rewrite(base, mutate);
     await assert.rejects(verifyCaptureFixture(base), failure('evidence-schema'), name);
   }
+});
+
+/**
+ * An ICC display profile as macOS embeds one in a screenshot or Chrome's picture of a Word selection: a description and
+ * Apple's make and model tag ('mmod'), whose serial number and manufacture date name the display unit. The values are
+ * authored for the test.
+ */
+function displayProfile({ serial = 0x5eed0001, date = 0x0bad0002, identified = false, device = true } = {}) {
+  const text = Buffer.from('Authored display\u0000', 'latin1');
+  const description = Buffer.alloc(12 + text.length + 79);
+  description.write('desc', 0, 'latin1'); description.writeUInt32BE(text.length, 8); text.copy(description, 12);
+  const make = Buffer.alloc(40);
+  make.write('mmod', 0, 'latin1'); make.writeUInt32BE(0x0610, 8); make.writeUInt32BE(0xa051, 12);
+  make.writeUInt32BE(serial >>> 0, 16); make.writeUInt32BE(date >>> 0, 20);
+  const tags = device ? [['desc', description], ['mmod', make]] : [['desc', description]];
+  const table = 4 + tags.length * 12;
+  const entries = [];
+  const data = [];
+  let offset = 128 + table;
+  for (const [signature, content] of tags) {
+    const padded = Buffer.concat([content, Buffer.alloc((4 - (content.length % 4)) % 4)]);
+    entries.push([signature, offset, content.length]); data.push(padded); offset += padded.length;
+  }
+  const profile = Buffer.alloc(offset);
+  profile.writeUInt32BE(offset, 0); profile.write('appl', 4, 'latin1'); profile.writeUInt32BE(0x04000000, 8); profile.write('mntr', 12, 'latin1');
+  profile.write('RGB ', 16, 'latin1'); profile.write('XYZ ', 20, 'latin1'); profile.write('acsp', 36, 'latin1');
+  profile.writeUInt32BE(tags.length, 128);
+  entries.forEach(([signature, at, size], index) => {
+    profile.write(signature, 132 + index * 12, 'latin1'); profile.writeUInt32BE(at, 136 + index * 12); profile.writeUInt32BE(size, 140 + index * 12);
+  });
+  Buffer.concat(data).copy(profile, 128 + table);
+  if (identified) {
+    // The profile ID: the MD5 of the profile with its flags, rendering intent and ID zeroed.
+    const copy = Buffer.from(profile); copy.fill(0, 44, 48); copy.fill(0, 64, 68);
+    createHash('md5').update(copy).digest().copy(profile, 84);
+  }
+  return profile;
+}
+const pictureWith = (profile, pixels = Buffer.from([0, 1, 2, 3])) => pngWith([
+  ...(profile === undefined ? [] : [['iCCP', Buffer.concat([Buffer.from('ICC Profile\u0000\u0000', 'latin1'), deflateSync(profile)])]]),
+  ['IDAT', deflateSync(pixels)],
+]);
+/** The chunks of a PNG as [type, data]. */
+function chunksOf(png) {
+  const chunks = [];
+  for (let at = 8; at + 12 <= png.length; at += 12 + png.readUInt32BE(at)) chunks.push([png.toString('latin1', at + 4, at + 8), png.subarray(at + 8, at + 8 + png.readUInt32BE(at))]);
+  return chunks;
+}
+const profileOf = png => { const data = chunksOf(png).find(([type]) => type === 'iCCP')[1]; return inflateSync(data.subarray(data.indexOf(0) + 2)); };
+/** A capture bundle whose third item is a PNG file, as Chrome exposes Word's picture of the selection. */
+function withPicture(bundle, picture) {
+  bundle.payload.availableFormats.push('Files'); bundle.payload.omittedFormats.push('Files');
+  bundle.payload.items.push({ itemIndex: 2, kind: 'file', type: 'image/png', file: { name: 'image.png', type: 'image/png', size: picture.length, lastModified: 1791067374026 } });
+  bundle.payload.files = [{ itemIndex: 2, byteLength: picture.length, sha256: digest(picture), base64: picture.toString('base64') }];
+  bundle.payload.totals.fileBytes = picture.length;
+  return bundle;
+}
+const pictureIn = bundleBytes => Buffer.from(JSON.parse(bundleBytes.toString('utf8')).payload.files[0].base64, 'base64');
+
+/** A fixture whose capture text was redacted, unless `text` is false, and whose clipboard picture was redacted after it. */
+async function pictureFixture(t, { profile = displayProfile(), text = true, compact = true } = {}) {
+  const base = await mkdtemp(join(tmpdir(), 'domternal-picture-'));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const sourceBytes = originalPackage('');
+  const picture = pictureWith(profile);
+  const bundle = withPicture(originalBundle(digest(sourceBytes)), picture);
+  const captureOriginal = Buffer.from(compact ? JSON.stringify(bundle) : JSON.stringify(bundle, null, 2));
+  let declarations = [];
+  let textRedacted = captureOriginal;
+  if (text) {
+    const result = redactCaptureBytes(captureOriginal, [`/home/${ACCOUNT}`], { reason: REASON });
+    textRedacted = result.bytes; declarations = [result.declaration];
+  }
+  const result = redactCaptureFileBytes(textRedacted, { itemIndex: 2, reason: REASON, declarations });
+  await writeFile(join(base, 'source.docx'), sourceBytes);
+  await writeFile(join(base, 'capture.json'), result.bytes);
+  const manifest = { schemaVersion: 2, id: ID, origin: 'claimed-native', license: 'MIT; authored test fixture',
+    source: { path: 'source.docx', sha256: digest(sourceBytes) }, capture: { path: 'capture.json', sha256: digest(result.bytes) },
+    redactions: result.declarations, expected: expected() };
+  await writeFile(join(base, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  return { base, manifest, picture, profile, captureOriginal, textRedacted, captureBytes: result.bytes, declaration: result.declaration };
+}
+/** Replace the picture a committed capture holds and update every record and hash that names it, as a careless edit would. */
+async function replacePicture(base, picture) {
+  const bundle = JSON.parse(await readFile(join(base, 'capture.json'), 'utf8'));
+  const record = bundle.payload.files[0];
+  bundle.payload.totals.fileBytes += picture.length - record.byteLength;
+  Object.assign(record, { byteLength: picture.length, sha256: digest(picture), base64: picture.toString('base64') });
+  bundle.payload.items[2].file.size = picture.length;
+  const bytes = Buffer.from(JSON.stringify(bundle));
+  await writeFile(join(base, 'capture.json'), bytes);
+  await rewrite(base, manifest => {
+    manifest.capture.sha256 = digest(bytes);
+    for (const declaration of manifest.redactions) {
+      if (declaration.artifact === 'capture') declaration.redactedSha256 = digest(bytes);
+      if (declaration.artifact === 'clipboard-file') declaration.redactedSha256 = digest(picture);
+    }
+  });
+}
+const DEVICE_FIELDS = [16, 20];
+
+test('a clipboard picture\'s display profile loses the serial number and manufacture date of its display, and nothing else changes', async t => {
+  const { base, manifest, picture, profile, textRedacted, captureBytes, declaration } = await pictureFixture(t);
+  const report = await verifyCaptureFixture(base);
+  assert.deepEqual(report.integrity.redactions.map(entry => [entry.artifact, entry.basis, entry.originalRetained, entry.changes]),
+    [['capture', 'original', false, 1], ['clipboard-file', 'original', false, 2]]);
+  assert.equal(report.integrity.redactions[1].itemIndex, 2);
+  assert.deepEqual(Object.keys(declaration), ['artifact', 'format', 'reason', 'redactedSha256', 'originalRetained', 'basis', 'itemIndex', 'clearedFields', 'maskedSha256']);
+  assert.deepEqual([declaration.format, declaration.itemIndex, declaration.clearedFields], ['png-display-profile', 2, ['serialNumber', 'manufactureDate']]);
+  // Every chunk but the profile keeps its bytes, so the pixels are the original's.
+  const redacted = pictureIn(captureBytes);
+  assert.deepEqual(chunksOf(redacted).filter(([type]) => type !== 'iCCP'), chunksOf(picture).filter(([type]) => type !== 'iCCP'));
+  assert.equal(declaration.redactedSha256, digest(redacted));
+  // The profile differs from the original only in the device fields, which are zero.
+  const cleared = profileOf(redacted);
+  assert.equal(cleared.length, profile.length);
+  // The tag's data, after the tag table that names it.
+  const tag = profile.lastIndexOf('mmod', profile.length, 'latin1');
+  for (let at = 0; at < profile.length; at++) {
+    const device = DEVICE_FIELDS.some(field => at >= tag + field && at < tag + field + 4);
+    assert.equal(cleared[at], device ? 0 : profile[at], `profile byte ${String(at)}`);
+  }
+  // The bundle changes only in the picture's record, its item's size and the file total.
+  const before = JSON.parse(textRedacted.toString('utf8'));
+  const after = JSON.parse(captureBytes.toString('utf8'));
+  assert.deepEqual(after.payload.files[0], { itemIndex: 2, byteLength: redacted.length, sha256: digest(redacted), base64: redacted.toString('base64') });
+  assert.equal(after.payload.items[2].file.size, redacted.length);
+  assert.equal(after.payload.totals.fileBytes, redacted.length);
+  for (const bundle of [before, after]) { bundle.payload.files = []; bundle.payload.items[2].file.size = 0; bundle.payload.totals.fileBytes = 0; }
+  assert.deepEqual(after, before);
+  // The capture's declaration names the committed bundle, and no hash of the original picture or bundle is committed.
+  assert.equal(manifest.redactions[0].redactedSha256, digest(captureBytes));
+  const committed = [JSON.stringify(report), JSON.stringify(manifest), captureBytes.toString('utf8')];
+  for (const value of [digest(picture), digest(textRedacted), digest(profile), '5eed0001', String(0x5eed0001)]) for (const text of committed) assert.ok(!text.includes(value), value);
+});
+
+test('a clipboard picture redaction holds in a capture written with indentation, and before a capture text redaction', async t => {
+  const pretty = await pictureFixture(t, { compact: false });
+  assert.match(pretty.captureBytes.toString('utf8'), /^\{\n {2}"schemaVersion": 1,/u);
+  assert.equal((await verifyCaptureFixture(pretty.base)).integrity.redactions.length, 2);
+  // The picture first, then the text: the text redaction fingerprints the bundle outside the declared picture's record.
+  const { base, captureBytes, declaration } = await pictureFixture(t, { text: false });
+  const text = redactCaptureBytes(captureBytes, [`/home/${ACCOUNT}`], { reason: REASON, files: [2] });
+  await writeFile(join(base, 'capture.json'), text.bytes);
+  await rewrite(base, manifest => { manifest.capture.sha256 = digest(text.bytes); manifest.redactions = [text.declaration, declaration]; });
+  assert.deepEqual((await verifyCaptureFixture(base)).integrity.redactions.map(entry => entry.artifact), ['capture', 'clipboard-file']);
+});
+
+test('a changed or undeclared clipboard picture redaction is refused', async t => {
+  // Without its declaration, the picture's record no longer matches the capture's fingerprint.
+  const undeclared = await pictureFixture(t);
+  await rewrite(undeclared.base, manifest => { manifest.redactions = manifest.redactions.filter(entry => entry.artifact !== 'clipboard-file'); });
+  await assert.rejects(verifyCaptureFixture(undeclared.base), failure('evidence-redaction'));
+  const cleared = displayProfile({ serial: 0, date: 0 });
+  for (const [name, picture] of [
+    ['other pixels', pictureWith(cleared, Buffer.from([9, 9, 9, 9]))],
+    ['the serial number restored', pictureWith(displayProfile({ date: 0 }))],
+    // A letter of the profile's description, after the header and the tag table.
+    ['another profile change', pictureWith(Buffer.concat([cleared.subarray(0, 170), Buffer.from('X'), cleared.subarray(171)]))],
+    ['a profile ID that is not the profile\'s', pictureWith(Buffer.concat([cleared.subarray(0, 84), Buffer.alloc(16, 7), cleared.subarray(100)]))],
+  ]) {
+    const { base } = await pictureFixture(t);
+    await replacePicture(base, picture);
+    await assert.rejects(verifyCaptureFixture(base), failure('evidence-redaction'), name);
+  }
+  for (const [name, mutate] of [
+    ['a string item', manifest => { manifest.redactions[1].itemIndex = 0; }],
+    ['a missing item', manifest => { manifest.redactions[1].itemIndex = 9; }],
+  ]) {
+    const { base } = await pictureFixture(t);
+    await rewrite(base, mutate);
+    await assert.rejects(verifyCaptureFixture(base), failure('evidence-redaction'), name);
+  }
+  for (const [name, mutate] of [
+    ['an unknown field', manifest => { manifest.redactions[1].originalSha256 = '0'.repeat(64); }],
+    ['an unknown cleared field', manifest => { manifest.redactions[1].clearedFields = ['serialNumber', 'model']; }],
+    ['a repeated cleared field', manifest => { manifest.redactions[1].clearedFields = ['serialNumber', 'serialNumber']; }],
+    ['no cleared field', manifest => { manifest.redactions[1].clearedFields = []; }],
+    ['another format', manifest => { manifest.redactions[1].format = 'png-text'; }],
+    ['a second declaration of the same picture', manifest => { manifest.redactions.push(structuredClone(manifest.redactions[1])); }],
+    ['a negative item', manifest => { manifest.redactions[1].itemIndex = -1; }],
+  ]) {
+    const { base } = await pictureFixture(t);
+    await rewrite(base, mutate);
+    await assert.rejects(verifyCaptureFixture(base), error => error instanceof CaptureEvidenceError && ['evidence-schema', 'evidence-limit'].includes(error.code), name);
+  }
+});
+
+test('redact.mjs computes a profile ID again, keeps a cleared copy, and refuses pictures it cannot clear', async t => {
+  const identified = await pictureFixture(t, { profile: displayProfile({ identified: true }) });
+  const profile = profileOf(pictureIn(identified.captureBytes));
+  const copy = Buffer.from(profile); copy.fill(0, 44, 48); copy.fill(0, 64, 68); copy.fill(0, 84, 100);
+  assert.ok(profile.subarray(84, 100).equals(createHash('md5').update(copy).digest()));
+  assert.equal((await verifyCaptureFixture(identified.base)).integrity.redactions.length, 2);
+  const capture = picture => Buffer.from(JSON.stringify(withPicture(originalBundle('0'.repeat(64)), picture)));
+  // A copy whose fields were cleared before: an original has nothing to clear, a redacted copy keeps its bytes.
+  const clean = capture(pictureWith(displayProfile({ serial: 0, date: 0 })));
+  assert.throws(() => redactCaptureFileBytes(clean, { itemIndex: 2, reason: REASON }), /nothing to clear/u);
+  const kept = redactCaptureFileBytes(clean, { itemIndex: 2, reason: REASON, basis: 'redacted-copy' });
+  assert.ok(pictureIn(kept.bytes).equals(pictureIn(clean)));
+  assert.equal(kept.bytes.toString('utf8'), clean.toString('utf8'));
+  assert.deepEqual([kept.declaration.basis, kept.declaration.originalRetained], ['redacted-copy', false]);
+  assert.throws(() => redactCaptureFileBytes(capture(pictureWith(displayProfile({ device: false }))), { itemIndex: 2, reason: REASON }), /make and model/u);
+  assert.throws(() => redactCaptureFileBytes(capture(pictureWith(undefined)), { itemIndex: 2, reason: REASON }), /display profile/u);
+  assert.throws(() => redactCaptureFileBytes(capture(pictureWith(displayProfile())), { itemIndex: 0, reason: REASON }), /PNG clipboard file/u);
+  assert.throws(() => redactCaptureFileBytes(capture(pictureWith(displayProfile())), { itemIndex: 2, reason: '' }), /reason/u);
+  assert.throws(() => redactCaptureFileBytes(capture(Buffer.from('not a picture')), { itemIndex: 2, reason: REASON }), error => error instanceof CaptureEvidenceError);
+  const twice = redactCaptureFileBytes(capture(pictureWith(displayProfile())), { itemIndex: 2, reason: REASON });
+  assert.throws(() => redactCaptureFileBytes(twice.bytes, { itemIndex: 2, reason: REASON, basis: 'redacted-copy', declarations: twice.declarations }), /already/u);
+  assert.throws(() => redactCaptureFileBytes(Buffer.from(` ${capture(pictureWith(displayProfile())).toString('utf8')}`), { itemIndex: 2, reason: REASON }), /written/u);
+});
+
+test('prepare-fixture checks a clipboard picture redaction and summarizes it without the removed values', async t => {
+  const { base, manifest } = await pictureFixture(t);
+  await rm(join(base, 'manifest.json'));
+  await writeFile(join(base, 'redactions.json'), JSON.stringify(manifest.redactions));
+  const prepared = await prepareFixture(base, { id: ID, source: 'source.docx', capture: 'capture.json', redactions: 'redactions.json' });
+  assert.deepEqual(prepared.summary.redactions.map(entry => entry.artifact), ['capture', 'clipboard-file']);
+  assert.deepEqual(prepared.summary.redactions[1].changes, [{ itemIndex: 2, profileTag: 'mmod', fields: ['serialNumber', 'manufactureDate'] }]);
+  assert.equal(prepared.summary.fileBytes, pictureIn(await readFile(join(base, 'capture.json'))).length);
 });

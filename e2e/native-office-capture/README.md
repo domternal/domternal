@@ -222,8 +222,12 @@ nothing in the tooling is specific to a browser:
    reference. The scan also reads image metadata in the document and in
    clipboard files, people and custom document properties, text written with
    HTML, percent or CSS escapes, and what an RTF flavor's hexadecimal groups
-   decode to. `redact.mjs` cannot edit an image or a clipboard file: when one
-   holds personal data, capture again from a document whose pictures carry none.
+   decode to. `redact.mjs` cannot edit an image inside a document or a clipboard
+   file's pixels: when one holds personal data, capture again from a document
+   whose pictures carry none. The one clipboard file it edits is a PNG whose
+   display profile names its display unit, as Chrome's picture of the
+   selection does: `redact.mjs file` clears the serial number and manufacture
+   date there (see [Declared redactions](#declared-redactions)).
 3. Prepare with `--specification` and `--scenario`, then run
    `pnpm exec playwright test --config e2e/paste-cleanup.config.ts paste-native-fixtures.browser.ts`.
    It fails for a fixture whose outcomes are not authored yet: review that
@@ -322,6 +326,8 @@ node e2e/native-office-capture/redact.mjs capture original.json capture.json --r
 node e2e/native-office-capture/redact.mjs package original.docx source.docx --clear docProps/core.xml=dc:creator,cp:lastModifiedBy --reason '<why>' --declarations redactions.json
 # The capture of a redacted document: the source hash its operator recorded becomes the 64-character token.
 node e2e/native-office-capture/redact.mjs capture original.json capture.json --withhold-fixture-hash --reason '<why>' --declarations redactions.json
+# A PNG clipboard file: its display profile's serial number and manufacture date become zero; its pixels stay.
+node e2e/native-office-capture/redact.mjs file capture.json capture.json --item <index> --reason '<why>' --declarations redactions.json
 ```
 
 - A replaced text is printable ASCII of at least eight characters; extend a
@@ -336,11 +342,26 @@ node e2e/native-office-capture/redact.mjs capture original.json capture.json --w
   withheld source hash therefore always come together, and the tie between the
   capture and its document is the declaration, the fixture identifier and the
   content the oracle checks.
+- A PNG clipboard file, such as Chrome's picture of a Word selection, carries
+  the ICC profile of the display it was drawn on, and macOS writes Apple's make
+  and model tag (`mmod`) into it: the display's manufacturer, model, serial
+  number and manufacture date. The serial number names the unit. `redact.mjs
+  file` zeroes the serial number and the manufacture date, computes the
+  profile ID again when the profile has one, compresses the profile again and
+  keeps every other chunk byte for byte, so the pixels and how they are drawn
+  do not change. The bundle's record of the file (its bytes, hash and length),
+  its item's size and the file total follow, and the capture's own declaration,
+  when it has one, names the new bundle. Run it after `redact.mjs capture`, or
+  before it: the capture's fingerprint leaves the records of declared clipboard
+  files out, since their own declarations hold them.
 - Each declaration records the redacted SHA-256, whether the original is
-  retained, the reason, the replaced locations, withheld fields or cleared
-  elements (never the removed values) and fingerprints of everything the
-  redaction left unchanged: the capture with its replacements and withheld
-  fields masked, and every part of the package with its cleared elements emptied.
+  retained, the reason, the replaced locations, withheld fields, cleared
+  elements or cleared profile fields (never the removed values) and
+  fingerprints of everything the redaction left unchanged: the capture with
+  its replacements, withheld fields and redacted clipboard files' records
+  masked, every part of the package with its cleared elements emptied, and the
+  picture with its profile decompressed and the cleared fields and the profile
+  ID zeroed.
 - The fingerprints are taken from the original. When the original no longer
   exists, run the same command on the redacted copy with `--redacted-copy`: the
   declaration then has the basis `redacted-copy`, and its fingerprints hold the
@@ -350,7 +371,9 @@ node e2e/native-office-capture/redact.mjs capture original.json capture.json --w
   bundle's source claim must equal the committed source hash, or be withheld
   exactly when the source declares its redaction; the committed files must match
   their redacted hashes and fingerprints; every replacement and withheld field
-  must hold its token; and the token `redacted`, in any letter case, may appear
+  must hold its token; every cleared profile field must be zero, in the one
+  profile a declared PNG clipboard file holds before its image data, and its
+  profile ID zero or the profile's own; and the token `redacted`, in any letter case, may appear
   nowhere else in the bundle. An undeclared redaction, a declaration that records
   an original hash or any change outside the declared locations is refused with
   `evidence-schema`, `evidence-provenance` or `evidence-redaction`. It reports

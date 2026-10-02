@@ -4,20 +4,24 @@
  * declaration that a version 2 manifest carries. A capture keeps every length and total: each occurrence
  * of a given ASCII text in its text flavors becomes the reserved token, padded to the same length, and the
  * source hash its operator recorded can be withheld the same way, for a source that is redacted too. A
- * Word package keeps every part except the named elements, which are emptied. The declaration records
- * the redacted hash and fingerprints of everything the redaction left unchanged, taken from the original,
- * or from an already redacted copy when the original no longer exists. It never records a hash of the
- * original: an unsalted hash of text that held a name or an address confirms a guess of it.
+ * Word package keeps every part except the named elements, which are emptied. A PNG clipboard file, such
+ * as Chrome's picture of a Word selection, keeps every chunk except its display profile, whose fields that
+ * name the display unit are zeroed; the bundle's record of the file, its size and the file total follow.
+ * The declaration records the redacted hash and fingerprints of everything the redaction left unchanged,
+ * taken from the original, or from an already redacted copy when the original no longer exists. It never
+ * records a hash of the original: an unsalted hash of text that held a name or an address confirms a
+ * guess of it, and one of a picture whose profile held a serial number confirms a guess of that number.
  */
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { crc32, deflateRawSync } from 'node:zlib';
+import { crc32, deflateRawSync, deflateSync } from 'node:zlib';
 import { TEXT_FORMATS } from './capture.mjs';
-import { maskedCaptureDigest, maskedPart, readPackageParts, readRedactions, REDACTION_TOKEN, redactionToken, verifyCaptureRedaction,
-  verifyPackageRedaction, WITHHELD_SOURCE_HASH } from './offline.mjs';
+import { DEVICE_FIELDS, deviceTagOffset, maskedCaptureDigest, maskedPart, maskedPngDigest, profileIdentifier, readPackageParts, readPngChunks,
+  readPngProfile, readRedactions, REDACTION_TOKEN, redactionToken, verifyCaptureRedaction, verifyFileRedactions, verifyPackageRedaction,
+  WITHHELD_SOURCE_HASH } from './offline.mjs';
 
 const HASH = /^[a-f0-9]{64}$/iu;
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -33,9 +37,12 @@ function provenance({ reason, basis = 'original', originalRetained = false }) {
 /**
  * Replace every occurrence of each text in a capture's text flavors by the reserved token of the same length
  * and, with `withholdFixtureHash`, the source hash the operator recorded by the token of 64 characters.
+ * `files` names the clipboard files, by item index, whose redaction is declared already: their records are
+ * outside the fingerprint, as their own declarations hold them.
  */
 export function redactCaptureBytes(input, texts, options) {
   const withheld = options?.withholdFixtureHash === true ? ['fixtureSha256'] : [];
+  const files = options?.files ?? [];
   if (!Array.isArray(texts) || (texts.length === 0 && withheld.length === 0)) throw new Error('Name at least one text to replace, or withhold the source hash');
   for (const value of texts) {
     // Printable ASCII without quotes or backslashes appears verbatim in JSON, so the bytes change in place.
@@ -79,13 +86,94 @@ export function redactCaptureBytes(input, texts, options) {
   }
   const bytes = Buffer.from(output, 'utf8');
   if (bytes.byteLength !== input.byteLength || JSON.stringify(JSON.parse(output)) !== JSON.stringify(expected)) throw new Error('The replacement changed more than the text flavors and the withheld field');
-  const masked = maskedCaptureDigest(expected, replacements, withheld);
-  if (maskedCaptureDigest(original, replacements, withheld) !== masked) throw new Error('The redacted capture differs from its input outside the replacements');
+  const masked = maskedCaptureDigest(expected, replacements, withheld, files);
+  if (maskedCaptureDigest(original, replacements, withheld, files) !== masked) throw new Error('The redacted capture differs from its input outside the replacements');
   const declaration = order({ artifact: 'capture', format: 'capture-text', ...provenance(options ?? {}), redactedSha256: digest(bytes), replacements, withheld, maskedSha256: masked });
   // The same checks the offline verifier applies to the committed fixture.
-  verifyCaptureRedaction(JSON.parse(output), readRedactions([declaration]).capture);
+  verifyCaptureRedaction(JSON.parse(output), readRedactions([declaration]).capture, files);
   return { bytes, declaration };
 }
+
+const DEVICE_FIELD_NAMES = Object.freeze(Object.keys(DEVICE_FIELDS));
+
+/**
+ * Zero the fields of a PNG's display profile that name the display unit, in Apple's make and model tag. Every
+ * other chunk keeps its bytes, so the pixels and how they are drawn do not change; the profile is compressed
+ * again, and its ID, when it has one, is computed again. A picture whose fields are zero already keeps its bytes.
+ */
+export function clearDisplayProfile(input, fields = DEVICE_FIELD_NAMES) {
+  const chunks = readPngChunks(input);
+  let found;
+  try { found = readPngProfile(chunks); } catch { throw new Error('The picture has no display profile before its image data'); }
+  const { index, name, profile } = found;
+  let tag;
+  try { tag = deviceTagOffset(profile); } catch { throw new Error('The display profile has no make and model tag to clear'); }
+  const cleared = Buffer.from(profile);
+  for (const field of fields) cleared.fill(0, tag + DEVICE_FIELDS[field], tag + DEVICE_FIELDS[field] + 4);
+  if (cleared.equals(profile)) return { bytes: Buffer.from(input), changed: false };
+  if (cleared.subarray(84, 100).some(byte => byte !== 0)) profileIdentifier(cleared).copy(cleared, 84);
+  const data = Buffer.concat([name, Buffer.from([0, 0]), deflateSync(cleared, { level: 9 })]);
+  const chunk = Buffer.alloc(12 + data.length);
+  chunk.writeUInt32BE(data.length, 0); chunk.write('iCCP', 4, 'latin1'); data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(chunk.subarray(4, 8 + data.length)) >>> 0, 8 + data.length);
+  const parts = [Buffer.from(input.subarray(0, 8))];
+  for (const [at, [type, content]] of chunks.entries()) {
+    if (at === index) { parts.push(chunk); continue; }
+    const length = Buffer.alloc(4); length.writeUInt32BE(content.length);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type, 'latin1'), content])) >>> 0);
+    parts.push(length, Buffer.from(type, 'latin1'), content, crc);
+  }
+  return { bytes: Buffer.concat(parts), changed: true };
+}
+
+/**
+ * Clear the display profile of one PNG clipboard file of a capture, as `clearDisplayProfile` does, and update its
+ * record, its item's size and the file total. `declarations` are the capture's declarations so far: the capture
+ * text's declaration then names the new bundle and fingerprints it outside the redacted files' records, which
+ * equals that fingerprint of its original, since the two differ only inside the replacements and those records.
+ * Returns the bundle, the file's declaration and every declaration, updated.
+ */
+export function redactCaptureFileBytes(input, { itemIndex, declarations = [], ...options } = {}) {
+  const source = input.toString('utf8');
+  const original = JSON.parse(source);
+  // The bundle is written back in the same form, compact as the capture page writes it or indented as a test does.
+  const indented = JSON.stringify(original, null, 2);
+  const form = source === JSON.stringify(original) ? 'compact' : source === indented ? 'indented' : source === `${indented}\n` ? 'indented-line' : undefined;
+  if (form === undefined) throw new Error('The capture is not written as the capture page or this tool writes it');
+  const item = Number.isSafeInteger(itemIndex) ? original?.payload?.items?.[itemIndex] : undefined;
+  const record = Array.isArray(original?.payload?.files) ? original.payload.files.find(file => file?.itemIndex === itemIndex) : undefined;
+  if (item?.kind !== 'file' || item.type !== 'image/png' || item.file?.type !== 'image/png' || typeof record?.base64 !== 'string') {
+    throw new Error('The item is not a PNG clipboard file of this capture');
+  }
+  const meta = provenance(options);
+  const declared = readRedactions(declarations);
+  if (declared.files.some(entry => entry.itemIndex === itemIndex)) throw new Error('This clipboard file has a declared redaction already');
+  const picture = Buffer.from(record.base64, 'base64');
+  const { bytes: cleared, changed } = clearDisplayProfile(picture);
+  if (!changed && meta.basis === 'original') throw new Error('The picture\'s display profile has nothing to clear');
+  const expected = structuredClone(original);
+  Object.assign(expected.payload.files.find(file => file.itemIndex === itemIndex), { byteLength: cleared.length, sha256: digest(cleared), base64: cleared.toString('base64') });
+  expected.payload.items[itemIndex].file.size = cleared.length;
+  expected.payload.totals.fileBytes += cleared.length - picture.length;
+  const files = [...declared.files.map(entry => entry.itemIndex), itemIndex].sort((left, right) => left - right);
+  if (maskedCaptureDigest(original, [], [], files) !== maskedCaptureDigest(expected, [], [], files)) throw new Error('The redaction changed more than the picture\'s record');
+  const output = form === 'compact' ? JSON.stringify(expected) : `${JSON.stringify(expected, null, 2)}${form === 'indented-line' ? '\n' : ''}`;
+  const bytes = Buffer.from(output, 'utf8');
+  const declaration = order({ artifact: 'clipboard-file', format: 'png-display-profile', ...meta, redactedSha256: digest(cleared), itemIndex,
+    clearedFields: [...DEVICE_FIELD_NAMES], maskedSha256: maskedPngDigest(picture, DEVICE_FIELD_NAMES) });
+  const capture = declared.capture === undefined ? undefined : { ...declared.capture, redactedSha256: digest(bytes),
+    maskedSha256: maskedCaptureDigest(expected, declared.capture.replacements, declared.capture.withheld, files) };
+  // The declarations keep their order, the file's added last.
+  const updated = [...declarations.map(entry => (entry.artifact === 'capture' ? capture : entry)), declaration];
+  // The same checks the offline verifier applies to the committed fixture.
+  const result = readRedactions(updated);
+  const written = JSON.parse(output);
+  verifyCaptureRedaction(written, result.capture, files);
+  verifyFileRedactions(written, result.files);
+  return { bytes, declaration, declarations: updated };
+}
+// Declarations in a stable order: the source, the capture text, then the clipboard files by item.
+const rank = entry => (entry.artifact === 'source' ? -2 : entry.artifact === 'capture' ? -1 : entry.itemIndex);
 
 /** Write a ZIP package with the given part contents, in order, deflated, with fixed timestamps. */
 export function writePackage(parts) {
@@ -145,43 +233,52 @@ export function redactPackageBytes(input, cleared, options) {
 }
 
 const FIELD_ORDER = ['artifact', 'format', 'reason', 'redactedSha256', 'originalRetained', 'basis',
-  'clearedElements', 'parts', 'replacements', 'withheld', 'maskedSha256'];
+  'clearedElements', 'parts', 'replacements', 'withheld', 'itemIndex', 'clearedFields', 'maskedSha256'];
 function order(declaration) {
   return Object.fromEntries(FIELD_ORDER.filter(key => Object.hasOwn(declaration, key)).map(key => [key, declaration[key]]));
 }
 
-/** Add or replace one artifact's declaration in a declarations file. */
-async function recordDeclaration(path, declaration) {
-  let declarations = [];
-  try { declarations = JSON.parse(await readFile(path, 'utf8')); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
-  declarations = [...declarations.filter(entry => entry.artifact !== declaration.artifact), declaration]
-    .sort((left, right) => left.artifact.localeCompare(right.artifact));
-  readRedactions(declarations);
-  await writeFile(path, `${JSON.stringify(declarations, null, 2)}\n`);
+/** The declarations a declarations file holds, or none when it does not exist yet. */
+async function readDeclarations(path) {
+  try { return JSON.parse(await readFile(path, 'utf8')); } catch (error) { if (error?.code !== 'ENOENT') throw error; return []; }
+}
+
+/** Write a declarations file, in the stable order. */
+async function writeDeclarations(path, declarations) {
+  const sorted = [...declarations].sort((left, right) => rank(left) - rank(right));
+  readRedactions(sorted);
+  await writeFile(path, `${JSON.stringify(sorted, null, 2)}\n`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const usage = 'Usage: node redact.mjs capture <input.json> <output.json> [--replace <text>]... [--withhold-fixture-hash] --reason <text> --declarations <redactions.json> [--redacted-copy | --original-retained]\n'
-    + '       node redact.mjs package <input.docx> <output.docx> --clear <part>=<element>[,<element>] --reason <text> --declarations <redactions.json> [--redacted-copy | --original-retained]';
+    + '       node redact.mjs package <input.docx> <output.docx> --clear <part>=<element>[,<element>] --reason <text> --declarations <redactions.json> [--redacted-copy | --original-retained]\n'
+    + '       node redact.mjs file <input.json> <output.json> --item <index> --reason <text> --declarations <redactions.json> [--redacted-copy | --original-retained]';
   try {
     const { values, positionals } = parseArgs({ allowPositionals: true, options: {
       replace: { type: 'string', multiple: true }, clear: { type: 'string', multiple: true }, reason: { type: 'string' },
       declarations: { type: 'string' }, 'redacted-copy': { type: 'boolean', default: false }, 'original-retained': { type: 'boolean', default: false },
-      'withhold-fixture-hash': { type: 'boolean', default: false },
+      'withhold-fixture-hash': { type: 'boolean', default: false }, item: { type: 'string' },
     } });
     const [mode, input, output] = positionals;
-    if (positionals.length !== 3 || !['capture', 'package'].includes(mode) || !values.declarations
-      || (values['redacted-copy'] && values['original-retained']) || (mode === 'package' && values['withhold-fixture-hash'])) throw new Error(usage);
+    if (positionals.length !== 3 || !['capture', 'package', 'file'].includes(mode) || !values.declarations
+      || (values['redacted-copy'] && values['original-retained']) || (mode !== 'capture' && values['withhold-fixture-hash'])
+      || (mode === 'file') !== (values.item !== undefined) || (values.item !== undefined && !/^(?:0|[1-9][0-9]{0,2})$/u.test(values.item))) throw new Error(usage);
     const options = { reason: values.reason, basis: values['redacted-copy'] ? 'redacted-copy' : 'original', originalRetained: values['original-retained'],
       withholdFixtureHash: values['withhold-fixture-hash'] };
     const bytes = await readFile(resolve(input));
-    const result = mode === 'capture' ? redactCaptureBytes(bytes, values.replace ?? [], options)
-      : redactPackageBytes(bytes, (values.clear ?? []).map(entry => {
-        const [part, elements = ''] = entry.split('=');
-        return { part, elements: elements.split(',').filter(Boolean) };
-      }), options);
+    const declarations = await readDeclarations(resolve(values.declarations));
+    // A clipboard file redacted before the text keeps its own declaration; the text's fingerprint leaves its record out.
+    const files = readRedactions(declarations).files;
+    const result = mode === 'file' ? redactCaptureFileBytes(bytes, { ...options, itemIndex: Number(values.item), declarations })
+      : mode === 'capture' ? redactCaptureBytes(bytes, values.replace ?? [], { ...options, files: files.map(entry => entry.itemIndex) })
+        : redactPackageBytes(bytes, (values.clear ?? []).map(entry => {
+          const [part, elements = ''] = entry.split('=');
+          return { part, elements: elements.split(',').filter(Boolean) };
+        }), options);
     await writeFile(resolve(output), result.bytes, { flag: resolve(output) === resolve(input) ? 'w' : 'wx' });
-    await recordDeclaration(resolve(values.declarations), result.declaration);
+    await writeDeclarations(resolve(values.declarations), mode === 'file' ? result.declarations
+      : [...declarations.filter(entry => entry.artifact !== result.declaration.artifact), result.declaration]);
     // Only the redacted hash and the basis: neither the replaced text nor a hash of the original is printed.
     process.stdout.write(`${JSON.stringify({ artifact: result.declaration.artifact, basis: result.declaration.basis,
       redactedSha256: result.declaration.redactedSha256 }, null, 2)}\n`);

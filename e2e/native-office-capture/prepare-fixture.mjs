@@ -12,7 +12,8 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { HARD_LIMITS, TEXT_FORMATS } from './capture.mjs';
-import { checkRedactionPairing, disposeCaptureEvidence, readRedactions, validateCaptureBytes, verifyCaptureRedaction, verifyPackageRedaction } from './offline.mjs';
+import { checkRedactionPairing, disposeCaptureEvidence, readRedactions, validateCaptureBytes, verifyCaptureRedaction, verifyFileRedactions,
+  verifyPackageRedaction } from './offline.mjs';
 import { expectedBlocks, imageInventory, resolvedBlock } from './semantics.mjs';
 import { scanFiles } from './privacy.mjs';
 
@@ -43,6 +44,15 @@ export function specifiedExpectation(specification, scenarioId) {
   };
 }
 
+/** What one redaction changed and why, by location only: the removed values are not recorded anywhere. */
+export function summarizeRedaction(entry) {
+  const changes = entry.artifact === 'source' ? entry.clearedElements
+    : entry.artifact === 'capture' ? entry.replacements.map(({ flavor, offset, length }) => ({ flavor, offset, length }))
+      : [{ itemIndex: entry.itemIndex, profileTag: 'mmod', fields: entry.clearedFields }];
+  return { artifact: entry.artifact, basis: entry.basis, originalRetained: entry.originalRetained, reason: entry.reason, changes,
+    ...(entry.artifact === 'capture' ? { withheld: entry.withheld } : {}) };
+}
+
 /** Write `manifest.json` and `capture-summary.json` for review. Existing files are never replaced. */
 export async function prepareFixture(directory, { id, source, capture, license = DEFAULT_LICENSE, redactions, specification, scenario }) {
   if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9.-]{0,127}$/u.test(id)) throw new Error('Fixture id must be lowercase letters, digits, dots and hyphens');
@@ -62,7 +72,8 @@ export async function prepareFixture(directory, { id, source, capture, license =
   disposeCaptureEvidence(handle);
   const bundle = JSON.parse(captureBytes.toString('utf8'));
   if (declared.source !== undefined) verifyPackageRedaction(sourceBytes, declared.source);
-  verifyCaptureRedaction(bundle, declared.capture);
+  verifyCaptureRedaction(bundle, declared.capture, declared.files.map(entry => entry.itemIndex));
+  verifyFileRedactions(bundle, declared.files);
   // Nothing personal is admitted: what the scan finds is redacted with redact.mjs first.
   const findings = await scanFiles([join(root, source), join(root, capture)]);
   if (findings.length > 0) {
@@ -86,9 +97,7 @@ export async function prepareFixture(directory, { id, source, capture, license =
     htmlImages: typeof bundle.payload.text['text/html'] === 'string' ? imageInventory(bundle.payload.text['text/html']) : null,
     textBytes: report.textBytes, fileBytes: report.fileBytes, itemCount: report.itemCount, fileCount: report.fileCount,
     // What each redaction changed and why, by location only: the removed values are not recorded anywhere.
-    redactions: declarations.map(entry => ({ artifact: entry.artifact, basis: entry.basis, originalRetained: entry.originalRetained, reason: entry.reason,
-      changes: entry.artifact === 'source' ? entry.clearedElements : entry.replacements.map(({ flavor, offset, length }) => ({ flavor, offset, length })),
-      ...(entry.artifact === 'capture' ? { withheld: entry.withheld } : {}) })),
+    redactions: declarations.map(summarizeRedaction),
     review: [
       'Open the source document and confirm it contains no personal, customer or hidden data.',
       'Author expected.preserve and expected.adapt from the content specification, then compare them with the replay.',
