@@ -2,11 +2,12 @@
 /**
  * Scan fixture artifacts for personal or machine-identifying data before they are committed: e-mail
  * addresses, home folder, drive and network paths, file: URLs, filled author, company, people and custom
- * properties, and the login and host names of the machine that runs the scan, which nobody has to write
- * down for it. The patterns, readers and decoding are the repository privacy gate's
- * (tests/privacy/scan.mjs): a Word package is scanned part by part, a binary part (an image) by its text
- * chunks and printable runs, a capture bundle flavor by flavor, field by field and clipboard file by
- * clipboard file, and a data URI by what it decodes to; text is also read with its HTML, percent, JSON,
+ * properties, device data in image metadata (a display profile's serial number, EXIF and XMP makes,
+ * models, serial numbers, authors and positions), and the login and host names of the machine that runs
+ * the scan, which nobody has to write down for it. The patterns, readers and decoding are the repository
+ * privacy gate's (tests/privacy/scan.mjs): a Word package is scanned part by part, a binary part (an image)
+ * by its text chunks, printable runs and metadata, a capture bundle flavor by flavor, field by field and
+ * clipboard file by clipboard file, and a data URI by what it decodes to; text is also read with its HTML, percent, JSON,
  * JavaScript and CSS escapes decoded, so an encoded address is found too. The policy here is stricter than
  * the gate's: nothing is allowed, and this machine's names are matched inside longer words from three
  * characters on, with one exception the gate makes for the same reason: in the printable runs of binary
@@ -74,11 +75,14 @@ export function artifactTexts(name, bytes) {
   return gateTexts(name, bytes).map(({ location, text }) => [location, text]);
 }
 
-/** Scan the given files. */
+/** Scan the given files. A finding in image metadata is at the metadata's location, with offset 0. */
 export async function scanFiles(paths, names = machineNames()) {
   const findings = [];
   for (const path of paths) {
-    for (const { location, text, binary } of gateTexts(path, await readFile(path))) findings.push(...scanText(location, text, names, { binary }));
+    for (const { location, text, binary, device = [] } of gateTexts(path, await readFile(path))) {
+      findings.push(...scanText(location, text, names, { binary }));
+      for (const { where, category } of device) findings.push({ location: `${location}#${where}`, category, offset: 0 });
+    }
   }
   return findings;
 }

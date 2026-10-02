@@ -7,7 +7,11 @@
  * It imports nothing but Node's own modules, so the site can carry it alone.
  *
  * Reading. A file is read as text, or, when it is binary, by its printable runs
- * as bytes and as UTF-16 in both alignments and by the text chunks of a PNG.
+ * as bytes and as UTF-16 in both alignments, by the text chunks of a PNG and the
+ * texts of its display profile, which a PNG compresses, and by the metadata of
+ * an image: the ICC profile of a PNG (iCCP, inflated), a JPEG (APP2, in as many
+ * parts as it has) or a WebP (ICCP), its EXIF (a PNG's eXIf or raw profile text
+ * chunk, a JPEG's APP1, a WebP's EXIF) and its XMP.
  * A zip package (a Word document, a zip download) is read part by part, a
  * capture bundle flavor by flavor and clipboard file by clipboard file, a
  * base64 data URI by what it decodes to, and an RTF text also by what its
@@ -25,7 +29,14 @@
  * author data inside Office packages and capture bundles; and the login, short
  * host name and Git e-mail address of the machine running the scan, plus any
  * name listed in the PRIVACY_NAMES environment variable, which a CI secret can
- * hold, since a CI runner's own names identify nobody.
+ * hold, since a CI runner's own names identify nobody. In image metadata it
+ * looks for the device and the person: a device serial number (a nonzero serial
+ * number in the make and model tag macOS writes into a display profile, a
+ * profile description that labels a serial number, a calibration entry with a
+ * serial number or an EDID hash, EXIF's and XMP's body, lens and camera serial
+ * numbers), a device make or model (EXIF's Make, Model, HostComputer, LensMake
+ * and LensModel and their XMP properties), an image author (Artist, the camera
+ * owner, XPAuthor, XMP's dc:creator) and a GPS location.
  *
  * What it allows, and why:
  *
@@ -58,6 +69,11 @@
  *   bundles: in source code they are markup under test, not a person. Inside a
  *   package, an author value a repository lists for that file as an example its
  *   own content sets (a tutorial's sample metadata).
+ * - In image metadata, a profile that names a product and not a unit: sRGB,
+ *   Display P3, a printer's, a display's make and model without a serial
+ *   number, a description without a labeled serial number; and what macOS
+ *   writes into a screenshot: its orientation, resolution, pixel dimensions and
+ *   comment. Empty values name nothing.
  * - This machine's names only when they are at least four characters long and
  *   not a generic account or host name (GENERIC_ACCOUNTS, GENERIC_HOSTS), and
  *   not at all in CI (the CI environment variable), where they name a runner.
@@ -111,35 +127,268 @@ export function zipParts(bytes) {
   return parts;
 }
 
-/** The text chunks of a PNG, inflated where compressed, within fixed bounds. */
-function pngText(bytes) {
-  const texts = [];
-  if (!bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return texts;
-  const inflate = (data) => { try { return inflateSync(data, { maxOutputLength: MAX_INFLATED }); } catch { return Buffer.alloc(0); } };
-  for (let at = 8, count = 0; at + 12 <= bytes.length && count < 4096; count++) {
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const isPng = (bytes) => bytes.subarray(0, 8).equals(PNG_SIGNATURE);
+const inflated = (data, maxOutputLength = MAX_INFLATED) => { try { return inflateSync(data, { maxOutputLength }); } catch { return Buffer.alloc(0); } };
+
+/** The chunks of a PNG as [type, data], within fixed bounds. Their CRCs are not checked: a reader of what they say needs none. */
+function pngChunks(bytes) {
+  const chunks = [];
+  if (!isPng(bytes)) return chunks;
+  for (let at = 8; at + 12 <= bytes.length && chunks.length < 4096;) {
     const length = bytes.readUInt32BE(at);
-    const type = bytes.subarray(at + 4, at + 8).toString('latin1');
-    const data = bytes.subarray(at + 8, Math.min(at + 8 + length, bytes.length));
+    chunks.push([bytes.subarray(at + 4, at + 8).toString('latin1'), bytes.subarray(at + 8, Math.min(at + 8 + length, bytes.length))]);
     at += 12 + length;
+  }
+  return chunks;
+}
+
+/** The text chunks of a PNG as [keyword, text, reading], inflated where compressed; the reading keeps every field. */
+function pngTextChunks(bytes) {
+  const texts = [];
+  for (const [type, data] of pngChunks(bytes)) {
     const keyword = data.indexOf(0);
     if (keyword < 0) continue;
-    if (type === 'tEXt') texts.push(data.toString('latin1'));
-    else if (type === 'zTXt') texts.push(`${data.subarray(0, keyword).toString('latin1')} ${inflate(data.subarray(keyword + 2)).toString('latin1')}`);
-    else if (type === 'iTXt') {
+    const name = data.subarray(0, keyword).toString('latin1');
+    if (type === 'tEXt') texts.push([name, data.subarray(keyword + 1).toString('latin1'), data.toString('latin1')]);
+    else if (type === 'zTXt') {
+      const text = inflated(data.subarray(keyword + 2)).toString('latin1');
+      texts.push([name, text, `${name} ${text}`]);
+    } else if (type === 'iTXt') {
       const compressed = data[keyword + 1] === 1;
       const language = data.indexOf(0, keyword + 3);
       const translated = language < 0 ? -1 : data.indexOf(0, language + 1);
       if (translated < 0) continue;
-      const text = data.subarray(translated + 1);
-      texts.push(`${data.subarray(0, translated).toString('utf8')} ${(compressed ? inflate(text) : text).toString('utf8')}`);
+      const raw = data.subarray(translated + 1);
+      const text = (compressed ? inflated(raw) : raw).toString('utf8');
+      texts.push([name, text, `${data.subarray(0, translated).toString('utf8')} ${text}`]);
     }
   }
   return texts;
 }
 
-/** Everything readable in binary data: PNG text chunks and printable runs, as bytes and as UTF-16 in both alignments. */
-function binaryText(bytes) {
-  const runs = [...pngText(bytes), ...(bytes.toString('latin1').match(/[\x20-\x7e]{4,}/gu) ?? [])];
+// ---------------------------------------------------------------------------
+// Image metadata: what a picture says about the device that made it
+// ---------------------------------------------------------------------------
+
+const MAX_PROFILE = 4 * 1024 * 1024;
+const XMP_KEYWORD = 'XML:com.adobe.xmp';
+const exifBody = (data) => (data.subarray(0, 6).toString('latin1') === 'Exif\0\0' ? data.subarray(6) : data);
+/** What a raw profile ImageMagick writes into a PNG text chunk decodes to: its name, its length and hexadecimal digits. */
+function rawProfile(text) {
+  const digits = /^\s*[A-Za-z0-9-]+\s+\d+\s+([0-9A-Fa-f\s]+)$/u.exec(text)?.[1].replace(/\s+/gu, '') ?? '';
+  return Buffer.from(digits.slice(0, digits.length - (digits.length % 2)), 'hex');
+}
+
+/**
+ * The ICC profiles, EXIF structures and XMP packets of a PNG, JPEG or WebP image, read within fixed bounds: a PNG's
+ * iCCP and eXIf chunks and its XMP and raw profile text chunks, a JPEG's APP1 EXIF and XMP segments and its APP2
+ * profile in as many parts as it has, and a WebP's ICCP, EXIF and XMP chunks. Anything else holds none.
+ */
+export function imageMetadata(bytes) {
+  const found = { profiles: [], exif: [], xmp: [] };
+  if (isPng(bytes)) {
+    for (const [type, data] of pngChunks(bytes)) {
+      const name = data.indexOf(0);
+      if (type === 'iCCP' && name > 0 && data[name + 1] === 0) found.profiles.push(inflated(data.subarray(name + 2), MAX_PROFILE));
+      else if (type === 'eXIf') found.exif.push(exifBody(data));
+    }
+    for (const [keyword, text] of pngTextChunks(bytes)) {
+      if (keyword === XMP_KEYWORD) found.xmp.push(text);
+      else if (/^Raw profile type (?:exif|APP1)$/iu.test(keyword)) found.exif.push(exifBody(rawProfile(text)));
+      else if (/^Raw profile type ic[cm]$/iu.test(keyword)) found.profiles.push(rawProfile(text));
+      else if (/^Raw profile type xmp$/iu.test(keyword)) found.xmp.push(rawProfile(text).toString('utf8'));
+    }
+  } else if (bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    const parts = [];
+    for (let at = 2, count = 0; at + 4 <= bytes.length && count < 4096 && bytes[at] === 0xff; count++) {
+      const marker = bytes[at + 1];
+      // Fill bytes, and markers without a length.
+      if (marker === 0xff) { at++; continue; }
+      if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { at += 2; continue; }
+      // The scan, or the end: no metadata follows.
+      if (marker === 0xda || marker === 0xd9) break;
+      const length = bytes.readUInt16BE(at + 2);
+      if (length < 2) break;
+      const data = bytes.subarray(at + 4, Math.min(at + 2 + length, bytes.length));
+      at += 2 + length;
+      const head = data.subarray(0, 40).toString('latin1');
+      if (marker === 0xe1 && head.startsWith('Exif\0\0')) found.exif.push(data.subarray(6));
+      else if (marker === 0xe1 && head.startsWith('http://ns.adobe.com/xap/1.0/\0')) found.xmp.push(data.subarray(29).toString('utf8'));
+      // Extended XMP: after its name, a GUID, the full length and this part's offset.
+      else if (marker === 0xe1 && head.startsWith('http://ns.adobe.com/xmp/extension/\0')) found.xmp.push(data.subarray(75).toString('utf8'));
+      else if (marker === 0xe2 && head.startsWith('ICC_PROFILE\0') && data.length > 14) parts.push([data[12], data.subarray(14)]);
+    }
+    if (parts.length > 0) found.profiles.push(Buffer.concat(parts.sort((left, right) => left[0] - right[0]).map(([, part]) => part)));
+  } else if (bytes.length >= 12 && bytes.toString('latin1', 0, 4) === 'RIFF' && bytes.toString('latin1', 8, 12) === 'WEBP') {
+    for (let at = 12, count = 0; at + 8 <= bytes.length && count < 4096; count++) {
+      const type = bytes.toString('latin1', at, at + 4);
+      const length = bytes.readUInt32LE(at + 4);
+      const data = bytes.subarray(at + 8, Math.min(at + 8 + length, bytes.length));
+      if (type === 'ICCP') found.profiles.push(data);
+      else if (type === 'EXIF') found.exif.push(exifBody(data));
+      else if (type === 'XMP ') found.xmp.push(data.toString('utf8'));
+      at += 8 + length + (length % 2);
+    }
+  }
+  return found;
+}
+
+const utf16be = (data) => Buffer.from(data.subarray(0, data.length - (data.length % 2))).swap16().toString('utf16le');
+
+/** The text an ICC text tag holds: a textDescription, a text or a multiLocalizedUnicode in every language it has. */
+function profileText(tag) {
+  const type = tag.toString('latin1', 0, 4);
+  if (type === 'desc' && tag.length >= 12) return tag.subarray(12, Math.min(12 + tag.readUInt32BE(8), tag.length)).toString('latin1').replace(/\0+$/u, '');
+  if (type === 'text') return tag.subarray(8).toString('latin1').replace(/\0+$/u, '');
+  if (type !== 'mluc' || tag.length < 16 || tag.readUInt32BE(12) < 12) return '';
+  const texts = new Set();
+  for (let index = 0, record = 16; index < Math.min(tag.readUInt32BE(8), 256) && record + 12 <= tag.length; index++, record += tag.readUInt32BE(12)) {
+    const length = tag.readUInt32BE(record + 4);
+    const offset = tag.readUInt32BE(record + 8);
+    if (offset + length <= tag.length) texts.add(utf16be(tag.subarray(offset, offset + length)));
+  }
+  return [...texts].join('\n');
+}
+
+/** The name and value pairs of an ICC dictType tag, as calibration tools write their 'meta' tag. */
+function profileDictionary(tag) {
+  if (tag.toString('latin1', 0, 4) !== 'dict' || tag.length < 16 || ![16, 24, 32].includes(tag.readUInt32BE(12))) return [];
+  const size = tag.readUInt32BE(12);
+  const string = (offset, length) => (length > 0 && offset + length <= tag.length ? utf16be(tag.subarray(offset, offset + length)) : '');
+  const entries = [];
+  for (let index = 0, record = 16; index < Math.min(tag.readUInt32BE(8), 256) && record + 16 <= tag.length; index++, record += size) {
+    entries.push([string(tag.readUInt32BE(record), tag.readUInt32BE(record + 4)), string(tag.readUInt32BE(record + 8), tag.readUInt32BE(record + 12))]);
+  }
+  return entries;
+}
+
+// A serial number label and a value with a digit in it, as a description that names one unit writes it.
+const SERIAL_LABEL = /\b(?:serial(?:\s*(?:number|no\.?|num\.?|#))?|s\/n|sn)(?![A-Za-z0-9])\s*[:#=]?\s*([A-Za-z0-9][A-Za-z0-9-]{3,})/giu;
+const namesSerial = (text) => [...text.matchAll(SERIAL_LABEL)].some((match) => /\d/u.test(match[1]));
+const PROFILE_TEXTS = new Set(['desc', 'dmnd', 'dmdd', 'dscm', 'cprt']);
+const PROFILE_DESCRIPTIONS = new Set(['desc', 'dmnd', 'dmdd', 'dscm']);
+
+/**
+ * What an ICC profile says about the unit it was made for, and the texts of its descriptions and copyright. A
+ * profile names its unit by a nonzero serial number in Apple's make and model tag ('mmod'), which macOS writes into
+ * every display profile, by a description that labels a serial number, or by a calibration dictionary entry with a
+ * serial number or an EDID hash, which hashes one. A manufacturer, a model and a description without a serial
+ * number name a product, not a unit, so sRGB, Display P3, a printer profile and a cleared display profile name none.
+ */
+export function profileData(profile) {
+  const result = { categories: new Set(), texts: [] };
+  if (profile.length < 132 || profile.toString('latin1', 36, 40) !== 'acsp') return result;
+  for (let index = 0; index < Math.min(profile.readUInt32BE(128), 1024) && 144 + index * 12 <= profile.length; index++) {
+    const entry = 132 + index * 12;
+    const signature = profile.toString('latin1', entry, entry + 4);
+    const offset = profile.readUInt32BE(entry + 4);
+    const tag = profile.subarray(offset, Math.min(offset + profile.readUInt32BE(entry + 8), profile.length));
+    if (tag.length < 8) continue;
+    if (signature === 'mmod' && tag.toString('latin1', 0, 4) === 'mmod' && tag.length >= 20 && tag.readUInt32BE(16) !== 0) result.categories.add('device serial number');
+    if (PROFILE_TEXTS.has(signature)) {
+      const text = profileText(tag);
+      result.texts.push(text);
+      if (PROFILE_DESCRIPTIONS.has(signature) && namesSerial(text)) result.categories.add('device serial number');
+    }
+    if (signature === 'meta' && profileDictionary(tag).some(([name, value]) => /[A-Za-z0-9]/u.test(value)
+      && (/serial/iu.test(name) || /^edid_?(?:md5|hash)$/iu.test(name)))) result.categories.add('device serial number');
+  }
+  return result;
+}
+
+// EXIF tags that name a device or a person, in IFD0 and the Exif IFD.
+const EXIF_TAGS = new Map([
+  [0x010f, 'device make or model'], [0x0110, 'device make or model'], [0x013c, 'device make or model'], [0xa433, 'device make or model'],
+  [0xa434, 'device make or model'], [0xa431, 'device serial number'], [0xa435, 'device serial number'], [0xc62f, 'device serial number'],
+  [0x013b, 'image author'], [0xa430, 'image author'], [0x9c9d, 'image author'],
+]);
+// GPS tags that hold a position: latitude, longitude and the destination's.
+const GPS_POSITION = new Set([0x0002, 0x0004, 0x0014, 0x0016]);
+const TIFF_TYPE_SIZES = [0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8];
+
+/**
+ * What an EXIF structure says about the device and the person: a make or model (Make, Model, HostComputer,
+ * LensMake, LensModel), a serial number (BodySerialNumber, LensSerialNumber, CameraSerialNumber), an author (Artist,
+ * CameraOwnerName, XPAuthor) or a GPS position. Empty values say nothing, and neither does what macOS writes into a
+ * screenshot: orientation, resolution, the pixel dimensions and the comment.
+ */
+export function exifData(tiff) {
+  const categories = new Set();
+  const order = tiff.toString('latin1', 0, 2);
+  if (tiff.length < 8 || (order !== 'II' && order !== 'MM')) return categories;
+  const little = order === 'II';
+  const u16 = (at) => (at >= 0 && at + 2 <= tiff.length ? (little ? tiff.readUInt16LE(at) : tiff.readUInt16BE(at)) : -1);
+  const u32 = (at) => (at >= 0 && at + 4 <= tiff.length ? (little ? tiff.readUInt32LE(at) : tiff.readUInt32BE(at)) : -1);
+  if (u16(2) !== 42) return categories;
+  const visited = new Set();
+  const visit = (offset, gps) => {
+    if (offset < 8 || visited.has(offset) || visited.size >= 32) return;
+    visited.add(offset);
+    const count = u16(offset);
+    if (count <= 0 || count > 1024) return;
+    for (let index = 0; index < count; index++) {
+      const entry = offset + 2 + index * 12;
+      const [tag, type, length] = [u16(entry), u16(entry + 2), u32(entry + 4)];
+      if (tag < 0 || type < 0 || length < 0) return;
+      const size = (TIFF_TYPE_SIZES[type] ?? 0) * length;
+      const at = size <= 4 ? entry + 8 : u32(entry + 8);
+      const value = size > 0 && at >= 0 && at + size <= tiff.length ? tiff.subarray(at, at + size) : Buffer.alloc(0);
+      if (gps) {
+        if (GPS_POSITION.has(tag) && value.some((byte) => byte !== 0)) categories.add('GPS location');
+      } else if (tag === 0x8769 || tag === 0x8825) visit(u32(entry + 8), tag === 0x8825);
+      // XPAuthor is UTF-16LE; the others are ASCII. Only NULs and spaces say nothing.
+      else if (EXIF_TAGS.has(tag) && /[^\0\s]/u.test(value.toString(tag === 0x9c9d ? 'utf16le' : 'latin1'))) categories.add(EXIF_TAGS.get(tag));
+    }
+    // IFD0 links the thumbnail's IFD1, which can hold the same tags.
+    if (!gps) visit(u32(offset + 2 + count * 12), false);
+  };
+  visit(u32(4), false);
+  return categories;
+}
+
+// The XMP properties that say what EXIF's tags say.
+const XMP_PROPERTIES = new Map([
+  ['device serial number', ['aux:SerialNumber', 'exifEX:BodySerialNumber', 'exifEX:LensSerialNumber', 'aux:LensSerialNumber']],
+  ['device make or model', ['tiff:Make', 'tiff:Model', 'exifEX:LensMake', 'exifEX:LensModel', 'aux:Lens']],
+  ['image author', ['tiff:Artist', 'exifEX:CameraOwnerName', 'aux:OwnerName', 'dc:creator']],
+  ['GPS location', ['exif:GPSLatitude', 'exif:GPSLongitude', 'exif:GPSDestLatitude', 'exif:GPSDestLongitude']],
+]);
+
+/** What an XMP packet says about the device and the person, as an element or an attribute with a value. */
+export function xmpData(packet) {
+  const categories = new Set();
+  const text = packet.slice(0, MAX_INFLATED);
+  for (const [category, properties] of XMP_PROPERTIES) {
+    const named = properties.some((property) =>
+      [...text.matchAll(new RegExp(`<${property}(?=[\\s/>])[^>]*>([\\s\\S]*?)</${property}>`, 'gu'))].some((match) => /\S/u.test(match[1].replace(/<[^>]*>/gu, '')))
+      || [...text.matchAll(new RegExp(`[\\s"']${property}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'gu'))].some((match) => /\S/u.test(match[1] ?? match[2] ?? '')));
+    if (named) categories.add(category);
+  }
+  return categories;
+}
+
+/** The device data an image's metadata names, as { where, category }: where is icc, exif or xmp, each category once there. */
+function deviceData(metadata, profiles) {
+  const found = [];
+  const add = (where, categories) => { for (const category of categories) if (!found.some((entry) => entry.where === where && entry.category === category)) found.push({ where, category }); };
+  for (const profile of profiles) add('icc', profile.categories);
+  for (const tiff of metadata.exif) add('exif', exifData(tiff));
+  for (const packet of metadata.xmp) add('xmp', xmpData(packet));
+  return found;
+}
+
+/** The text chunks of a PNG, inflated where compressed, within fixed bounds. */
+function pngText(bytes) {
+  return pngTextChunks(bytes).map(([, , reading]) => reading);
+}
+
+/**
+ * Everything readable in binary data: PNG text chunks, the texts of a PNG's display profile, which it compresses, and
+ * printable runs, as bytes and as UTF-16 in both alignments.
+ */
+function binaryText(bytes, profileTexts = []) {
+  const runs = [...pngText(bytes), ...profileTexts, ...(bytes.toString('latin1').match(/[\x20-\x7e]{4,}/gu) ?? [])];
   for (const start of [0, 1]) {
     const end = start + Math.floor((bytes.length - start) / 2) * 2;
     runs.push(...(bytes.subarray(start, end).toString('utf16le').match(/[\x20-\x7e]{4,}/gu) ?? []));
@@ -186,14 +435,20 @@ function rtfHexGroups(location, text, depth) {
   return found;
 }
 
-/** Every text in some bytes, as { location, text, binary, inside }. */
+/** Every text in some bytes, as { location, text, binary, inside }, and for binary data the device data its image metadata names. */
 function readBytes(location, bytes, depth, inside) {
   if (depth > 3) return [];
   if (isZip(bytes)) {
     const parts = zipParts(bytes);
     if (parts !== null) return parts.flatMap(([part, content]) => readBytes(`${location}:${part}`, content, depth + 1, true));
   }
-  if (!isText(bytes)) return [{ location, text: binaryText(bytes), binary: true, inside }];
+  if (!isText(bytes)) {
+    const metadata = imageMetadata(bytes);
+    const profiles = metadata.profiles.map(profileData);
+    // A JPEG or WebP profile is plain bytes, which the printable runs read; a PNG's is compressed or hexadecimal.
+    const texts = isPng(bytes) ? profiles.flatMap((profile) => profile.texts) : [];
+    return [{ location, text: binaryText(bytes, texts), binary: true, inside, device: deviceData(metadata, profiles) }];
+  }
   const text = bytes.toString('utf8');
   return [{ location, text, binary: false, inside }, ...dataUris(location, text, depth), ...rtfHexGroups(location, text, depth)];
 }
@@ -203,7 +458,8 @@ function readBytes(location, bytes, depth, inside) {
  * a zip package, the flavors, fields and clipboard files of a capture bundle
  * (JSON with payload.text), what its data URIs decode to, the readable runs of
  * binary data, or the file as text. `inside` marks text from inside a package,
- * a bundle or a data URI.
+ * a bundle or a data URI. Binary data also has `device`, the device data its
+ * image metadata names, as { where, category }.
  */
 export function artifactTexts(name, bytes) {
   if (!isZip(bytes) && isText(bytes) && name.endsWith('.json')) {
@@ -486,11 +742,13 @@ const NAME_CATEGORIES = new Set(['login name', 'host name', 'Git e-mail address'
  */
 export function scanFile(path, bytes, names, { notices = new Map(), certificates = new Map(), examples = new Map() } = {}) {
   const findings = [];
-  for (const { location, text, binary, inside } of artifactTexts(path, bytes)) {
+  for (const { location, text, binary, inside, device = [] } of artifactTexts(path, bytes)) {
     const classify = (match) => (NAME_CATEGORIES.has(match.category) ? match.category : judge(path, match, { inside, binary, notices, certificates, examples }));
     for (const match of findMatches(location, text, names, classify)) {
       findings.push({ path, location: match.location, line: lineOf(match.text, match.offset), category: match.category });
     }
+    // Image metadata has no lines: a finding names the metadata it is in.
+    for (const { where, category } of device) findings.push({ path, location: `${location}#${where}`, line: 1, category });
   }
   return findings;
 }

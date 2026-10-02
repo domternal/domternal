@@ -351,7 +351,8 @@ of an original (see [Declared redactions](./README.md#declared-redactions)):
   `original` and say the original is not kept.
 
 No privacy scan finds anything in the committed files, including what the RTF
-flavors' hexadecimal groups decode to.
+flavors' hexadecimal groups decode to and the device the pictures' display
+profiles, EXIF and XMP name.
 
 The [manifest](./fixtures/synthetic-v1/manifest.json) pins the exact source and
 capture SHA-256 values and an explicitly reviewed output for both policies. The

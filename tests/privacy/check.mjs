@@ -6,7 +6,9 @@
  * folder, drive and network paths (also as a tool encodes them into a
  * directory name or a JSON string escapes them), file URLs that name a
  * person's folder or another host, author data inside Office packages and
- * capture bundles, and the login, short host name and Git e-mail address of
+ * capture bundles, device data in image metadata (a display profile's serial
+ * number, EXIF and XMP makes, models, serial numbers, authors and positions),
+ * wherever an image sits, and the login, short host name and Git e-mail address of
  * the machine that runs the scan, which nobody has to write down for it, plus
  * the names PRIVACY_NAMES lists (a CI secret can hold them, since a runner's
  * own names identify nobody). The scanner and its policy are
@@ -53,10 +55,10 @@ export function main({ root = repoRoot, names, files, log = console.log, error =
   if (findings.length > 0) {
     error('[privacy] FAILED: personal data in tracked files (the matched text is not printed):');
     for (const finding of findings) error(`  - ${finding.location}:${finding.line} ${finding.category}`);
-    error('[privacy] replace it with a placeholder such as $HOME, a reserved domain such as example.com, or a rule in tests/privacy/scan.mjs with its reason');
+    error('[privacy] replace it with a placeholder such as $HOME, a reserved domain such as example.com, or a rule in tests/privacy/scan.mjs with its reason; in image metadata, clear the serial number or strip the metadata, keeping the pixels');
     return 1;
   }
-  log(`[privacy] OK: ${scanned} tracked files hold no e-mail address, home, drive or network path, file URL or name of this machine outside the documented rules`);
+  log(`[privacy] OK: ${scanned} tracked files hold no e-mail address, home, drive or network path, file URL, device data in image metadata or name of this machine outside the documented rules`);
   return 0;
 }
 

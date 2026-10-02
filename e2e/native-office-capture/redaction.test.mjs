@@ -704,3 +704,20 @@ test('prepare-fixture checks a clipboard picture redaction and summarizes it wit
   assert.deepEqual(prepared.summary.redactions[1].changes, [{ itemIndex: 2, profileTag: 'mmod', fields: ['serialNumber', 'manufactureDate'] }]);
   assert.equal(prepared.summary.fileBytes, pictureIn(await readFile(join(base, 'capture.json'))).length);
 });
+
+test('the fixture privacy scan and prepare-fixture find a clipboard picture whose display profile names its display unit', async t => {
+  const base = await mkdtemp(join(tmpdir(), 'domternal-privacy-'));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const sourceBytes = originalPackage('');
+  await writeFile(join(base, 'source.docx'), sourceBytes);
+  const bundle = withPicture(originalBundle(digest(sourceBytes), '<p class="MsoNormal">B01 Test document</p>'), pictureWith(displayProfile()));
+  await writeFile(join(base, 'capture.json'), JSON.stringify(bundle));
+  const findings = await scanFiles([join(base, 'capture.json')], []);
+  assert.deepEqual(findings.map(entry => `${entry.location.slice(base.length + 1)} ${entry.category}`), ['capture.json:files[0]#icc device serial number']);
+  await assert.rejects(prepareFixture(base, { id: ID, source: 'source.docx', capture: 'capture.json' }),
+    error => /device serial number in capture\.json:files\[0\]#icc/u.test(error.message));
+  // Once the profile is cleared, nothing is found.
+  const cleared = redactCaptureFileBytes(Buffer.from(JSON.stringify(bundle)), { itemIndex: 2, reason: REASON });
+  await writeFile(join(base, 'capture.json'), cleared.bytes);
+  assert.deepEqual(await scanFiles([join(base, 'capture.json')], []), []);
+});

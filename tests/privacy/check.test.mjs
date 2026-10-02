@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { writePackage } from '../../e2e/native-office-capture/redact.mjs';
 import { existsSync, readFileSync } from 'node:fs';
-import { deflateRawSync } from 'node:zlib';
+import { deflateRawSync, deflateSync } from 'node:zlib';
 import { GENERIC_ACCOUNTS, localMachineNames, machineNames, main, placeholderUser, scanFile, scanRepository } from './check.mjs';
 
 const at = (...parts) => parts.join('@');
@@ -288,4 +288,223 @@ test('the site carries the same scanner, byte for byte, where its checkout sits 
   }
   assert.ok(existsSync(site), 'domternal.dev/scripts/privacy-scan.mjs is missing');
   assert.ok(readFileSync(here).equals(readFileSync(site)), 'tests/privacy/scan.mjs and domternal.dev/scripts/privacy-scan.mjs differ');
+});
+
+// ---------------------------------------------------------------------------
+// Image metadata: display profiles, EXIF and XMP. Every value is authored for the test.
+// ---------------------------------------------------------------------------
+
+/** A text tag of an ICC profile: textDescription ('desc') or multiLocalizedUnicode ('mluc') in UTF-16BE. */
+function iccText(value, type = 'desc') {
+  if (type === 'mluc') {
+    const text = Buffer.from(value, 'utf16le').swap16();
+    const tag = Buffer.alloc(28 + text.length);
+    tag.write('mluc', 0, 'latin1'); tag.writeUInt32BE(1, 8); tag.writeUInt32BE(12, 12); tag.write('enUS', 16, 'latin1');
+    tag.writeUInt32BE(text.length, 20); tag.writeUInt32BE(28, 24); text.copy(tag, 28);
+    return tag;
+  }
+  const ascii = Buffer.from(`${value}\0`, 'latin1');
+  const tag = Buffer.alloc(12 + ascii.length + 79);
+  tag.write('desc', 0, 'latin1'); tag.writeUInt32BE(ascii.length, 8); ascii.copy(tag, 12);
+  return tag;
+}
+/** Apple's make and model tag: manufacturer, model, serial number and manufacture date. */
+function makeAndModel(serial, date = 0) {
+  const tag = Buffer.alloc(40);
+  tag.write('mmod', 0, 'latin1'); tag.writeUInt32BE(0x10ac, 8); tag.writeUInt32BE(0x4279, 12); tag.writeUInt32BE(serial, 16); tag.writeUInt32BE(date, 20);
+  return tag;
+}
+/** An ICC dictType ('dict') tag of name and value pairs, as calibration tools write their 'meta' tag. */
+function iccDictionary(entries) {
+  const strings = entries.map(([name, value]) => [Buffer.from(name, 'utf16le').swap16(), Buffer.from(value, 'utf16le').swap16()]);
+  let offset = 16 + entries.length * 16;
+  const records = [];
+  const data = [];
+  for (const [name, value] of strings) {
+    records.push([offset, name.length, offset + name.length, value.length]);
+    data.push(name, value); offset += name.length + value.length;
+  }
+  const tag = Buffer.alloc(offset);
+  tag.write('dict', 0, 'latin1'); tag.writeUInt32BE(entries.length, 8); tag.writeUInt32BE(16, 12);
+  records.forEach((record, index) => record.forEach((value, field) => tag.writeUInt32BE(value, 16 + index * 16 + field * 4)));
+  Buffer.concat(data).copy(tag, 16 + entries.length * 16);
+  return tag;
+}
+/** An ICC profile with the given tags, each [signature, data]. */
+function iccProfile(tags, deviceClass = 'mntr') {
+  const table = 4 + tags.length * 12;
+  let offset = 128 + table;
+  const entries = [];
+  const data = [];
+  for (const [signature, content] of tags) {
+    const padded = Buffer.concat([content, Buffer.alloc((4 - (content.length % 4)) % 4)]);
+    entries.push([signature, offset, content.length]); data.push(padded); offset += padded.length;
+  }
+  const profile = Buffer.alloc(offset);
+  profile.writeUInt32BE(offset, 0); profile.write('appl', 4, 'latin1'); profile.writeUInt32BE(0x04000000, 8); profile.write(deviceClass, 12, 'latin1');
+  profile.write('RGB ', 16, 'latin1'); profile.write('XYZ ', 20, 'latin1'); profile.write('acsp', 36, 'latin1'); profile.writeUInt32BE(tags.length, 128);
+  entries.forEach(([signature, at, size], index) => {
+    profile.write(signature, 132 + index * 12, 'latin1'); profile.writeUInt32BE(at, 136 + index * 12); profile.writeUInt32BE(size, 140 + index * 12);
+  });
+  Buffer.concat(data).copy(profile, 128 + table);
+  return profile;
+}
+const pngChunk = (type, data) => {
+  const header = Buffer.alloc(8);
+  header.writeUInt32BE(data.length, 0); header.write(type, 4, 'latin1');
+  return Buffer.concat([header, data, Buffer.alloc(4)]);
+};
+/** A PNG with the given chunks, each [type, data], between its header and its end. */
+const pngOf = (chunks) => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), pngChunk('IHDR', Buffer.alloc(13)),
+  ...chunks.map(([type, data]) => pngChunk(type, data)), pngChunk('IDAT', deflateSync(Buffer.alloc(8))), pngChunk('IEND', Buffer.alloc(0))]);
+const iccChunk = (profile) => ['iCCP', Buffer.concat([Buffer.from('ICC Profile\0\0', 'latin1'), deflateSync(profile)])];
+/** A JPEG with the given segments, each [marker, data], before its scan. */
+const jpegOf = (segments) => Buffer.concat([Buffer.from([0xff, 0xd8]), ...segments.map(([marker, data]) => {
+  const header = Buffer.from([0xff, marker, 0, 0]);
+  header.writeUInt16BE(data.length + 2, 2);
+  return Buffer.concat([header, data]);
+}), Buffer.from([0xff, 0xda, 0x00, 0x02, 0x11, 0x22, 0xff, 0xd9])]);
+/** A profile in APP2 segments, split into the given number of parts, as JPEG carries a profile over 64 KB. */
+const jpegProfile = (profile, parts = 2) => {
+  const size = Math.ceil(profile.length / parts);
+  return Array.from({ length: parts }, (_, index) => [0xe2, Buffer.concat([Buffer.from('ICC_PROFILE\0', 'latin1'), Buffer.from([index + 1, parts]),
+    profile.subarray(index * size, (index + 1) * size)])]);
+};
+/** A WebP with the given chunks, each [fourcc, data]. */
+const webpOf = (chunks) => {
+  const body = Buffer.concat([Buffer.from('WEBP', 'latin1'), ...chunks.map(([fourcc, data]) => {
+    const header = Buffer.alloc(8);
+    header.write(fourcc, 0, 'latin1'); header.writeUInt32LE(data.length, 4);
+    return Buffer.concat([header, data, Buffer.alloc(data.length % 2)]);
+  })]);
+  const riff = Buffer.alloc(8);
+  riff.write('RIFF', 0, 'latin1'); riff.writeUInt32LE(body.length, 4);
+  return Buffer.concat([riff, body]);
+};
+/**
+ * A TIFF structure as EXIF holds it: IFD0 with its entries, and an Exif and a GPS IFD when they have any. An entry is
+ * [tag, value]: a string is ASCII, a number a LONG, an array of numbers RATIONALs with denominator 1.
+ */
+function exifOf({ ifd0 = [], exif = [], gps = [] } = {}, little = true) {
+  const directories = [['ifd0', [...ifd0, ...(exif.length > 0 ? [[0x8769, 'exif']] : []), ...(gps.length > 0 ? [[0x8825, 'gps']] : [])]],
+    ...(exif.length > 0 ? [['exif', exif]] : []), ...(gps.length > 0 ? [['gps', gps]] : [])];
+  const at = {};
+  let offset = 8;
+  for (const [name, entries] of directories) { at[name] = offset; offset += 2 + entries.length * 12 + 4; }
+  const values = [];
+  const tiff = [];
+  let data = offset;
+  const u16 = (value) => { const b = Buffer.alloc(2); if (little) b.writeUInt16LE(value); else b.writeUInt16BE(value); return b; };
+  const u32 = (value) => { const b = Buffer.alloc(4); if (little) b.writeUInt32LE(value); else b.writeUInt32BE(value); return b; };
+  tiff.push(Buffer.from(little ? 'II' : 'MM', 'latin1'), u16(42), u32(8));
+  for (const [name, entries] of directories) {
+    tiff.push(u16(entries.length));
+    for (const [tag, value] of entries) {
+      if (typeof value === 'string' && ['exif', 'gps'].includes(value) && (tag === 0x8769 || tag === 0x8825)) {
+        tiff.push(u16(tag), u16(4), u32(1), u32(at[value])); continue;
+      }
+      const [type, bytes] = typeof value === 'string' ? [2, Buffer.from(`${value}\0`, 'latin1')]
+        : Array.isArray(value) ? [5, Buffer.concat(value.flatMap((number) => [u32(number), u32(1)]))] : [4, u32(value)];
+      const count = type === 5 ? value.length : type === 2 ? bytes.length : 1;
+      if (bytes.length <= 4) tiff.push(u16(tag), u16(type), u32(count), Buffer.concat([bytes, Buffer.alloc(4 - bytes.length)]));
+      else { tiff.push(u16(tag), u16(type), u32(count), u32(data)); values.push(bytes); data += bytes.length; }
+    }
+    tiff.push(u32(0));
+    void name;
+  }
+  return Buffer.concat([...tiff, ...values]);
+}
+const xmpOf = (properties) => `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">`
+  + `<rdf:Description rdf:about="" xmlns:exif="http://ns.adobe.com/exif/1.0/" xmlns:tiff="http://ns.adobe.com/tiff/1.0/">${properties}</rdf:Description></rdf:RDF></x:xmpmeta>`;
+const itxt = (keyword, text) => ['iTXt', Buffer.concat([Buffer.from(`${keyword}\0\u0001\0\0\0`, 'latin1'), deflateSync(Buffer.from(text, 'utf8'))])];
+const found = (path, bytes) => scanFile(path, bytes, names).map((finding) => `${finding.location} ${finding.category}`);
+
+// The profile macOS writes for a display: Apple's description and make and model tag, with the unit's serial number.
+const displayProfile = (serial, date = 0x5e000000) => iccProfile([['desc', iccText('Display')], ['dscm', iccText('Authored Monitor', 'mluc')], ['mmod', makeAndModel(serial, date)]]);
+const SERIAL = 0x0a0b0c0d;
+
+test('a display profile names its unit by a serial number, in a PNG, a JPEG in several parts and a WebP, and in any container', () => {
+  assert.deepEqual(found('shot.png', pngOf([iccChunk(displayProfile(SERIAL))])), ['shot.png#icc device serial number']);
+  assert.deepEqual(found('photo.jpg', jpegOf([[0xe0, Buffer.from('JFIF\0')], ...jpegProfile(displayProfile(SERIAL), 3)])), ['photo.jpg#icc device serial number']);
+  // A JPEG under a .png name, as a screenshot tool may save one: the bytes decide.
+  assert.deepEqual(found('named.png', jpegOf(jpegProfile(displayProfile(SERIAL)))), ['named.png#icc device serial number']);
+  assert.deepEqual(found('image.webp', webpOf([['VP8X', Buffer.alloc(10)], ['ICCP', displayProfile(SERIAL)]])), ['image.webp#icc device serial number']);
+  const picture = pngOf([iccChunk(displayProfile(SERIAL))]);
+  const bundle = JSON.stringify({ payload: { text: { 'text/html': '<p>x</p>' }, files: [{ itemIndex: 0, base64: picture.toString('base64') }] } });
+  assert.deepEqual(found('capture.json', Buffer.from(bundle)), ['capture.json:files[0]#icc device serial number']);
+  const docx = writePackage(new Map([['word/media/image1.png', picture]]));
+  assert.deepEqual(found('fixture.docx', docx), ['fixture.docx:word/media/image1.png#icc device serial number']);
+  assert.deepEqual(found('page.html', Buffer.from(`<img src="data:image/png;base64,${picture.toString('base64')}">`)), ['page.html#data[0]#icc device serial number']);
+});
+
+test('generic and cleared profiles name no unit: sRGB, Display P3, a printer, a display without a serial number', () => {
+  const srgb = iccProfile([['desc', iccText('sRGB IEC61966-2.1')], ['dmnd', iccText('IEC http://www.iec.ch')],
+    ['dmdd', iccText('IEC 61966-2.1 Default RGB colour space - sRGB')], ['cprt', Buffer.concat([Buffer.from('text\0\0\0\0', 'latin1'), Buffer.from('Copyright (c) 1998 Hewlett-Packard Company\0')])]]);
+  const p3 = iccProfile([['desc', iccText('Display P3', 'mluc')], ['cprt', iccText('Copyright Apple Inc., 2017', 'mluc')]]);
+  const printer = iccProfile([['desc', iccText('Authored Printer Glossy')], ['dmdd', iccText('Authored Printer 9000')]], 'prtr');
+  for (const [name, profile] of [['sRGB', srgb], ['Display P3', p3], ['printer', printer], ['cleared display', displayProfile(0, 0)],
+    ['a display without a serial number', displayProfile(0)]]) {
+    assert.deepEqual(found('shot.png', pngOf([iccChunk(profile)])), [], name);
+    assert.deepEqual(found('photo.jpg', jpegOf(jpegProfile(profile))), [], name);
+  }
+  // A profile that is no ICC profile, or one cut short, is not read.
+  assert.deepEqual(found('shot.png', pngOf([iccChunk(Buffer.from('not a profile at all'))])), []);
+  assert.deepEqual(found('shot.png', pngOf([iccChunk(displayProfile(SERIAL).subarray(0, 140))])), []);
+});
+
+test('a profile description or calibration dictionary that names a serial number names the unit', () => {
+  for (const [name, tag] of [
+    ['a model description', ['dmdd', iccText('Authored Monitor S/N: AM12345')]],
+    ['a manufacturer description', ['dmnd', iccText('Authored Displays, serial number 7781234', 'mluc')]],
+    ['a profile description', ['desc', iccText('Authored Monitor SN: X9Y8Z7 2026-03-01')]],
+  ]) {
+    assert.deepEqual(found('shot.png', pngOf([iccChunk(iccProfile([tag]))])), ['shot.png#icc device serial number'], name);
+  }
+  const meta = (entries) => found('shot.png', pngOf([iccChunk(iccProfile([['desc', iccText('Calibrated')], ['meta', iccDictionary(entries)]]))]));
+  assert.deepEqual(meta([['prefix', 'EDID_'], ['EDID_serial', 'AM12345']]), ['shot.png#icc device serial number']);
+  assert.deepEqual(meta([['EDID_md5', '0f0e0d0c0b0a09080706050403020100']]), ['shot.png#icc device serial number']);
+  assert.deepEqual(meta([['prefix', 'EDID_'], ['EDID_model', 'Authored Monitor'], ['EDID_serial', '']]), []);
+  // A model or a serial number label without a number names no unit.
+  assert.deepEqual(found('shot.png', pngOf([iccChunk(iccProfile([['dmdd', iccText('Authored Monitor U2723QE')], ['desc', iccText('Serial numbering test')]]))])), []);
+});
+
+test('the texts of a compressed display profile are read for names and addresses like the rest of the image', () => {
+  const [login] = names[0].slice(1);
+  const profile = iccProfile([['desc', iccText(`Calibrated by ${login}`)], ['dscm', iccText(`Monitor of ${address}`, 'mluc')]]);
+  assert.deepEqual(found('shot.png', pngOf([iccChunk(profile)])).sort(), ['shot.png e-mail address', 'shot.png login name']);
+});
+
+test('EXIF names a camera, its serial numbers, a position and an author; a screenshot\'s size and comment name nobody', () => {
+  const device = exifOf({ ifd0: [[0x010f, 'Authored Camera Co'], [0x0110, 'Authored Model 1'], [0x0112, 1]],
+    exif: [[0xa431, 'AC0012345'], [0xa435, 'LN000777'], [0xa002, 1600]], gps: [[0x0001, 'N'], [0x0002, [45, 48, 30]], [0x0003, 'E'], [0x0004, [15, 58, 40]]] });
+  const expected = (location) => ['device make or model', 'device serial number', 'GPS location'].map((category) => `${location}#exif ${category}`);
+  assert.deepEqual(found('photo.jpg', jpegOf([[0xe1, Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), device])]])).sort(), expected('photo.jpg').sort());
+  assert.deepEqual(found('photo.jpg', jpegOf([[0xe1, Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), exifOf({ ifd0: [[0x010f, 'Authored Camera Co']] }, false)])]])),
+    ['photo.jpg#exif device make or model']);
+  assert.deepEqual(found('shot.png', pngOf([['eXIf', exifOf({ ifd0: [[0x013b, 'Authored Artist']], exif: [[0xa430, 'Authored Owner']] })]])), ['shot.png#exif image author']);
+  assert.deepEqual(found('image.webp', webpOf([['EXIF', Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), exifOf({ exif: [[0xa431, 'AC0012345']] })])]])),
+    ['image.webp#exif device serial number']);
+  // ImageMagick keeps EXIF as hexadecimal digits in a text chunk.
+  const raw = exifOf({ ifd0: [[0x0110, 'Authored Model 1']] });
+  const hex = `\nexif\n${String(raw.length + 6).padStart(8)}\n${Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), raw]).toString('hex').replace(/(.{72})/gu, '$1\n')}\n`;
+  assert.deepEqual(found('shot.png', pngOf([['zTXt', Buffer.concat([Buffer.from('Raw profile type exif\0\0', 'latin1'), deflateSync(Buffer.from(hex))])]])),
+    ['shot.png#exif device make or model']);
+  // What macOS writes into a screenshot: orientation, resolution, a user comment and the pixel dimensions; and empty values.
+  const screenshot = exifOf({ ifd0: [[0x0112, 1], [0x011a, [144]], [0x0128, 2], [0x010f, ''], [0x0110, '   ']],
+    exif: [[0x9286, 'ASCII\0\0\0Screenshot'], [0xa002, 1178], [0xa003, 514]], gps: [[0x0000, 0x02020000]] });
+  assert.deepEqual(found('shot.png', pngOf([['eXIf', screenshot]])), []);
+  assert.deepEqual(found('shot.png', pngOf([['eXIf', Buffer.from('not a TIFF structure')]])), []);
+});
+
+test('XMP names a camera, a serial number, a position and an author as EXIF does, in a PNG, a JPEG and a WebP', () => {
+  const properties = '<tiff:Model>Authored Model 1</tiff:Model><aux:SerialNumber xmlns:aux="http://ns.adobe.com/exif/1.0/aux/">AC0012345</aux:SerialNumber>'
+    + '<exif:GPSLatitude>45,48.5N</exif:GPSLatitude><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/"><rdf:Seq><rdf:li>Authored Person</rdf:li></rdf:Seq></dc:creator>';
+  const expected = (location) => ['device make or model', 'device serial number', 'GPS location', 'image author'].map((category) => `${location}#xmp ${category}`);
+  assert.deepEqual(found('shot.png', pngOf([itxt('XML:com.adobe.xmp', xmpOf(properties))])).sort(), expected('shot.png').sort());
+  assert.deepEqual(found('photo.jpg', jpegOf([[0xe1, Buffer.from(`http://ns.adobe.com/xap/1.0/\0${xmpOf(properties)}`, 'utf8')]])).sort(), expected('photo.jpg').sort());
+  assert.deepEqual(found('image.webp', webpOf([['XMP ', Buffer.from(xmpOf('<rdf:Description tiff:Make="Authored Camera Co"/>'))]])), ['image.webp#xmp device make or model']);
+  // A screenshot's XMP and empty properties name nobody.
+  const screenshot = '<exif:PixelXDimension>1986</exif:PixelXDimension><exif:UserComment>Screenshot</exif:UserComment><tiff:Orientation>1</tiff:Orientation>'
+    + '<tiff:Make></tiff:Make><dc:creator><rdf:Seq><rdf:li/></rdf:Seq></dc:creator><aux:Lens> </aux:Lens>';
+  assert.deepEqual(found('shot.png', pngOf([itxt('XML:com.adobe.xmp', xmpOf(screenshot))])), []);
 });
