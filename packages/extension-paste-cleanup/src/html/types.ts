@@ -15,7 +15,8 @@ export type PasteDiagnosticCode =
   | 'input-limit' | 'structure-limit' | 'parse-failed'
   | 'unsafe-content-removed' | 'unsupported-formatting'
   | 'image-removed' | 'link-removed' | 'formatting-adapted' | 'office-list-unsupported'
-  | 'destination-formatting-unconfirmed' | 'destination-table-unsupported' | 'destination-heading-level-adapted';
+  | 'destination-formatting-unconfirmed' | 'destination-table-unsupported' | 'destination-heading-level-adapted'
+  | 'hidden-text-removed';
 
 export interface PasteDiagnostic {
   code: PasteDiagnosticCode;

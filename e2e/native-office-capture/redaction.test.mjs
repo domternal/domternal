@@ -464,21 +464,30 @@ test('an oracle can pin a fixture in each destination schema once, and nothing e
   }
 });
 
-test('an oracle says whether the copy holds a block\'s hidden text exactly when a block authors one, and the replay must agree', async t => {
-  const { base } = await fixture(t);
-  const hidden = (manifest, value) => {
-    manifest.expected.blocks[0].hidden = 'Test';
+test('an oracle says whether the copy holds a block\'s hidden text exactly when a block authors one, and its warnings agree', async t => {
+  // A capture whose HTML holds a run Word hides, as Chrome and Firefox copy it.
+  const { base, sourceOriginal } = await fixture(t, { source: false, capture: false });
+  const html = '<p class="MsoNormal">B01 <span style="display:none;mso-hide:all">Hidden</span> Test document<img src="blob:x" alt="*"></p>';
+  await replaceArtifact(base, 'capture.json', Buffer.from(JSON.stringify(originalBundle(digest(sourceOriginal), html), null, 2)));
+  const outcome = warnings => ({ status: 'cleaned', source: 'word', warnings, editor: { schema: 'default', notice: 'visible', warnings } });
+  const hidden = (manifest, value, warnings = value === 'copied' ? ['hidden-text-removed', 'image-removed'] : ['image-removed']) => {
+    manifest.expected.blocks[0] = { id: 'B01', type: 'paragraph', text: 'B01 Hidden Test document*', hidden: 'Hidden' };
     if (value === undefined) delete manifest.expected.hiddenText; else manifest.expected.hiddenText = value;
+    manifest.expected.preserve = outcome(warnings); manifest.expected.adapt = outcome(warnings);
   };
-  // The capture holds the word, so the oracle that says so passes and the one that says the browser left it out fails.
+  // The capture holds the word: the oracle that says so, with the warning that names it left out, passes.
   await rewrite(base, manifest => { hidden(manifest, 'copied'); });
-  assert.equal((await verifyCaptureFixture(base)).replay.kind, 'offline-semantic-replay');
+  assert.deepEqual((await verifyCaptureFixture(base)).replay.outcomes.map(entry => entry.warnings), [['hidden-text-removed', 'image-removed'], ['hidden-text-removed', 'image-removed']]);
+  // An oracle that says the browser left it out cannot hold the warning, and without it the replay disagrees.
   await rewrite(base, manifest => { hidden(manifest, 'omitted'); });
   await assert.rejects(verifyCaptureFixture(base), failure('evidence-replay-mismatch'));
   for (const [name, mutate] of [
     ['a hidden block without the statement', manifest => { hidden(manifest, undefined); }],
     ['an unknown statement', manifest => { hidden(manifest, 'shown'); }],
-    ['a statement without a hidden block', manifest => { delete manifest.expected.blocks[0].hidden; manifest.expected.hiddenText = 'copied'; }],
+    ['a statement without a hidden block', manifest => { hidden(manifest, 'copied'); delete manifest.expected.blocks[0].hidden; }],
+    ['a copied word without its warning', manifest => { hidden(manifest, 'copied', ['image-removed']); }],
+    ['an omitted word with the warning', manifest => { hidden(manifest, 'omitted', ['hidden-text-removed', 'image-removed']); }],
+    ['an editor outcome without the warning', manifest => { hidden(manifest, 'copied'); manifest.expected.adapt.editor.warnings = ['image-removed']; }],
   ]) {
     await rewrite(base, mutate);
     await assert.rejects(verifyCaptureFixture(base), failure('evidence-schema'), name);

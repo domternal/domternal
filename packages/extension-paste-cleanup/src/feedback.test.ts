@@ -338,6 +338,23 @@ describe('paste loss feedback', () => {
     expect(notice.textContent).not.toMatch(/123|456|Formatting was adapted/);
   });
 
+  it('names hidden Word text that was not pasted once, however many runs were hidden, beside other findings', () => {
+    const { renderer, notice } = fixture();
+    renderer.update({
+      status: 'applied', diagnosticsTruncated: false,
+      diagnostics: [
+        { code: 'hidden-text-removed', severity: 'warning', offset: 10 },
+        { code: 'unsupported-formatting', severity: 'warning', offset: 40 },
+        { code: 'hidden-text-removed', severity: 'warning', offset: 80 },
+      ],
+    });
+    expect(notice.hidden).toBe(false);
+    expect(Array.from(notice.querySelectorAll('li'), node => node.textContent)).toEqual([
+      'Hidden text from Word was not pasted.',
+      'Some formatting could not be preserved.',
+    ]);
+  });
+
   it('lists adapted heading levels once however many headings moved, next to other destination findings', () => {
     const { renderer, notice } = fixture();
     renderer.update({

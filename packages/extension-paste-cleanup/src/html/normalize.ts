@@ -29,6 +29,7 @@ import { wrapLooseInlineRuns } from './looseInline.js';
 import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
 import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
 import { routineLineHeights } from './wordSpacing.js';
+import { removeWordHiddenText } from './hiddenText.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -195,6 +196,8 @@ export function normalizeClipboardHTML(
     // A slice marker alone is structural context. Only a verified own copy keeps editor formatting as is.
     const { anchor, own } = readSliceOrigin(tree, ownCopy);
     if (!own) {
+      // Word's hidden text is not pasted, so neither its lists, its styles nor its images are read.
+      if (result.source === 'word') removeWordHiddenText(tree, node => { report('hidden-text-removed', node); });
       if (/\bmso-list\s*:/i.test(html)) {
         const lists = reconstructOfficeLists(tree, { ...limits, ...capabilities?.() }, report);
         preserveOrderedListStart = lists.reconstructedLists > 0;

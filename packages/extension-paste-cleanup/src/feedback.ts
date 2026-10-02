@@ -49,6 +49,7 @@ const diagnosticMessages: Readonly<Record<PasteDiagnosticCode, Copy>> = {
   'destination-formatting-unconfirmed': pasteCleanupMessages.destinationFormattingUnconfirmed,
   'destination-table-unsupported': pasteCleanupMessages.destinationTableUnsupported,
   'destination-heading-level-adapted': pasteCleanupMessages.destinationHeadingLevelAdapted,
+  'hidden-text-removed': pasteCleanupMessages.hiddenTextRemoved,
 };
 
 interface Presentation {

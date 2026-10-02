@@ -42,7 +42,7 @@ interface Run { text: string; ratio: number; authored: boolean }
 interface Replay {
   operations: PasteOperationResult[];
   doc: JSONContent;
-  notice: { visible: boolean; status: string | null };
+  notice: { visible: boolean; status: string | null; details: (string | null)[] };
   /** Each text run's contrast against what it lands on, in the light theme and after a switch to the dark one. */
   contrast: { light: Run[]; dark: Run[] };
   /** What the live editor schema holds: its mark types and the attributes of its textStyle mark. */
@@ -169,7 +169,8 @@ async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'def
       assets: { reads: probe.assetReads, uploads: probe.assetUploads, matches: probe.assetMatchRequests.length },
       destination: { marks: Object.keys(probe.editor.schema.marks), textStyle: Object.keys(textStyle?.spec.attrs ?? {}) },
       notice: { visible: notice !== null && !notice.hidden && notice.getBoundingClientRect().height > 0,
-        status: notice?.querySelector('.dm-paste-feedback__status')?.textContent ?? null },
+        status: notice?.querySelector('.dm-paste-feedback__status')?.textContent ?? null,
+        details: [...(notice?.querySelectorAll('li') ?? [])].map(item => item.textContent) },
     };
   }, { light, dark, transfer });
 }
@@ -226,6 +227,8 @@ for (const fixture of fixtures) {
           expect(noticeCodes(operation?.diagnostics ?? [])).toEqual(outcome.warnings);
           expect(result.notice.visible).toBe(outcome.notice === 'visible');
           if (outcome.notice === 'visible') expect(result.notice.status).toBe('Review the pasted content.');
+          // Hidden Word text the copy held is named in the notice, not as formatting.
+          if (outcome.warnings.includes('hidden-text-removed')) expect(result.notice.details).toContain('Hidden text from Word was not pasted.');
           // The oracle reads what the destination holds from the live schema: a mark it lacks is expected absent.
           expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc),
             { formatting, destination: result.destination })).toEqual([]);

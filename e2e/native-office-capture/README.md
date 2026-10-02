@@ -294,9 +294,10 @@ shape as regression coverage.
    list with one entry per schema to pin the fixture in both) from
    the specification and the reviewed editor results, never by copying
    normalizer output; when a block authors hidden text, add
-   `expected.hiddenText`: `copied` when the capture holds it, which then
-   pastes, or `omitted` when the browser left it out of the copy, as Safari
-   does; delete `redactions.json` once the manifest holds it, and
+   `expected.hiddenText`: `copied` when the capture holds it, which cleanup
+   leaves out with `hidden-text-removed` in every outcome, or `omitted` when the
+   browser left it out of the copy, as Safari does, where no outcome reports
+   it; hidden text pastes in neither; delete `redactions.json` once the manifest holds it, and
    run `node e2e/native-office-capture/offline.mjs` on the directory. Keep
    unsupported and missing results as they are: a difference from the
    specification is a finding, not a reason to edit the oracle.
@@ -566,7 +567,9 @@ for the selection, and for each policy the status, the source and the sorted
 warning and error codes, which the replay must match exactly, with the block
 model of [`semantics.mjs`](./semantics.mjs) rather than exact HTML, whether the
 copy holds the hidden text a block authors (`hiddenText`, which the browser
-decides and the oracle states exactly when a block authors one), plus the
+decides and the oracle states exactly when a block authors one; every outcome
+of a copy that holds it reports `hidden-text-removed`, and no other outcome
+does), plus the
 notice and codes the fixture editor regression checks, as one outcome or a list
 with one outcome per editor schema; the regression runs once per entry. A Word package source is
 read as a bounded ZIP only when a redaction is declared for it. Relative

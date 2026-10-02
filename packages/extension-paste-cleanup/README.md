@@ -149,9 +149,9 @@ authored HTML, not native captures. Nonzero horizontal indentation outside lists
 and tables, borders outside tables, background shorthands with more than one
 color or an image, a background shorthand that paints a block other than a table
 cell, which no block keeps, background images, an image box that crops, pads or
-offsets its image, hidden text, the `font` shorthand, wider letter spacing, case
-transforms, small caps and other unsupported declarations still report
-`unsupported-formatting`. In `adapt`, which removes typography anyway, an
+offsets its image, an element a page hides outside a Word source (below), the
+`font` shorthand, wider letter spacing, case transforms, small caps and other
+unsupported declarations still report `unsupported-formatting`. In `adapt`, which removes typography anyway, an
 unsupported font family or size, color, background, line height, letter or word
 spacing, case transform or font variant is reported as `formatting-adapted`
 instead. A later declaration wins, a reset to the initial value included, so
@@ -161,6 +161,22 @@ copy with, reports nothing, since nothing is lost. Word writes an empty paragrap
 as a paragraph mark holding one no-break space; that space is no text of the
 document, so the paragraph pastes empty, while a no-break space Word wrote as
 text stays.
+
+Word's hidden text (Format > Font > Hidden) is not pasted, as Word does not show
+it. In a Word source, such as Word's raw HTML in Chrome and Firefox, an element
+whose own style hides it with `display: none` or `mso-hide: all`, the two
+declarations Word writes on a hidden run, is removed with its content; a later
+`display` that shows it again wins, as in CSS, unless `mso-hide: all` hides it. A paragraph,
+heading or list item that held nothing else goes with it, its list marker too;
+a table cell stays, without its text. Each removed element that held text or an
+image reports `hidden-text-removed`, a warning the notice names as "Hidden text
+from Word was not pasted.", in both policies, and its images are neither
+prepared nor reported. Safari leaves hidden text out of its copy, which then
+holds no trace of it, so nothing is reported there. Only a Word source is read
+this way: in other HTML an element with `display: none` keeps its text and
+reports `unsupported-formatting`, since a page hides interface parts such as
+menus that way, and `visibility: hidden`, which keeps its room, is reported the
+same way in every source.
 
 Safari copies the computed style of each top-level element it copies. In a Word
 copy a text color equal to the caret color it copies with it is Word's automatic
@@ -953,9 +969,9 @@ neither is fetched or bound, and a picture bullet stays its marker. Chrome adds
 one `image/png` file, Word's picture of the whole selection, which is never
 inserted when the content has text of its own or, as a Word copy, places no
 image; Firefox and Safari expose no files. Chrome and Firefox also expose
-`text/rtf`, which PasteCleanup never reads. Hidden Word text pastes visible with
-a warning in Chrome and Firefox, which the notice names as formatting it could
-not preserve, not as hidden text shown, while Safari leaves it out of the copy.
+`text/rtf`, which PasteCleanup never reads. Hidden Word text never pastes: in
+Chrome and Firefox it is left out with `hidden-text-removed`, which the notice
+names, and Safari leaves it out of the copy without a trace a notice could name.
 The first paragraph of a copy joins the paragraph it is pasted into, as
 ProseMirror joins an open slice, and takes that paragraph's alignment and line
 spacing, also when it is empty, without a notice; the blocks after it and a

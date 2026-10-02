@@ -16,6 +16,8 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// The warning that names hidden text the copy held and cleanup left out.
+const HIDDEN_TEXT_REMOVED = 'hidden-text-removed';
 const IDENTIFIER = /\b([BLT][0-9]{2}[a-z]?|G[BILMT][0-9]{2}[a-z]?|G[0-9]{5})\b/u;
 const MARKS = Object.freeze({ bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strike', subscript: 'subscript', superscript: 'superscript', highlight: 'highlight' });
 // Text styles that `adapt` removes, a highlight's background included; a result that keeps one in that policy is a finding.
@@ -546,13 +548,12 @@ function blockFormatting(block, found, where, problems, formatting, tables, exha
 const spacesDiffer = (left, right) => left !== right && left.replace(/\u00a0/gu, ' ') === right.replace(/\u00a0/gu, ' ');
 
 /**
- * Problems between the authored scenario and actual blocks. An empty list means the capture matches. `hiddenText`, or
- * the scenario's own, says whether the copy holds the hidden text a block authors (`copied`, which then pastes) or the
- * browser left it out (`omitted`); without it both forms are recorded observations, as for the specification itself.
+ * Problems between the authored scenario and actual blocks. An empty list means the capture matches. Hidden text a
+ * block authors never pastes, whether the copy holds it or the browser left it out: the block's text is the text
+ * without it. Whether the copy holds it decides the notice, which `compareOutcome` checks.
  */
-export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'preserve', destination, hiddenText } = {}) {
+export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'preserve', destination } = {}) {
   const { scenario, expected } = expectedBlocks(spec, scenarioId);
-  const copied = hiddenText ?? scenario.hiddenText;
   const problems = [];
   const actual = [...actualBlocks];
   const positions = new Map();
@@ -639,9 +640,8 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     for (const key of ['colspan', 'rowspan']) {
       if (block.cell?.[key] !== undefined && found.cell?.[key] !== block.cell[key]) problems.push(`${block.id}: ${key} is ${String(found.cell?.[key])}, expected ${String(block.cell[key])}`);
     }
-    // Whether the copy holds hidden text is the browser's: the text with it, without it, or either when nobody says.
-    const shown = block.hidden === undefined ? undefined : normalizeText(block.text.replace(block.hidden, ''));
-    const texts = shown === undefined || copied === 'copied' ? [block.text] : copied === 'omitted' ? [shown] : [block.text, shown];
+    // Hidden text never pastes: the copy holds it in Chrome and Firefox, where cleanup leaves it out, or not at all.
+    const texts = [block.hidden === undefined ? block.text : normalizeText(block.text.replace(block.hidden, ''))];
     const text = normalizeText(found.text);
     if (block.text !== undefined && !texts.includes(text)) {
       problems.push(texts.some(entry => spacesDiffer(text, entry))
@@ -679,13 +679,18 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
 /**
  * Diagnostic outcome of one policy against the scenario: required warnings present, nothing unexpected. The
  * outcome is the fixture editor's; a replay without a destination, `destination: false`, cannot report what
- * only a destination reports, so those warnings are not required of it.
+ * only a destination reports, so those warnings are not required of it. `hiddenText`, or the scenario's own,
+ * says whether the copy holds the hidden text a block authors: `copied` requires `hidden-text-removed`, the
+ * warning that names it left out, and `omitted`, where the browser left it out, forbids it.
  */
-export function compareOutcome(spec, scenarioId, diagnostics, { formatting = 'preserve', destination = true } = {}) {
+export function compareOutcome(spec, scenarioId, diagnostics, { formatting = 'preserve', destination = true, hiddenText } = {}) {
   const { scenario } = expectedBlocks(spec, scenarioId);
   const outcome = outcomeFor(scenario, formatting);
   const problems = [];
   const codes = new Set(diagnostics.filter(entry => entry.severity !== 'info').map(entry => entry.code));
+  const copied = hiddenText ?? scenario.hiddenText;
+  if (copied === 'copied' && !codes.has(HIDDEN_TEXT_REMOVED)) problems.push(`outcome: the copy holds hidden text, so ${HIDDEN_TEXT_REMOVED} is required but was not reported`);
+  if (copied === 'omitted' && codes.has(HIDDEN_TEXT_REMOVED)) problems.push(`outcome: the copy holds no hidden text, so ${HIDDEN_TEXT_REMOVED} is unexpected`);
   const allowed = new Set([...(outcome.requiredWarnings ?? []), ...(outcome.allowedWarnings ?? []), ...(outcome.allowedErrors ?? [])]);
   for (const code of outcome.requiredWarnings ?? []) {
     if (!codes.has(code) && (destination || !code.startsWith('destination-'))) problems.push(`outcome: ${code} is required but was not reported`);
@@ -700,7 +705,8 @@ const isCaptureBundle = input => typeof input?.harnessVersion === 'string' && ty
 /**
  * Whether a copy holds the hidden text the scenario's blocks author, read from its captured HTML: `copied` when every
  * hidden text is in the HTML's text, `omitted` when none is, undefined for a scenario without hidden text. The browser
- * decides it: Safari leaves Word's hidden run out of the copy, Chrome and Firefox carry Word's raw HTML, which keeps it.
+ * decides it: Safari leaves Word's hidden run out of the copy, Chrome and Firefox carry Word's raw HTML, which keeps it
+ * and cleanup then leaves out with `hidden-text-removed`.
  */
 export function copiedHiddenText(spec, scenarioId, html) {
   const hidden = expectedBlocks(spec, scenarioId).expected.filter(block => block.hidden !== undefined).map(block => block.hidden);
@@ -738,8 +744,9 @@ export function checkScenario(spec, scenarioId, input, options = {}) {
   // A capture shows whether its browser copied the hidden text; a saved editor result or HTML replay does not say.
   const hiddenText = typeof input?.payload?.text?.['text/html'] === 'string' && isCaptureBundle(input)
     ? copiedHiddenText(spec, scenarioId, input.payload.text['text/html']) : undefined;
-  problems.push(...compareBlocks(spec, scenarioId, blocks, { formatting, ...(hiddenText === 'copied' || hiddenText === 'omitted' ? { hiddenText } : {}) }),
-    ...compareOutcome(spec, scenarioId, diagnostics, { formatting, destination: images === undefined && !holdsSpacing }));
+  problems.push(...compareBlocks(spec, scenarioId, blocks, { formatting }),
+    ...compareOutcome(spec, scenarioId, diagnostics, { formatting, destination: images === undefined && !holdsSpacing,
+      ...(hiddenText === 'copied' || hiddenText === 'omitted' ? { hiddenText } : {}) }));
   return Object.freeze({ kind: 'native-capture-semantics', scenario: scenarioId, formatting, qualification: false,
     ...(images ? { capture: { replayed: true, images } } : {}), matches: problems.length === 0, problems });
 }
@@ -777,7 +784,9 @@ export function syntheticEditorResult(spec, scenarioId, formatting = 'preserve')
   };
   const textblock = (block, order) => {
     const text = scenario.partial && order === 0 ? scenario.partial.first : scenario.partial && order === last ? scenario.partial.last
-      : block.type === 'image' ? block.alt : block.type === 'literalItem' ? `${block.wordLabel ?? block.docsLabel ?? '•'} ${block.text}` : block.text;
+      : block.type === 'image' ? block.alt : block.type === 'literalItem' ? `${block.wordLabel ?? block.docsLabel ?? '•'} ${block.text}`
+        // Hidden text never pastes.
+        : block.hidden === undefined ? block.text : normalizeText(block.text.replace(block.hidden, ''));
     const attrs = { textAlign: preserve ? block.align ?? null : null };
     const content = text ? runs(block, text, order) : [];
     return block.type === 'heading' ? { type: 'heading', attrs: { ...attrs, level: block.level }, content } : { type: 'paragraph', attrs, content };

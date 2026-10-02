@@ -227,8 +227,8 @@
           "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
           "text": "B15 Visible part HIDDEN end.",
           "hidden": "HIDDEN",
-          "expectation": "When the copy holds the hidden word, it becomes visible with unsupported-formatting. Safari leaves it out of the copy; Chrome and Firefox carry Word's raw HTML, which keeps it in a run Word hides (display:none with mso-hide:all).",
-          "correction": "Records what Word copies, which the specification asked to observe: the captures show it per browser."
+          "expectation": "Hidden text never pastes, as Word does not show it. Chrome and Firefox carry Word's raw HTML, which keeps the word in a run Word hides (display:none with mso-hide:all): cleanup leaves the run out and reports hidden-text-removed. Safari leaves the word out of the copy and nothing in it tells of hidden text, so nothing is reported.",
+          "correction": "Records what Word copies per browser, which the captures show. On the owner's decision of 2026-10-05 the hidden word no longer pastes visible with unsupported-formatting; it is left out with a warning of its own."
         },
         {
           "id": "B16a",
@@ -1082,7 +1082,7 @@
       "outcome": {
         "notice": "observe",
         "allowedWarnings": [
-          "unsupported-formatting"
+          "hidden-text-removed"
         ]
       }
     },
@@ -1101,6 +1101,9 @@
         "notice": "visible",
         "requiredWarnings": [
           "unsupported-formatting"
+        ],
+        "allowedWarnings": [
+          "hidden-text-removed"
         ]
       },
       "correction": "B15 lies between B14 and the empty paragraphs, so the selection holds it; it was missing from the blocks."
@@ -1373,8 +1376,8 @@
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "caff14da80fb29036e622e34d451e21a387ba843",
-    "originalSpecificationSha256": "4dec9befe5582b646d1a094614bead8baf0dc1a10c5945f84552900c8965d894",
+    "originalSpecificationBlob": "9a5f06a3c7a06db7012125da4497153f9445fd16",
+    "originalSpecificationSha256": "a658c7d6882fd73c3cce7af41d687ff48dff263d638858d617c64434a4d9fc7a",
     "originalKind": "domternal-native-capture-content",
     "originalStatus": "captured-in-part",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",

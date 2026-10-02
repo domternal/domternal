@@ -26,6 +26,10 @@ describe('German paste cleanup language pack', () => {
     i18n.destroy();
   });
 
+  it('says in German that hidden text from Word was not pasted', () => {
+    expect(deMessages['pasteCleanup.diagnostic.hiddenTextRemoved']).toBe('Ausgeblendeter Text aus Word wurde nicht eingefügt.');
+  });
+
   it('requires explicit opt in and preserves English fallback independently', () => {
     const english = new I18nService();
     const german = new I18nService({ locale: 'de', messages: deMessages });

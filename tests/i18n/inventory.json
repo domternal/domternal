@@ -3289,6 +3289,24 @@
       "searchable": false
     },
     {
+      "id": "pasteCleanup.diagnostic.hiddenTextRemoved",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Text the Word document hides (Format > Font > Hidden) was in the copy and was left out of the paste, as Word does not show it.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Hidden text from Word was not pasted."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "pasteCleanup.diagnostic.imageRemoved",
       "owner": "@domternal/extension-paste-cleanup",
       "description": "Diagnostic for unavailable or removed images.",

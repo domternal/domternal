@@ -13,16 +13,20 @@
 > qualification claim. Future native admission still needs an actual capture.
 
 
-Matrix version: `free-paste-evidence-v4`. Recorded on 2026-10-04 for the
-unreleased paste cleanup work; it replaces `free-paste-evidence-v3` of 2026-10-03,
-which qualified the first native row, Word for Mac to Safari, with nineteen
-reviewed native fixtures of the owner's captures of 2026-10-02. Version 4
-qualifies Word for Mac to Chrome and to Firefox with nineteen reviewed native
-fixtures each, from the owner's captures of 2026-10-04, replaces the ten Safari
+Matrix version: `free-paste-evidence-v5`. Recorded on 2026-10-05 for the
+unreleased paste cleanup work; it replaces `free-paste-evidence-v4` of 2026-10-04,
+which qualified Word for Mac to Chrome and to Firefox with nineteen reviewed
+native fixtures each, from the owner's captures of 2026-10-04, next to the
+nineteen Safari fixtures of `free-paste-evidence-v3`, replaced the ten Safari
 list and table fixtures with captures of documents recreated with Word's own
-list libraries, and records the cleanup changes those captures required, the
-declared redactions they carry and the decisions that waited on them. Google
-Docs stays pending; every other row stays unqualified.
+list libraries, and recorded the cleanup changes those captures required, the
+declared redactions they carry and the decisions that waited on them. Version 5
+records two decisions of the owner of 2026-10-05: Word's hidden text is no
+longer pasted but left out with a warning of its own, `hidden-text-removed`,
+which the Chrome and Firefox hidden text fixtures now pin, and Chrome's
+pictures of the selection no longer name the display they were drawn on, by a
+declared clipboard file redaction. Google Docs stays pending; every other row
+stays unqualified.
 This is an evidence inventory, not a fidelity score or a release approval. The
 [package contract](../../packages/extension-paste-cleanup/README.md) defines
 current behavior and its limits.
@@ -53,7 +57,7 @@ Domternal, not from Office.
 
 | Area | Current bounded behavior | Evidence | Remaining qualification or limit |
 | --- | --- | --- | --- |
-| HTML safety and formatting | Shared resource-free normalizer, preserve/adapt policies, supported inline/inherited styles and bounded loss diagnostics. Routine clipboard envelope elements, Office wrappers and Office private, neutral or destination-owned declarations are removed without a warning, including the computed declarations Safari writes on every element it copies; a text color equal to Safari's copied caret color is Word's automatic color in a Word copy, and from another source the page's default color only when neutral, so a colored web container keeps its color. | [Normalizer tests](../../packages/extension-paste-cleanup/src/html/), [Safari Word tests](../../packages/extension-paste-cleanup/src/html/safariWord.test.ts), [browser contracts](../paste-cleanup.browser.ts), [feedback contracts](../paste-feedback.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | General stylesheet cascade, all Office-specific markup and exact RGBA transparency are not promised. Native Word for Mac envelopes stay quiet in Safari, Chrome and Firefox (reviewed fixtures); for Google Docs that still needs the captures. Word's raw HTML in Chrome and Firefox keeps its formatting in class rules, which cleanup does not resolve: `preserve` keeps what Word writes inline. |
+| HTML safety and formatting | Shared resource-free normalizer, preserve/adapt policies, supported inline/inherited styles and bounded loss diagnostics. Routine clipboard envelope elements, Office wrappers and Office private, neutral or destination-owned declarations are removed without a warning, including the computed declarations Safari writes on every element it copies; a text color equal to Safari's copied caret color is Word's automatic color in a Word copy, and from another source the page's default color only when neutral, so a colored web container keeps its color. | [Normalizer tests](../../packages/extension-paste-cleanup/src/html/), [Safari Word tests](../../packages/extension-paste-cleanup/src/html/safariWord.test.ts), [browser contracts](../paste-cleanup.browser.ts), [feedback contracts](../paste-feedback.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | General stylesheet cascade, all Office-specific markup and exact RGBA transparency are not promised. Native Word for Mac envelopes stay quiet in Safari, Chrome and Firefox (reviewed fixtures); for Google Docs that still needs the captures. Word's hidden text is left out with `hidden-text-removed`; other sources' hidden elements keep their text with `unsupported-formatting`. Word's raw HTML in Chrome and Firefox keeps its formatting in class rules, which cleanup does not resolve: `preserve` keeps what Word writes inline. |
 | Own copies and ProseMirror slices | A `data-pm-slice` marker is structural context. Only a same-page PasteCleanup copy marker keeps editor formatting; nested or duplicate markers are removed. | [Slice origin tests](../../packages/extension-paste-cleanup/src/html/sliceOrigin.test.ts), [own copy tests](../../packages/extension-paste-cleanup/src/PasteCleanup.ownCopy.test.ts), [list marker contracts](../paste-list-markers.browser.ts) | Copies across tabs, applications or separate package instances are external by design. |
 | Office-shaped lists | Explicit inline list metadata reconstructs bounded lists. Word level definitions from the clipboard stylesheet, a level font named per script among them, and the marker run font identify default bullets (disc, circle, square) and decimal, alphabetic and Roman numbering; without definitions only decimal numbers and Unicode bullets are admitted. A marker's label is read without the spacer runs Word pads it with, so a right aligned level, as the third level of Word's numbering library, keeps its list. A selection that starts in a nested item opens the levels above it from their definitions, each with one empty item; a level skipped later in a run stays literal. An unsupported item stays a literal paragraph while the rest of its run is reconstructed; a picture bullet stays its marker, never an image. | [List tests](../../packages/extension-paste-cleanup/src/html/officeLists.test.ts), [level definition tests](../../packages/extension-paste-cleanup/src/html/officeListStyles.test.ts), [Safari Word list tests](../../packages/extension-paste-cleanup/src/html/safariWordLists.test.ts), [list marker contracts](../paste-list-markers.browser.ts), [native fixture regressions](../paste-native-fixtures.browser.ts) | Native list profiles are qualified for Word for Mac in Safari, Chrome and Firefox, from a document whose lists come from Word's own libraries; named list definitions from templates are covered by unit tests of the earlier Safari captures. Legal multilevel numbering below its first level, prefixed or custom level text, picture and symbol bullets other than the Word defaults, and letters past z stay literal; `1)` and `a)` keep their marker class, not their parenthesis. |
 | Destination capabilities | Resource-free probes inspect the actual destination schema. Unrepresentable table structure blocks insertion; supported formatting demands receive bounded diagnostics. | [Capability tests](../../packages/extension-paste-cleanup/src/destinationCapabilities.test.ts), [browser contracts](../paste-destination.browser.ts) | A successful probe is not exact source-style fidelity or support for every custom node. |
@@ -184,7 +188,9 @@ Limits of this row:
   so the first row pastes as ordinary cells. Cell borders, padding and widths
   follow the destination table.
 - Word's empty paragraph, a paragraph mark holding one no-break space, pastes
-  as an empty paragraph. Safari leaves hidden text out of the copy. `1)` and `a)` paste as decimal and alphabetic lists, without
+  as an empty paragraph. Safari leaves hidden text out of the copy, so it never
+  pastes; nothing in the copy tells of it, so no notice can name it here.
+  `1)` and `a)` paste as decimal and alphabetic lists, without
   the parenthesis.
 - The first paragraph of a copy joins the paragraph it is pasted into, the way
   ProseMirror joins an open slice, and takes that paragraph's alignment and line
@@ -266,10 +272,13 @@ What the captures show and the fixtures pin:
   the dark theme. Safari's white automatic color was WebKit's computed color in
   the capture page, not Word's.
 - Hidden text arrives as a run Word hides (`display:none` with `mso-hide:all`).
-  It pastes visible with `unsupported-formatting`, as the specification says;
-  Safari leaves it out of the copy instead. The notice names that warning as
-  formatting that could not be preserved, not as hidden text shown; whether such
-  a run should be dropped instead, as Word shows the document, is open.
+  On the owner's decision of 2026-10-05 cleanup leaves it out in both policies,
+  as Word shows the document, a paragraph that held nothing else with it, and
+  the notice names it: "Hidden text from Word was not pasted."
+  (`hidden-text-removed`), where it pasted visible with a formatting warning
+  before. Only a Word source is read this way: a web page's `display: none`
+  keeps its text with `unsupported-formatting`, since a page hides interface
+  parts that way. Safari leaves the run out of the copy, as above.
 - The right aligned third level, Table Grid's single spacing and the empty
   paragraphs behave as in Safari: the lists, tables and routine scenarios paste
   without a notice in both policies (D9 holds for these rows).

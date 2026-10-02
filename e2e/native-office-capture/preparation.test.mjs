@@ -134,7 +134,13 @@ test('outcomes require the authored warnings and keep a quiet scenario quiet', (
   assert.deepEqual(compareOutcome(spec, 'word-default-bullets', [{ code: 'formatting-adapted', severity: 'info' }]), []);
   assert.match(compareOutcome(spec, 'word-default-bullets', [{ code: 'office-list-unsupported', severity: 'warning' }]).join('\n'), /unexpected office-list-unsupported/u);
   assert.match(compareOutcome(spec, 'word-alpha-beyond-z', []).join('\n'), /office-list-unsupported is required/u);
-  assert.deepEqual(compareOutcome(spec, 'word-hidden-text', [{ code: 'unsupported-formatting', severity: 'warning' }]), []);
+  assert.deepEqual(compareOutcome(spec, 'word-hidden-text', [{ code: 'hidden-text-removed', severity: 'warning' }]), []);
+  // A copy that holds the hidden word reports it left out; one that does not, as Safari's, reports nothing of it.
+  const removed = [{ code: 'hidden-text-removed', severity: 'warning' }];
+  assert.deepEqual(compareOutcome(spec, 'word-hidden-text', removed, { hiddenText: 'copied' }), []);
+  assert.match(compareOutcome(spec, 'word-hidden-text', [], { hiddenText: 'copied' }).join('\n'), /hidden-text-removed is required/u);
+  assert.match(compareOutcome(spec, 'word-hidden-text', removed, { hiddenText: 'omitted' }).join('\n'), /hidden-text-removed is unexpected/u);
+  assert.deepEqual(compareOutcome(spec, 'word-hidden-text', [], { hiddenText: 'omitted' }), []);
 });
 
 test('marks, alignment and hidden text follow the content specification', () => {
@@ -607,7 +613,7 @@ test('the semantic oracle pins the line spacing, the cell shading and the empty 
   assert.match(check('word-empty-paragraphs-safari', empties.replace('<p></p>', '<p>\u00a0</p>')), /no-break space|unexpected/u);
 });
 
-test('the semantic oracle requires hidden text where the browser copies it and its absence where the browser leaves it out', async () => {
+test('the semantic oracle requires that hidden text never pastes, and names it left out exactly where the browser copied it', async () => {
   const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
   const pinned = [];
   for (const { manifest, html } of await semanticFixtures()) {
@@ -617,21 +623,24 @@ test('the semantic oracle requires hidden text where the browser copies it and i
     // Safari leaves Word's hidden run out of the copy; Chrome and Firefox carry Word's raw HTML, which keeps it.
     assert.equal(manifest.expected.hiddenText, browser === 'safari' ? 'omitted' : 'copied', manifest.id);
     for (const formatting of ['preserve', 'adapt']) {
-      const output = normalizePasteHTML(html, { formatting, allowRemoteImages: false, allowDataImages: true }).html;
+      const result = normalizePasteHTML(html, { formatting, allowRemoteImages: false, allowDataImages: true });
       const check = value => compareBlocks(semanticSpecification(manifest.expected), manifest.expected.scenario, blocksFromHTML(value), { formatting }).join('\n');
-      assert.equal(check(output), '', `${manifest.id} ${formatting}`);
-      // A cleanup that drops the hidden run, or one that a browser's copy would reveal, is a finding either way.
-      const broken = manifest.expected.hiddenText === 'copied' ? output.replace(block.hidden, '') : output.replace('end.', `${block.hidden} end.`);
-      assert.notEqual(broken, output, manifest.id);
-      assert.match(check(broken), new RegExp(`${block.id}: text is`, 'u'), `${manifest.id} ${formatting}`);
+      assert.equal(check(result.html), '', `${manifest.id} ${formatting}`);
+      // A cleanup that reveals the hidden word, as the paste did before, is a finding in every browser.
+      const revealed = result.html.replace('end.', `${block.hidden} end.`);
+      assert.notEqual(revealed, result.html, manifest.id);
+      assert.match(check(revealed), new RegExp(`${block.id}: text is`, 'u'), `${manifest.id} ${formatting}`);
+      // The warning that names it is reported exactly where the copy held it.
+      assert.equal(result.diagnostics.some(entry => entry.code === 'hidden-text-removed'), browser !== 'safari', `${manifest.id} ${formatting}`);
+      assert.deepEqual(compareOutcome(spec, manifest.expected.scenario, result.diagnostics, { formatting, destination: false, hiddenText: manifest.expected.hiddenText }), [],
+        `${manifest.id} ${formatting}`);
     }
     pinned.push(manifest.id);
   }
   assert.deepEqual(pinned.sort(), ['word-empty-paragraphs', 'word-hidden-text'].flatMap(id => ['chrome', 'firefox', 'safari'].map(browser => `${id}-${browser}`)).sort());
-  // The specification itself records both forms, and a capture bundle is checked by what its HTML holds.
-  const hidden = { type: 'doc', content: [paragraph(text('B15 Visible part HIDDEN end.'))] };
-  assert.deepEqual(compareBlocks(spec, 'word-hidden-text', blocksFromEditorJSON(hidden)), []);
-  assert.match(compareBlocks(spec, 'word-hidden-text', blocksFromEditorJSON(hidden), { hiddenText: 'omitted' }).join('\n'), /B15: text is "B15 Visible part HIDDEN end\.", expected "B15 Visible part end\."/u);
+  // The specification expects the text without the hidden word, whatever the copy holds.
+  const revealed = { type: 'doc', content: [paragraph(text('B15 Visible part HIDDEN end.'))] };
+  assert.match(compareBlocks(spec, 'word-hidden-text', blocksFromEditorJSON(revealed)).join('\n'), /B15: text is "B15 Visible part HIDDEN end\.", expected "B15 Visible part end\."/u);
 });
 
 test('the semantic oracle reads the fixture editor result the same way: added blocks and formatting are reported', () => {

@@ -24,8 +24,10 @@ const SEMANTIC_BLOCK_TYPES = new Set(['heading', 'paragraph', 'listItem', 'liter
 const NOTICES = new Set(['quiet', 'visible']);
 // The fixture editor's schema an editor oracle holds for: the default one, or every capability, for content that needs it.
 const EDITOR_SCHEMAS = new Set(['default', 'capability-full']);
-// Whether a copy holds the hidden text a block authors: copied (it then pastes) or omitted by the browser.
+// Whether a copy holds the hidden text a block authors: copied (cleanup then leaves it out with hidden-text-removed)
+// or omitted by the browser. Hidden text pastes in neither.
 const HIDDEN_TEXT = new Set(['copied', 'omitted']);
+const HIDDEN_TEXT_REMOVED = 'hidden-text-removed';
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const PNG_LIMITS = Object.freeze({ chunks: 4096, profileBytes: 4 * 1024 * 1024, profileTags: 1024 });
 // Clipboard files a manifest may declare a redaction of, at most this many.
@@ -286,10 +288,13 @@ export function readSemanticExpected(expected) {
   // Whether the copy holds a block's hidden text is the browser's, so the oracle says it exactly when a block authors one.
   const hidden = expected.blocks.some(block => block.hidden !== undefined);
   if (hidden ? !HIDDEN_TEXT.has(expected.hiddenText) : expected.hiddenText !== undefined) fail('evidence-schema');
+  // Hidden text the copy holds is left out with its own warning, in every policy and schema, and none is reported for a copy without it.
+  const removed = outcome => outcome.warnings.includes(HIDDEN_TEXT_REMOVED) === (expected.hiddenText === 'copied');
   for (const formatting of ['preserve', 'adapt']) {
     const oracle = shape(expected[formatting], ['status', 'source', 'warnings', 'editor']);
     if (!['cleaned', 'rejected'].includes(oracle.status) || !['word', 'google-docs', 'libreoffice', 'html'].includes(oracle.source)) fail('evidence-schema');
     sortedCodes(oracle.warnings);
+    if (!removed(oracle)) fail('evidence-schema');
     // One editor outcome, or one per destination schema the fixture is pinned in.
     const editors = Array.isArray(oracle.editor) ? oracle.editor : [oracle.editor];
     if (editors.length === 0 || editors.length > EDITOR_SCHEMAS.size) fail('evidence-schema');
@@ -297,6 +302,7 @@ export function readSemanticExpected(expected) {
       const editor = shape(entry, ['schema', 'notice', 'warnings']);
       if (!NOTICES.has(editor.notice) || !EDITOR_SCHEMAS.has(editor.schema)) fail('evidence-schema');
       sortedCodes(editor.warnings);
+      if (!removed(editor)) fail('evidence-schema');
     }
     if (new Set(editors.map(editor => editor.schema)).size !== editors.length) fail('evidence-schema');
   }

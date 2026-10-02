@@ -23,8 +23,8 @@
         "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
         "text": "B15 Visible part HIDDEN end.",
         "hidden": "HIDDEN",
-        "expectation": "When the copy holds the hidden word, it becomes visible with unsupported-formatting. Safari leaves it out of the copy; Chrome and Firefox carry Word's raw HTML, which keeps it in a run Word hides (display:none with mso-hide:all).",
-        "correction": "Records what Word copies, which the specification asked to observe: the captures show it per browser.",
+        "expectation": "Hidden text never pastes, as Word does not show it. Chrome and Firefox carry Word's raw HTML, which keeps the word in a run Word hides (display:none with mso-hide:all): cleanup leaves the run out and reports hidden-text-removed. Safari leaves the word out of the copy and nothing in it tells of hidden text, so nothing is reported.",
+        "correction": "Records what Word copies per browser, which the captures show. On the owner's decision of 2026-10-05 the hidden word no longer pastes visible with unsupported-formatting; it is left out with a warning of its own.",
         "textStyle": {
           "fontFamily": "Aptos",
           "fontSize": "12pt"
@@ -35,13 +35,13 @@
       "status": "cleaned",
       "source": "word",
       "warnings": [
-        "unsupported-formatting"
+        "hidden-text-removed"
       ],
       "editor": {
         "schema": "default",
         "notice": "visible",
         "warnings": [
-          "unsupported-formatting"
+          "hidden-text-removed"
         ]
       }
     },
@@ -49,13 +49,13 @@
       "status": "cleaned",
       "source": "word",
       "warnings": [
-        "unsupported-formatting"
+        "hidden-text-removed"
       ],
       "editor": {
         "schema": "default",
         "notice": "visible",
         "warnings": [
-          "unsupported-formatting"
+          "hidden-text-removed"
         ]
       }
     }
@@ -64,6 +64,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
     "captureSha256": "e1fd206eae50bffdbba737869e86e68bceb80dbba9a53fa30e484a028380804e",
-    "manifestSha256": "1f99f340c14affdaeae389059518dec50a04596350ef620a21e3b874298e5e62"
+    "manifestSha256": "0ac099e330eb700e379ae6382c61740f8d61ab05ce88c39dff42cf384f5aa262"
   }
 }

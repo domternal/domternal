@@ -38,6 +38,7 @@ declare module '@domternal/core' {
     'pasteCleanup.diagnostic.destinationFormattingUnconfirmed': undefined;
     'pasteCleanup.diagnostic.destinationTableUnsupported': undefined;
     'pasteCleanup.diagnostic.destinationHeadingLevelAdapted': undefined;
+    'pasteCleanup.diagnostic.hiddenTextRemoved': undefined;
     'pasteCleanup.diagnostic.other': undefined;
   }
 }
@@ -187,6 +188,10 @@ export const pasteCleanupMessages = {
   destinationHeadingLevelAdapted: defineMessage({
     id: 'pasteCleanup.diagnostic.destinationHeadingLevelAdapted', defaultValue: 'Some headings were changed to a heading level this editor supports.', owner: '@domternal/extension-paste-cleanup',
     description: 'A pasted heading level the editor does not support became its nearest supported level instead of a paragraph.',
+  }),
+  hiddenTextRemoved: defineMessage({
+    id: 'pasteCleanup.diagnostic.hiddenTextRemoved', defaultValue: 'Hidden text from Word was not pasted.', owner: '@domternal/extension-paste-cleanup',
+    description: 'Text the Word document hides (Format > Font > Hidden) was in the copy and was left out of the paste, as Word does not show it.',
   }),
   other: defineMessage({
     id: 'pasteCleanup.diagnostic.other', defaultValue: 'Some pasted content may need review.', owner: '@domternal/extension-paste-cleanup',
