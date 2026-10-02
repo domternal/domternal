@@ -954,9 +954,12 @@ one `image/png` file, Word's picture of the whole selection, which is never
 inserted when the content has text of its own or, as a Word copy, places no
 image; Firefox and Safari expose no files. Chrome and Firefox also expose
 `text/rtf`, which PasteCleanup never reads. Hidden Word text pastes visible with
-a warning in Chrome and Firefox, while Safari leaves it out of the copy.
-A copy that is one paragraph, pasted into a paragraph, joins it as ProseMirror
-joins an open slice and keeps that paragraph's alignment, without a notice. A
+a warning in Chrome and Firefox, which the notice names as formatting it could
+not preserve, not as hidden text shown, while Safari leaves it out of the copy.
+The first paragraph of a copy joins the paragraph it is pasted into, as
+ProseMirror joins an open slice, and takes that paragraph's alignment and line
+spacing, also when it is empty, without a notice; the blocks after it and a
+heading keep their own. A
 `background-color` on a paragraph or heading has no place in the editor and is
 dropped without a notice, while the `background` shorthand Word writes for
 paragraph shading is reported. Large selections, own copies, images and every

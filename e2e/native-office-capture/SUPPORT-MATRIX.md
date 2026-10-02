@@ -186,10 +186,13 @@ Limits of this row:
 - Word's empty paragraph, a paragraph mark holding one no-break space, pastes
   as an empty paragraph. Safari leaves hidden text out of the copy. `1)` and `a)` paste as decimal and alphabetic lists, without
   the parenthesis.
-- A copy that is one paragraph, pasted into a paragraph, joins it the way
-  ProseMirror joins an open slice: the paragraph keeps its own alignment, so a
-  centered Word paragraph pasted into an empty one arrives left aligned, with no
-  notice. The captured selections start with a heading and do not show it.
+- The first paragraph of a copy joins the paragraph it is pasted into, the way
+  ProseMirror joins an open slice, and takes that paragraph's alignment and line
+  spacing, also when it is empty: a copy that starts with a centered or 1.5
+  spaced Word paragraph, pasted into a new empty paragraph, starts left aligned
+  and without its spacing, with no notice. The blocks after it keep their own,
+  and so does a heading, which replaces an empty paragraph whole. The captured
+  alignment and spacing selections start with a heading and do not show it.
 - A paragraph or heading background written as `background-color`, as web pages
   write it, has no place in the editor and is dropped without a notice; the
   `background` shorthand Word writes for paragraph shading is reported as
@@ -225,19 +228,21 @@ What the captures show and the fixtures pin:
   used, which with the head makes up almost all of a copy of 38,454 to 53,920
   characters, conditional comments, downlevel
   revealed `<![if !supportLists]>` markers, `o:p` elements, `mso-*` properties
-  and formatting Word keeps in class rules. Both browsers deliver the same HTML,
-  except that Chrome ends its lines with CRLF and Firefox with LF; their
-  `text/plain` is identical.
+  and formatting Word keeps in class rules. Both browsers deliver the same HTML
+  and the same `text/plain`, except that Chrome ends their lines with CRLF and
+  Firefox with LF.
 - Both expose `text/rtf` too: 38,484 to 57,215 bytes, 0.91 to 1.10 times the
   HTML, which PasteCleanup never reads. Every paste carries it and applies.
 - Chrome adds one `image/png` file, `image.png`: Word's picture of the whole
   selection (451 to 468 pixels wide, 5,712 to 48,652 bytes), not an image of the
   content. It is in every replayed Chrome paste and is never inserted, read,
   offered to a matcher or a reason to refuse the paste, also with image
-  preparation and with byte limits no captured file fits. A Word copy without
-  text of its own that places no image, such as empty paragraphs or cells, keeps
-  its content as well; core's file rule decides it for the Image, PasteCleanup
-  and the Link paste. Firefox exposes no files.
+  preparation and with byte limits no captured file fits. Firefox exposes no
+  files. Every captured copy has text of its own; a Word copy without it that
+  places no image, such as empty paragraphs, empty cells or a horizontal rule,
+  keeps its content by core's file rule as well, for the Image, PasteCleanup and
+  the Link paste, which synthetic copies in Chrome's shape pin until such a copy
+  is captured.
 - Word writes links to its local temporary files under the user's home folder:
   the clipboard file list, theme data and color scheme mapping in the head, and
   a picture bullet as a `file:` image with a `list-style-image` URL. Cleanup
@@ -262,7 +267,9 @@ What the captures show and the fixtures pin:
   the capture page, not Word's.
 - Hidden text arrives as a run Word hides (`display:none` with `mso-hide:all`).
   It pastes visible with `unsupported-formatting`, as the specification says;
-  Safari leaves it out of the copy instead.
+  Safari leaves it out of the copy instead. The notice names that warning as
+  formatting that could not be preserved, not as hidden text shown; whether such
+  a run should be dropped instead, as Word shows the document, is open.
 - The right aligned third level, Table Grid's single spacing and the empty
   paragraphs behave as in Safari: the lists, tables and routine scenarios paste
   without a notice in both policies (D9 holds for these rows).
@@ -274,9 +281,14 @@ Limits of these rows:
   no native paste into the editor was recorded.
 - Header Row arrives as ordinary cells, `1)` and `a)` without the parenthesis,
   and letters past `z`, legal numbering below its first level, dash, check
-  mark, arrow and picture bullets stay literal, as in Safari. A Wingdings marker
+  mark, arrow and picture bullets stay literal, as in Safari. Word draws the
+  check mark and the arrow as the letters `ü` and `Ø` in Wingdings, in all three
+  browsers: `preserve` keeps the font, so they show as Word shows them only where
+  the reader has Wingdings, and `adapt` shows the letters. A Wingdings marker
   keeps the 7 pt spacer after it in the marker's font, which can draw a stray
-  glyph in `preserve` (deferred with DF-07).
+  glyph in `preserve` (both deferred with DF-07).
+- The first pasted paragraph takes the alignment and line spacing of the
+  paragraph it is pasted into, as in Safari.
 - Large selections, own copies and every image scenario are not captured for
   these rows; Word's images are local `file:` URLs here and stay unbound.
 
@@ -285,9 +297,10 @@ list and table fixes above; PCL-03 keeps the glyph-only fallback, which no
 captured row needs, since Chrome and Firefox carry Word's stylesheet with every
 list; RTF flavor sizes are recorded above and confirm that a large RTF flavor
 never rejects a paste (F8 item 4), a size test waits for `word-large-document`;
-V2-2 is confirmed for Word copies with text and refined for Word copies without
-it, while V2-1 and the image-only, mixed and Copy Image shapes still need
-captures; OD-01 and OD-53 hold, no capture proves them wrong.
+V2-2 is confirmed for Word copies with text, and refined from synthetic copies
+for Word copies without it, while V2-1, those copies and the image-only, mixed
+and Copy Image shapes still need captures; OD-01 and OD-53 hold, no capture
+proves them wrong.
 
 RTF/RTFD image matching, local blob URL retrieval and general source-specific
 association profiles are not implemented by this harness. A native capture that
@@ -304,25 +317,32 @@ outcome. This increment does not retry native automation.
 | `word-*-safari` (nineteen) | The owner's native Word 16.113.3 for Mac to Safari 26.5.2 captures of the synthetic `word-mac-v1` documents: nine of 2026-10-02 and the ten list and table captures of 2026-10-04. Every source document declares its emptied author properties, every capture its withheld source hash, and `word-unsupported-list-profiles-safari` its replaced home folder path (version 2 manifests). | The blocks of the scenario's selection as the content specification authors them, and per policy the replay's warning codes and the editor's notice and codes, authored from the specification and reviewed against the editor results. | Reviewed: this matrix qualifies the Safari row with them. The tooling still reports `qualification: false`. |
 | `word-*-chrome` and `word-*-firefox` (nineteen each) | The owner's native Word 16.113.3 for Mac to Chrome 154.0.8037.93 and Firefox 155.0.1 captures of 2026-10-04, from the same documents. Every capture declares Word's replaced local paths, and each capture of the lists or tables document its withheld source hash, whose source declares its emptied author properties; the basics captures name the committed basics document's hash. | As for Safari, with Chrome's picture of the selection in every Chrome paste and pinned as never inserted, read or bound. | Reviewed: this matrix qualifies the Chrome and Firefox rows with them. The tooling still reports `qualification: false`. |
 
-Owner documents and captures were redacted on the owner's request before
-anything was committed: the author e-mail address in each document's properties
-and the account name in one picture bullet path. The originals were deleted.
-Each declaration holds fingerprints taken from the redacted copy and no hash of
-an original, and each capture withholds the hash it recorded of its source
-document, which held the address, because an unsalted hash of it would confirm a
-guessed address; see [Declared redactions](./README.md#declared-redactions).
+Owner documents and captures were redacted before anything was committed, and
+each fixture's manifest declares its redactions; no declaration records a hash
+of an original (see [Declared redactions](./README.md#declared-redactions)):
 
-The captures of 2026-10-04 hold Word's links to its local temporary files, which
-name the home folder: three in each Chrome and Firefox copy, five with the
-picture bullet, and one in Safari's picture bullet. At the owner's request the
-account name had been replaced in every local copy before review, and no
-original exists; each path is redacted from its scheme or home folder prefix
-through that name by a same-length token, the picture bullet's image source
-thereby reading as a relative reference. The recreated lists and tables
-documents hold the generic author name Word gives a user who set none; their
-author properties are emptied, the owner keeps the originals, and their
-captures withhold the hash they recorded. No privacy scan finds anything in the
-committed files, including what the RTF flavors' hexadecimal groups decode to.
+- The basics document held the owner's e-mail address in its author
+  properties. On the owner's request of 2026-10-02 they were emptied and the
+  original was deleted, so its declaration has the basis `redacted-copy`. Its
+  nine Safari captures withhold the source hash they recorded, because an
+  unsalted hash of a document that held the address would confirm a guessed
+  address. The Chrome and Firefox captures were copied from the redacted
+  document and name its committed hash; they withhold nothing.
+- The recreated lists and tables documents hold the generic author name Word
+  gives a user who set none. Their author properties are emptied too, the owner
+  keeps the originals, so their declarations have the basis `original`, and each
+  of their thirty captures withholds the source hash it recorded.
+- The captures of 2026-10-04 hold Word's links to its local temporary files,
+  which name the home folder: three in each Chrome and Firefox copy, five with
+  the picture bullet, and one in Safari's picture bullet. At the owner's request
+  the account name had been replaced in every local copy before review, and no
+  original exists, so these declarations have the basis `redacted-copy`; each
+  path is redacted from its scheme or home folder prefix through that name by a
+  same-length token, the picture bullet's image source thereby reading as a
+  relative reference.
+
+No privacy scan finds anything in the committed files, including what the RTF
+flavors' hexadecimal groups decode to.
 
 The [manifest](./fixtures/synthetic-v1/manifest.json) pins the exact source and
 capture SHA-256 values and an explicitly reviewed output for both policies. The
