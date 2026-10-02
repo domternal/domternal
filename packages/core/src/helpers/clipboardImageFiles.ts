@@ -28,6 +28,12 @@ export interface ClipboardPasteTextOptions {
    * order. They stand in for images, so they are not text of the content's own.
    */
   readonly imageStandIns?: readonly string[];
+  /**
+   * Whether a handler removed text of the content's own that it does not paste, such as a Word document's hidden
+   * text. The content then had text of its own, whatever the slice holds, so the clipboard's image files, which can
+   * be the application's picture of a selection showing that text, are not the paste.
+   */
+  readonly removedText?: boolean;
 }
 
 // White space (NBSP, BOM and the ideographic space included) and Unicode format characters
@@ -136,9 +142,11 @@ function officeSelectionPicture(data: DataTransfer | null | undefined): boolean 
  * form. A web address that ends in the name stays text. Content without text of its own still
  * counts as the paste when the HTML is a Word or Excel document that places no image, such as a
  * copy of empty paragraphs or cells: the image file next to it is the application's picture of
- * the selection, which Chrome exposes for Word.
+ * the selection, which Chrome exposes for Word. Text a handler removed (`removedText`), such as Word's hidden
+ * text, counts as text of its own: a picture of the selection can show it.
  */
 export function pasteHasOwnText(event: ClipboardEvent, slice: Slice, options: ClipboardPasteTextOptions = {}): boolean {
+  if (options.removedText === true) return true;
   const own = visible(sliceText(slice));
   if (own === '') return officeSelectionPicture(event.clipboardData);
   const standIns = visible((options.imageStandIns ?? []).join(''));
@@ -195,7 +203,8 @@ export function pasteClipboardImageFiles(
  * position. A drop's files win over the HTML or text it carries, since an operating system's file
  * drag carries only a name as text; with one file and one image in the dropped content, the file
  * keeps that image's alt text. Returns whether the destination took the files. A drag inside the
- * editor moves its own content and carries no files.
+ * editor moves its own content and carries no files. A drop whose content held text a handler removed
+ * (`removedText`), such as Word's hidden text, hands over no files: they can picture that text.
  */
 export function dropClipboardImageFiles(
   view: EditorView,
@@ -203,6 +212,7 @@ export function dropClipboardImageFiles(
   slice: Slice,
   options: ClipboardPasteTextOptions = {},
 ): boolean {
+  if (options.removedText === true) return false;
   const files = clipboardImageFiles(event.dataTransfer);
   if (files.length === 0) return false;
   const destination = clipboardImageFileDestination(view);

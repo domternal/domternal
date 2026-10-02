@@ -150,8 +150,11 @@ export interface ClipboardAssetCoordinator {
   ordinaryAttempt(): boolean;
   replayHTML(html: string): ClipboardReplayNormalization | undefined;
   handleReplay(event: ClipboardEvent, slice: Slice): ClipboardReplayHandling | undefined;
-  /** Prepares the clipboard's image files when the cleaned content has no text of its own. */
-  handleImageOnly(event: ClipboardEvent, slice: Slice, standIns?: readonly string[]): boolean;
+  /**
+   * Prepares the clipboard's image files when the cleaned content has no text of its own. `removedText` says that
+   * cleanup removed text the content held, Word's hidden text, which a picture of the selection can show.
+   */
+  handleImageOnly(event: ClipboardEvent, slice: Slice, standIns?: readonly string[], removedText?: boolean): boolean;
   assetsHandled(event: ClipboardEvent): boolean;
   observe(): void;
   adopt(): void;
@@ -599,9 +602,10 @@ export function createClipboardAssetCoordinator(
       if (blocked && !own.asset.done) stop(own.asset, slice.content.size === 0 ? 'assets-unavailable' : cancellationReason(own.asset.session?.cancellation));
       return { operation: own.asset.operation, blocked, preserveOrderedListStart: own.preserveOrderedListStart };
     },
-    handleImageOnly(event, slice, standIns = []) {
-      // Core's rule: white space, format characters and alt text left in place of removed images are not text of its own.
-      if (destroyed || replays.has(event) || pasteHasOwnText(event, slice, { imageStandIns: standIns })) return false;
+    handleImageOnly(event, slice, standIns = [], removedText = false) {
+      // Core's rule: white space, format characters and alt text left in place of removed images are not text of its
+      // own, while text cleanup removed, Word's hidden text, is.
+      if (destroyed || replays.has(event) || pasteHasOwnText(event, slice, { imageStandIns: standIns, removedText })) return false;
       const captured = event.currentTarget === view.dom && event.eventPhase !== 0 ? captures.get(event) : undefined;
       // Cleaning the event's HTML began a newer generation; the capture belongs to it.
       const ordinary = ordinaryAttempts.get(event);

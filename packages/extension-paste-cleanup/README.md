@@ -185,7 +185,8 @@ visible. A hidden list item leaves one list, numbered as if it were not there,
 and a table cell or column keeps its place without its content. Each removed
 element that held text or an image reports `hidden-text-removed`, a warning the
 notice names as "Hidden text from Word was not pasted.", in both policies. Its
-images are neither prepared nor reported.
+images are neither prepared nor reported, and the picture of the selection
+Chrome adds, which can show the hidden text, is never pasted in its place.
 Safari leaves hidden text out of its copy, which then holds no trace of it, so
 nothing is reported there. A style rule with another selector, such as one with
 a combinator, is not read.
@@ -261,7 +262,9 @@ one image that drop's content held; a later drop of files alone, as an operating
 drag carries them, keeps none. Content with text of its own keeps the paste, since Word, Excel
 and Google Docs put a picture of the copied selection next to it, and so does a Word or Excel copy
 that places no image, such as empty paragraphs or cells, whose file Chrome exposes as that
-picture. A rejected paste never reaches
+picture. Text cleanup removed, Word's hidden text, counts as text of the content's own, so the
+picture of the selection, which can show that text, is never the paste of such a copy, also
+when its hidden content held an image. A rejected paste never reaches
 the files. With `allowBase64: false` and no `uploadHandler`, the Image cannot store
 files and the cleaned content pastes as it would without them.
 

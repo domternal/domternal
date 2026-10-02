@@ -319,6 +319,24 @@ describe('PasteCleanup and the picture Word adds of its selection', () => {
     }
   });
 
+  it.each(configurations)('pastes nothing of a Word copy of only hidden text and a hidden picture, not Word\'s picture that can show them, %s', async (_name, cleanup, image) => {
+    // Selecting only hidden content in Word takes hidden text shown on screen, so Chrome's picture of the selection shows it.
+    const hidden = html.replace(/<!--StartFragment-->[\s\S]*<!--EndFragment-->/u, "<!--StartFragment-->\r\n\r\n<p class=MsoNormal><span style='display:none;mso-hide:all'>"
+      + 'Secret note <img width=20 height=20 src="clip_image001.png" v:shapes="Picture_x0020_1"><o:p></o:p></span></p>\r\n\r\n<!--EndFragment-->');
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const fixture = mount({ ...cleanup, formatting }, image);
+      const before = fixture.editor.getJSON();
+      paste(fixture.editor, { html: hidden, text: '', files: [png('image.png')] });
+      const result = await settled(fixture);
+      expect(result?.status).toBe('noop');
+      expect(result?.diagnostics.map(entry => entry.code)).toEqual(['hidden-text-removed']);
+      expect(images(fixture.editor)).toEqual([]);
+      expect(fixture.editor.getJSON()).toEqual(before);
+      expect(Array.from(fixture.host.querySelectorAll('.dm-paste-feedback li'), node => node.textContent)).toEqual(['Hidden text from Word was not pasted.']);
+      fixture.editor.destroy();
+    }
+  });
+
   it.each(configurations)('pastes the rule of a Word copy of a horizontal rule, not Word\'s picture of it, %s', async (_name, cleanup, image) => {
     // A selection of only Word's horizontal line: no text of its own and no image Word places, so its content is the paste.
     const rule = html.replace(/<!--StartFragment-->[\s\S]*<!--EndFragment-->/u,

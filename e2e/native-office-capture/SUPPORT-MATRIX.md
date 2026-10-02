@@ -281,8 +281,9 @@ What the captures show and the fixtures pin:
   Word's web hidden text (`mso-hide: screen`), such as a table of contents' page
   numbers, keep their text with `unsupported-formatting`. A paragraph that held
   nothing else goes with its hidden text when its paragraph mark is hidden too
-  and stays empty when the mark shows, and a hidden list item leaves one list
-  numbered without it. The captures hold only a hidden run
+  and stays empty when the mark shows, a hidden list item leaves one list
+  numbered without it, and Chrome's picture of a selection whose hidden text was
+  left out is never pasted in its place. The captures hold only a hidden run
   inside a visible paragraph; the other shapes rest on authored HTML in the
   normalizer's tests. Safari leaves the run out of the copy, as above.
 - The right aligned third level, Table Grid's single spacing and the empty

@@ -328,6 +328,16 @@ describe('dropClipboardImageFiles', () => {
     expect(insert).toHaveBeenLastCalledWith({ files: [file], position: 1, alt: 'A cat' });
   });
 
+  it('hands over no file when a handler removed text the drop held, which a picture of the dragged selection can show', () => {
+    const insert = vi.fn(() => true);
+    const ed = mount();
+    registerClipboardImageDestination(ed.view, () => policy, insert);
+    vi.spyOn(ed.view, 'posAtCoords').mockReturnValue({ pos: 1, inside: -1 });
+    expect(dropClipboardImageFiles(ed.view, drop([png()], '<p>x</p>'), Slice.empty, { removedText: true })).toBe(false);
+    expect(insert).not.toHaveBeenCalled();
+    expect(dropClipboardImageFiles(ed.view, drop([png()], '<p>x</p>'), Slice.empty, { removedText: false })).toBe(true);
+  });
+
   it('returns false without image files, a destination, a position, or when the destination declines or throws', () => {
     const ed = mount();
     vi.spyOn(ed.view, 'posAtCoords').mockReturnValue({ pos: 1, inside: -1 });
@@ -390,6 +400,21 @@ describe('the picture an Office application adds of its selection', () => {
       '<p>urn:schemas-microsoft-com:office:word</p>']) {
       expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty), html).toBe(false);
     }
+  });
+
+  it('takes text a handler removed, such as Word\'s hidden text, as the content\'s own, so the picture that can show it is not the paste', () => {
+    const insert = vi.fn(() => true);
+    const ed = mount();
+    registerClipboardImageDestination(ed.view, () => policy, insert);
+    // A copy that places an image, whose hidden text and image a handler left out: the slice holds nothing.
+    for (const html of [word(PICTURE), '<p><img src="https://example.com/a.png"></p>']) {
+      expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty), html).toBe(false);
+      expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty, { removedText: true }), html).toBe(true);
+      expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), textSlice(ed, 'A cat'), { imageStandIns: ['A cat'], removedText: true }), html).toBe(true);
+      expect(pasteClipboardImageFiles(ed.view, pasteEvent({ html, files: [png()] }), Slice.empty, { removedText: true }), html).toBe(false);
+    }
+    expect(insert).not.toHaveBeenCalled();
+    expect(pasteHasOwnText(pasteEvent({ html: word(PICTURE), files: [png()] }), Slice.empty, { removedText: false })).toBe(false);
   });
 
   it('hands no file to the destination for a Word copy without text of its own, and the content stays the paste', () => {

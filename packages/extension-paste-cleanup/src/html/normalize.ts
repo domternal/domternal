@@ -30,6 +30,7 @@ import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
 import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
 import { routineLineHeights } from './wordSpacing.js';
 import { wordHiddenText } from './hiddenText.js';
+import { recordRemovedText } from './removedText.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -206,7 +207,7 @@ export function normalizeClipboardHTML(
       }
       // Word's hidden text is not pasted. After the lists, so a hidden item leaves one list numbered as if it were not
       // there; before the styles and images are read, so the hidden ones are neither reported nor prepared.
-      hidden?.remove(node => { report('hidden-text-removed', node); });
+      if (hidden?.remove(node => { report('hidden-text-removed', node); }) === true) recordRemovedText(result);
       hoistListItemMarkers(tree);
       // After the markers moved, so the added item does not stop a list's items from agreeing on one.
       nestLeadingLists(tree);

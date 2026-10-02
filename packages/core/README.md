@@ -275,6 +275,9 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   places no image (HTML whose `ProgId` meta names `Word.Document` or `Excel.Sheet`, or whose root
   declares Word's or Excel's namespace, without an `<img>` or VML image data), such as a copy of
   empty paragraphs or cells: Chrome exposes Word's picture of the selection as a file next to it.
+  Text a handler removed counts as text of its own when the handler says so (`removedText`), as
+  Paste Cleanup does for Word's hidden text: the picture of the selection can show it, so it is
+  neither a paste's files nor, for `dropClipboardImageFiles`, a drop's.
   The Image extension, Paste Cleanup and the Link paste all ask this rule, so their paste handlers
   cannot disagree.
 
