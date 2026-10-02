@@ -234,8 +234,8 @@ What the captures show and the fixtures pin:
 - Both expose `text/rtf` too: 38,484 to 57,215 bytes, 0.91 to 1.10 times the
   HTML, which PasteCleanup never reads. Every paste carries it and applies.
 - Chrome adds one `image/png` file, `image.png`: Word's picture of the whole
-  selection (451 to 468 pixels wide, 5,712 to 48,652 bytes), not an image of the
-  content. It is in every replayed Chrome paste and is never inserted, read,
+  selection (451 to 468 pixels wide, 5,716 to 48,656 bytes as committed, with
+  its display profile redacted), not an image of the content. It is in every replayed Chrome paste and is never inserted, read,
   offered to a matcher or a reason to refuse the paste, also with image
   preparation and with byte limits no captured file fits. Firefox exposes no
   files. Every captured copy has text of its own; a Word copy without it that
@@ -315,7 +315,7 @@ outcome. This increment does not retry native automation.
 | `synthetic-office-evidence-v1` | Independently authored HTML, a Node synthetic event and an arbitrary four-byte File. No Office application or OS clipboard. | Preserve/adapt retain `Alpha` in bold, `Beta` in italic and the image alt text; unresolved `cid:2` is removed with `image-removed`. | False. The file is evidence for byte checks, not a raster or a proved image binding. |
 | `synthetic-google-docs-dry-run-v1` | Authored HTML in the Google Docs clipboard shape for `gdocs-mixed-document`, a Node synthetic event and a custom flavor whose bytes the capture omits. No Google Docs session or OS clipboard. | Preserve/adapt keep the heading, marks, link, nested lists, the merged cell and the alt text of the URL image, which is removed with `image-removed`; the list markers written on each `li` move to their lists, and the sized span around the image is routine, as the oracle records. | False. A dry run of the procedure, not a capture of Google Docs. |
 | `word-*-safari` (nineteen) | The owner's native Word 16.113.3 for Mac to Safari 26.5.2 captures of the synthetic `word-mac-v1` documents: nine of 2026-10-02 and the ten list and table captures of 2026-10-04. Every source document declares its emptied author properties, every capture its withheld source hash, and `word-unsupported-list-profiles-safari` its replaced home folder path (version 2 manifests). | The blocks of the scenario's selection as the content specification authors them, and per policy the replay's warning codes and the editor's notice and codes, authored from the specification and reviewed against the editor results. | Reviewed: this matrix qualifies the Safari row with them. The tooling still reports `qualification: false`. |
-| `word-*-chrome` and `word-*-firefox` (nineteen each) | The owner's native Word 16.113.3 for Mac to Chrome 154.0.8037.93 and Firefox 155.0.1 captures of 2026-10-04, from the same documents. Every capture declares Word's replaced local paths, and each capture of the lists or tables document its withheld source hash, whose source declares its emptied author properties; the basics captures name the committed basics document's hash. | As for Safari, with Chrome's picture of the selection in every Chrome paste and pinned as never inserted, read or bound. | Reviewed: this matrix qualifies the Chrome and Firefox rows with them. The tooling still reports `qualification: false`. |
+| `word-*-chrome` and `word-*-firefox` (nineteen each) | The owner's native Word 16.113.3 for Mac to Chrome 154.0.8037.93 and Firefox 155.0.1 captures of 2026-10-04, from the same documents. Every capture declares Word's replaced local paths, each Chrome capture its picture's cleared display profile, and each capture of the lists or tables document its withheld source hash, whose source declares its emptied author properties; the basics captures name the committed basics document's hash. | As for Safari, with Chrome's picture of the selection in every Chrome paste and pinned as never inserted, read or bound. | Reviewed: this matrix qualifies the Chrome and Firefox rows with them. The tooling still reports `qualification: false`. |
 
 Owner documents and captures were redacted before anything was committed, and
 each fixture's manifest declares its redactions; no declaration records a hash
@@ -340,6 +340,15 @@ of an original (see [Declared redactions](./README.md#declared-redactions)):
   path is redacted from its scheme or home folder prefix through that name by a
   same-length token, the picture bullet's image source thereby reading as a
   relative reference.
+- Chrome's picture of the selection embeds the ICC profile of the display it
+  was drawn on, and macOS writes Apple's make and model tag into it, whose
+  serial number named that display. On the owner's decision of 2026-10-05 each
+  of the nineteen pictures declares a clipboard file redaction: the serial
+  number and the manufacture date are zero, the profile is compressed again
+  and every other chunk keeps its bytes, so the pictures decode to the same
+  pixels, raw and through their profile. Its fingerprint was taken from the
+  original picture, which is not retained, so the declarations have the basis
+  `original` and say the original is not kept.
 
 No privacy scan finds anything in the committed files, including what the RTF
 flavors' hexadecimal groups decode to.

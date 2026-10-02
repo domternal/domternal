@@ -7,8 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HARD_LIMITS } from './capture.mjs';
-import { CaptureEvidenceError, semanticSpecification, verifyCaptureFixture } from './offline.mjs';
-import { prepareFixture, specifiedExpectation } from './prepare-fixture.mjs';
+import { CaptureEvidenceError, deviceTagOffset, DEVICE_FIELDS, readPngChunks, readPngProfile, semanticSpecification, verifyCaptureFixture } from './offline.mjs';
+import { prepareFixture, specifiedExpectation, summarizeRedaction } from './prepare-fixture.mjs';
 import { inflateSync } from 'node:zlib';
 import { blocksFromEditorJSON, blocksFromHTML, checkScenario, compareBlocks, compareOutcome, copiedHiddenText, dryRun, expectedBlocks, imageInventory,
   printSpecification, syntheticEditorResult } from './semantics.mjs';
@@ -492,6 +492,39 @@ test('every committed English regression variant passes the offline verifier and
   assert.deepEqual(variants.filter(id => !CAPTURED_BROWSERS.some(browser => id.endsWith(`-${browser}`))), []);
   // The fixtures of one document share its committed source, so no capture of an earlier version of it stays beside them.
   for (const [document, hashes] of sources) assert.equal(hashes.size, 1, document);
+});
+
+test('no committed clipboard picture names its display unit: each one\'s profile redaction is declared, and each summary tells the committed bundle', async () => {
+  const pictures = [];
+  for (const entry of await readdir(join(here, 'fixtures'), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const directory = join(here, 'fixtures', entry.name);
+    const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
+    if (manifest.schemaVersion !== 2) continue;
+    const bundle = JSON.parse(await readFile(join(directory, manifest.capture.path), 'utf8'));
+    for (const record of bundle.payload.files) {
+      const picture = Buffer.from(record.base64, 'base64');
+      if (manifest.origin === 'synthetic') {
+        // The edited variant uses a synthetic PNG with no display profile or redaction.
+        assert.deepEqual([...picture.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+        assert.equal(readPngChunks(picture).some(([type]) => type === 'iCCP'), false, manifest.id);
+        assert.deepEqual(manifest.redactions, [], manifest.id);
+      } else {
+        const { profile } = readPngProfile(readPngChunks(picture));
+        const tag = deviceTagOffset(profile);
+        // A comparison of booleans, so a failure never prints the value it found.
+        for (const [field, offset] of Object.entries(DEVICE_FIELDS)) assert.ok(profile.readUInt32BE(tag + offset) === 0, `${manifest.id} ${field}`);
+        assert.ok(manifest.redactions.some(declaration => declaration.artifact === 'clipboard-file' && declaration.itemIndex === record.itemIndex), manifest.id);
+      }
+      pictures.push(manifest.id);
+    }
+    // The summary a reviewer reads tells the committed bundle's totals and every declared redaction.
+    const summary = JSON.parse(await readFile(join(directory, 'capture-summary.json'), 'utf8'));
+    assert.deepEqual([summary.textBytes, summary.fileBytes], [bundle.payload.totals.textBytes, bundle.payload.totals.fileBytes], manifest.id);
+    assert.deepEqual(summary.redactions, manifest.redactions.map(summarizeRedaction), manifest.id);
+  }
+  assert.equal(pictures.length, 19);
+  assert.ok(pictures.every(id => id.endsWith('-chrome')));
 });
 
 test('the printed specification lists every text an operator enters', () => {

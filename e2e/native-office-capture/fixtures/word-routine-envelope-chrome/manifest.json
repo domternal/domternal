@@ -95,7 +95,7 @@
   "derivation": {
     "kind": "english-text-variant",
     "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
-    "captureSha256": "c8884488b923596dead10d588eed4b493e390f4dc000353998129fc364486d82",
-    "manifestSha256": "c8f922b6c453be603fbdf8f9c8b7168d9ef7457a7b4455f6cb67dc9ccae03797"
+    "captureSha256": "6d785ae7a254dc144eac50267e64e05a12d5edc57bfb5257133f65a6c2e0d43c",
+    "manifestSha256": "4cb1a152e2314e8723931d3b07e1ef06deb92879f811d1fd6971cf387de545bb"
   }
 }

@@ -130,7 +130,7 @@
   "derivation": {
     "kind": "english-text-variant",
     "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
-    "captureSha256": "22566568d42d46503af6f4c3bbb12cf13fa96908778113e6dbc876547ba1eaf9",
-    "manifestSha256": "207f90d597885593442d71e753076384658ba7758019a878514c76e78f1ea52a"
+    "captureSha256": "69f0c674d3a583cea3bdcf8742eaa54f8280210f36585d82aff1d8ef21cafc3a",
+    "manifestSha256": "2ac942b80aa24d7cd4061195ac7d8538d2cb7c76448605d4b5ce85061343db87"
   }
 }

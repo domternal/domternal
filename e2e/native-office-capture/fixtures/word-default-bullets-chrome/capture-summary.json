@@ -4,7 +4,7 @@
   "qualification": false,
   "reviewed": true,
   "baselineSourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
-  "baselineCaptureSha256": "ac7bcc7c43dc5f11d1a62a0c35313925b81988e1b06f5d667ce4f169a36122e1",
+  "baselineCaptureSha256": "89f06487b285cf61108c864e7101de5c770c14ac4860e060575b17babbb9822b",
   "operator": {
     "os": "Authored variant of macOS 26.5.2 (25F84)",
     "application": "Authored variant of Microsoft Word 16.113.3 (16.113.26092714)",
