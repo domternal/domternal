@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { Document, Editor, Paragraph, Text } from '@domternal/core';
+import { Document, Editor, HorizontalRule, Paragraph, Text } from '@domternal/core';
 import type { EditorOptions } from '@domternal/core';
 import { Image } from '../../extension-image/dist/index.js';
 import type { ImageOptions } from '../../extension-image/dist/index.js';
@@ -315,6 +315,23 @@ describe('PasteCleanup and the picture Word adds of its selection', () => {
       expect(images(fixture.editor)).toEqual([]);
       expect(fixture.editor.state.doc.childCount).toBeGreaterThanOrEqual(2);
       expect(text(fixture.editor).trim()).toBe('');
+      fixture.editor.destroy();
+    }
+  });
+
+  it.each(configurations)('pastes the rule of a Word copy of a horizontal rule, not Word\'s picture of it, %s', async (_name, cleanup, image) => {
+    // A selection of only Word's horizontal line: no text of its own and no image Word places, so its content is the paste.
+    const rule = html.replace(/<!--StartFragment-->[\s\S]*<!--EndFragment-->/u,
+      "<!--StartFragment-->\r\n\r\n<div class=MsoNormal align=center style='text-align:center'>\r\n\r\n<hr size=2 width=\"100%\" align=center>\r\n\r\n</div>\r\n\r\n<!--EndFragment-->");
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const fixture = mount({ ...cleanup, formatting }, image, [HorizontalRule]);
+      paste(fixture.editor, { html: rule, text: '\r\n', files: [png('image.png')] });
+      const result = await settled(fixture);
+      expect(result?.status).toBe('applied');
+      expect(images(fixture.editor)).toEqual([]);
+      const blocks: string[] = [];
+      fixture.editor.state.doc.forEach(node => { blocks.push(node.type.name); });
+      expect(blocks).toContain('horizontalRule');
       fixture.editor.destroy();
     }
   });
