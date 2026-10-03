@@ -6,17 +6,31 @@
  * each passes its own configuration (vendored notices, certificate addresses).
  * It imports nothing but Node's own modules, so the site can carry it alone.
  *
- * Reading. A file is read as text, or, when it is binary, by its printable runs
- * as bytes and as UTF-16 in both alignments, by the text chunks of a PNG and the
- * texts of its display profile, which a PNG compresses, and by the metadata of
- * an image: the ICC profile of a PNG (iCCP, inflated), a JPEG (APP2, in as many
- * parts as it has) or a WebP (ICCP), its EXIF (a PNG's eXIf or raw profile text
- * chunk, a JPEG's APP1, a WebP's EXIF) and its XMP.
+ * Reading. A file is read as text, or, when it is binary or a PDF, by its
+ * printable runs as bytes and as UTF-16 in both alignments, by the text chunks
+ * of a PNG, by the texts of a display profile or XMP packet it holds compressed,
+ * and by the metadata of an image or a document: the ICC profile of a PNG (iCCP,
+ * inflated), a JPEG (APP2, in as many parts as it has, or its Photoshop
+ * resources), a WebP (ICCP), a TIFF (its profile tag), a GIF (its ICCRGBG1
+ * application extension), ISO media such as AVIF, HEIC, MP4 and MOV (a color
+ * box's prof or rICC) or a PDF (a profile stream, plain or inflated); EXIF (a
+ * PNG's eXIf or raw profile text chunk, a JPEG's APP1, a WebP's EXIF, a TIFF's
+ * own directories, an EXIF item of ISO media); XMP (in its own chunk, segment,
+ * tag or stream, and any packet a file holds as plain bytes); IPTC (a JPEG's or
+ * TIFF's Photoshop resources or IPTC tag, a PNG's raw profile); QuickTime's
+ * recorded location; a PDF's Info and compressed object streams; and the PNG
+ * and JPEG images of an ICO or ICNS icon.
  * A zip package (a Word document, a zip download) is read part by part, a
  * capture bundle flavor by flavor and clipboard file by clipboard file, a
- * base64 data URI by what it decodes to, and an RTF text also by what its
- * hexadecimal groups decode to (Word's theme package, color scheme mapping,
- * data store and pictures, list pictures among them). Every text is read again with its
+ * base64 data URI by what it decodes to, also with parameters and with its
+ * digits wrapped in lines, character references or escaped line breaks, and an
+ * RTF text also by what its hexadecimal groups decode to (Word's theme package,
+ * color scheme mapping, data store and pictures, list pictures among them).
+ * What the reader cannot read is reported as unscanned data, never skipped: a
+ * package part in another compression method, encrypted or damaged, one that
+ * inflates past 64 MB or past its package's 256 MB, the parts after the first
+ * 2048, data URIs or RTF groups past 32 MB of digits in one text, and data
+ * nested more than three levels deep. Every text is read again with its
  * escapes decoded: HTML character references, percent escapes (twice encoded
  * too), JSON and JavaScript escapes (\u0040, \x40, \/) and CSS escapes. A match
  * only the decoded reading holds is reported at `<location>#decoded`.
@@ -30,13 +44,15 @@
  * host name and Git e-mail address of the machine running the scan, plus any
  * name listed in the PRIVACY_NAMES environment variable, which a CI secret can
  * hold, since a CI runner's own names identify nobody. In image metadata it
- * looks for the device and the person: a device serial number (a nonzero serial
- * number in the make and model tag macOS writes into a display profile, a
- * profile description that labels a serial number, a calibration entry with a
- * serial number or an EDID hash, EXIF's and XMP's body, lens and camera serial
+ * looks for the device and the person: a device serial number (a serial number
+ * in the make and model tag macOS writes into a display profile, a profile
+ * description that labels a serial number, a calibration entry with a serial
+ * number or an EDID hash, EXIF's and XMP's body, lens and camera serial
  * numbers), a device make or model (EXIF's Make, Model, HostComputer, LensMake
  * and LensModel and their XMP properties), an image author (Artist, the camera
- * owner, XPAuthor, XMP's dc:creator) and a GPS location.
+ * owner, XPAuthor, XMP's dc:creator, IPTC's By-line and Writer/Editor), a
+ * document author (a PDF's Author) and a GPS location (EXIF's, XMP's and the
+ * place QuickTime records in a video).
  *
  * What it allows, and why:
  *
@@ -71,7 +87,9 @@
  *   own content sets (a tutorial's sample metadata).
  * - In image metadata, a profile that names a product and not a unit: sRGB,
  *   Display P3, a printer's, a display's make and model without a serial
- *   number, a description without a labeled serial number; and what macOS
+ *   number or with a placeholder one (EDID's 0x01010101 for none, which the
+ *   standard ProPhoto RGB profile carries, or all ones), a description without
+ *   a labeled serial number; and what macOS
  *   writes into a screenshot: its orientation, resolution, pixel dimensions and
  *   comment. Empty values name nothing.
  * - This machine's names only when they are at least four characters long and
@@ -93,18 +111,31 @@ import { inflateRawSync, inflateSync } from 'node:zlib';
 // ---------------------------------------------------------------------------
 
 const MAX_INFLATED = 1024 * 1024;
+const MAX_PART = 64 * 1024 * 1024;
+const MAX_PACKAGE = 256 * 1024 * 1024;
 const MAX_PARTS = 2048;
-const MAX_DATA_URI = 4 * 1024 * 1024;
-const MAX_RTF_HEX = 8 * 1024 * 1024;
+const MAX_DATA_URI = 32 * 1024 * 1024;
+const MAX_RTF_HEX = 32 * 1024 * 1024;
+const UNSCANNED = 'unscanned data';
 
-/** The parts of a zip package, read from its central directory; null when it is not one this reader can read. */
+/** What the scanner could not read, reported at its location so that nothing is skipped in silence. */
+const unscanned = (location, inside) => ({ location, text: '', binary: true, inside, device: [{ where: 'unscanned', category: UNSCANNED }] });
+
+/**
+ * The parts of a zip package, read from its central directory, as [name, content]; null when it is not one this
+ * reader can read. A part's content is null when it cannot be read: a compression method other than stored and
+ * deflate, an encrypted or damaged part, one that inflates past 64 MB or past the package's 256 MB, and the parts
+ * after the first 2048.
+ */
 export function zipParts(bytes) {
   const end = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
   if (end < 0 || end + 22 > bytes.length) return null;
   const count = bytes.readUInt16LE(end + 10);
   let offset = bytes.readUInt32LE(end + 16);
   const parts = [];
-  for (let index = 0; index < count && index < MAX_PARTS; index++) {
+  let budget = MAX_PACKAGE;
+  for (let index = 0; index < count; index++) {
+    if (index === MAX_PARTS) { parts.push([`${String(count - MAX_PARTS)} more parts`, null]); break; }
     if (offset + 46 > bytes.length || bytes.readUInt32LE(offset) !== 0x02014b50) return null;
     const method = bytes.readUInt16LE(offset + 10);
     const compressed = bytes.readUInt32LE(offset + 20);
@@ -118,11 +149,12 @@ export function zipParts(bytes) {
     const data = bytes.subarray(start, Math.min(start + compressed, bytes.length));
     let content;
     try {
-      content = method === 0 ? data : method === 8 ? inflateRawSync(data, { maxOutputLength: MAX_INFLATED }) : null;
+      content = method === 0 ? data : method === 8 ? inflateRawSync(data, { maxOutputLength: Math.min(MAX_PART, budget) }) : null;
     } catch {
       content = null;
     }
-    if (content !== null && !name.endsWith('/')) parts.push([name, content]);
+    if (content !== null) budget -= content.length;
+    if (!name.endsWith('/')) parts.push([name, content]);
   }
   return parts;
 }
@@ -180,13 +212,221 @@ function rawProfile(text) {
   return Buffer.from(digits.slice(0, digits.length - (digits.length % 2)), 'hex');
 }
 
+const TIFF_TYPE_SIZES = [0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8];
+const isTiff = (bytes) => bytes.length >= 8 && ((bytes.toString('latin1', 0, 2) === 'II' && bytes.readUInt16LE(2) === 42)
+  || (bytes.toString('latin1', 0, 2) === 'MM' && bytes.readUInt16BE(2) === 42));
+const named = (found, where, category) => { found.named.push({ where, category }); };
+
+/** The values of the wanted tags in a TIFF structure's directories, IFD0 and those it chains, as [tag, bytes]. */
+function tiffEntries(tiff, wanted) {
+  const entries = [];
+  const little = tiff.toString('latin1', 0, 2) === 'II';
+  const u16 = (at) => (at >= 0 && at + 2 <= tiff.length ? (little ? tiff.readUInt16LE(at) : tiff.readUInt16BE(at)) : -1);
+  const u32 = (at) => (at >= 0 && at + 4 <= tiff.length ? (little ? tiff.readUInt32LE(at) : tiff.readUInt32BE(at)) : -1);
+  const visited = new Set();
+  for (let offset = u32(4); offset >= 8 && !visited.has(offset) && visited.size < 32;) {
+    visited.add(offset);
+    const count = u16(offset);
+    if (count <= 0 || count > 1024) break;
+    for (let index = 0; index < count; index++) {
+      const entry = offset + 2 + index * 12;
+      const [tag, type, length] = [u16(entry), u16(entry + 2), u32(entry + 4)];
+      if (!wanted.has(tag) || type < 0 || length < 0) continue;
+      const size = (TIFF_TYPE_SIZES[type] ?? 0) * length;
+      const at = size <= 4 ? entry + 8 : u32(entry + 8);
+      if (size > 0 && at >= 0 && at + size <= tiff.length) entries.push([tag, tiff.subarray(at, at + size)]);
+    }
+    offset = u32(offset + 2 + count * 12);
+  }
+  return entries;
+}
+
+// IPTC datasets of record 2 that name a person: By-line and Writer/Editor.
+const IPTC_AUTHORS = new Set([80, 122]);
+
+/** What IPTC records name: an author, by its By-line or Writer/Editor dataset. */
+function iptcData(data, found) {
+  for (let at = 0, count = 0; at + 5 <= data.length && data[at] === 0x1c && count < 4096; count++) {
+    const [record, dataset] = [data[at + 1], data[at + 2]];
+    let length = data.readUInt16BE(at + 3);
+    let start = at + 5;
+    // An extended dataset gives the size of its length first.
+    if (length & 0x8000) {
+      const size = length & 0x7fff;
+      if (size === 0 || size > 4 || start + size > data.length) break;
+      length = data.readUIntBE(start, size);
+      start += size;
+    }
+    if (record === 2 && IPTC_AUTHORS.has(dataset) && /[^\0\s]/u.test(data.toString('latin1', start, Math.min(start + length, data.length)))) named(found, 'iptc', 'image author');
+    at = start + length;
+  }
+}
+
+/** Photoshop's image resources, as a JPEG's APP13 segment, a TIFF and a PNG raw profile hold them: IPTC, a profile, EXIF and XMP. */
+function photoshopData(data, found) {
+  let at = data.toString('latin1', 0, 14) === 'Photoshop 3.0\0' ? 14 : 0;
+  if (data[at] === 0x1c) { iptcData(data.subarray(at), found); return; }
+  for (let count = 0; at + 12 <= data.length && count < 1024 && data.toString('latin1', at, at + 4) === '8BIM'; count++) {
+    const id = data.readUInt16BE(at + 4);
+    // A Pascal name, padded to an even length.
+    const sizeAt = at + 6 + ((data[at + 6] + 2) & ~1);
+    if (sizeAt + 4 > data.length) break;
+    const size = data.readUInt32BE(sizeAt);
+    const value = data.subarray(sizeAt + 4, Math.min(sizeAt + 4 + size, data.length));
+    if (id === 0x0404) iptcData(value, found);
+    else if (id === 0x040f) found.profiles.push(value);
+    else if (id === 0x0422) found.exif.push(exifBody(value));
+    else if (id === 0x0424) found.xmp.push(value.toString('utf8'));
+    at = sizeAt + 4 + size + (size % 2);
+  }
+}
+
+/** A TIFF's metadata: its directories as EXIF reads them, and its ICC profile, XMP, IPTC and Photoshop tags. */
+function tiffData(tiff, found) {
+  found.exif.push(tiff);
+  for (const [tag, value] of tiffEntries(tiff, new Set([0x8773, 0x02bc, 0x83bb, 0x8649]))) {
+    if (tag === 0x8773) found.profiles.push(value);
+    else if (tag === 0x02bc) found.xmp.push(value.toString('utf8'));
+    else if (tag === 0x83bb) iptcData(value, found);
+    else photoshopData(value, found);
+  }
+}
+
+/** A GIF's ICC profile, which an application extension (ICCRGBG1012) holds in its data sub-blocks. */
+function gifData(gif, found) {
+  const colors = (flags) => ((flags & 0x80) === 0 ? 0 : 3 * (2 << (flags & 7)));
+  // The sub-blocks from an index: their data when it is collected, and the index after their terminator.
+  const blocks = (from, collect) => {
+    const parts = [];
+    let at = from;
+    for (let count = 0; at < gif.length && gif[at] !== 0 && count < 1 << 20; count++) {
+      if (collect) parts.push(gif.subarray(at + 1, at + 1 + gif[at]));
+      at += 1 + gif[at];
+    }
+    return [collect ? Buffer.concat(parts) : undefined, at + 1];
+  };
+  let at = 13 + colors(gif[10]);
+  for (let count = 0; at < gif.length && count < 1 << 16; count++) {
+    if (gif[at] === 0x21) {
+      const application = gif[at + 1] === 0xff && gif[at + 2] === 11 ? gif.toString('latin1', at + 3, at + 14) : '';
+      const [data, next] = blocks(application === '' ? at + 2 : at + 14, application === 'ICCRGBG1012');
+      if (data !== undefined) found.profiles.push(data);
+      at = next;
+    } else if (gif[at] === 0x2c) at = blocks(at + 11 + colors(gif[at + 9]), false)[1];
+    else break;
+  }
+}
+
+// A position as ISO 6709 writes it, as QuickTime's location does: a signed latitude, then a signed longitude.
+const ISO_6709 = /[+-]\d{1,2}(?:\.\d+)?[+-]\d{1,3}(?:\.\d+)?/u;
+const QUICKTIME_LOCATION = Buffer.from([0xa9, 0x78, 0x79, 0x7a]);
+
 /**
- * The ICC profiles, EXIF structures and XMP packets of a PNG, JPEG or WebP image, read within fixed bounds: a PNG's
- * iCCP and eXIf chunks and its XMP and raw profile text chunks, a JPEG's APP1 EXIF and XMP segments and its APP2
- * profile in as many parts as it has, and a WebP's ICCP, EXIF and XMP chunks. Anything else holds none.
+ * ISO base media (AVIF, HEIC, MP4, MOV): a color box's ICC profile (prof, rICC), an EXIF item (Exif and a TIFF
+ * header), and a place QuickTime recorded, in its ©xyz user data or its location metadata key.
+ */
+function mediaData(media, found) {
+  const each = (signature, visit) => {
+    for (let at = media.indexOf(signature, 4), count = 0; at >= 4 && count < 4096; at = media.indexOf(signature, at + 1), count++) visit(at);
+  };
+  each('colr', (at) => {
+    const size = media.readUInt32BE(at - 4);
+    const kind = media.toString('latin1', at + 4, at + 8);
+    if ((kind === 'prof' || kind === 'rICC') && size > 12 && at - 4 + size <= media.length) found.profiles.push(media.subarray(at + 8, at - 4 + size));
+  });
+  each('Exif\0\0', (at) => {
+    const head = media.toString('latin1', at + 6, at + 10);
+    if (head === 'II*\0' || head === 'MM\0*') found.exif.push(media.subarray(at + 6, Math.min(at + 6 + MAX_PROFILE, media.length)));
+  });
+  each(QUICKTIME_LOCATION, (at) => {
+    const size = media.readUInt32BE(at - 4);
+    if (ISO_6709.test(media.toString('latin1', at + 4, Math.min(at - 4 + size, media.length)))) named(found, 'video', 'GPS location');
+  });
+  if (media.includes('com.apple.quicktime.location.ISO6709') && ISO_6709.test(media.toString('latin1'))) named(found, 'video', 'GPS location');
+}
+
+/** Whether a PDF string, literal or hexadecimal, holds a character that shows. */
+function pdfText(value) {
+  if (value.startsWith('<')) {
+    const digits = value.slice(1, -1).replace(/\s+/gu, '');
+    return /[^\0\s\xfe\xff]/u.test(Buffer.from(digits.slice(0, digits.length - (digits.length % 2)), 'hex').toString('latin1'));
+  }
+  return /[^\0\s\xfe\xff]/u.test(value.slice(1, -1).replace(/\\(?:[0-7]{1,3}|[\s\S])/gu, ' '));
+}
+
+/**
+ * A PDF's ICC profile streams (/N with a profile's signature) and metadata streams, read plain or inflated, and the
+ * author its Info dictionary names, in the file or in a compressed object stream.
+ */
+function pdfData(pdf, found) {
+  const author = (text) => {
+    for (const match of text.matchAll(/\/Author\s*(\((?:[^()\\]|\\[\s\S]|\((?:[^()\\]|\\[\s\S])*\))*\)|<[0-9A-Fa-f\s]*>)/gu)) {
+      if (pdfText(match[1])) named(found, 'pdf', 'document author');
+    }
+  };
+  const text = pdf.toString('latin1');
+  author(text);
+  let count = 0;
+  for (const match of text.matchAll(/stream\r?\n/gu)) {
+    if (++count > 4096) break;
+    const start = match.index + match[0].length;
+    const end = text.indexOf('endstream', start);
+    if (end < 0) break;
+    const dictionary = text.slice(Math.max(text.lastIndexOf('obj', match.index), match.index - 4096, 0), match.index);
+    const objects = /\/Type\s*\/ObjStm\b/u.test(dictionary);
+    const metadata = /\/Type\s*\/Metadata\b/u.test(dictionary);
+    if (!objects && !metadata && !/\/N\s+\d/u.test(dictionary)) continue;
+    let data = pdf.subarray(start, end);
+    if (/\/FlateDecode\b/u.test(dictionary)) data = inflated(data, MAX_PROFILE);
+    else if (/\/Filter\b/u.test(dictionary)) continue;
+    if (data.toString('latin1', 36, 40) === 'acsp') found.profiles.push(data);
+    if (metadata) found.xmp.push(data.toString('utf8'));
+    if (objects) author(data.toString('latin1'));
+  }
+}
+
+/** The images an icon holds, as an ICO's directory and an ICNS's elements list them. */
+function iconImages(bytes) {
+  const images = [];
+  if (bytes.length >= 22 && bytes.readUInt16LE(0) === 0 && [1, 2].includes(bytes.readUInt16LE(2))) {
+    for (let index = 0; index < Math.min(bytes.readUInt16LE(4), 256); index++) {
+      const entry = 6 + index * 16;
+      if (entry + 16 > bytes.length) break;
+      const [size, offset] = [bytes.readUInt32LE(entry + 8), bytes.readUInt32LE(entry + 12)];
+      images.push(bytes.subarray(offset, Math.min(offset + size, bytes.length)));
+    }
+  } else if (bytes.length >= 8 && bytes.toString('latin1', 0, 4) === 'icns') {
+    for (let at = 8, count = 0; at + 8 <= bytes.length && count < 256; count++) {
+      const size = bytes.readUInt32BE(at + 4);
+      if (size < 8) break;
+      images.push(bytes.subarray(at + 8, Math.min(at + size, bytes.length)));
+      at += size;
+    }
+  }
+  return images.filter((image) => isPng(image) || (image[0] === 0xff && image[1] === 0xd8));
+}
+
+/** The XMP packets any file holds as plain bytes, as GIF, ISO media, PDF and TIFF write them. */
+function xmpPackets(bytes, found) {
+  for (let at = bytes.indexOf('<x:xmpmeta'), count = 0; at >= 0 && count < 16; count++) {
+    const close = bytes.indexOf('</x:xmpmeta>', at);
+    const end = Math.min(close < 0 ? bytes.length : close + 12, at + MAX_INFLATED);
+    found.xmp.push(bytes.toString('utf8', at, end));
+    at = bytes.indexOf('<x:xmpmeta', end);
+  }
+}
+
+/**
+ * The ICC profiles, EXIF structures and XMP packets of an image, and what else its metadata names (`named`, as
+ * { where, category }), read within fixed bounds: a PNG's iCCP and eXIf chunks and its XMP and raw profile text
+ * chunks (EXIF, ICC, XMP, IPTC and Photoshop's), a JPEG's APP1 EXIF and XMP segments, its APP2 profile in as many
+ * parts as it has and its APP13 Photoshop resources, a WebP's ICCP, EXIF and XMP chunks, a TIFF's directories and
+ * profile, XMP, IPTC and Photoshop tags, a GIF's ICC application extension, ISO media's color boxes, EXIF items and
+ * QuickTime location, a PDF's profile, metadata and object streams and its author, the PNG and JPEG images of an
+ * icon, and the XMP packets any file holds as plain bytes.
  */
 export function imageMetadata(bytes) {
-  const found = { profiles: [], exif: [], xmp: [] };
+  const found = { profiles: [], exif: [], xmp: [], named: [] };
   if (isPng(bytes)) {
     for (const [type, data] of pngChunks(bytes)) {
       const name = data.indexOf(0);
@@ -198,6 +438,7 @@ export function imageMetadata(bytes) {
       else if (/^Raw profile type (?:exif|APP1)$/iu.test(keyword)) found.exif.push(exifBody(rawProfile(text)));
       else if (/^Raw profile type ic[cm]$/iu.test(keyword)) found.profiles.push(rawProfile(text));
       else if (/^Raw profile type xmp$/iu.test(keyword)) found.xmp.push(rawProfile(text).toString('utf8'));
+      else if (/^Raw profile type (?:iptc|8bim)$/iu.test(keyword)) photoshopData(rawProfile(text), found);
     }
   } else if (bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     const parts = [];
@@ -218,6 +459,7 @@ export function imageMetadata(bytes) {
       // Extended XMP: after its name, a GUID, the full length and this part's offset.
       else if (marker === 0xe1 && head.startsWith('http://ns.adobe.com/xmp/extension/\0')) found.xmp.push(data.subarray(75).toString('utf8'));
       else if (marker === 0xe2 && head.startsWith('ICC_PROFILE\0') && data.length > 14) parts.push([data[12], data.subarray(14)]);
+      else if (marker === 0xed && head.startsWith('Photoshop 3.0\0')) photoshopData(data, found);
     }
     if (parts.length > 0) found.profiles.push(Buffer.concat(parts.sort((left, right) => left[0] - right[0]).map(([, part]) => part)));
   } else if (bytes.length >= 12 && bytes.toString('latin1', 0, 4) === 'RIFF' && bytes.toString('latin1', 8, 12) === 'WEBP') {
@@ -230,7 +472,17 @@ export function imageMetadata(bytes) {
       else if (type === 'XMP ') found.xmp.push(data.toString('utf8'));
       at += 8 + length + (length % 2);
     }
+  } else if (isTiff(bytes)) tiffData(bytes, found);
+  else if (bytes.length >= 13 && /^GIF8[79]a$/u.test(bytes.toString('latin1', 0, 6))) gifData(bytes, found);
+  else if (bytes.length >= 12 && bytes.toString('latin1', 4, 8) === 'ftyp') mediaData(bytes, found);
+  else if (bytes.subarray(0, 1024).includes('%PDF-')) pdfData(bytes, found);
+  else {
+    for (const image of iconImages(bytes)) {
+      const inner = imageMetadata(image);
+      for (const key of Object.keys(found)) found[key].push(...inner[key]);
+    }
   }
+  xmpPackets(bytes, found);
   return found;
 }
 
@@ -268,13 +520,17 @@ const SERIAL_LABEL = /\b(?:serial(?:\s*(?:number|no\.?|num\.?|#))?|s\/n|sn)(?![A
 const namesSerial = (text) => [...text.matchAll(SERIAL_LABEL)].some((match) => /\d/u.test(match[1]));
 const PROFILE_TEXTS = new Set(['desc', 'dmnd', 'dmdd', 'dscm', 'cprt']);
 const PROFILE_DESCRIPTIONS = new Set(['desc', 'dmnd', 'dmdd', 'dscm']);
+// Serial numbers that name no unit: none, EDID's placeholder for an unused serial number, which the standard
+// ProPhoto RGB profile carries in its make and model tag, and all ones.
+const PLACEHOLDER_SERIALS = new Set([0, 0x01010101, 0xffffffff]);
 
 /**
  * What an ICC profile says about the unit it was made for, and the texts of its descriptions and copyright. A
  * profile names its unit by a nonzero serial number in Apple's make and model tag ('mmod'), which macOS writes into
  * every display profile, by a description that labels a serial number, or by a calibration dictionary entry with a
  * serial number or an EDID hash, which hashes one. A manufacturer, a model and a description without a serial
- * number name a product, not a unit, so sRGB, Display P3, a printer profile and a cleared display profile name none.
+ * number name a product, not a unit, so sRGB, Display P3, a printer profile and a cleared display profile name none,
+ * and so does a placeholder serial number (EDID's 0x01010101 for none, as ProPhoto RGB carries, or all ones).
  */
 export function profileData(profile) {
   const result = { categories: new Set(), texts: [] };
@@ -285,7 +541,7 @@ export function profileData(profile) {
     const offset = profile.readUInt32BE(entry + 4);
     const tag = profile.subarray(offset, Math.min(offset + profile.readUInt32BE(entry + 8), profile.length));
     if (tag.length < 8) continue;
-    if (signature === 'mmod' && tag.toString('latin1', 0, 4) === 'mmod' && tag.length >= 20 && tag.readUInt32BE(16) !== 0) result.categories.add('device serial number');
+    if (signature === 'mmod' && tag.toString('latin1', 0, 4) === 'mmod' && tag.length >= 20 && !PLACEHOLDER_SERIALS.has(tag.readUInt32BE(16))) result.categories.add('device serial number');
     if (PROFILE_TEXTS.has(signature)) {
       const text = profileText(tag);
       result.texts.push(text);
@@ -305,7 +561,6 @@ const EXIF_TAGS = new Map([
 ]);
 // GPS tags that hold a position: latitude, longitude and the destination's.
 const GPS_POSITION = new Set([0x0002, 0x0004, 0x0014, 0x0016]);
-const TIFF_TYPE_SIZES = [0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8];
 
 /**
  * What an EXIF structure says about the device and the person: a make or model (Make, Model, HostComputer,
@@ -375,6 +630,7 @@ function deviceData(metadata, profiles) {
   for (const profile of profiles) add('icc', profile.categories);
   for (const tiff of metadata.exif) add('exif', exifData(tiff));
   for (const packet of metadata.xmp) add('xmp', xmpData(packet));
+  for (const { where, category } of metadata.named) add(where, [category]);
   return found;
 }
 
@@ -398,19 +654,30 @@ function binaryText(bytes, profileTexts = []) {
 
 const isZip = (bytes) => bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
 const isText = (bytes) => {
-  if (bytes.includes(0)) return false;
+  // A PDF is read for its metadata, also one written in ASCII alone.
+  if (bytes.includes(0) || bytes.subarray(0, 5).toString('latin1') === '%PDF-') return false;
   try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); return true; } catch { return false; }
 };
 
-/** What base64 data URIs in a text decode to, each as its own artifact. */
+// A base64 data URI: a media type, parameters, and its digits, which a writer may wrap in lines (Inkscape), with
+// character references for the line breaks (&#10;) or with a string's escaped line breaks (\n).
+const DATA_URI = /data:[^,;"'\s<>]*(?:;[^,;"'\s<>]*)*;base64,((?:[A-Za-z0-9+/=]+|[\t\n\f\r ]+|&#(?:0*1[03]|x0*[AaDd]);|\\[nr])+)/gu;
+
+/**
+ * What base64 data URIs in a text decode to, each as its own artifact. They are read up to 32 MB of digits
+ * together; one past that is reported as unscanned data, and the next ones are still read.
+ */
 function dataUris(location, text, depth) {
   const found = [];
   let budget = MAX_DATA_URI;
   let index = 0;
-  for (const match of text.matchAll(/data:[^,;"'\s]*;base64,([A-Za-z0-9+/]{16,}={0,2})/gu)) {
-    if (match[1].length > budget) break;
-    budget -= match[1].length;
-    found.push(...readBytes(`${location}#data[${String(index++)}]`, Buffer.from(match[1], 'base64'), depth + 1, true));
+  for (const match of text.matchAll(DATA_URI)) {
+    const digits = /^[A-Za-z0-9+/]*={0,2}/u.exec(match[1].replace(/[\t\n\f\r ]+|&#[^;]*;|\\[nr]/gu, ''))?.[0] ?? '';
+    if (digits.length < 16) continue;
+    const where = `${location}#data[${String(index++)}]`;
+    if (digits.length > budget) { found.push(unscanned(where, true)); continue; }
+    budget -= digits.length;
+    found.push(...readBytes(where, Buffer.from(digits, 'base64'), depth + 1, true));
   }
   return found;
 }
@@ -418,7 +685,8 @@ function dataUris(location, text, depth) {
 /**
  * What the hexadecimal groups of an RTF text decode to, each as its own artifact: Word writes its theme package,
  * color scheme mapping, data store and pictures as hexadecimal digits, wrapped in lines, which no reading of the
- * text sees. A group is a run of at least 64 digits; shorter runs are revision ids, colors and picture ids.
+ * text sees. A group is a run of at least 64 digits; shorter runs are revision ids, colors and picture ids. They
+ * are read up to 32 MB of digits together; a group past that is reported as unscanned data.
  */
 function rtfHexGroups(location, text, depth) {
   if (!/^[\t\n\r ]*\{\\rtf/u.test(text)) return [];
@@ -428,25 +696,36 @@ function rtfHexGroups(location, text, depth) {
   for (const match of text.matchAll(/[0-9A-Fa-f][0-9A-Fa-f\r\n]{63,}/gu)) {
     const digits = match[0].replace(/[\r\n]/gu, '');
     if (digits.length < 64) continue;
-    if (digits.length > budget) break;
+    const where = `${location}#hex[${String(index++)}]`;
+    if (digits.length > budget) { found.push(unscanned(where, true)); continue; }
     budget -= digits.length;
-    found.push(...readBytes(`${location}#hex[${String(index++)}]`, Buffer.from(digits.slice(0, digits.length - (digits.length % 2)), 'hex'), depth + 1, true));
+    found.push(...readBytes(where, Buffer.from(digits.slice(0, digits.length - (digits.length % 2)), 'hex'), depth + 1, true));
   }
   return found;
 }
 
-/** Every text in some bytes, as { location, text, binary, inside }, and for binary data the device data its image metadata names. */
+/**
+ * Every text in some bytes, as { location, text, binary, inside }, and for binary data the device data its image
+ * metadata names. What it cannot read, a package part or data nested more than three levels deep, is reported as
+ * unscanned data.
+ */
 function readBytes(location, bytes, depth, inside) {
-  if (depth > 3) return [];
+  if (depth > 3) return [unscanned(location, inside)];
   if (isZip(bytes)) {
     const parts = zipParts(bytes);
-    if (parts !== null) return parts.flatMap(([part, content]) => readBytes(`${location}:${part}`, content, depth + 1, true));
+    if (parts !== null) {
+      return parts.flatMap(([part, content]) => (content === null ? [unscanned(`${location}:${part}`, true)] : readBytes(`${location}:${part}`, content, depth + 1, true)));
+    }
   }
   if (!isText(bytes)) {
     const metadata = imageMetadata(bytes);
     const profiles = metadata.profiles.map(profileData);
-    // A JPEG or WebP profile is plain bytes, which the printable runs read; a PNG's is compressed or hexadecimal.
-    const texts = isPng(bytes) ? profiles.flatMap((profile) => profile.texts) : [];
+    // A profile or XMP packet the file holds as plain bytes is read with its printable runs; one compressed or
+    // written in hexadecimal, as a PNG, a PDF stream or an icon's PNG holds it, is read here. A PNG's XMP is
+    // read with its text chunks.
+    const packed = (data) => !bytes.includes(data);
+    const texts = [...metadata.profiles.flatMap((profile, index) => (packed(profile) ? profiles[index].texts : [])),
+      ...(isPng(bytes) ? [] : metadata.xmp.filter((packet) => packed(Buffer.from(packet, 'utf8'))))];
     return [{ location, text: binaryText(bytes, texts), binary: true, inside, device: deviceData(metadata, profiles) }];
   }
   const text = bytes.toString('utf8');
@@ -520,7 +799,9 @@ const SEGMENT = String.raw`[^\\/\s"'<>)\]\x60,;|]+`;
  * there is one, is the user or host it names, which the policy judges.
  */
 export const PATTERNS = Object.freeze({
-  'e-mail address': /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/gu,
+  // A match starts where a run of address characters starts, so a long run without an at sign, such as base64
+  // digits, is read once rather than once per character.
+  'e-mail address': /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/gu,
   // In any letter case: a path a tool lowercased still names the account. A prefix for WSL, MSYS and the
   // home folders of Fedora's image-based systems and of Solaris, and JSON's escaped slashes.
   'home folder path': new RegExp(String.raw`(?:^|[^A-Za-z0-9\\])(?:\\?\/mnt\\?\/[a-z]|\\?\/[a-z](?=\\?\/users\\?\/)|\\?\/var|\\?\/export)?\\?\/(?:users|home)\\?\/(${SEGMENT})`, 'giu'),

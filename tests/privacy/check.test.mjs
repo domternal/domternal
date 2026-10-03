@@ -508,3 +508,157 @@ test('XMP names a camera, a serial number, a position and an author as EXIF does
     + '<tiff:Make></tiff:Make><dc:creator><rdf:Seq><rdf:li/></rdf:Seq></dc:creator><aux:Lens> </aux:Lens>';
   assert.deepEqual(found('shot.png', pngOf([itxt('XML:com.adobe.xmp', xmpOf(screenshot))])), []);
 });
+
+test('a placeholder serial number names no unit: EDID\'s unused 0x01010101, which the standard ProPhoto RGB profile carries, and all ones', () => {
+  for (const serial of [0x01010101, 0xffffffff]) {
+    assert.deepEqual(found('shot.png', pngOf([iccChunk(displayProfile(serial))])), [], serial.toString(16));
+    assert.deepEqual(found('photo.jpg', jpegOf(jpegProfile(displayProfile(serial)))), [], serial.toString(16));
+  }
+  assert.deepEqual(found('shot.png', pngOf([iccChunk(displayProfile(0x01010102))])), ['shot.png#icc device serial number']);
+});
+
+// ---------------------------------------------------------------------------
+// Where else a picture or its metadata sits: wrapped data URIs, TIFF, ISO media, GIF, PDF, IPTC, large parts
+// ---------------------------------------------------------------------------
+
+const PICTURE = () => pngOf([iccChunk(displayProfile(SERIAL))]);
+/** An ISO base media box: its size, its type and its content. */
+const box = (type, ...parts) => {
+  const body = Buffer.concat(parts);
+  const head = Buffer.alloc(8);
+  head.writeUInt32BE(8 + body.length, 0); head.write(type, 4, 'latin1');
+  return Buffer.concat([head, body]);
+};
+/** A TIFF file whose first directory holds the given entries, each [tag, type, bytes], with their values after it. */
+function tiffOf(entries, little = true) {
+  const u16 = (value) => { const b = Buffer.alloc(2); if (little) b.writeUInt16LE(value); else b.writeUInt16BE(value); return b; };
+  const u32 = (value) => { const b = Buffer.alloc(4); if (little) b.writeUInt32LE(value); else b.writeUInt32BE(value); return b; };
+  let data = 8 + 2 + entries.length * 12 + 4;
+  const directory = [u16(entries.length)];
+  const values = [];
+  for (const [tag, type, bytes] of entries) {
+    directory.push(u16(tag), u16(type), u32(bytes.length), bytes.length <= 4 ? Buffer.concat([bytes, Buffer.alloc(4 - bytes.length)]) : u32(data));
+    if (bytes.length > 4) { values.push(bytes); data += bytes.length; }
+  }
+  return Buffer.concat([Buffer.from(little ? 'II' : 'MM', 'latin1'), u16(42), u32(8), ...directory, u32(0), ...values]);
+}
+/** IPTC records, each [dataset, text], in record 2, as Photoshop and ImageMagick write them. */
+const iptcOf = (records) => Buffer.concat(records.map(([dataset, text]) => {
+  const value = Buffer.from(text, 'latin1');
+  const head = Buffer.from([0x1c, 2, dataset, 0, 0]);
+  head.writeUInt16BE(value.length, 3);
+  return Buffer.concat([head, value]);
+}));
+/** Photoshop image resources, each [id, data], as a JPEG's APP13 segment holds them after its name. */
+const photoshopOf = (resources) => Buffer.concat([Buffer.from('Photoshop 3.0\0', 'latin1'), ...resources.map(([id, data]) => {
+  const head = Buffer.alloc(12);
+  head.write('8BIM', 0, 'latin1'); head.writeUInt16BE(id, 4); head.writeUInt32BE(data.length, 8);
+  return Buffer.concat([head, data, Buffer.alloc(data.length % 2)]);
+})]);
+/** A GIF with one application extension, its data in sub-blocks of at most 255 bytes, before a one-pixel image. */
+function gifOf(application, data) {
+  const blocks = [];
+  for (let at = 0; at < data.length; at += 255) { const part = data.subarray(at, at + 255); blocks.push(Buffer.from([part.length]), part); }
+  return Buffer.concat([Buffer.from('GIF89a', 'latin1'), Buffer.from([1, 0, 1, 0, 0x80, 0, 0]), Buffer.alloc(6), Buffer.from([0x21, 0xff, 11]),
+    Buffer.from(application, 'latin1'), ...blocks, Buffer.from([0, 0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x44, 0x01, 0, 0x3b])]);
+}
+/** A PDF with the given objects, each [dictionary, stream] where a stream is optional. */
+const pdfOf = (objects) => Buffer.concat([Buffer.from('%PDF-1.7\n', 'latin1'), ...objects.flatMap(([dictionary, stream], index) => [
+  Buffer.from(`${String(index + 1)} 0 obj\n<< ${dictionary}${stream === undefined ? '' : ` /Length ${String(stream.length)}`} >>\n`, 'latin1'),
+  ...(stream === undefined ? [] : [Buffer.from('stream\n', 'latin1'), stream, Buffer.from('\nendstream\n', 'latin1')]), Buffer.from('endobj\n', 'latin1')]),
+  Buffer.from('%%EOF\n', 'latin1')]);
+
+test('a data URI is read wrapped in lines or character references, with parameters, and after a large one', () => {
+  const picture = PICTURE().toString('base64');
+  const lines = (separator) => picture.match(/.{1,76}/gu).join(separator);
+  for (const [name, text] of [
+    ['wrapped in lines, as Inkscape writes an embedded image', `<svg><image xlink:href="data:image/png;base64,${lines('\n')}"/></svg>`],
+    ['wrapped in indented CRLF lines', `<svg><image href="data:image/png;base64,\r\n    ${lines('\r\n    ')}"/></svg>`],
+    ['wrapped with character references', `<svg><image href="data:image/png;base64,${lines('&#10;')}"/></svg>`],
+    ['wrapped with hexadecimal character references', `<svg><image href="data:image/png;base64,${lines('&#xA;')}"/></svg>`],
+    ['with a parameter', `<img src="data:image/png;name=shot.png;base64,${picture}">`],
+    ['with two parameters', `<img src="data:image/png;charset=binary;name=shot.png;base64,${picture}">`],
+  ]) assert.deepEqual(found('page.svg', Buffer.from(text)), ['page.svg#data[0]#icc device serial number'], name);
+  // A data URI past what the old bound read, then the picture: both are read.
+  const filler = Buffer.alloc(4 * 1024 * 1024, 7).toString('base64');
+  assert.deepEqual(found('page.html', Buffer.from(`<img src="data:image/gif;base64,${filler}"><img src="data:image/png;base64,${picture}">`)),
+    ['page.html#data[1]#icc device serial number']);
+});
+
+test('a TIFF names its display, camera and author as EXIF does, and its profile, XMP and IPTC are read', () => {
+  const profile = displayProfile(SERIAL);
+  for (const little of [true, false]) {
+    assert.deepEqual(found('scan.tif', tiffOf([[0x0100, 3, Buffer.from([1, 0])], [0x8773, 7, profile]], little)), ['scan.tif#icc device serial number'], String(little));
+  }
+  assert.deepEqual(found('scan.tif', tiffOf([[0x010f, 2, Buffer.from('Authored Camera Co\0', 'latin1')]])), ['scan.tif#exif device make or model']);
+  assert.deepEqual(found('scan.tif', tiffOf([[0x02bc, 1, Buffer.from(xmpOf('<tiff:Artist>Authored Person</tiff:Artist>'))]])), ['scan.tif#xmp image author']);
+  assert.deepEqual(found('scan.tif', tiffOf([[0x83bb, 7, iptcOf([[80, 'Authored Person']])]])), ['scan.tif#iptc image author']);
+  // A TIFF of pixels alone names nothing.
+  assert.deepEqual(found('scan.tif', tiffOf([[0x0100, 3, Buffer.from([1, 0])], [0x0101, 3, Buffer.from([1, 0])]])), []);
+});
+
+test('ISO media (AVIF, HEIC, MP4, MOV) names a display by its color profile, a camera by its EXIF and a place by its location', () => {
+  const profile = displayProfile(SERIAL);
+  const avif = Buffer.concat([box('ftyp', Buffer.from('avif\0\0\0\0avifmif1', 'latin1')), box('meta', Buffer.alloc(4), box('iprp', box('ipco', box('colr', Buffer.from('prof', 'latin1'), profile))))]);
+  assert.deepEqual(found('image.avif', avif), ['image.avif#icc device serial number']);
+  const mov = Buffer.concat([box('ftyp', Buffer.from('qt  \0\0\0\0qt  ', 'latin1')), box('moov', box('trak', box('mdia', box('minf', box('stbl', box('colr', Buffer.from('rICC', 'latin1'), profile))))))]);
+  assert.deepEqual(found('clip.mov', mov), ['clip.mov#icc device serial number']);
+  const heic = Buffer.concat([box('ftyp', Buffer.from('heic\0\0\0\0mif1heic', 'latin1')),
+    box('mdat', Buffer.from([0, 0, 0, 0]), Buffer.from('Exif\0\0', 'latin1'), exifOf({ ifd0: [[0x010f, 'Authored Camera Co']] }))]);
+  assert.deepEqual(found('photo.heic', heic), ['photo.heic#exif device make or model']);
+  const located = Buffer.concat([box('ftyp', Buffer.from('mp42\0\0\0\0isommp42', 'latin1')), box('moov', box('udta', box('©xyz', Buffer.from([0, 18, 0x15, 0xc7]), Buffer.from('+45.8150+015.9819/', 'latin1'))))]);
+  assert.deepEqual(found('clip.mp4', located), ['clip.mp4#video GPS location']);
+  // An encoder's name and a generic profile name nothing.
+  const plain = Buffer.concat([box('ftyp', Buffer.from('isom\0\0\x02\0isomiso2', 'latin1')), box('moov', box('udta', box('meta', Buffer.alloc(4), box('ilst', box('©too', Buffer.from('Lavf60.3.100', 'latin1')))))),
+    box('colr', Buffer.from('nclx', 'latin1'), Buffer.from([0, 1, 0, 1, 0, 1, 0]))]);
+  assert.deepEqual(found('clip.mp4', plain), []);
+});
+
+test('a GIF names a display by the color profile of its application extension, and its XMP is read', () => {
+  assert.deepEqual(found('anim.gif', gifOf('ICCRGBG1012', displayProfile(SERIAL))), ['anim.gif#icc device serial number']);
+  assert.deepEqual(found('anim.gif', gifOf('ICCRGBG1012', displayProfile(0))), []);
+  assert.deepEqual(found('anim.gif', gifOf('NETSCAPE2.0', Buffer.from([1, 0, 0]))), []);
+  const xmp = Buffer.concat([Buffer.from('GIF89a', 'latin1'), Buffer.from([1, 0, 1, 0, 0, 0, 0]), Buffer.from([0x21, 0xff, 11]), Buffer.from('XMP DataXMP', 'latin1'),
+    Buffer.from(xmpOf('<tiff:Model>Authored Model 1</tiff:Model>'), 'utf8'), Buffer.from([1, ...Array.from({ length: 256 }, (_, index) => 255 - index), 0, 0]), Buffer.from([0x3b])]);
+  assert.deepEqual(found('anim.gif', xmp), ['anim.gif#xmp device make or model']);
+});
+
+test('a PDF names a display by an ICC profile stream, compressed or not, and an author by its Info or XMP', () => {
+  const profile = displayProfile(SERIAL);
+  assert.deepEqual(found('guide.pdf', pdfOf([['/N 3 /Filter /FlateDecode', deflateSync(profile)]])), ['guide.pdf#icc device serial number']);
+  assert.deepEqual(found('guide.pdf', pdfOf([['/N 3 /Alternate /DeviceRGB', profile]])), ['guide.pdf#icc device serial number']);
+  assert.deepEqual(found('guide.pdf', pdfOf([['/Title (A guide) /Author (Authored Person)']])), ['guide.pdf#pdf document author']);
+  assert.deepEqual(found('guide.pdf', pdfOf([['/Author <FEFF0041>']])), ['guide.pdf#pdf document author']);
+  // An Info dictionary in a compressed object stream.
+  assert.deepEqual(found('guide.pdf', pdfOf([['/Type /ObjStm /N 1 /First 4 /Filter /FlateDecode', deflateSync(Buffer.from('2 0 << /Author (Authored Person) >>', 'latin1'))]])),
+    ['guide.pdf#pdf document author']);
+  assert.deepEqual(found('guide.pdf', pdfOf([['/Type /Metadata /Subtype /XML', Buffer.from(xmpOf('<dc:creator><rdf:Seq><rdf:li>Authored Person</rdf:li></rdf:Seq></dc:creator>'))]])),
+    ['guide.pdf#xmp image author']);
+  // A title, an empty author and a generic profile name nobody.
+  assert.deepEqual(found('guide.pdf', pdfOf([['/Title (A guide) /Author () /Creator (Authored Tool)'], ['/N 3 /Filter /FlateDecode', deflateSync(displayProfile(0, 0))]])), []);
+});
+
+test('IPTC names an author: a JPEG\'s Photoshop resources, and a PNG\'s raw profile, with the profile and EXIF they hold', () => {
+  const photoshop = photoshopOf([[0x0404, iptcOf([[5, 'A title'], [80, 'Authored Person']])]]);
+  assert.deepEqual(found('photo.jpg', jpegOf([[0xed, photoshop]])), ['photo.jpg#iptc image author']);
+  assert.deepEqual(found('photo.jpg', jpegOf([[0xed, photoshopOf([[0x0404, iptcOf([[122, 'Authored Writer']])]])]])), ['photo.jpg#iptc image author']);
+  assert.deepEqual(found('photo.jpg', jpegOf([[0xed, photoshopOf([[0x040f, displayProfile(SERIAL)]])]])), ['photo.jpg#icc device serial number']);
+  assert.deepEqual(found('photo.jpg', jpegOf([[0xed, photoshopOf([[0x0422, exifOf({ ifd0: [[0x0110, 'Authored Model 1']] })]])]])), ['photo.jpg#exif device make or model']);
+  const hex = `\niptc\n${String(photoshop.length).padStart(8)}\n${photoshop.toString('hex').replace(/(.{72})/gu, '$1\n')}\n`;
+  assert.deepEqual(found('shot.png', pngOf([['zTXt', Buffer.concat([Buffer.from('Raw profile type iptc\0\0', 'latin1'), deflateSync(Buffer.from(hex))])]])), ['shot.png#iptc image author']);
+  // A caption and a title name nobody.
+  assert.deepEqual(found('photo.jpg', jpegOf([[0xed, photoshopOf([[0x0404, iptcOf([[5, 'A title'], [120, 'A caption']])]])]])), []);
+});
+
+test('a package part is read however large it inflates within its bound, and data too large to read is reported, not skipped', () => {
+  const large = pngOf([iccChunk(displayProfile(SERIAL)), ['tEXt', Buffer.concat([Buffer.from('Comment\0', 'latin1'), Buffer.alloc(3 * 1024 * 1024, 0x41)])]]);
+  assert.deepEqual(found('fixture.docx', writePackage(new Map([['word/media/image1.png', large]]))), ['fixture.docx:word/media/image1.png#icc device serial number']);
+  assert.deepEqual(found('fixture.docx', writePackage(new Map([['word/media/huge.bin', Buffer.alloc(65 * 1024 * 1024)]]))), ['fixture.docx:word/media/huge.bin#unscanned unscanned data']);
+  // A part in a compression method the reader does not know.
+  const stored = writePackage(new Map([['word/document.xml', Buffer.from('<w:document/>')]]));
+  for (const offset of [8, stored.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02])) + 10]) stored.writeUInt16LE(14, offset);
+  assert.deepEqual(found('fixture.docx', stored), ['fixture.docx:word/document.xml#unscanned unscanned data']);
+  const huge = 'A'.repeat(33 * 1024 * 1024);
+  assert.deepEqual(found('page.html', Buffer.from(`<img src="data:image/png;base64,${huge}"><img src="data:image/png;base64,${PICTURE().toString('base64')}">`)),
+    ['page.html#data[0]#unscanned unscanned data', 'page.html#data[1]#icc device serial number']);
+});
