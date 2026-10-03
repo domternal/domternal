@@ -102,3 +102,35 @@ describe('Google Docs default text color', () => {
     expect(colors(normalizePasteHTML('<p><span style="color:#000000">Web</span></p>').html)).toEqual(['#000000']);
   });
 });
+
+describe('Google Docs empty paragraphs', () => {
+  it('reads each line break Docs writes between blocks as the empty paragraph it stands for', () => {
+    // Two empty paragraphs between GB21 and GB22: Docs writes two breaks, which the editor would make one paragraph of two lines.
+    const html = docs(paragraph('GB21 Paragraph with a first-line indent.') + '<br /><br />' + paragraph('GB22 After two empty paragraphs.'));
+    const result = normalizePasteHTML(html);
+    expect(warnings(result)).toEqual([]);
+    expect(result.html.replace(/<span[^>]*>|<\/span>/gu, '')).toBe('<p dir="ltr">GB21 Paragraph with a first-line indent.</p><p></p><p></p><p dir="ltr">GB22 After two empty paragraphs.</p><br>');
+  });
+
+  it('reads the empty paragraph Docs keeps before a table, between lists and at the end of a copy the same way', () => {
+    const list = (tag: string, marker: string, text: string): string => `<${tag} style="margin-top:0;margin-bottom:0;padding-inline-start:48px;">`
+      + `<li dir="ltr" style="list-style-type:${marker};${RUN}" aria-level="1"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation">${run(text)}</p></li></${tag}>`;
+    const html = docs(`<h1 dir="ltr" style="line-height:1.38;margin-top:20pt;margin-bottom:6pt;">${run('GT01 Table')}</h1><br />`
+      + table(cell(paragraph('GT02 Column A', '1.2'))) + list('ol', 'decimal', 'GL21 Second number') + '<br />' + list('ul', 'disc', 'GL22 Bullet') + '<br />');
+    const result = normalizePasteHTML(html, { formatting: 'adapt' });
+    expect(warnings(result)).toEqual([]);
+    // The blocks of the copy in order, each table and list as its tag: Chrome's break after the wrapper stays a break.
+    const outline = result.html.replace(/<(table|ol|ul)\b[^>]*>[\s\S]*?<\/\1>/gu, '<$1>').replace(/<\/?span[^>]*>| dir="ltr"/gu, '');
+    expect(outline).toBe('<h1>GT01 Table</h1><p></p><div><table></div><ol><p></p><ul><p></p><br>');
+  });
+
+  it('keeps a line break inside a paragraph, beside inline content and after the copy, and another source\'s break between blocks', () => {
+    const inside = normalizePasteHTML(docs(`<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;">${run('GB40 First line<br />second line')}</p>`
+      + `${run('GB41 Partial')}<br />${run('paragraph')}`)).html;
+    expect(inside.match(/<br>/gu)).toHaveLength(3);
+    expect(inside).not.toContain('<p></p>');
+    // Chrome's break after the wrapper is no paragraph of Docs: the editor's parse ignores it.
+    expect(normalizePasteHTML(docs(paragraph('GB04 A'))).html.endsWith('</p></span><br>')).toBe(true);
+    expect(normalizePasteHTML('<p>Web</p><br><br><p>Page</p>').html).toBe('<p>Web</p><br><br><p>Page</p>');
+  });
+});

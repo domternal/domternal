@@ -1,4 +1,4 @@
-import type { Element, Root } from 'hast';
+import type { Element, ElementContent, Root } from 'hast';
 import { plainDeclarations } from './styles.js';
 
 /*
@@ -50,5 +50,49 @@ export function googleDocsLineHeights(tree: Root): void {
       }
       pending.push({ node: child, cell });
     }
+  }
+}
+
+// Elements the editor's parse places as blocks, beside which a line break holds no line of text.
+const BLOCKS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'div', 'table', 'blockquote', 'pre', 'hr', 'details']);
+
+/** The elements Google Docs wraps a copy in: a bold of normal weight whose id names the copy. */
+function copyWrappers(tree: Root): Element[] {
+  const wrappers: Element[] = [];
+  const pending: (Root | Element)[] = [tree];
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    for (const child of node.children) {
+      if (child.type !== 'element') continue;
+      if (typeof child.properties.id === 'string' && child.properties.id.startsWith('docs-internal-guid-')) wrappers.push(child);
+      else pending.push(child);
+    }
+  }
+  return wrappers;
+}
+
+/** Whether the nearest content from an index on, past white space and other breaks, is a block or the wrapper's edge. */
+function besideBlock(children: readonly ElementContent[], index: number, step: 1 | -1): boolean {
+  for (let at = index; at >= 0 && at < children.length; at += step) {
+    const node = children[at];
+    if (node === undefined || node.type === 'comment' || (node.type === 'text' && !/[^\t\n\f\r ]/.test(node.value))) continue;
+    if (node.type === 'element' && node.tagName === 'br') continue;
+    return node.type === 'element' && BLOCKS.has(node.tagName);
+  }
+  return true;
+}
+
+/**
+ * Docs writes an empty paragraph as a bare line break between the blocks of a copy: two empty paragraphs as two
+ * breaks, the one it keeps before each table and the one that ends a document after its last table as one. The
+ * editor would make one paragraph of a run of them, two lines tall for two. Each such break becomes the empty
+ * paragraph it stands for. A break inside a paragraph or beside inline content stays a line break, and so does
+ * the break Chrome adds after the copy, outside the wrapper, which the editor's parse ignores.
+ */
+export function googleDocsEmptyParagraphs(tree: Root): void {
+  for (const wrapper of copyWrappers(tree)) {
+    const children = wrapper.children;
+    wrapper.children = children.map((child, index): ElementContent => (child.type === 'element' && child.tagName === 'br'
+      && besideBlock(children, index - 1, -1) && besideBlock(children, index + 1, 1)
+      ? { type: 'element', tagName: 'p', properties: {}, children: [] } : child));
   }
 }
