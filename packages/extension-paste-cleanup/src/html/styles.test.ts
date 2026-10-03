@@ -87,3 +87,21 @@ describe('plain declarations', () => {
     expect(plainDeclarations(style)).toBeUndefined();
   });
 });
+
+describe('floating point noise in lengths', () => {
+  it('reads a length or a ratio a source wrote with floating point noise as the value it stands for', () => {
+    // Google Docs writes 14 pt as 13.999999999999998pt and its 1.5 spacing as 1.7999999999999998.
+    expect(readSafeStyles('font-size:13.999999999999998pt;line-height:1.7999999999999998;width:17.599999999999998px;height:0.30000000000000004em').styles)
+      .toEqual(new Map([['font-size', '14pt'], ['line-height', '1.8'], ['width', '17.6px'], ['height', '0.3em']]));
+    // Within the grammar's three places nothing is rounded, and noise does not admit a value the grammar refuses.
+    expect(readSafeStyles('font-size:10.125pt;line-height:1.375').styles).toEqual(new Map([['font-size', '10.125pt'], ['line-height', '1.375']]));
+    expect(readSafeStyles('font-size:12345.000000000002pt;color:#000000.5').removedNames).toEqual(['font-size', 'color']);
+  });
+
+  it.each(['preserve', 'adapt'] as const)('keeps a %s run size and a block spacing written with noise without a warning', formatting => {
+    const result = normalizePasteHTML('<p style="line-height:1.7999999999999998"><span style="font-size:13.999999999999998pt;font-family:Georgia">Georgia</span></p>', { formatting });
+    expect(result.diagnostics.filter(diagnostic => diagnostic.severity !== 'info')).toEqual([]);
+    expect(result.html).toBe(formatting === 'preserve'
+      ? '<p style="line-height:1.8"><span><span style="font-family:Georgia;font-size:14pt">Georgia</span></span></p>' : '<p><span>Georgia</span></p>');
+  });
+});

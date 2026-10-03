@@ -57,6 +57,17 @@ const initialValues: Readonly<Record<string, readonly string[]>> = {
 };
 // The caret's color is editor chrome, never document formatting; WebKit copies it with the text color.
 const editorChrome = new Set(['caret-color']);
+// Properties whose value is one number with a unit or, for a line height, a ratio.
+const numericProperties = new Set(['font-size', 'line-height', 'width', 'height']);
+
+/**
+ * A number written with floating point noise, as Google Docs writes 14 pt as `13.999999999999998pt` and its 1.5
+ * spacing as `1.7999999999999998`, rounded to the three places the grammar admits. Any other value stays as written.
+ */
+export function withoutFloatNoise(value: string): string {
+  const match = /^(\d{1,4}\.\d{4,20})((?:px|pt|em|rem|%)?)$/i.exec(value);
+  return match === null ? value : `${String(Math.round(Number(match[1]) * 1_000) / 1_000)}${match[2] ?? ''}`;
+}
 
 /** A length whose magnitude cannot change layout, such as `0`, `0cm` or Word's `.0001pt`. */
 export function zeroLength(value: string): boolean {
@@ -211,7 +222,8 @@ export function readSafeStyles(value: unknown, imagePlacement = false, tag = '',
     if (declaration.trim() === '') continue;
     const separator = declaration.indexOf(':');
     const name = declaration.slice(0, separator).trim().toLowerCase();
-    const content = declaration.slice(separator + 1).trim();
+    const written = declaration.slice(separator + 1).trim();
+    const content = numericProperties.has(name) ? withoutFloatNoise(written) : written;
     if (name === 'list-style-type') {
       const marker = content.toLowerCase();
       if (validListStyle(tag, marker)) keep(name, marker);

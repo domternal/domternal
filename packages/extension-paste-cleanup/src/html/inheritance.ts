@@ -152,9 +152,10 @@ const twoPlaceRatio = (ratio: number): string | undefined => ratio > 0 && ratio 
  */
 function lineHeightRatio(value: string, fontSize: string | undefined): string | undefined {
   const lower = value.toLowerCase();
-  const relative = /^(\d{1,4}(?:\.\d{1,8})?|\.\d{1,8})(%?)$/.exec(lower);
+  // Up to twenty places, so a ratio written with floating point noise, as Google Docs writes 1.7999999999999998, is read too.
+  const relative = /^(\d{1,4}(?:\.\d{1,20})?|\.\d{1,20})(%?)$/.exec(lower);
   if (relative !== null) return twoPlaceRatio(Number(relative[1]) / (relative[2] === '%' ? 100 : 1));
-  const match = /^(\d{1,4}(?:\.\d{1,8})?)(px|pt)$/.exec(lower);
+  const match = /^(\d{1,4}(?:\.\d{1,20})?)(px|pt)$/.exec(lower);
   const size = fontPixels(fontSize);
   if (match === null || size === undefined || size <= 0) return undefined;
   return twoPlaceRatio(Number(match[1]) * (match[2] === 'pt' ? 4 / 3 : 1) / size);
