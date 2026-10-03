@@ -10,15 +10,22 @@
  * clipboard file by clipboard file, and a data URI by what it decodes to; text is also read with its HTML, percent, JSON,
  * JavaScript and CSS escapes decoded, so an encoded address is found too. The policy here is stricter than
  * the gate's: nothing is allowed, and this machine's names are matched inside longer words from three
- * characters on, with one exception the gate makes for the same reason: in the printable runs of binary
- * data, such as a clipboard picture's compressed pixels, a tilde, a word and a slash is what the bytes spell
- * by chance, not a home folder. Findings name a category, a location and an offset, never the matched text.
+ * characters on, with two exceptions the gate makes for the same reasons: an e-mail address at a domain
+ * reserved for documentation and tests (RFC 2606 and RFC 6761), such as a specification's own example
+ * address, reaches nobody; and in the printable runs of binary data, such as a clipboard picture's
+ * compressed pixels, a tilde, a word and a slash is what the bytes spell by chance, not a home folder.
+ * Findings name a category, a location and an offset, never the matched text.
  */
 import { readdir, readFile } from 'node:fs/promises';
 import { hostname, userInfo } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { artifactTexts as gateTexts, decoded, locate } from '../../tests/privacy/scan.mjs';
+
+// The domains the gate reserves for documentation and tests (RFC 2606 and RFC 6761); the tests hold the two readings equal.
+const RESERVED_DOMAIN = /(?:^|\.)(?:example|test|invalid|localhost|local)$|(?:^|\.)example\.(?:com|net|org)$/iu;
+/** Whether an e-mail address is at a reserved domain: it reaches nobody. */
+export const reservedAddress = address => RESERVED_DOMAIN.test(address.slice(address.lastIndexOf('@') + 1));
 
 /** Names of this machine, at least three characters long, matched without regard to case. */
 function machineNames() {
@@ -28,9 +35,14 @@ function machineNames() {
   return names.filter(([, value]) => value.length >= 3).map(([category, value]) => [category, value.toLowerCase()]);
 }
 
-/** Matches by category in one text, with each match's length: every pattern, and the names anywhere in a word. */
+/**
+ * Matches by category in one text, with each match's length: every pattern but an address at a reserved domain,
+ * and the names anywhere in a word.
+ */
 function located(location, value, names) {
-  const found = locate(location, value).map(({ category, offset, length }) => ({ location, category, offset, length }));
+  const found = locate(location, value)
+    .filter(({ category, offset, length }) => category !== 'e-mail address' || !reservedAddress(value.slice(offset, offset + length)))
+    .map(({ category, offset, length }) => ({ location, category, offset, length }));
   const lower = value.toLowerCase();
   for (const [category, name] of names) {
     for (let at = lower.indexOf(name); at >= 0; at = lower.indexOf(name, at + 1)) found.push({ location, category, offset: at, length: name.length });

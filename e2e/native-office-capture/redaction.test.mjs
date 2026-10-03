@@ -8,7 +8,8 @@ import { crc32, deflateSync, inflateSync } from 'node:zlib';
 import { HARD_LIMITS } from './capture.mjs';
 import { CaptureEvidenceError, maskedCaptureDigest, namesDisplayUnit, readPackageParts, verifyCaptureFixture } from './offline.mjs';
 import { prepareFixture } from './prepare-fixture.mjs';
-import { scanFiles, scanText } from './privacy.mjs';
+import { reservedAddress, scanFiles, scanText } from './privacy.mjs';
+import { judge } from '../../tests/privacy/scan.mjs';
 import { redactCaptureBytes, redactCaptureFileBytes, redactPackageBytes, writePackage } from './redact.mjs';
 
 // Authored stand-ins for personal data. They are not anybody's data; the tests only need them to be removed.
@@ -358,7 +359,7 @@ test('prepare-fixture writes a version 2 skeleton with the declared redactions, 
 test('the privacy scan names categories and offsets only, in parts, flavors and fields, including names of this machine', async t => {
   const names = [['login name', 'syntheticlogin'], ['host name', 'synthetic-host']];
   // Assembled at run time, so this file itself holds no address, home path or file URL.
-  const sample = ['mail: a.b', 'example.invalid, path "/ho', 'me/x/y", C:\\Us', 'ers\\x, fi', 'le:///tmp/a, <dc:creator>X</dc:creator> w:author="X" SyntheticLogin'];
+  const sample = ['mail: a.b', 'synthetic-mail.net, path "/ho', 'me/x/y", C:\\Us', 'ers\\x, fi', 'le:///tmp/a, <dc:creator>X</dc:creator> w:author="X" SyntheticLogin'];
   const findings = scanText('sample', `${sample[0]}@${sample.slice(1).join('')}`, names);
   assert.deepEqual(findings.map(entry => entry.category).sort(), ['author attribute', 'author property', 'drive path', 'e-mail address', 'file URL', 'home folder path', 'login name']);
   assert.ok(findings.every(entry => Object.keys(entry).join() === 'location,category,offset'));
@@ -368,6 +369,31 @@ test('the privacy scan names categories and offsets only, in parts, flavors and 
   assert.deepEqual([...new Set(report.map(entry => `${entry.location.slice(base.length + 1)} ${entry.category}`))].sort(),
     ['capture.json:text/html home folder path', 'source.docx:docProps/core.xml author property']);
   assert.ok(!JSON.stringify(report).includes(ACCOUNT) && !JSON.stringify(report).includes(AUTHOR));
+});
+
+test('the privacy scan allows an e-mail address at a domain reserved for documentation, as the gate does, and no other', async t => {
+  // A specification's own example address, such as the mailto: link of the Google Docs links scenario, reaches nobody.
+  // Assembled at run time, as above.
+  const at = (user, domain) => [user, domain].join('@');
+  for (const domain of ['example.com', 'example.org', 'example.net', 'mail.example.com', 'docs.example', 'probe.invalid', 'host.test']) {
+    assert.deepEqual(scanText('reserved', `<a href="mailto:${at('pisi', domain)}">${at('pisi', domain)}</a>`, []), [], domain);
+  }
+  // A domain that only starts or ends like a reserved one is somebody's, in the text and in what its escapes decode to.
+  for (const domain of ['example.com.synthetic-mail.net', 'example-person.net', 'invalid.synthetic-mail.net']) {
+    assert.deepEqual(scanText('other', `mail ${at('pisi', domain)}`, []).map(entry => entry.category), ['e-mail address'], domain);
+  }
+  assert.deepEqual(scanText('encoded', `mail ${at('pisi', 'synthetic-mail.net').replace('@', '&#64;')}`, []).map(entry => entry.category), ['e-mail address']);
+  // The repository gate reads every one of these domains the same way.
+  for (const domain of ['example.com', 'mail.example.org', 'docs.example', 'probe.invalid', 'host.test', 'box.localhost', 'printer.local',
+    'example.com.synthetic-mail.net', 'example-person.net', 'invalid.synthetic-mail.net', 'synthetic-mail.net']) {
+    const text = at('pisi', domain);
+    const gate = judge('fixture.json', { category: 'e-mail address', text, offset: 0, length: text.length });
+    assert.equal(reservedAddress(text), gate === null, domain);
+  }
+  const base = await mkdtemp(join(tmpdir(), 'domternal-privacy-'));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  await writeFile(join(base, 'capture.json'), JSON.stringify(originalBundle('0'.repeat(64), `<p>GB14 Address <a href="mailto:${at('pisi', 'example.com')}">${at('pisi', 'example.com')}</a></p>`)));
+  assert.deepEqual(await scanFiles([join(base, 'capture.json')], []), []);
 });
 
 /** A PNG with the given text chunks, valid enough for a reader of chunks. */
@@ -386,7 +412,7 @@ test('the privacy scan reads image metadata, people and custom properties, clipb
   const base = await mkdtemp(join(tmpdir(), 'domternal-privacy-'));
   t.after(() => rm(base, { recursive: true, force: true }));
   // Assembled at run time, so this file itself holds no address, home path or name.
-  const address = ['synthetic.person', 'mail.example.invalid'].join('@');
+  const address = ['synthetic.person', 'mail.synthetic-person.net'].join('@');
   const home = ['', 'Users', 'syntheticperson', 'Pictures'].join('/');
   const png = pngWith([
     ['tEXt', Buffer.from(`Author\u0000${address}`, 'latin1')],
