@@ -54,12 +54,12 @@ export function blocksFromEditorJSON(doc) {
     ...(context.cell ? { cell: context.cell } : {}) });
   const visit = (node, context) => {
     if (!node || typeof node !== 'object') return;
-    if (node.type === 'bulletList' || node.type === 'orderedList') {
-      const kind = node.type === 'bulletList' ? 'bullet' : 'ordered';
+    if (node.type === 'bulletList' || node.type === 'orderedList' || node.type === 'taskList') {
+      const kind = node.type === 'bulletList' ? 'bullet' : node.type === 'taskList' ? 'task' : 'ordered';
       const start = Number(node.attrs?.start ?? 1);
       (node.content ?? []).forEach((item, index) => {
         const list = { kind, marker: node.attrs?.listStyleType ?? null, depth: (context.list?.depth ?? 0) + 1,
-          ...(kind === 'ordered' ? { ordinal: start + index } : {}) };
+          ...(kind === 'ordered' ? { ordinal: start + index } : {}), ...(kind === 'task' ? { checked: item.attrs?.checked === true } : {}) };
         (item.content ?? []).forEach((child, position) => visit(child, { ...context, list, first: position === 0 }));
       });
       return;
@@ -112,6 +112,14 @@ const BLOCK_TAGS = new Set(['p', 'div', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
   'tr', 'td', 'th', 'caption', 'colgroup', 'col', 'details', 'summary']);
 const INLINE_MARKS = Object.freeze({ strong: 'bold', b: 'bold', em: 'italic', i: 'italic', u: 'underline', s: 'strike', del: 'strike', sub: 'subscript', sup: 'superscript', mark: 'highlight' });
 const STYLE_ATTRIBUTES = Object.freeze({ 'font-family': 'fontFamily', 'font-size': 'fontSize', color: 'color', 'background-color': 'backgroundColor' });
+// The inline parents of a line break the editor's clipboard parse keeps at their end (prosemirror-view's inlineParents).
+const INLINE_PARENTS = /^(?:a|abbr|acronym|b|cite|code|del|em|i|ins|kbd|label|output|q|ruby|s|samp|span|strong|sub|sup|time|u|tt|var)$/iu;
+/**
+ * A line break the editor's clipboard parse ignores: the last node of an element that is not inline, or of the
+ * copy, as the break that ends a paragraph or the one Chrome adds after a copy. One with anything after it stays.
+ */
+const ignoredBreak = node => node.tagName === 'br' && node.parentNode !== undefined && node.parentNode !== null
+  && node.parentNode.childNodes.at(-1) === node && !INLINE_PARENTS.test(node.parentNode.nodeName ?? '');
 
 /**
  * The runs of a textblock with HTML white space read as ProseMirror's parser reads it outside `pre`: each run of
@@ -163,6 +171,7 @@ export function blocksFromHTML(html) {
   const inline = (node, marks, runs, images) => {
     for (const child of node.childNodes ?? []) {
       if (child.nodeName === '#text') runs.push({ text: child.value, marks });
+      else if (ignoredBreak(child)) continue;
       else if (child.tagName === 'br') runs.push({ text: '\n', marks: [], lineBreak: true });
       else if (child.tagName === 'img') images.push(child);
       else if (child.tagName) inline(child, withMarks(child, marks), runs, images);
@@ -200,6 +209,7 @@ export function blocksFromHTML(html) {
       run = [];
     };
     for (const child of node.childNodes ?? []) {
+      if (ignoredBreak(child)) continue;
       if (child.nodeName === '#text' || (child.tagName && !BLOCK_TAGS.has(child.tagName) && child.tagName !== 'img' && !holdsBlock(child))) { run.push(child); continue; }
       flush();
       if (child.tagName) visit(child, context);
@@ -224,7 +234,8 @@ export function blocksFromHTML(html) {
       return;
     }
     if (tag === 'ul' || tag === 'ol') {
-      const kind = tag === 'ul' ? 'bullet' : 'ordered';
+      // The editor's task list, which a task item's checked state goes with.
+      const kind = tag === 'ol' ? 'ordered' : attribute(node, 'data-type') === 'taskList' ? 'task' : 'bullet';
       const start = Number(attribute(node, 'start') ?? 1);
       const marker = /list-style-type:\s*([a-z-]+)/u.exec(attribute(node, 'style') ?? '')?.[1] ?? null;
       let index = 0;
@@ -236,7 +247,9 @@ export function blocksFromHTML(html) {
           continue;
         }
         if (item.tagName !== 'li') continue;
-        const list = { kind, marker, depth: (context.list?.depth ?? 0) + 1, ...(kind === 'ordered' ? { ordinal: start + index } : {}) };
+        const checked = attribute(item, 'data-checked');
+        const list = { kind, marker, depth: (context.list?.depth ?? 0) + 1, ...(kind === 'ordered' ? { ordinal: start + index } : {}),
+          ...(kind === 'task' ? { checked: checked !== undefined && (checked.toLowerCase() === 'true' || checked === '') } : {}) };
         previous = list;
         let first = true;
         for (const child of item.childNodes ?? []) {
@@ -358,7 +371,7 @@ export function outcomeFor(scenario, formatting = 'preserve') {
 
 function compareList(expected, actual, where, problems) {
   if (!actual) { problems.push(`${where}: expected a list item`); return; }
-  for (const key of ['kind', 'marker', 'depth', 'ordinal']) {
+  for (const key of ['kind', 'marker', 'depth', 'ordinal', 'checked']) {
     if (expected[key] !== undefined && expected[key] !== actual[key]) {
       problems.push(`${where}: list ${key} is ${String(actual[key])}, expected ${String(expected[key])}`);
     }
@@ -637,7 +650,8 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     if (found.type !== type) problems.push(`${block.id}: type is ${found.type}, expected ${type}`);
     if (block.level !== undefined && found.level !== block.level) problems.push(`${block.id}: heading level is ${String(found.level)}, expected ${String(block.level)}`);
     if (block.list) compareList(block.list, found.list, block.id, problems);
-    for (const key of ['colspan', 'rowspan']) {
+    for (const key of ['colspan', 'rowspan', 'header']) {
+      // A header cell only where the specification authors one: Word's Header Row arrives as ordinary cells.
       if (block.cell?.[key] !== undefined && found.cell?.[key] !== block.cell[key]) problems.push(`${block.id}: ${key} is ${String(found.cell?.[key])}, expected ${String(block.cell[key])}`);
     }
     // Hidden text never pastes: the copy holds it in Chrome and Firefox, where cleanup leaves it out, or not at all.
@@ -791,7 +805,7 @@ export function syntheticEditorResult(spec, scenarioId, formatting = 'preserve')
     const content = text ? runs(block, text, order) : [];
     return block.type === 'heading' ? { type: 'heading', attrs: { ...attrs, level: block.level }, content } : { type: 'paragraph', attrs, content };
   };
-  const listNode = (kind, marker, start) => ({ type: kind === 'bullet' ? 'bulletList' : 'orderedList',
+  const listNode = (kind, marker, start) => (kind === 'task' ? { type: 'taskList', attrs: {}, content: [] } : { type: kind === 'bullet' ? 'bulletList' : 'orderedList',
     attrs: { listStyleType: marker ?? null, ...(kind === 'ordered' ? { start } : {}) }, content: [] });
   const build = (entries, inCell) => {
     const content = [];
@@ -825,7 +839,8 @@ export function syntheticEditorResult(spec, scenarioId, formatting = 'preserve')
           lists[depth - 1] = open;
           lists = lists.slice(0, depth);
         }
-        open.node.content.push({ type: 'listItem', content: [textblock(block, order)] });
+        open.node.content.push(kind === 'task' ? { type: 'taskItem', attrs: { checked: block.list.checked === true }, content: [textblock(block, order)] }
+          : { type: 'listItem', content: [textblock(block, order)] });
         continue;
       }
       lists = [];
@@ -846,7 +861,7 @@ export function syntheticEditorResult(spec, scenarioId, formatting = 'preserve')
     }
     const sorted = map => [...map.keys()].sort((a, b) => a - b).map(key => map.get(key));
     return { type: 'table', content: sorted(rows).map(cells => ({ type: 'tableRow', content: sorted(cells).map(({ cell, entries }) => ({
-      type: 'tableCell', attrs: { colspan: cell.colspan ?? 1, rowspan: cell.rowspan ?? 1 }, content: build(entries, true) })) })) };
+      type: cell.header === true ? 'tableHeader' : 'tableCell', attrs: { colspan: cell.colspan ?? 1, rowspan: cell.rowspan ?? 1 }, content: build(entries, true) })) })) };
   };
   const diagnostics = (outcomeFor(scenario, formatting).requiredWarnings ?? []).map(code => ({ code, severity: 'warning' }));
   return { results: [{ diagnostics }], doc: { type: 'doc', content: build(expected.map((block, order) => ({ block, order })), false) } };

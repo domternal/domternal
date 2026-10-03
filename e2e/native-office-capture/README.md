@@ -134,8 +134,10 @@ path this evidence is meant to show.
 - [`semantics.mjs`](./semantics.mjs) compares a saved editor result, HTML from
   the offline replay or a capture bundle, whose HTML it replays like the offline
   verifier, with a scenario: block order by identifier, block types, heading
-  levels, list kind, marker, depth and ordinal, the table, row, column and spans
-  of each cell, alignment, text, marks, links and text styles, image removal and
+  levels, list kind (a task item with its checked state), marker, depth and
+  ordinal, the table, row, column and spans of each cell and, where a
+  specification authors it, whether it is a header cell, alignment, text,
+  marks, links and text styles, image removal and
   the diagnostic outcome of the chosen policy, including text styles that `adapt`
   must remove. For a specification that authors its documents' `textStyle`, as
   the Word one does, the comparison is exhaustive: a block, an empty paragraph, a
@@ -147,7 +149,9 @@ path this evidence is meant to show.
   percentage or a length stays in the document without changing the spacing, so
   it is a problem. HTML white space reads as the editor parses it, one space
   for each run of it, so a source line Word wraps inside an item's text does not
-  separate the item from its marker. Given the
+  separate the item from its marker, and a line break that ends a block or the
+  copy, such as the one Chrome adds after a copy, is no line, as the editor's
+  clipboard parse ignores it. Given the
   destination's profile (its mark types and textStyle attributes, which the
   browser regression reads from the live schema), a mark or text style the
   destination cannot hold is expected absent rather than missing, and one that

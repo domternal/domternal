@@ -422,6 +422,47 @@ test('the HTML model opens a paragraph for inline content outside blocks, as the
   assert.deepEqual(blocksFromHTML('<b id="docs-internal-guid-1"><p>A</p>tail</b>').map(block => [block.type, block.text]), [['paragraph', 'A'], ['paragraph', 'tail']]);
 });
 
+test('the HTML model ignores a line break that ends a block or the copy, as the editor parse does, and keeps one in an inline element', () => {
+  // Chrome ends a copy with a break of its own after Google's wrapper; the editor parses nothing of it.
+  assert.deepEqual(blocksFromHTML('<span id="docs-internal-guid-1"><p>GB04 A</p></span><br>').map(block => [block.type, block.text]), [['paragraph', 'GB04 A']]);
+  assert.deepEqual(blocksFromHTML('<p>A<br></p><p>B<br>C</p><p><span>D<br></span></p>').map(block => block.text), ['A', 'B\nC', 'D\n']);
+  // A break with anything after it, white space included, is a line the editor keeps.
+  assert.deepEqual(blocksFromHTML('<p>A</p><br> ').map(block => block.type), ['paragraph', 'empty']);
+  assert.deepEqual(blocksFromHTML('<p>A</p><br><br>').map(block => [block.type, block.runs.length]), [['paragraph', 1], ['empty', 1]]);
+});
+
+test('the checker compares header cells and task items where a specification authors them, in HTML, editor results and the dry run', () => {
+  const specification = { id: 'checker', documents: [{ blocks: [
+    { id: 'GT02', type: 'tableCell', cell: { table: 1, row: 1, column: 1, header: true }, text: 'GT02 Column A' },
+    { id: 'GT05', type: 'tableCell', cell: { table: 1, row: 2, column: 1 }, text: 'GT05 Gray cell' },
+    { id: 'GL62', type: 'listItem', list: { kind: 'task', depth: 1, checked: false }, text: 'GL62 Unchecked task' },
+    { id: 'GL63', type: 'listItem', list: { kind: 'task', depth: 1, checked: true }, text: 'GL63 Checked task' },
+  ] }], scenarios: [{ id: 'checker', blocks: ['GT02', 'GT05', 'GL62', 'GL63'], outcome: { notice: 'observe' } }] };
+  const html = (head, checked) => `<table><tbody><tr><${head}><p>GT02 Column A</p></${head}></tr><tr><td><p>GT05 Gray cell</p></td></tr></tbody></table>`
+    + '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>GL62 Unchecked task</p></li>'
+    + `<li data-type="taskItem" data-checked="${checked}"><p>GL63 Checked task</p></li></ul>`;
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html('th', 'true'))), []);
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html('td', 'false'))), ['GT02: header is false, expected true', 'GL63: list checked is false, expected true']);
+  // The editor's own task list, and the bullet list a destination without task items makes of it.
+  const paragraph = text => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+  const doc = list => ({ type: 'doc', content: [
+    { type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableHeader', attrs: { colspan: 1, rowspan: 1 }, content: [paragraph('GT02 Column A')] }] },
+      { type: 'tableRow', content: [{ type: 'tableCell', attrs: { colspan: 1, rowspan: 1 }, content: [paragraph('GT05 Gray cell')] }] }] },
+    list ]});
+  const tasks = { type: 'taskList', content: [{ type: 'taskItem', attrs: { checked: false }, content: [paragraph('GL62 Unchecked task')] },
+    { type: 'taskItem', attrs: { checked: true }, content: [paragraph('GL63 Checked task')] }] };
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromEditorJSON(doc(tasks))), []);
+  const bullets = { type: 'bulletList', content: tasks.content.map(item => ({ type: 'listItem', content: item.content })) };
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromEditorJSON(doc(bullets))),
+    ['GL62: list kind is bullet, expected task', 'GL62: list checked is undefined, expected false', 'GL63: list kind is bullet, expected task', 'GL63: list checked is undefined, expected true']);
+  // A specification without the key compares neither, as Word's Header Row arrives as ordinary cells.
+  const unauthored = structuredClone(specification);
+  delete unauthored.documents[0].blocks[0].cell.header;
+  assert.deepEqual(compareBlocks(unauthored, 'checker', blocksFromHTML(html('td', 'true'))), []);
+  // The synthetic result of the dry run holds header cells and task items too.
+  assert.deepEqual(dryRun(specification).results.flatMap(result => result.problems), []);
+});
+
 test('the HTML model reads Google Docs list nesting, cell spans, links, text styles and images', () => {
   const blocks = blocksFromHTML('<ul><li><p>GL02 a</p></li><ul><li><p>GL03 b</p></li><ul><li><p>GL04 c</p></li></ul></ul><li><p>GL05 d</p></li></ul>'
     + '<table><tr><td colspan="2"><p>GT08 x</p></td><td rowspan="2"><p>GT09 y</p></td></tr></table>'
