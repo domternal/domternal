@@ -134,3 +134,39 @@ describe('Google Docs empty paragraphs', () => {
     expect(normalizePasteHTML('<p>Web</p><br><br><p>Page</p>').html).toBe('<p>Web</p><br><br><p>Page</p>');
   });
 });
+
+describe('Google Docs image paragraphs', () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+  const image = (alt: string): string => `<img alt="${alt}" src="${PNG}" width="320" height="200" style="border:none;" />`;
+  const imageParagraph = (alt: string, extra = ''): string =>
+    `<p dir="ltr" style="line-height:1.38;${extra}margin-top:0pt;margin-bottom:0pt;"><span style="${RUN}">${image(alt)}</span></p>`;
+  const outline = (html: string): string => html.replace(/<\/?span[^>]*>| dir="ltr"/gu, '').replace(/<img[^>]*alt="([^"]*)"[^>]*>/gu, '[$1]');
+
+  it('writes a paragraph that holds only an image as a division, so a block image closes no empty paragraph before it', () => {
+    // Docs places an in line image in a paragraph of its own; an editor whose images are blocks closed that paragraph empty.
+    const html = docs(paragraph('GI02 Text before the picture.') + imageParagraph('GI03 Blue rectangle') + paragraph('GI04 Text after the picture.')
+      + table(cell(paragraph('GI11 Left cell', '1.2') + imageParagraph('GI12 Red picture in a cell').replace('line-height:1.38', 'line-height:1.2'))));
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const result = normalizePasteHTML(html, { formatting });
+      expect(warnings(result)).toEqual([]);
+      // The table's own wrappers and the cell's attributes aside.
+      expect(outline(result.html).replace(/<(table|td)\b[^>]*>/gu, '<$1>').replace(/<\/?(?:tbody|tr|colgroup|col)\b[^>]*>|<div>(?=<table)|(?<=<\/table>)<\/div>/gu, ''))
+        .toBe('<p>GI02 Text before the picture.</p><div>[GI03 Blue rectangle]</div><p>GI04 Text after the picture.</p>'
+          + '<table><td><p>GI11 Left cell</p><div>[GI12 Red picture in a cell]</div></td></table><br>');
+    }
+  });
+
+  it('leaves the alt text it stands in for a removed image in that division, where the editor opens a paragraph for it', () => {
+    const result = normalizePasteHTML(docs(imageParagraph('GI03 Blue rectangle')), { allowDataImages: false });
+    expect(warnings(result)).toEqual(['image-removed']);
+    expect(outline(result.html)).toBe('<div>GI03 Blue rectangle</div><br>');
+  });
+
+  it('keeps a paragraph that holds text beside its image, an aligned image paragraph, and another source\'s image paragraph', () => {
+    const mixed = docs(`<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;">${run('GI30 Text ')}<span style="${RUN}">${image('GI31 Picture')}</span></p>`);
+    expect(outline(normalizePasteHTML(mixed).html)).toBe('<p>GI30 Text [GI31 Picture]</p><br>');
+    // Docs aligns an image by its paragraph, which a destination with in line images keeps.
+    expect(outline(normalizePasteHTML(docs(imageParagraph('GI32 Picture', 'text-align: center;'))).html)).toBe('<p style="text-align:center">[GI32 Picture]</p><br>');
+    expect(outline(normalizePasteHTML(`<p>${image('Web')}</p>`).html)).toBe('<p>[Web]</p>');
+  });
+});

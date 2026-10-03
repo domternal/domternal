@@ -29,7 +29,7 @@ import { wrapLooseInlineRuns } from './looseInline.js';
 import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
 import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
 import { routineLineHeights } from './wordSpacing.js';
-import { googleDocsEmptyParagraphs, googleDocsLineHeights } from './googleDocs.js';
+import { googleDocsEmptyParagraphs, googleDocsImageParagraphs, googleDocsLineHeights } from './googleDocs.js';
 import { wordHiddenText } from './hiddenText.js';
 import { recordRemovedText } from './removedText.js';
 import type {
@@ -215,9 +215,10 @@ export function normalizeClipboardHTML(
       labelListItems(tree, anchor);
       quietImageBoxes(tree);
       if (result.source === 'google-docs') {
-        // Google Docs writes each empty paragraph as a break between blocks, and each block's spacing as 1.2 times
-        // the spacing Docs shows, its defaults included.
+        // Google Docs writes each empty paragraph as a break between blocks, an image in a paragraph of its own, and
+        // each block's spacing as 1.2 times the spacing Docs shows, its defaults included.
         googleDocsEmptyParagraphs(tree);
+        googleDocsImageParagraphs(tree);
         googleDocsLineHeights(tree);
       }
       const routine = routineLineHeights(tree, result.source === 'word');

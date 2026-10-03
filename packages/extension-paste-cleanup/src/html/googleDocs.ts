@@ -96,3 +96,41 @@ export function googleDocsEmptyParagraphs(tree: Root): void {
       ? { type: 'element', tagName: 'p', properties: {}, children: [] } : child));
   }
 }
+
+/** Whether an element holds images, only inside the runs Docs wraps them in, and white space. */
+function holdsOnlyImages(node: Element): boolean {
+  let images = 0;
+  const only = (children: readonly ElementContent[]): boolean => children.every(child => {
+    if (child.type === 'comment') return true;
+    if (child.type === 'text') return !/[^\t\n\f\r ]/.test(child.value);
+    if (child.tagName === 'img') { images++; return true; }
+    return child.tagName === 'span' && only(child.children);
+  });
+  return only(node.children) && images > 0;
+}
+
+/** Whether a style aligns its block's content other than to the start, which in line images take. */
+function aligned(style: unknown): boolean {
+  let align: string | undefined;
+  for (const [name, value] of plainDeclarations(style) ?? []) if (name === 'text-align') align = value.toLowerCase();
+  return align !== undefined && !['left', 'start', 'justify'].includes(align);
+}
+
+/**
+ * Docs places an in line image in a paragraph of its own. An editor whose images are blocks closed that
+ * paragraph empty before the image, so every image pasted with an empty paragraph above it, in a table cell
+ * too. A paragraph that holds only images becomes a division, which opens no block of its own: a block image
+ * stands in the paragraph's place, and an in line image, or the alt text left in place of a removed one, gets a
+ * paragraph of the editor's parse. A paragraph aligned to the center or the end keeps that alignment for in
+ * line images, so it stays a paragraph.
+ */
+export function googleDocsImageParagraphs(tree: Root): void {
+  const pending: (Root | Element)[] = [tree];
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    for (const child of node.children) {
+      if (child.type !== 'element') continue;
+      if (child.tagName === 'p' && holdsOnlyImages(child) && !aligned(child.properties.style)) child.tagName = 'div';
+      else pending.push(child);
+    }
+  }
+}

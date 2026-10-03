@@ -33,8 +33,8 @@ describe('the box a span draws around exactly one image', () => {
     const result = clean(google(box(image(REMOTE))), { formatting });
     expect(result.warnings).toEqual(['image-removed']);
     expect(result.html).toBe('<span id="docs-internal-guid-00000000-7fff-4000-8000-000000000005">'
-      // 1.38 is Docs' default 1.15 spacing, the document's own.
-      + '<p dir="ltr"><span style="white-space:pre-wrap"><span>Alt</span></span></p></span>');
+      // 1.38 is Docs' default 1.15 spacing, the document's own, and the paragraph that held only the image is a division.
+      + '<div dir="ltr"><span style="white-space:pre-wrap"><span>Alt</span></span></div></span>');
   });
 
   it.each(both)('keeps a data image inside the authored Google Docs image box quietly in %s', formatting => {
