@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HARD_LIMITS } from './capture.mjs';
-import { CaptureEvidenceError, deviceTagOffset, DEVICE_FIELDS, readPngChunks, readPngProfile, semanticSpecification, verifyCaptureFixture } from './offline.mjs';
+import { CaptureEvidenceError, namesDisplayUnit, semanticSpecification, verifyCaptureFixture } from './offline.mjs';
+import { scanFile } from '../../tests/privacy/scan.mjs';
 import { prepareFixture, specifiedExpectation, summarizeRedaction } from './prepare-fixture.mjs';
 import { inflateSync } from 'node:zlib';
 import { blocksFromEditorJSON, blocksFromHTML, checkScenario, compareBlocks, compareOutcome, copiedHiddenText, dryRun, expectedBlocks, imageInventory,
@@ -500,8 +501,8 @@ test('every committed English regression variant passes the offline verifier and
   for (const [document, hashes] of sources) assert.equal(hashes.size, 1, document);
 });
 
-test('no committed clipboard picture names its display unit: each one\'s profile redaction is declared, and each summary tells the committed bundle', async () => {
-  const pictures = [];
+test('no committed clipboard picture names its display unit or other device data, a declared redaction names a picture, and each summary tells the bundle', async () => {
+  let pictures = 0;
   for (const entry of await readdir(join(here, 'fixtures'), { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const directory = join(here, 'fixtures', entry.name);
@@ -510,28 +511,27 @@ test('no committed clipboard picture names its display unit: each one\'s profile
     const bundle = JSON.parse(await readFile(join(directory, manifest.capture.path), 'utf8'));
     for (const record of bundle.payload.files) {
       const picture = Buffer.from(record.base64, 'base64');
-      if (manifest.origin === 'synthetic') {
-        // The edited variant uses a synthetic PNG with no display profile or redaction.
-        assert.deepEqual([...picture.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-        assert.equal(readPngChunks(picture).some(([type]) => type === 'iCCP'), false, manifest.id);
-        assert.deepEqual(manifest.redactions, [], manifest.id);
-      } else {
-        const { profile } = readPngProfile(readPngChunks(picture));
-        const tag = deviceTagOffset(profile);
-        // A comparison of booleans, so a failure never prints the value it found.
-        for (const [field, offset] of Object.entries(DEVICE_FIELDS)) assert.ok(profile.readUInt32BE(tag + offset) === 0, `${manifest.id} ${field}`);
-        assert.ok(manifest.redactions.some(declaration => declaration.artifact === 'clipboard-file' && declaration.itemIndex === record.itemIndex), manifest.id);
-      }
-      pictures.push(manifest.id);
+      // A comparison of booleans, so a failure never prints the value it found. A picture without a display profile,
+      // or whose profile names no unit, needs no redaction, so none is required of it.
+      assert.ok(!namesDisplayUnit(picture), `${manifest.id} files[${String(record.itemIndex)}]`);
+      // The privacy gate's reading: no metadata of the picture names a device or a person.
+      assert.deepEqual(scanFile('picture.png', picture, []).filter(finding => DEVICE_DATA.has(finding.category)).map(finding => finding.location), [], manifest.id);
+      pictures++;
+    }
+    for (const declaration of manifest.redactions.filter(entry => entry.artifact === 'clipboard-file')) {
+      assert.ok(bundle.payload.files.some(record => record.itemIndex === declaration.itemIndex), manifest.id);
     }
     // The summary a reviewer reads tells the committed bundle's totals and every declared redaction.
     const summary = JSON.parse(await readFile(join(directory, 'capture-summary.json'), 'utf8'));
     assert.deepEqual([summary.textBytes, summary.fileBytes], [bundle.payload.totals.textBytes, bundle.payload.totals.fileBytes], manifest.id);
     assert.deepEqual(summary.redactions, manifest.redactions.map(summarizeRedaction), manifest.id);
   }
-  assert.equal(pictures.length, 19);
-  assert.ok(pictures.every(id => id.endsWith('-chrome')));
+  // The English Word Chrome variants retain one synthetic raster alternative per baseline selection.
+  assert.ok(pictures > 0);
 });
+
+/** What image metadata can name: the privacy gate's categories of device and person data. */
+const DEVICE_DATA = new Set(['device serial number', 'device make or model', 'image author', 'document author', 'GPS location', 'unscanned data']);
 
 test('the printed specification lists every text an operator enters', () => {
   const printed = printSpecification(docs);

@@ -480,6 +480,26 @@ export function readPngProfile(chunks) {
   return { index, name: Buffer.from(data.subarray(0, separator)), profile };
 }
 
+/**
+ * Whether a clipboard picture names the display it was drawn on: a PNG whose display profile's make and model tag
+ * holds a serial number or a manufacture date. A picture that is no PNG, has no profile or has a profile without
+ * that tag, as an sRGB one, names none and needs no profile redaction. A damaged PNG or profile is refused.
+ */
+export function namesDisplayUnit(picture) {
+  if (picture.length < PNG_SIGNATURE.length || !picture.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) return false;
+  const chunks = readPngChunks(picture);
+  if (!chunks.some(([type]) => type === 'iCCP')) return false;
+  const { profile } = readPngProfile(chunks);
+  let tag;
+  try {
+    tag = deviceTagOffset(profile);
+  } catch (error) {
+    if (error instanceof CaptureEvidenceError && error.code === 'evidence-redaction') return false;
+    throw error;
+  }
+  return Object.values(DEVICE_FIELDS).some(offset => profile.readUInt32BE(tag + offset) !== 0);
+}
+
 /** Where a profile's one Apple make and model tag ('mmod') starts, read within the profile's declared size and tag table. */
 export function deviceTagOffset(profile) {
   if (profile.length < 132 || profile.readUInt32BE(0) !== profile.length || profile.toString('latin1', 36, 40) !== 'acsp') fail('evidence-file');

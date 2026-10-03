@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { crc32, deflateSync, inflateSync } from 'node:zlib';
 import { HARD_LIMITS } from './capture.mjs';
-import { CaptureEvidenceError, maskedCaptureDigest, readPackageParts, verifyCaptureFixture } from './offline.mjs';
+import { CaptureEvidenceError, maskedCaptureDigest, namesDisplayUnit, readPackageParts, verifyCaptureFixture } from './offline.mjs';
 import { prepareFixture } from './prepare-fixture.mjs';
 import { scanFiles, scanText } from './privacy.mjs';
 import { redactCaptureBytes, redactCaptureFileBytes, redactPackageBytes, writePackage } from './redact.mjs';
@@ -626,6 +626,18 @@ test('a clipboard picture\'s display profile loses the serial number and manufac
   assert.equal(manifest.redactions[0].redactedSha256, digest(captureBytes));
   const committed = [JSON.stringify(report), JSON.stringify(manifest), captureBytes.toString('utf8')];
   for (const value of [digest(picture), digest(textRedacted), digest(profile), '5eed0001', String(0x5eed0001)]) for (const text of committed) assert.ok(!text.includes(value), value);
+});
+
+test('a clipboard picture names its display unit only by a display profile\'s serial number or date; without them it needs no redaction', () => {
+  assert.equal(namesDisplayUnit(pictureWith(displayProfile())), true);
+  assert.equal(namesDisplayUnit(pictureWith(displayProfile({ date: 0 }))), true);
+  assert.equal(namesDisplayUnit(pictureWith(displayProfile({ serial: 0 }))), true);
+  // A picture without a profile, as Chrome on another system may expose one, a profile without a make and model tag,
+  // as sRGB has none, and a profile whose tag is clear, as a redaction leaves it or a display writes it.
+  for (const [name, picture] of [['no profile', pictureWith(undefined)], ['no make and model tag', pictureWith(displayProfile({ device: false }))],
+    ['a clear tag', pictureWith(displayProfile({ serial: 0, date: 0 }))], ['not a PNG', Buffer.from([0xff, 0xd8, 0xff, 0xd9])]]) {
+    assert.equal(namesDisplayUnit(picture), false, name);
+  }
 });
 
 test('a clipboard picture redaction holds in a capture written with indentation, and before a capture text redaction', async t => {

@@ -220,15 +220,17 @@ nothing in the tooling is specific to a browser:
    account name with the `file:` scheme and its slashes and without it, so each
    link becomes one token and a picture bullet's image source a relative
    reference. The scan also reads image metadata in the document and in
-   clipboard files (text chunks, and the device a display profile, EXIF or XMP
-   names: a serial number, a make or model, an author, a position), people and custom document properties, text written with
+   clipboard files (text chunks, and the device a display profile, EXIF, XMP
+   or IPTC names: a serial number, a make or model, an author, a position), people and custom document properties, text written with
    HTML, percent or CSS escapes, and what an RTF flavor's hexadecimal groups
    decode to. `redact.mjs` cannot edit an image inside a document or a clipboard
    file's pixels: when one holds personal data, capture again from a document
    whose pictures carry none. The one clipboard file it edits is a PNG whose
    display profile names its display unit, as Chrome's picture of the
    selection does: `redact.mjs file` clears the serial number and manufacture
-   date there (see [Declared redactions](#declared-redactions)).
+   date there (see [Declared redactions](#declared-redactions)). A picture
+   without a display profile, or whose profile names no unit, needs no
+   redaction and declares none.
 3. Prepare with `--specification` and `--scenario`, then run
    `pnpm exec playwright test --config e2e/paste-cleanup.config.ts paste-native-fixtures.browser.ts`.
    It fails for a fixture whose outcomes are not authored yet: review that
