@@ -18,6 +18,11 @@ export interface InlineInheritanceOptions {
    * to, with an equal caret color. Another source's caret-equal color is its page default only when neutral.
    */
   wordSource?: boolean;
+  /**
+   * The color, as lowercase `#rrggbb`, that the source writes on every run for its default text color, as Google Docs
+   * writes black, which no run of its document sets: like Word's automatic color, it is no color of the text's own.
+   */
+  defaultTextColor?: string;
 }
 
 export class InheritanceLimitError extends Error {}
@@ -121,6 +126,16 @@ function declared(declarations: readonly string[], property: string): string | u
 
 const sameColor = (left: string, right: string): boolean => left.replace(/\s+/g, '').toLowerCase() === right.replace(/\s+/g, '').toLowerCase();
 
+/** An opaque color as lowercase `#rrggbb`: a three or six digit hex color, or rgb() and an rgba() of full alpha. Undefined otherwise. */
+function hexColor(value: string): string | undefined {
+  const hex = /^#([\da-f]{3}|[\da-f]{6})$/i.exec(value)?.[1];
+  if (hex !== undefined) return `#${(hex.length === 3 ? hex.replace(/[\da-f]/gi, digit => digit.repeat(2)) : hex).toLowerCase()}`;
+  const rgb = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*1(?:\.0+)?\s*)?\)$/i.exec(value);
+  const channels = rgb?.slice(1).map(Number);
+  if (channels === undefined || channels.some(channel => channel > 255)) return undefined;
+  return `#${channels.map(channel => channel.toString(16).padStart(2, '0')).join('')}`;
+}
+
 /**
  * Whether a color is a neutral gray, black or white: its channels at most 16 apart, as a page's default text
  * color is in a light or a dark scheme. Only rgb(), rgba() and hex colors are read; anything else is not neutral.
@@ -167,12 +182,13 @@ function lineHeightRatio(value: string, fontSize: string | undefined): string | 
  * a color equal to the element's caret color: WebKit copies a top-level element's inherited text color
  * with an equal caret color, which is the page's default color, Word's automatic color among them; a
  * color the source applied comes from its own rule, without one. Outside Word a container the page
- * colored also inherits its color into the caret, so there only a neutral color is the page default. A line height
+ * colored also inherits its color into the caret, so there only a neutral color is the page default. So does
+ * the source's own default color, as Google Docs writes black on every run. A line height
  * becomes the ratio LineHeight renders, and a routine one is the source's own spacing, which Word
  * also writes on each run whose size differs from its paragraph's. A later declaration wins, a reset to
  * the initial value included. The names of the declarations not kept are returned for the caller's policy.
  */
-function readInheritanceStyles(value: unknown, image: boolean, tag: string, routineLineHeights?: ReadonlySet<string>, wordSource = false): { styles: Map<string, string>; removedNames: string[]; defaultColor: boolean; defaultSize: boolean } {
+function readInheritanceStyles(value: unknown, image: boolean, tag: string, routineLineHeights?: ReadonlySet<string>, wordSource = false, defaultTextColor?: string): { styles: Map<string, string>; removedNames: string[]; defaultColor: boolean; defaultSize: boolean } {
   const styles = new Map<string, string>();
   const removedNames: string[] = [];
   let defaultColor = false;
@@ -199,7 +215,7 @@ function readInheritanceStyles(value: unknown, image: boolean, tag: string, rout
     removedNames.push(...parsed.removedNames);
     for (const key of parsed.cleared) styles.delete(key);
     for (const [key, entry] of parsed.styles) {
-      if (key === 'color' && (entry.toLowerCase() === 'windowtext'
+      if (key === 'color' && (entry.toLowerCase() === 'windowtext' || (defaultTextColor !== undefined && hexColor(entry) === defaultTextColor)
         || (caret !== undefined && sameColor(entry, caret) && (wordSource || neutralColor(entry))))) {
         styles.delete(key); defaultColor = true; continue;
       }
@@ -312,7 +328,8 @@ export function resolveInlineInheritance(
       const state: State = { ...inherited };
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
-      const { styles, removedNames, defaultColor, defaultSize } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.routineLineHeights, options.wordSource);
+      const { styles, removedNames, defaultColor, defaultSize } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.routineLineHeights, options.wordSource,
+        options.defaultTextColor);
       // Typography that adapt removes anyway is that policy's adaptation, not a loss; in preserve every declaration not kept is.
       let unsupported = removedNames.some(name => preserve || !adaptedTypography(name));
       // One adapted finding per discarded source property, reported on its declaring element.

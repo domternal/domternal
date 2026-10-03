@@ -65,3 +65,40 @@ describe('Google Docs line spacing', () => {
     expect(lineHeights(result.html)).toEqual(['1.38', '1.2']);
   });
 });
+
+describe('Google Docs default text color', () => {
+  const colors = (html: string): string[] => [...html.matchAll(/(?<![-\w])color:([^;"]+)/gu)].map(match => match[1] ?? '');
+
+  it('reads the black Docs writes on every run as the default text color, which no run keeps', () => {
+    // The export names no run color: black is Docs' default, which the copy spells out on every run and list item.
+    const html = docs(paragraph('GB04 Plain paragraph without formatting.')
+      + `<ul style="margin-top:0;margin-bottom:0;padding-inline-start:48px;"><li dir="ltr" style="list-style-type:disc;${RUN}" aria-level="1">`
+      + `<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation">${run('GL02 First level')}</p></li></ul>`
+      + `<div dir="ltr" style="margin-left:0pt;" align="left"><table style="border:none;border-collapse:collapse;table-layout:fixed;width:468pt"><thead><tr style="height:0pt">`
+      + `<th style="vertical-align:top;padding:5pt 5pt 5pt 5pt;" scope="col">${paragraph('GT02 Column A', '1.2')}</th></tr></thead><tbody><tr style="height:0pt">`
+      + cell(paragraph('GT05 Gray cell', '1.2'), 'background-color:#efefef;') + '</tr></tbody></table></div>');
+    const result = normalizePasteHTML(html);
+    expect(warnings(result)).toEqual([]);
+    expect(colors(result.html)).toEqual([]);
+    // The typography the runs carry stays, and so does the cell's shading.
+    expect(result.html.match(/font-family:Arial,sans-serif;font-size:11pt/gu)).toHaveLength(4);
+    expect(result.html).toContain('background-color:#efefef');
+  });
+
+  it('keeps every other color: a heading style\'s gray, an applied red, the link blue and a highlight', () => {
+    const html = docs(`<h3 dir="ltr" style="line-height:1.38;margin-top:16pt;margin-bottom:4pt;">${run('GB03 Level three heading', RUN.replace('font-size:11pt', 'font-size:13.999999999999998pt').replace('#000000', '#434343'))}</h3>`
+      + `<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;">${run('GB10 ')}${run('red', RUN.replace('#000000', '#ff0000'))}`
+      + run('highlighted', RUN.replace('background-color:transparent', 'background-color:#ffff00'))
+      + `<a href="https://example.com/domternal/gdocs-v1" style="text-decoration:none;">${run('an example page', RUN.replace('#000000', '#1155cc').replace('text-decoration:none', 'text-decoration:underline'))}</a></p>`);
+    const result = normalizePasteHTML(html);
+    expect(warnings(result)).toEqual([]);
+    expect(colors(result.html)).toEqual(['#434343', '#ff0000', '#1155cc']);
+    expect(result.html).toContain('background-color:#ffff00');
+  });
+
+  it('reads black in another notation the same way, and another source\'s black as its own', () => {
+    expect(colors(normalizePasteHTML(docs(paragraph('GB04 A').replace('color:#000000', 'color:rgb(0, 0, 0)'))).html)).toEqual([]);
+    expect(colors(normalizePasteHTML(docs(paragraph('GB04 A').replace('color:#000000', 'color:#000'))).html)).toEqual([]);
+    expect(colors(normalizePasteHTML('<p><span style="color:#000000">Web</span></p>').html)).toEqual(['#000000']);
+  });
+});

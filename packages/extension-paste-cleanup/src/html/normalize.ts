@@ -221,6 +221,8 @@ export function normalizeClipboardHTML(
         maxNodes: limits.maxNodes, maxDepth: limits.maxDepth, maxInputLength: limits.maxInputLength,
         formatting: options.formatting ?? 'preserve', ...(routine === undefined ? {} : { routineLineHeights: routine }),
         wordSource: result.source === 'word',
+        // Google Docs writes its default text color, black, on every run, where its export names none.
+        ...(result.source === 'google-docs' ? { defaultTextColor: '#000000' } : {}),
       }, node => { report('unsupported-formatting', node); }, node => { report('formatting-adapted', node, 'info'); });
       if (anchor !== undefined) confirmSliceAnchor(tree, anchor);
     }
