@@ -231,13 +231,15 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       });
     }
 
-    test('Google Docs list markers stay explicit where only the line spacing is unconfirmed', async ({ page }) => {
+    test('Google Docs list markers stay explicit in the default schema, where Docs\' default spacing raises nothing', async ({ page }) => {
       await open(page, framework); await seed(page, '<p>Replace me</p>');
       await paste(page, googleListHTML, 'One\nTwo\nThree\nFour\nFive\nSix');
       const results = await pasteResults(page);
       expect(results).toHaveLength(1); expect(results[0]?.status).toBe('cleaned');
-      // The default schema has no LineHeight, so the line spacing Google Docs writes on each paragraph is unconfirmed.
-      expect(results[0]?.diagnostics).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
+      // The default schema has no LineHeight. The 1.38 Google Docs writes on each paragraph is its default 1.15, the
+      // document's own spacing, so nothing is unconfirmed and the notice stays hidden.
+      expect(results[0]?.diagnostics).toEqual([]);
+      await expect(page.locator('.dm-paste-feedback')).toBeHidden();
       expect(listShape((await snapshot(page)).doc)).toEqual(googleShape(['disc', 'circle', 'square'], ['decimal', 'lower-alpha', 'lower-roman']));
       expect(await computedMarkers(page)).toEqual(['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'lower-roman']);
     });

@@ -40,13 +40,13 @@ describe('list item markers moved to their list', () => {
     const result = clean(google(googleList('ul', googleItem('disc', 'One'), googleItem('disc', 'Two'))), { formatting });
     expect(result.warnings).toEqual([]);
     const item = formatting === 'preserve' ? 'background-color:transparent;vertical-align:baseline;white-space:pre' : 'vertical-align:baseline;white-space:pre';
-    const paragraph = formatting === 'preserve' ? ' style="line-height:1.38"' : '';
     const text = (value: string): string => formatting === 'preserve'
       ? `<span style="white-space:pre-wrap"><span style="font-family:Arial,sans-serif;font-size:11pt;color:#000000">${value}</span></span>`
       : `<span style="white-space:pre-wrap">${value}</span>`;
+    // The paragraphs' 1.38 is Docs' default 1.15 spacing, the document's own, which no policy keeps.
     expect(result.html).toBe('<span id="docs-internal-guid-00000000-7fff-4000-8000-000000000002"><ul style="list-style-type:disc">'
-      + `<li style="${item}" dir="ltr"><p${paragraph} dir="ltr">${text('One')}</p></li>`
-      + `<li style="${item}" dir="ltr"><p${paragraph} dir="ltr">${text('Two')}</p></li></ul></span>`);
+      + `<li style="${item}" dir="ltr"><p dir="ltr">${text('One')}</p></li>`
+      + `<li style="${item}" dir="ltr"><p dir="ltr">${text('Two')}</p></li></ul></span>`);
   });
 
   it.each(both)('gives each authored Google Docs nested bullet list its own marker in %s', formatting => {
