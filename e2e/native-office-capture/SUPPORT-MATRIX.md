@@ -352,7 +352,10 @@ What the captures show and the fixtures pin:
 - Google wraps a copy in a bold of normal weight whose id is a guid made per
   copy: it names neither the account nor the document. Every run is a span with
   its whole typography, Arial 11 pt and `#000000` included, which the export
-  holds as document defaults, not run formatting. Black is Docs' default text
+  holds as document defaults, not run formatting. Every run also writes
+  `white-space: pre-wrap`, which left an empty text style on each pasted run;
+  the block holds it now where a text needs it, so no run carries one and every
+  space stays, which the fixtures pin. Black is Docs' default text
   color, so no run keeps it and pasted text follows the theme, at 4.5:1 in both
   themes. Docs' heading styles keep their sizes and Heading 3 its `#434343`,
   which reads below 3:1 on the dark theme and is annotated, like Word's heading

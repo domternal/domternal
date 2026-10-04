@@ -164,7 +164,8 @@ describe('Google Docs image paragraphs', () => {
 
   it('keeps a paragraph that holds text beside its image, an aligned image paragraph, and another source\'s image paragraph', () => {
     const mixed = docs(`<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;">${run('GI30 Text ')}<span style="${RUN}">${image('GI31 Picture')}</span></p>`);
-    expect(outline(normalizePasteHTML(mixed).html)).toBe('<p>GI30 Text [GI31 Picture]</p><br>');
+    // The space ending its text run needs the white space Docs writes on every run, which the paragraph holds for them.
+    expect(outline(normalizePasteHTML(mixed).html)).toBe('<p style="white-space:pre-wrap">GI30 Text [GI31 Picture]</p><br>');
     // Docs aligns an image by its paragraph, which a destination with in line images keeps.
     expect(outline(normalizePasteHTML(docs(imageParagraph('GI32 Picture', 'text-align: center;'))).html)).toBe('<p style="text-align:center">[GI32 Picture]</p><br>');
     expect(outline(normalizePasteHTML(`<p>${image('Web')}</p>`).html)).toBe('<p>[Web]</p>');

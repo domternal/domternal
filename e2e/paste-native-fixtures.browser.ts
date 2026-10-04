@@ -206,6 +206,19 @@ function topAlignedCells(doc: JSONContent): string[] {
   return found;
 }
 
+/** The runs that carry a text style storing no value, as a span whose only style the mark does not read made of each Google Docs run. */
+function emptyTextStyles(doc: JSONContent): string[] {
+  const found: string[] = [];
+  const visit = (node: JSONContent): void => {
+    if (node.marks?.some(mark => mark.type === 'textStyle' && Object.values(mark.attrs ?? {}).every(value => value === null)) === true) {
+      found.push((node.text ?? node.type).slice(0, 24));
+    }
+    for (const child of node.content ?? []) visit(child);
+  };
+  visit(doc);
+  return found;
+}
+
 const fixtures = nativeFixtures();
 
 /** A policy oracle's editor outcomes, one per schema, as offline.mjs editorOutcomes reads them; synchronous for test titles. */
@@ -256,6 +269,8 @@ for (const fixture of fixtures) {
           expect(result.unrenderedLineHeights).toEqual([]);
           // A cell keeps no vertical alignment the table draws by default, as Google Docs aligns every cell to the top.
           expect(topAlignedCells(result.doc)).toEqual([]);
+          // No run carries a text style that stores no value, as each Google Docs run did for the white space it writes.
+          expect(emptyTextStyles(result.doc)).toEqual([]);
           // An image the content places is one the scenario authors: a file next to the copy, such as Chrome's picture of a Word selection, is none.
           expect(result.images).toBe(expected.blocks.filter(block => block.type === 'image').length);
           // Text without a color of its own needs 4.5:1 (WCAG 1.4.3) against what it lands on, in either theme.

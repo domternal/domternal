@@ -672,6 +672,13 @@ clipboard in Chrome, which reviewed native captures show:
 - Docs aligns every table cell to the top, which is where the table draws every
   cell, so no pasted cell stores a vertical alignment; a cell aligned to the
   middle or the bottom keeps it. This holds for every source.
+- Docs writes `white-space: pre-wrap` on every run. A span left with only that
+  style became a text style mark that stores no value on each pasted run. A
+  block whose every text stands under one such value now holds it, where a
+  text needs it, and a run whose text reads alike without it, with no run of
+  spaces, space at its edge, tab or line break, drops it; a span left without
+  attributes is unwrapped. Every space stays where it was, and no run carries
+  an empty text style. This holds for every source.
 
 Docs writes every image as a `data:image/png` URL with its alt text and size, so
 it is kept as an embedded image. In the editor, an image the destination cannot

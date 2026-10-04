@@ -618,6 +618,24 @@ test('every committed English regression variant passes the offline verifier and
   for (const [document, hashes] of sources) assert.equal(hashes.size, 1, document);
 });
 
+test('the cleaned HTML of a semantic variant keeps no run whose only style is a white space, which the editor read as an empty text style', async () => {
+  const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
+  let google = 0;
+  for (const entry of await readdir(join(here, 'fixtures'), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const directory = join(here, 'fixtures', entry.name);
+    const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
+    const html = JSON.parse(await readFile(join(directory, manifest.capture.path), 'utf8')).payload.text['text/html'];
+    if (typeof html !== 'string') continue;
+    // Google Docs writes white-space: pre-wrap on every run; its block holds it where a text needs it.
+    if (/white-space:\s*pre-wrap/u.test(html)) google++;
+    for (const formatting of ['preserve', 'adapt']) {
+      assert.doesNotMatch(normalizePasteHTML(html, { formatting }).html, /<span style="white-space:[^";]*">/u, `${manifest.id} ${formatting}`);
+    }
+  }
+  assert.ok(google >= 28);
+});
+
 test('no committed clipboard picture names its display unit or other device data, a declared redaction names a picture, and each summary tells the bundle', async () => {
   let pictures = 0;
   for (const entry of await readdir(join(here, 'fixtures'), { withFileTypes: true })) {

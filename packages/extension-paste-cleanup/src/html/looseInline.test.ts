@@ -21,9 +21,9 @@ describe('inline content that follows a block at the top of the pasted HTML', ()
 
   it('is wrapped inside the Google Docs guid wrapper, which holds the blocks before it', () => {
     const result = normalizePasteHTML(google(`<p dir="ltr"><span>First</span></p>${partialLast}`), { formatting: 'adapt' });
-    const pre = '<span style="white-space:pre-wrap">';
-    expect(result.html).toBe(`<span id="${GUID}"><p dir="ltr"><span>First</span></p><div>${pre}GB09 </span>`
-      + `${pre}<strong>bold</strong></span>${pre} </span>${pre}<em>ita</em></span></div></span>`);
+    // The division holds the white space every run of it writes, which its spaces need.
+    expect(result.html).toBe(`<span id="${GUID}"><p dir="ltr"><span>First</span></p><div style="white-space:pre-wrap">GB09 `
+      + '<strong>bold</strong> <em>ita</em></div></span>');
   });
 
   it('is wrapped after a list, a heading or a division, and in a wrapper after a block outside it', () => {

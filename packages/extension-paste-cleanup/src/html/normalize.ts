@@ -28,6 +28,7 @@ import { emptyParagraphMarks, envelopeTags, transparentOfficeWrapper } from './e
 import { wrapLooseInlineRuns } from './looseInline.js';
 import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
 import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
+import { settleWhiteSpace } from './whiteSpace.js';
 import { routineLineHeights } from './wordSpacing.js';
 import { googleDocsChecklists, googleDocsEmptyParagraphs, googleDocsImageParagraphs, googleDocsLineHeights, googleDocsListLevels } from './googleDocs.js';
 import { wordHiddenText } from './hiddenText.js';
@@ -394,7 +395,11 @@ export function normalizeClipboardHTML(
     // A verified own copy holds only blocks at its top, as the editor serialized them. A wrapper
     // added here is generated output too, so the tree must still fit the same bounds with it.
     if (!own && wrapLooseInlineRuns(sanitized)) assertOutputTreeBounds(sanitized, limits.maxNodes, limits.maxDepth);
-    if (!own) restoreBareSpaces(sanitized);
+    if (!own) {
+      restoreBareSpaces(sanitized);
+      // A white space that keeps spaces, written on every run, moves to the block, so no run is an empty text style.
+      settleWhiteSpace(sanitized);
+    }
     if (destination !== undefined) {
       const requested = collectDestinationDemand(sanitized, limits);
       const unconfirmed = requested.length > 0 ? destination(requested) : [];

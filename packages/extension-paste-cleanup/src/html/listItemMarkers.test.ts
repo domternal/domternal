@@ -40,13 +40,12 @@ describe('list item markers moved to their list', () => {
     const result = clean(google(googleList('ul', googleItem('disc', 'One'), googleItem('disc', 'Two'))), { formatting });
     expect(result.warnings).toEqual([]);
     const item = formatting === 'preserve' ? 'background-color:transparent;vertical-align:baseline;white-space:pre' : 'vertical-align:baseline;white-space:pre';
-    const text = (value: string): string => formatting === 'preserve'
-      ? `<span style="white-space:pre-wrap"><span style="font-family:Arial,sans-serif;font-size:11pt">${value}</span></span>`
-      : `<span style="white-space:pre-wrap">${value}</span>`;
+    const text = (value: string): string => formatting === 'preserve' ? `<span style="font-family:Arial,sans-serif;font-size:11pt">${value}</span>` : value;
     // The paragraphs' 1.38 is Docs' default 1.15 spacing and the runs' black its default color, the document's own, which no policy keeps.
+    // The paragraph holds the white space every run writes, which the item's own would not draw alike.
     expect(result.html).toBe('<span id="docs-internal-guid-00000000-7fff-4000-8000-000000000002"><ul style="list-style-type:disc">'
-      + `<li style="${item}" dir="ltr"><p dir="ltr">${text('One')}</p></li>`
-      + `<li style="${item}" dir="ltr"><p dir="ltr">${text('Two')}</p></li></ul></span>`);
+      + `<li style="${item}" dir="ltr"><p dir="ltr" style="white-space:pre-wrap">${text('One')}</p></li>`
+      + `<li style="${item}" dir="ltr"><p dir="ltr" style="white-space:pre-wrap">${text('Two')}</p></li></ul></span>`);
   });
 
   it.each(both)('gives each authored Google Docs nested bullet list its own marker in %s', formatting => {
