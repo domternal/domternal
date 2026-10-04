@@ -43,7 +43,7 @@ type Transport = 'synthetic-event' | 'programmatic';
 
 async function open(page: Page, framework: string, options: {
   schema?: 'capability-minimal' | 'capability-full' | 'heading-levels'; formatting?: 'preserve' | 'adapt'; diagnostics?: 'one';
-  'link-protocols'?: 'https'; 'smart-paste'?: 'off'; 'unique-id'?: 'off'; 'image-policy'?: 'no-base64' | 'missing';
+  'link-protocols'?: 'https'; 'smart-paste'?: 'off'; 'unique-id'?: 'off'; 'image-policy'?: 'no-base64' | 'missing'; theme?: '1';
 } = {}): Promise<void> {
   const query = new URLSearchParams({ framework, ...options });
   await page.goto(`${BASE_URL}/?${query.toString()}`);
@@ -194,6 +194,42 @@ for (const framework of FRAMEWORKS) {
           return { images, texts };
         })).toEqual({ images: 0, texts: ['GI02 Text before the picture.', 'GI03 Blue rectangle', 'GI04 Text after the picture.'] });
         await expect(page.getByRole('region', { name: 'Paste notice', exact: true }).locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
+      });
+    }
+
+    for (const align of ['center', 'right'] as const) {
+      test(`an image Google Docs aligns to the ${align} by its paragraph pastes aligned there, with no empty paragraph above it, and its alt text aligned when removed`, async ({ page }) => {
+        // Before, the aligned paragraph that held only the image pasted empty above a block image, which lost the alignment.
+        const html = GOOGLE_IMAGE_HTML.replace(/(<p dir="ltr" style="line-height:1\.38;)(">(?:(?!<\/p>).)*<img)/u, `$1text-align: ${align};$2`);
+        const placed = (): Promise<{ blocks: string[]; offset: number | null }> => page.evaluate(right => {
+          const editor = (window as unknown as ProbeWindow).__pasteCleanup.editor;
+          const blocks: string[] = [];
+          editor.state.doc.forEach(node => {
+            const align: unknown = node.attrs['align'] ?? node.attrs['textAlign'];
+            blocks.push(`${node.type.name} ${typeof align === 'string' ? align : 'none'} ${node.type.name === 'image' ? String(node.attrs['alt']) : node.textContent}`);
+          });
+          // How far the image's center, or its right edge, stands from the paragraph's: none where the image is placed as aligned.
+          const image = editor.view.dom.querySelector('img')?.getBoundingClientRect();
+          const text = editor.view.dom.querySelector('p')?.getBoundingClientRect();
+          return { blocks, offset: image === undefined || text === undefined ? null
+            : Math.round(Math.abs(right ? image.right - text.right : (image.left + image.right - text.left - text.right) / 2)) };
+        }, align === 'right');
+        // The theme draws an image where its alignment places it.
+        await open(page, framework, { theme: '1' });
+        await seed(page);
+        let observed = await paste(page, html);
+        expect(observed.results[0]?.diagnostics.filter(diagnostic => diagnostic.severity !== 'info')).toEqual([]);
+        const kept = await placed();
+        expect(kept.blocks.map(block => block.replace(/^paragraph left /u, 'paragraph none '))).toEqual(['paragraph none GI02 Text before the picture.',
+          `image ${align} GI03 Blue rectangle`, 'paragraph none GI04 Text after the picture.']);
+        expect(kept.offset).toBeLessThanOrEqual(1);
+        // A destination whose Image refuses data URLs keeps the alt text in the aligned paragraph the image stood in.
+        await open(page, framework, { 'image-policy': 'no-base64', theme: '1' });
+        await seed(page);
+        observed = await paste(page, html);
+        expect(observed.results[0]?.diagnostics.filter(diagnostic => diagnostic.severity !== 'info').map(diagnostic => diagnostic.code)).toEqual(['image-removed']);
+        expect((await placed()).blocks.map(block => block.replace(/^paragraph left /u, 'paragraph none '))).toEqual(['paragraph none GI02 Text before the picture.',
+          `paragraph ${align} GI03 Blue rectangle`, 'paragraph none GI04 Text after the picture.']);
       });
     }
 

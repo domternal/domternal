@@ -80,6 +80,7 @@ const severityRank: Readonly<Record<PasteDiagnostic['severity'], number>> = { in
 
 const holdsText = (node: Element): boolean =>
   node.children.some(child => (child.type === 'text' ? /[^\t\n\f\r ]/.test(child.value) : child.type === 'element' && holdsText(child)));
+const holdsImage = (node: Element): boolean => node.children.some(child => child.type === 'element' && (child.tagName === 'img' || holdsImage(child)));
 
 /** The checkbox a Domternal or Tiptap task item draws before its content, whose state the item's data-checked holds. */
 function taskCheckbox(parent: Root | Element, child: Element): boolean {
@@ -210,6 +211,8 @@ export function normalizeClipboardHTML(
     };
     // A slice marker alone is structural context. Only a verified own copy keeps editor formatting as is.
     const { anchor, own } = readSliceOrigin(tree, ownCopy);
+    // The divisions Google Docs' image paragraphs became, which stand as paragraphs again for the alt text of removed images.
+    let imageParagraphs: ReadonlySet<Element> | undefined;
     if (!own) {
       // The break Chrome and Safari end a copy with marks where the selection ended, no line of the content.
       dropInterchangeNewline(tree);
@@ -239,7 +242,7 @@ export function normalizeClipboardHTML(
         // Google Docs writes each empty paragraph as a break between blocks, an image in a paragraph of its own, and
         // each block's spacing as 1.2 times the spacing Docs shows, its defaults included.
         googleDocsEmptyParagraphs(tree);
-        googleDocsImageParagraphs(tree);
+        imageParagraphs = googleDocsImageParagraphs(tree, options.formatting !== 'adapt' || options.preserveTextAlignment === true);
         googleDocsLineHeights(tree);
         // After the breaks between its blocks were read, the wrapper whose id names the copy goes.
         googleDocsCopyWrappers(tree);
@@ -287,6 +290,8 @@ export function normalizeClipboardHTML(
         if (child.tagName === 'b' && ['normal', '400'].includes(styles.get('font-weight') ?? '')) child.tagName = 'span';
         if (child.tagName === 'i' && styles.get('font-style') === 'normal') child.tagName = 'span';
         normalizeChildren(child);
+        // A Google Docs image paragraph whose every image was removed holds the alt text left in their place as the paragraph it was.
+        if (imageParagraphs?.has(child) === true && !holdsImage(child)) child.tagName = 'p';
         const semantic: string[] = [];
         if (/^(?:bold|[6-9]00)$/.test(styles.get('font-weight') ?? '')) semantic.push('strong');
         if (/^(?:italic|oblique)$/.test(styles.get('font-style') ?? '')) semantic.push('em');

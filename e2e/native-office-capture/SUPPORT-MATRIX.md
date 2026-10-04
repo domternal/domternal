@@ -410,7 +410,13 @@ What the captures show and the fixtures pin:
   holds only an image no longer pastes an empty paragraph above a block image.
   A destination whose Image refuses data URLs, or that has no Image, removes
   each image with `image-removed`, its alt text in its place, which the fixtures
-  pin; before, it kept a broken picture or lost the image silently.
+  pin with every block around it; before, it kept a broken picture or lost the
+  image silently. Docs aligns an image by its paragraph: one centered or aligned
+  to the end gives the image that alignment, which Image draws, where the
+  policy keeps text alignment, and a removed image's alt text stays in the
+  aligned paragraph; before, such a paragraph pasted empty above an unaligned
+  block image. No capture holds an aligned image, so unit and editor tests pin
+  this.
 
 Limits of this row:
 
@@ -421,9 +427,7 @@ Limits of this row:
   copy, which their own captures will show.
 - The first pasted paragraph joins the paragraph it is pasted into and takes its
   alignment and spacing, as for Word, and the first space of a partial selection
-  arrives as a no-break space, which stays. A paragraph centered or aligned to
-  the end that holds only an image keeps its paragraph, with the empty paragraph
-  a block image closes above it.
+  arrives as a no-break space, which stays.
 - Not captured: the large image, whose data URL the capture's 2 MiB text limit
   and PasteCleanup's input ceiling of 2,000,000 characters bound, the slow copy,
   the 50 and 51 image limit, the mixed and large documents, and Safari and

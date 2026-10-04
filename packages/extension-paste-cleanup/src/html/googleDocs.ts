@@ -135,30 +135,42 @@ function holdsOnlyImages(node: Element): boolean {
   return only(node.children) && images > 0;
 }
 
-/** Whether a style aligns its block's content other than to the start, which in line images take. */
-function aligned(style: unknown): boolean {
+/** The image alignment a block's text alignment places its in line images at: the center or the end, as Image's `data-align` names them. */
+function imageAlignment(style: unknown): 'center' | 'right' | undefined {
   let align: string | undefined;
   for (const [name, value] of plainDeclarations(style) ?? []) if (name === 'text-align') align = value.toLowerCase();
-  return align !== undefined && !['left', 'start', 'justify'].includes(align);
+  return align === 'center' ? 'center' : align === 'right' || align === 'end' ? 'right' : undefined;
+}
+
+/** The images of a paragraph that holds only images, inside the runs Docs wraps them in. */
+function paragraphImages(node: Element): Element[] {
+  return node.children.flatMap(child => (child.type !== 'element' ? [] : child.tagName === 'img' ? [child] : paragraphImages(child)));
 }
 
 /**
  * Docs places an in line image in a paragraph of its own. An editor whose images are blocks closed that
  * paragraph empty before the image, so every image pasted with an empty paragraph above it, in a table cell
  * too. A paragraph that holds only images becomes a division, which opens no block of its own: a block image
- * stands in the paragraph's place, and an in line image, or the alt text left in place of a removed one, gets a
- * paragraph of the editor's parse. A paragraph aligned to the center or the end keeps that alignment for in
- * line images, so it stays a paragraph.
+ * stands in the paragraph's place, and an in line image gets a paragraph of the editor's parse. Docs aligns an
+ * image by its paragraph: where the policy keeps text alignment, a paragraph aligned to the center or the end
+ * gives its images that alignment, which Image draws, and the division keeps its own for a reader of the HTML.
+ * Returns the divisions, which cleanup makes paragraphs again when it removes every image they held, so the alt
+ * text left in place of an image stands in the image's paragraph, aligned as it was.
  */
-export function googleDocsImageParagraphs(tree: Root): void {
+export function googleDocsImageParagraphs(tree: Root, keepAlignment: boolean): Set<Element> {
+  const divisions = new Set<Element>();
   const pending: (Root | Element)[] = [tree];
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
     for (const child of node.children) {
       if (child.type !== 'element') continue;
-      if (child.tagName === 'p' && holdsOnlyImages(child) && !aligned(child.properties.style)) child.tagName = 'div';
-      else pending.push(child);
+      if (child.tagName !== 'p' || !holdsOnlyImages(child)) { pending.push(child); continue; }
+      child.tagName = 'div';
+      divisions.add(child);
+      const align = keepAlignment ? imageAlignment(child.properties.style) : undefined;
+      if (align !== undefined) for (const image of paragraphImages(child)) image.properties['dataAlign'] ??= align;
     }
   }
+  return divisions;
 }
 
 const LISTS = new Set(['ul', 'ol']);

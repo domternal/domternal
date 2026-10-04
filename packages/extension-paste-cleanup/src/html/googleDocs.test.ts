@@ -156,19 +156,46 @@ describe('Google Docs image paragraphs', () => {
     }
   });
 
-  it('leaves the alt text it stands in for a removed image in that division, where the editor opens a paragraph for it', () => {
+  it('leaves the alt text it stands in for a removed image in the paragraph the image stood in', () => {
     const result = normalizePasteHTML(docs(imageParagraph('GI03 Blue rectangle')), { allowDataImages: false });
     expect(warnings(result)).toEqual(['image-removed']);
-    expect(outline(result.html)).toBe('<div>GI03 Blue rectangle</div>');
+    expect(outline(result.html)).toBe('<p>GI03 Blue rectangle</p>');
   });
 
-  it('keeps a paragraph that holds text beside its image, an aligned image paragraph, and another source\'s image paragraph', () => {
+  it('carries the alignment of an image paragraph to its images, as Docs aligns an image, and to the alt text of a removed one', () => {
+    // A paragraph centered or aligned to the end kept its paragraph, which a block image closed empty above it, and the image lost the alignment.
+    const aligned = (align: string): string => docs(imageParagraph('GI32 Picture', `text-align: ${align};`)
+      + table(cell(imageParagraph('GI33 Picture in a cell', `text-align: ${align};`).replace('line-height:1.38', 'line-height:1.2'))));
+    const alignments = (html: string): string[] => [...html.matchAll(/<img [^>]*?data-align="([a-z]+)"/gu)].map(match => match[1] ?? '');
+    const blocks = (html: string): string => outline(html).replace(/<(table|td)\b[^>]*>/gu, '<$1>')
+      .replace(/<\/?(?:tbody|tr|colgroup|col)\b[^>]*>|<div>(?=<table)|(?<=<\/table>)<\/div>/gu, '');
+    for (const align of ['center', 'right']) {
+      const preserve = normalizePasteHTML(aligned(align));
+      expect(warnings(preserve)).toEqual([]);
+      expect(alignments(preserve.html)).toEqual([align, align]);
+      // The division keeps the alignment too, for a reader of the HTML, where the image is in line.
+      expect(blocks(preserve.html)).toBe(`<div style="text-align:${align}">[GI32 Picture]</div><table><td><div style="text-align:${align}">[GI33 Picture in a cell]</div></td></table>`);
+      // Adapt removes source text alignment, the image's with its paragraph's, unless the host keeps it.
+      const adapt = normalizePasteHTML(aligned(align), { formatting: 'adapt' });
+      expect(warnings(adapt)).toEqual([]);
+      expect(alignments(adapt.html)).toEqual([]);
+      expect(blocks(adapt.html)).toBe('<div>[GI32 Picture]</div><table><td><div>[GI33 Picture in a cell]</div></td></table>');
+      expect(alignments(normalizePasteHTML(aligned(align), { formatting: 'adapt', preserveTextAlignment: true }).html)).toEqual([align, align]);
+      // A removed image leaves its alt text in its paragraph, aligned as the image was.
+      const removed = normalizePasteHTML(aligned(align), { allowDataImages: false });
+      expect(warnings(removed)).toEqual(['image-removed', 'image-removed']);
+      expect(blocks(removed.html)).toBe(`<p style="text-align:${align}">GI32 Picture</p><table><td><p style="text-align:${align}">GI33 Picture in a cell</p></td></table>`);
+    }
+    // A paragraph aligned to the start or justified places its image where an unaligned one does.
+    for (const align of ['left', 'justify']) expect(alignments(normalizePasteHTML(aligned(align)).html)).toEqual([]);
+  });
+
+  it('keeps a paragraph that holds text beside its image, and another source\'s image paragraph', () => {
     const mixed = docs(`<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;">${run('GI30 Text ')}<span style="${RUN}">${image('GI31 Picture')}</span></p>`);
     // The space ending its text run needs the white space Docs writes on every run, which the paragraph holds for them.
     expect(outline(normalizePasteHTML(mixed).html)).toBe('<p style="white-space:pre-wrap">GI30 Text [GI31 Picture]</p>');
-    // Docs aligns an image by its paragraph, which a destination with in line images keeps.
-    expect(outline(normalizePasteHTML(docs(imageParagraph('GI32 Picture', 'text-align: center;'))).html)).toBe('<p style="text-align:center">[GI32 Picture]</p>');
     expect(outline(normalizePasteHTML(`<p>${image('Web')}</p>`).html)).toBe('<p>[Web]</p>');
+    expect(outline(normalizePasteHTML(`<p style="text-align:center">${image('Web')}</p>`).html)).toBe('<p style="text-align:center">[Web]</p>');
   });
 });
 

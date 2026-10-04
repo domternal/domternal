@@ -655,8 +655,12 @@ clipboard in Chrome, which reviewed native captures show:
   stands for, where the editor would make one paragraph of two lines of two of
   them. A break inside a paragraph or beside inline content stays a line break.
 - A paragraph that holds only images becomes a division, so an editor whose
-  images are blocks no longer closes an empty paragraph above each image; one
-  centered or aligned to the end keeps its paragraph for in line images.
+  images are blocks no longer closes an empty paragraph above each image. Docs
+  aligns an image by its paragraph: one centered or aligned to the end gives its
+  images that alignment, their `data-align`, which Image draws, where the
+  policy keeps text alignment (`preserve`, or `adapt` with
+  `preserveTextAlignment`). When every image it held is removed, it stays the
+  paragraph it was, its alt text aligned as the image was.
 - A selection that starts below a list's first level writes each item's
   `aria-level` and a 36 pt margin for each level above the copy. When every item
   of a list stands the same number of levels below its depth in the copy, with
