@@ -36,6 +36,8 @@ const lists = query.get('schema') !== 'no-lists';
 // A Link that stores only https: addresses, for the destination link probe.
 const httpsLinks = query.get('link-protocols') === 'https';
 const listMarkers = query.get('list-markers') === '1';
+// Without TaskList and TaskItem, as an editor that leaves the task list out.
+const taskLists = query.get('task-list') !== 'off';
 // The theme with the frame every wrapper renders: the view mounts in a div inside .dm-editor.
 const themed = query.get('theme') === '1';
 // A theme class on the page around the editor: dm-theme-dark, dm-theme-auto or dm-theme-light.
@@ -294,7 +296,7 @@ const extensions = [
   capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : headingLevels ? Heading.configure({ levels: [2, 3] }) : Heading,
   ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),
   ...(lists ? [...markerLists, ListItem] : []),
-  ...(listMarkers || contrast ? [TaskList, TaskItem] : []),
+  ...((listMarkers || contrast) && taskLists ? [TaskList, TaskItem] : []),
   ...(contrast ? [Code, BlockColor, HorizontalRule] : []),
   Blockquote, CodeBlock, HardBreak, UniqueID,
   ...(tableFirst ? tableExtensions : []), ...(imagePolicy === 'missing' ? [] : [Image.configure({

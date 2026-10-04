@@ -99,10 +99,10 @@ type Assets = 'none' | 'embedded' | 'small-limits';
 type ImagePolicy = 'default' | 'no-base64' | 'missing';
 
 async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'default' | 'capability-full', items: Item[], assets: Assets = 'none',
-  imagePolicy: ImagePolicy = 'default'): Promise<Replay> {
+  imagePolicy: ImagePolicy = 'default', taskLists = true): Promise<Replay> {
   const query = new URLSearchParams({ framework: 'vanilla', formatting, 'list-markers': '1', ...(schema === 'default' ? {} : { schema }),
     ...(assets === 'none' ? {} : { assets: 'embedded' }), ...(assets === 'small-limits' ? { 'asset-limits': 'small' } : {}),
-    ...(imagePolicy === 'default' ? {} : { 'image-policy': imagePolicy }) });
+    ...(imagePolicy === 'default' ? {} : { 'image-policy': imagePolicy }), ...(taskLists ? {} : { 'task-list': 'off' }) });
   await page.goto(`http://127.0.0.1:5895/?${query.toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
   await page.evaluate(() => {
@@ -290,6 +290,28 @@ for (const fixture of fixtures) {
             expect(result.notice.visible).toBe(true);
             const texts = blocksFromEditorJSON(result.doc).map(block => block.text.trim());
             for (const alt of alts) expect(texts).toContain(alt);
+          }
+        });
+      }
+
+      // A destination without task lists parses a checklist as a bullet list, which loses each item's checked state: the
+      // paste reports it, where it lost the state without a finding.
+      const tasks = fixture.expected?.blocks.filter(block => (block['list'] as { kind?: unknown } | undefined)?.kind === 'task') ?? [];
+      if (tasks.length > 0) {
+        test(`${formatting}: pastes its checklist as bullets, reported, where the destination has no task lists`, async ({ page }) => {
+          const expected = fixture.expected;
+          if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
+          const outcome = editorOutcomesOf(expected[formatting]).find(entry => entry.schema === 'default');
+          if (outcome === undefined) throw new Error(`${fixture.id} has no default schema outcome`);
+          const [{ blocksFromEditorJSON }, { noticeCodes }] = await evidence();
+          const result = await replay(page, formatting, 'default', fixture.items, 'none', 'default', false);
+          expect(result.operations.at(-1)?.status).toBe('applied');
+          expect(noticeCodes(result.operations.at(-1)?.diagnostics ?? [])).toEqual([...new Set([...outcome.warnings, 'destination-formatting-unconfirmed'])].sort());
+          expect(result.notice.visible).toBe(true);
+          const blocks = blocksFromEditorJSON(result.doc);
+          for (const task of tasks) {
+            const found = blocks.find(block => block.text.trim() === task['text']);
+            expect((found?.['list'] as { kind?: unknown } | undefined)?.kind, String(task['text'])).toBe('bullet');
           }
         });
       }

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   Bold, BulletList, CodeBlock, Document, ExtensionManager, FontFamily, FontSize, Heading, Highlight, Node,
   Italic, LineHeight, ListItem, OrderedList, Paragraph, Strike, Subscript, Superscript,
-  Text, TextAlign, TextColor, TextStyle, Underline,
+  TaskItem, TaskList, Text, TextAlign, TextColor, TextStyle, Underline,
 } from '@domternal/core';
 import type { EditorOptions } from '@domternal/core';
 import { DOMParser, Schema } from '@domternal/pm/model';
@@ -279,5 +279,21 @@ describe('destination image capabilities', () => {
       expect(element.ownerDocument.defaultView).toBeNull();
       expect(element.querySelector('img')?.getAttribute('src')).toMatch(PROBE_SOURCES);
     }
+  });
+});
+
+describe('destination task list capabilities', () => {
+  it('holds a task list only where its items parse as task items with their checked state', () => {
+    expect(getUnsupportedDestinationFeatures(schemaWith([BulletList, ListItem, TaskList, TaskItem]), document, ['task-list'])).toEqual([]);
+    expect(getUnsupportedDestinationFeatures(schemaWith([TaskList, TaskItem]), document, ['bullet-list', 'task-list'])).toEqual(['bullet-list']);
+    // Without TaskList the editor parses a task list as a bullet list, which loses every item's checked state.
+    expect(getUnsupportedDestinationFeatures(schemaWith([BulletList, ListItem]), document, ['task-list'])).toEqual(['task-list']);
+    // A task item that keeps no checked state holds the list without what makes it one.
+    const stateless = new Schema({ nodes: {
+      doc: { content: 'block+' }, paragraph: { group: 'block', content: 'text*', parseDOM: [{ tag: 'p' }] }, text: {},
+      taskList: { group: 'block', content: 'taskItem+', parseDOM: [{ tag: 'ul[data-type="taskList"]' }] },
+      taskItem: { content: 'paragraph block*', parseDOM: [{ tag: 'li[data-type="taskItem"]' }] },
+    } });
+    expect(getUnsupportedDestinationFeatures(stateless, document, ['task-list'])).toEqual(['task-list']);
   });
 });

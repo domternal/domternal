@@ -9,7 +9,7 @@ const FEATURES: readonly PasteDestinationFeature[] = Object.freeze([
   'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6',
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
-  'ordered-list-style', 'bullet-list-style',
+  'ordered-list-style', 'bullet-list-style', 'task-list',
   'link-http', 'link-https', 'link-mailto', 'link-tel',
   'heading-text-at-list-item-start', 'heading-text-in-summary', 'heading-text-in-preformatted',
   'image', 'image-data',
@@ -128,6 +128,16 @@ export function getUnsupportedDestinationFeatures(
         && node.attrs['listStyleType'] === expected[index] && node.childCount === 1
         && node.firstChild?.type.name === 'listItem' && node.firstChild.childCount === 1
         && paragraph(node.firstChild.firstChild, String(index)));
+    }
+    if (feature === 'task-list') {
+      // A checked and an unchecked item: a task list is held when both keep their state, which a bullet list loses.
+      const nodes = parse('<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>A</p></li>'
+        + '<li data-type="taskItem" data-checked="false"><p>B</p></li></ul>');
+      const list = nodes[0];
+      return nodes.length === 1 && list?.childCount === 2 && ['A', 'B'].every((text, index) => {
+        const item = list.child(index);
+        return item.attrs['checked'] === (index === 0) && paragraph(item.firstChild, text);
+      });
     }
     if (feature === 'ordered-list' || feature === 'bullet-list' || feature === 'nested-list') {
       if (!lists) {

@@ -3,7 +3,7 @@ import type { Mock } from 'vitest';
 import {
   Blockquote, Bold, BulletList, Document, Editor, FontFamily, FontSize, Heading, Highlight, History, Italic,
   LineHeight, ListItem, Paragraph, StarterKit, Strike, Subscript, Superscript, Text, TextAlign, TextColor,
-  OrderedList, TextStyle, Underline,
+  OrderedList, TaskItem, TaskList, TextStyle, Underline,
 } from '@domternal/core';
 import type { EditorOptions } from '@domternal/core';
 import { redoDepth, undoDepth } from '@domternal/pm/history';
@@ -113,6 +113,32 @@ describe('destination capability feedback through the editor', () => {
       expect(fixture.editor.state.selection.toJSON()).toEqual(before.selection);
       expect(fixture.editor.commands.redo()).toBe(true);
       expect(fixture.editor.getJSON()).toEqual(after);
+    }
+  });
+
+  // English text variant of the recorded Google Docs checklist shape (fixtures/gdocs-other-list-profiles-chrome),
+  // not a new native capture.
+  it.each(['preserve', 'adapt'] as const)('reports a Google Docs checklist where the editor has no task lists, which pastes it as bullets, in %s mode', async formatting => {
+    const run = (text: string, decoration: string): string => '<span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;'
+      + `font-weight:400;font-style:normal;font-variant:normal;text-decoration:${decoration};vertical-align:baseline;white-space:pre;white-space:pre-wrap;">${text}</span>`;
+    const task = (checked: boolean, text: string): string => `<li dir="ltr" role="checkbox" aria-checked="${String(checked)}" style="list-style-type:none;`
+      + `color:#000000;text-decoration:${checked ? 'line-through' : 'none'};" aria-level="1"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC" `
+      + `width="17.599999999999998px" height="17.599999999999998px" alt="${checked ? 'checked' : 'unchecked'}" aria-roledescription="checkbox" />`
+      + `<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;display:inline-block;vertical-align:top;margin-top:0;" role="presentation">`
+      + `${run(text, checked ? 'line-through' : 'none')}</p></li>`;
+    const html = '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-d765559e-7fff-ab4f-ae71-283a7ee44f53">'
+      + `<ul style="margin-top:0;margin-bottom:0;padding-inline-start:28px;">${task(false, 'GL62 Unchecked task')}${task(true, 'GL63 Checked task')}</ul></b>`;
+    for (const tasks of [true, false]) {
+      const fixture = mount({ formatting }, [BulletList, ListItem, Strike, ...typography, ...(tasks ? [TaskList, TaskItem] : [])]);
+      paste(fixture.editor, html);
+      const result = await terminal(fixture, 'applied');
+      // Without task lists it pasted as bullet items, each item's checked state lost, without a finding.
+      expect(result.diagnostics.filter(diagnostic => diagnostic.severity !== 'info')).toEqual(tasks ? [] : [warning]);
+      expect(notice(fixture).hidden).toBe(tasks);
+      const list = fixture.editor.state.doc.firstChild;
+      expect(list?.type.name).toBe(tasks ? 'taskList' : 'bulletList');
+      expect(list?.textContent).toBe('GL62 Unchecked taskGL63 Checked task');
+      if (tasks) expect([list?.child(0).attrs['checked'], list?.child(1).attrs['checked']]).toEqual([false, true]);
     }
   });
 

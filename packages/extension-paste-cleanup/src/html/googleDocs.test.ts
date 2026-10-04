@@ -232,6 +232,17 @@ describe('Google Docs checklists', () => {
     expect(normalizePasteHTML(html).html).not.toContain('<img');
   });
 
+  it('reports a checklist that a destination without task lists can only paste as bullets, which lose the checked state', () => {
+    // It pasted as bullet items, the checked state lost, without a finding.
+    const html = docs(checklist(task(false, 'GL62 Unchecked task'), task(true, 'GL63 Checked task')));
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      expect(warnings(pasted(html, ['task-list'], { formatting }))).toEqual(['destination-formatting-unconfirmed']);
+      expect(warnings(pasted(html, [], { formatting }))).toEqual([]);
+    }
+    // A task list asks for task lists, not bullet lists, so an editor with task lists alone holds it.
+    expect(warnings(pasted(html, ['bullet-list']))).toEqual([]);
+  });
+
   it('leaves a list that is not wholly a checklist, and another source\'s checkbox items, as written', () => {
     const mixed = normalizePasteHTML(docs(checklist(task(false, 'GL62 Unchecked task'),
       `<li dir="ltr" style="list-style-type:disc;${RUN}" aria-level="1"><p dir="ltr">${run('GL61 Diamond bullet')}</p></li>`))).html;

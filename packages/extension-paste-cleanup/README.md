@@ -402,10 +402,14 @@ Table parts after other content are left as the HTML parser reads them.
 The editor integration checks requested built-in destination capabilities using
 small constant probes against the actual schema parser. It checks semantic marks,
 requested heading levels, retained text styles, paragraph alignment/line spacing,
-lists and table structure. Missing or unconfirmed formatting support produces a
-`destination-formatting-unconfirmed` warning. A pasted heading whose level the
-editor cannot represent stays a heading: it moves to the nearest supported level
-of equal or lower importance, otherwise to the deepest supported level, so a
+lists, task lists with their checked state and table structure. Missing or
+unconfirmed formatting support produces a `destination-formatting-unconfirmed`
+warning. A task list, such as an own copy of a to-do list or a Google Docs
+checklist, asks for task lists: an editor without them parses it as a bullet
+list, which loses each item's checked state, so it is reported. A pasted
+heading whose level the editor cannot represent stays a heading: it moves to the
+nearest supported level of equal or lower importance, otherwise to the deepest
+supported level, so a
 heading is never promoted while a deeper level exists and the outline keeps its
 order. With the default levels 1 to 4, `h5` and `h6` become `h4`; with levels 2
 and 3, `h1` becomes `h2`. A moved heading keeps its alignment and the other
@@ -657,7 +661,9 @@ clipboard in Chrome, which reviewed native captures show:
   above opening with one empty item of the list's kind, and the margin goes.
 - A list whose every item is an ARIA checkbox with its checked state, Docs'
   checklist, becomes a task list checked as Docs shows it, without the pictures
-  of the boxes Docs draws beside the items.
+  of the boxes Docs draws beside the items. An editor without task lists pastes
+  it as bullets and reports `destination-formatting-unconfirmed`, since the
+  checked state is lost.
 - A size relative to its run on a subscript or superscript, as Docs draws a
   script at 0.6em, is the script mark's own, so the run keeps its size and the
   script is not made smaller twice. This holds for every source.

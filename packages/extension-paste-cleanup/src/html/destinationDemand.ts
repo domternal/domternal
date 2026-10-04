@@ -12,6 +12,8 @@ export type PasteDestinationFeature =
   | 'font-family' | 'font-size' | 'text-color' | 'highlight' | 'text-align' | 'line-height'
   | 'table' | 'table-header' | 'ordered-list' | 'bullet-list' | 'nested-list'
   | 'ordered-list-style' | 'bullet-list-style'
+  // A task list whose items keep their checked state; without one the editor parses it as a bullet list.
+  | 'task-list'
   | 'link-http' | 'link-https' | 'link-mailto' | 'link-tel'
   // An image node that holds a remote source, and one that holds a data URL. Asked for each image a paste keeps.
   | 'image' | 'image-data'
@@ -24,7 +26,7 @@ const featureOrder: readonly PasteDestinationFeature[] = Object.freeze([
   'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6',
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
-  'ordered-list-style', 'bullet-list-style',
+  'ordered-list-style', 'bullet-list-style', 'task-list',
   'link-http', 'link-https', 'link-mailto', 'link-tel',
 ]);
 const headings: Readonly<Record<string, PasteDestinationFeature>> = {
@@ -49,7 +51,7 @@ function elementDemand(node: Element, hasInlineContent: boolean, nestedList: boo
   if (tag === 'table') features.add('table');
   if (tag === 'th') { features.add('table'); features.add('table-header'); }
   if (tag === 'ol' || tag === 'ul') {
-    features.add(tag === 'ol' ? 'ordered-list' : 'bullet-list');
+    features.add(tag === 'ol' ? 'ordered-list' : node.properties.dataType === 'taskList' ? 'task-list' : 'bullet-list');
     if (nestedList) features.add('nested-list');
     const marker = readSafeStyles(node.properties.style, false, tag).styles.get('list-style-type')
       ?? listStyleFromType(tag, node.properties.type);

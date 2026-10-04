@@ -383,7 +383,9 @@ What the captures show and the fixtures pin:
 - A checklist is written as ARIA checkbox items with their checked state, each
   beside a picture of its box. It pastes as a task list, checked as Docs shows
   it, without the pictures; the checked item's strikethrough is in the copy and
-  the export, so it stays.
+  the export, so it stays. An editor without task lists pastes it as bullets and
+  reports `destination-formatting-unconfirmed`, which the fixture pins; before,
+  the checked state was lost without a finding.
 - Docs draws a script as a span of 0.6em aligned to sub or super: that size is
   the script's own, so the run keeps its 11 pt under the script mark.
 - Links carry Docs' link blue `#1155cc` and an underline as the runs' own
