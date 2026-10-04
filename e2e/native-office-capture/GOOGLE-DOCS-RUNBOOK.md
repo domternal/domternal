@@ -13,7 +13,11 @@
 > qualification claim. Future native admission still needs an actual capture.
 
 
-Status: **prepared, not captured.** The owner or a named tester performs every
+Status: **captured in Chrome for four documents.** On 2026-10-05 the owner made
+the Chrome captures of the basics, lists, tables and images documents, which are
+the reviewed fixtures `fixtures/<scenario>-chrome`; Safari, Firefox, the large
+image, the slow copy, the 50 and 51 image limit and the mixed and large
+documents are pending. The owner or a named tester performs every
 step by hand. The documents, selections and expected results for preserve and
 adapt are in [`content/google-docs-v1.json`](./content/google-docs-v1.json); a
 capture made this way is evidence for review, never a qualification.
@@ -35,9 +39,10 @@ capture made this way is evidence for review, never a qualification.
 - Other software in the clipboard path: quit clipboard managers and remote
   desktop sessions, and use a browser profile without extensions.
 
-A capture holds the image addresses Google Docs serves, which open those images
-for anyone who has them. That is acceptable only because the images are
-generated; a bundle that holds anything else must be deleted, not edited.
+Chrome's captures hold every image as a data URL of its pixels, with no address.
+A copy that holds an address Google Docs serves would open the image for anyone
+who has it, which is acceptable only because the images are generated; a bundle
+that holds anything else must be deleted, not edited.
 
 ## Prepare once
 

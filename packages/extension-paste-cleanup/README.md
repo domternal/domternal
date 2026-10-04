@@ -4,10 +4,11 @@ Opt-in clipboard HTML cleanup for Domternal. MIT licensed and part of Free.
 
 **Development status:** unreleased. This package is not a DOCX importer and makes
 no claim of complete Word, Google Docs, or LibreOffice fidelity. Its behavior is
-verified with synthetic clipboard input and, for Word 16.113.3 for Mac on macOS
-26.5.2, with reviewed native captures copied in Safari 26.5.2, Chrome 154 and
-Firefox 155. Google Docs is not yet captured; Word for Windows, Word on the web,
-LibreOffice and Collabora are unqualified. Strict inline Office list metadata, read
+verified with synthetic clipboard input and with reviewed native captures on
+macOS 26.5.2: Word 16.113.3 for Mac copied in Safari 26.5.2, Chrome 154 and
+Firefox 155, and Google Docs web copied in Chrome 153. Google Docs in Safari and
+Firefox is not yet captured; Word for Windows, Word on the web, LibreOffice and
+Collabora are unqualified. Strict inline Office list metadata, read
 together with Word's list level definitions and marker fonts, and a bounded subset
 of inherited formatting are supported. Optional local image preparation supports
 image-only pastes and explicit application-supplied bindings. An explicit resolver
@@ -143,9 +144,9 @@ the level indentation of reconstructed Office list paragraphs, and the style of 
 span that only draws the box of the one image it holds (no border, `inline-block`,
 `overflow: hidden`, exactly the image's width and height in pixels, no image
 margin, padding, `hspace`, `vspace` or border attribute, and no comment, escape or
-`!important` in either style), as Google Docs is expected to wrap images; that
-shape is checked against
-authored HTML, not native captures. Nonzero horizontal indentation outside lists
+`!important` in either style), as Google Docs was expected to wrap images; that
+shape is checked against authored HTML, and Google Docs' Chrome captures place
+each image in its run's own span instead. Nonzero horizontal indentation outside lists
 and tables, borders outside tables, background shorthands with more than one
 color or an image, a background shorthand that paints a block other than a table
 cell, which no block keeps, background images, an image box that crops, pads or
@@ -375,7 +376,8 @@ wrapped in a `<div>` when a space between its words is a text node of white
 space only. ProseMirror's clipboard parser reads such a text node there as the
 space between two blocks and drops it, so a partly selected last paragraph
 written as bare spans, the shape expected from Google Docs and checked against
-authored HTML only, would paste `GB09 bold ita` as `GB09 boldita`.
+authored HTML (Google Docs' Chrome captures write it as a whole paragraph), would
+paste `GB09 bold ita` as `GB09 boldita`.
 In the `<div>` the parser puts the run in a paragraph, where the space stays. An
 image in the run stays in that paragraph when the editor's images are inline;
 when they are blocks, as by default, the image goes between the paragraph of the
@@ -566,8 +568,8 @@ carry a style that CSS may read otherwise than a split on semicolons (a comment,
 escape, `!important`, or a string or bracket holding a semicolon), and lists that
 hold elements other than items and nested lists, keep the markers on the items,
 which still report `unsupported-formatting`. This covers the
-shape expected from Google Docs, which writes the marker on each item; it is checked
-against authored HTML, not native captures. Core stores an explicit
+shape Google Docs writes, the marker on each item and a nested list directly in
+its parent list, which its Chrome captures confirm. Core stores an explicit
 marker in `listStyleType`; `null` keeps the destination theme's depth-based defaults.
 Slice context follows the same restrictions. Task lists do not gain this
 attribute. Lists with different explicit markers stay separate during paste and
@@ -581,8 +583,9 @@ Google Docs selection that starts in a nested item is expected to write it, gets
 new first item that holds the nested list. ProseMirror's parse moves a nested list
 written after an item into that item, but one written first closes the outer list
 there, and the items after it would paste as a separate list, a bulleted one even
-when the outer list was numbered. This shape is checked against authored HTML, not
-native captures; a task list that starts with a list is left as written.
+when the outer list was numbered. This shape is checked against authored HTML; a
+task list that starts with a list is left as written. Google Docs' Chrome
+captures write such a selection otherwise, as the next section describes.
 
 A list item whose content starts with a nested list, such as that new first item,
 an item after a paragraph, a later item or one in a details body, gets an empty
@@ -623,6 +626,50 @@ frame count, byte length and total pixels. APNG and animated WebP are not accept
 Container inspection does not decode compressed pixels or certify image integrity.
 If `allowDataImages` is false, source data images are removed. Match this setting to
 the destination Image extension's `allowBase64` policy.
+
+### Google Docs copies
+
+A copy whose source detection names Google Docs, by the wrapper whose id begins
+`docs-internal-guid-`, is read in the shapes Google Docs web writes to the
+clipboard in Chrome, which reviewed native captures show:
+
+- Docs writes a block's line spacing as a CSS line height of 1.2 times the
+  spacing Docs shows: its default 1.15 is 1.38 on every paragraph, heading and
+  list item, single, a table cell's default, 1.2, and 1.5 `1.7999999999999998`.
+  The spacing is read back, as LineHeight stores and draws it, and the defaults
+  of text and of table cells are dropped as the document's own, so a routine copy
+  raises no `destination-formatting-unconfirmed` in a destination without
+  LineHeight; another spacing, as 1.5, is kept or reported.
+- Black on every run is Docs' default text color, which its export names no run
+  with, so no run keeps it and pasted text follows the editor's theme. Every
+  other color stays, Heading 3's gray and the link blue among them.
+- Each line break Docs writes between blocks, for an empty paragraph, before a
+  table, between two lists or after a final table, becomes the empty paragraph it
+  stands for, where the editor would make one paragraph of two lines of two of
+  them. A break inside a paragraph or beside inline content stays a line break.
+- A paragraph that holds only images becomes a division, so an editor whose
+  images are blocks no longer closes an empty paragraph above each image; one
+  centered or aligned to the end keeps its paragraph for in line images.
+- A selection that starts below a list's first level writes each item's
+  `aria-level` and a 36 pt margin for each level above the copy. When every item
+  of a list stands the same number of levels below its depth in the copy, with
+  exactly that margin, the list is nested as deep as Docs shows it, each level
+  above opening with one empty item of the list's kind, and the margin goes.
+- A list whose every item is an ARIA checkbox with its checked state, Docs'
+  checklist, becomes a task list checked as Docs shows it, without the pictures
+  of the boxes Docs draws beside the items.
+- A size relative to its run on a subscript or superscript, as Docs draws a
+  script at 0.6em, is the script mark's own, so the run keeps its size and the
+  script is not made smaller twice. This holds for every source.
+- A size or line height written with floating point noise, as Docs writes 14 pt
+  as `13.999999999999998pt`, is read as the value it stands for, in every source.
+
+Docs writes every image as a `data:image/png` URL with its alt text and size, so
+it is kept as an embedded image. In the editor, an image the destination cannot
+hold, a data URL that its Image refuses (`allowBase64: false`) or any image when
+the destination has no image node, is removed with `image-removed` and its alt
+text in its place, from every source; before, it kept a broken picture or was
+lost without a finding.
 
 ## Optional local clipboard images
 
@@ -966,11 +1013,12 @@ feedback and optional image-preparation progress. It has no built-in preview or
 paste-choice dialog. Local image association still requires an explicit host
 mapping for mixed HTML; these fixtures do not prove native Office association.
 The repository's `e2e/native-office-capture` tooling holds reviewed native
-captures for three paths, Word 16.113.3 for Mac to Safari 26.5.2, to Chrome 154
-and to Firefox 155: their routine envelope, text and inline formatting,
-alignment, spacing, indentation, hidden text, empty paragraph, list and table
-scenarios, replayed in the real editor in three engines, qualify those paths
-with the limits their support matrix lists. They are synthetic events with the
+captures for four paths, Word 16.113.3 for Mac to Safari 26.5.2, to Chrome 154
+and to Firefox 155, and Google Docs web to Chrome 153: their routine envelope,
+text and inline formatting, alignment, spacing, indentation, hidden text, empty
+paragraph, list and table scenarios, and for Google Docs its links, checklists
+and data images, replayed in the real editor in three engines, qualify those
+paths with the limits their support matrix lists. They are synthetic events with the
 captured items, not native pastes into the editor. Chrome and Firefox deliver
 Word's raw HTML, whose class rules cleanup does not resolve, so `preserve` keeps
 the formatting Word writes inline: fonts, sizes and colors applied to words, the

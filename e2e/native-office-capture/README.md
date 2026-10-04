@@ -200,7 +200,7 @@ the own copy. A selection that a scenario names as a separate one, such as
 `word-headings-styles-b06`, has a scenario of its own. Its capture may record that
 scenario, as the Chrome and Firefox captures do, or the one `capturedAs` names, as
 the Safari captures do. Windows, Word on the web and
-LibreOffice stay unqualified and Google Docs pending in the
+LibreOffice stay unqualified and Google Docs in Safari and Firefox pending in the
 [support matrix](./SUPPORT-MATRIX.md).
 
 ### Admitting a browser
@@ -389,10 +389,15 @@ node e2e/native-office-capture/redact.mjs file capture.json capture.json --item 
 
 ## Google Docs capture preparation
 
-Status: **prepared, not captured.** Google Docs on macOS to Chrome, Safari and
-Firefox is captured by the owner or a named tester with the
-[Google Docs runbook](./GOOGLE-DOCS-RUNBOOK.md); nothing here qualifies a source
-profile.
+Status: **captured in Chrome.** The owner authored the basics, lists, tables and
+images documents natively in Google Docs web (personal account, Pages format)
+and copied every scenario of them in Google Chrome 153.0.8010.47 on macOS
+26.5.2 on 2026-10-05, except the 50 and 51 image limit, whose part of the images
+document was not authored. They are the reviewed fixtures
+`fixtures/<scenario>-chrome`, each with its document's export as its source; the
+[support matrix](./SUPPORT-MATRIX.md) qualifies that row. Safari and Firefox,
+the large image, the slow copy, the image limit and the mixed and large
+documents are pending, with the [Google Docs runbook](./GOOGLE-DOCS-RUNBOOK.md).
 
 - [`content/google-docs-v1.json`](./content/google-docs-v1.json) mirrors the Word
   specification where Google Docs supports it. Seven documents
@@ -400,10 +405,10 @@ profile.
   and `-large`) are defined block by block with the Google Docs command for
   each, and 34 `gdocs-*` scenarios give the selection, the expected editor
   result in preserve and in adapt, the machine-checked outcome of each policy
-  and, for images, what to record from the capture. They cover headings, a
-  plain paragraph, Croatian text, bold, italic and underline, links, lists and
-  nested lists with Google's markers, tables with merged cells, images by URL, a
-  large image, the slow copy, the 50 image limit and partial selections.
+  and, for images, what to record from the capture. Its `captures` record the
+  Chrome captures, and corrections after them carry a `correction` that says
+  what changed and why. The four captured documents author Docs' text styles,
+  so their check is exhaustive, as for Word; the others author none yet.
 - [`content/google-docs-images.mjs`](./content/google-docs-images.mjs) writes the
   57 PNG images the documents insert, outside the repository: solid colors of
   known sizes, a 5.8 MB noise image of 1600 x 1200 pixels and 51 small images for
@@ -412,24 +417,29 @@ profile.
   and has a document of its own, whose `.docx` export, the fixture source of each
   of its captures, stays below the 16 MiB source limit of `prepare-fixture.mjs`
   and `offline.mjs`.
-- The fixture editor allows no remote images, so an image that Google Docs serves
-  by URL is expected to be removed with `image-removed`, its alt text staying in
-  its place. Its default schema has no LineHeight, so preserve is expected to
-  report the line spacing Google Docs writes on every paragraph as
-  `destination-formatting-unconfirmed`, which shows the notice; adapt removes it.
-- Google Docs may write a `br` between blocks, after a table or for an empty
-  paragraph. The editor makes one paragraph of line breaks from each run of
-  them: until its specification authors its documents' `textStyle`, which makes
-  the comparison exhaustive as for Word, the checker ignores empty blocks a
-  scenario does not name and compares no text style it does not name, and
-  reports two empty paragraphs that arrive as one in `gdocs-empty-paragraphs`.
-  Admitting the Google Docs captures includes authoring both from them.
-- The specification assumes the list shape Google Docs is expected to write:
-  each marker as `list-style-type` on its `li`, and a nested list placed
-  directly in its parent list. The checker reads that nesting. Cleanup moves a
-  marker that every direct item of a list declares to the list, so the authored
-  shape pastes with its markers. That rule is checked against authored HTML
-  only; the captures confirm or correct the shape.
+- Chrome's captures hold every image as a `data:image/png` URL in the HTML, with
+  its alt text and size, and no file: the editor keeps it as an embedded image,
+  and the specification names each with `src`, `width` and `height`. A
+  destination that refuses data images, or has no image node, removes it with
+  `image-removed`, its alt text in its place. The uncaptured scenarios still
+  expect an image served by URL, which the fixture editor removes.
+- Google Docs writes a block's line spacing as 1.2 times the spacing Docs shows,
+  so its default 1.15 is 1.38 and a table cell's single is 1.2; cleanup reads the
+  spacing back and drops those defaults as the document's own, so only a spacing
+  of its own, as GB19's 1.5, is unconfirmed in a destination without LineHeight.
+  Black on every run is Docs' default text color, which no run keeps.
+- Google Docs writes an empty paragraph as a `br` between blocks: one before
+  each table, two for two empty paragraphs, one between two lists and one for the
+  last paragraph after a final table. Cleanup makes each the empty paragraph it
+  stands for, and the scenarios name them.
+- Each list marker arrives as `list-style-type` on its `li` and a nested list
+  directly in its parent list, as the specification assumed; cleanup moves a
+  marker that every direct item of a list declares to the list. A selection that
+  starts below a list's first level writes each item's `aria-level` and a 36 pt
+  margin per level above the copy, which cleanup nests under one empty item per
+  level; a checklist is ARIA checkbox items beside pictures of their boxes, which
+  paste as task items. The checker compares task items with their checked state
+  and the header cells a scenario authors.
 
 Check that the checker can express every scenario under both policies:
 
@@ -438,8 +448,8 @@ node e2e/native-office-capture/semantics.mjs --dry-run e2e/native-office-capture
 ```
 
 [`fixtures/google-docs-dry-run-v1`](./fixtures/google-docs-dry-run-v1) runs the
-procedure once without Google Docs: authored HTML in the Google Docs shape for
-`gdocs-mixed-document`, a capture bundle from a Node synthetic event and a
+procedure once without Google Docs: authored HTML in the Google Docs shape
+expected before the captures, for `gdocs-mixed-document`, a capture bundle from a Node synthetic event and a
 manifest with reviewed preserve and adapt oracles. The offline verifier accepts
 it, and the checker replays its bundle:
 
