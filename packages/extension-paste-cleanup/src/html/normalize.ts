@@ -24,13 +24,15 @@ import { nestLeadingLists } from './leadingLists.js';
 import { labelListItems } from './listItemLabels.js';
 import { quietImageBoxes } from './imageBoxes.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
-import { emptyParagraphMarks, envelopeTags, transparentOfficeWrapper } from './envelope.js';
+import { dropInterchangeNewline, emptyParagraphMarks, envelopeTags, transparentOfficeWrapper } from './envelope.js';
 import { wrapLooseInlineRuns } from './looseInline.js';
 import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
 import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
 import { settleWhiteSpace } from './whiteSpace.js';
 import { routineLineHeights } from './wordSpacing.js';
-import { googleDocsChecklists, googleDocsEmptyParagraphs, googleDocsImageParagraphs, googleDocsLineHeights, googleDocsListLevels } from './googleDocs.js';
+import {
+  googleDocsChecklists, googleDocsCopyWrappers, googleDocsEmptyParagraphs, googleDocsImageParagraphs, googleDocsLineHeights, googleDocsListLevels,
+} from './googleDocs.js';
 import { wordHiddenText } from './hiddenText.js';
 import { recordRemovedText } from './removedText.js';
 import type {
@@ -209,6 +211,8 @@ export function normalizeClipboardHTML(
     // A slice marker alone is structural context. Only a verified own copy keeps editor formatting as is.
     const { anchor, own } = readSliceOrigin(tree, ownCopy);
     if (!own) {
+      // The break Chrome and Safari end a copy with marks where the selection ended, no line of the content.
+      dropInterchangeNewline(tree);
       const hidden = result.source === 'word' ? wordHiddenText(tree) : undefined;
       if (/\bmso-list\s*:/i.test(html)) {
         // A list item Word hides is not pasted, so an item cleanup cannot rebuild is no finding when it is hidden.
@@ -237,6 +241,8 @@ export function normalizeClipboardHTML(
         googleDocsEmptyParagraphs(tree);
         googleDocsImageParagraphs(tree);
         googleDocsLineHeights(tree);
+        // After the breaks between its blocks were read, the wrapper whose id names the copy goes.
+        googleDocsCopyWrappers(tree);
       }
       const routine = routineLineHeights(tree, result.source === 'word');
       resolveInlineInheritance(tree, {

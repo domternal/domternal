@@ -19,11 +19,14 @@ describe('inline content that follows a block at the top of the pasted HTML', ()
     expect(result.diagnostics).toEqual([]);
   });
 
-  it('is wrapped inside the Google Docs guid wrapper, which holds the blocks before it', () => {
+  it('is wrapped after the blocks of a Google Docs copy, whose guid wrapper goes, and inside an inline element that holds blocks', () => {
     const result = normalizePasteHTML(google(`<p dir="ltr"><span>First</span></p>${partialLast}`), { formatting: 'adapt' });
     // The division holds the white space every run of it writes, which its spaces need.
-    expect(result.html).toBe(`<span id="${GUID}"><p dir="ltr"><span>First</span></p><div style="white-space:pre-wrap">GB09 `
-      + '<strong>bold</strong> <em>ita</em></div></span>');
+    expect(result.html).toBe('<p dir="ltr"><span>First</span></p><div style="white-space:pre-wrap">GB09 <strong>bold</strong> <em>ita</em></div>');
+    // A wrapper that declares more than Docs' normal weight stays, without its id, and the run is wrapped inside it.
+    const kept = normalizePasteHTML(google(`<p dir="ltr"><span>First</span></p>${partialLast}`).replace('font-weight:normal;', 'font-weight:normal;color:#123456;'),
+      { formatting: 'adapt' });
+    expect(kept.html).toBe('<span><p dir="ltr"><span>First</span></p><div style="white-space:pre-wrap">GB09 <strong>bold</strong> <em>ita</em></div></span>');
   });
 
   it('is wrapped after a list, a heading or a division, and in a wrapper after a block outside it', () => {

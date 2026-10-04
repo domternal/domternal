@@ -636,6 +636,30 @@ test('the cleaned HTML of a semantic variant keeps no run whose only style is a 
   assert.ok(google >= 28);
 });
 
+test('the cleaned HTML of a semantic variant holds no id that names its copy and does not end with the break Chrome ends a copy with', async () => {
+  const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
+  let wrapped = 0;
+  let ended = 0;
+  for (const entry of await readdir(join(here, 'fixtures'), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const directory = join(here, 'fixtures', entry.name);
+    const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
+    const html = JSON.parse(await readFile(join(directory, manifest.capture.path), 'utf8')).payload.text['text/html'];
+    if (typeof html !== 'string') continue;
+    // Google Docs wraps every copy in a bold whose id is a guid made per copy, and Chrome ends a copy that ends at a
+    // paragraph's end with a break of its own after it.
+    if (/id="docs-internal-guid-/u.test(html)) wrapped++;
+    if (/<br class="?Apple-interchange-newline"?>\s*$/u.test(html)) ended++;
+    for (const formatting of ['preserve', 'adapt']) {
+      const cleaned = normalizePasteHTML(html, { formatting }).html;
+      assert.doesNotMatch(cleaned, /docs-internal-guid/u, `${manifest.id} ${formatting}`);
+      assert.doesNotMatch(cleaned, /<br>\s*$/u, `${manifest.id} ${formatting}`);
+    }
+  }
+  assert.ok(wrapped >= 29);
+  assert.ok(ended >= 15);
+});
+
 test('no committed clipboard picture names its display unit or other device data, a declared redaction names a picture, and each summary tells the bundle', async () => {
   let pictures = 0;
   for (const entry of await readdir(join(here, 'fixtures'), { withFileTypes: true })) {

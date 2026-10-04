@@ -32,10 +32,9 @@ describe('the box a span draws around exactly one image', () => {
   it.each(both)('drops the authored Google Docs image box around a removed remote image, which reports only its removal, in %s', formatting => {
     const result = clean(google(box(image(REMOTE))), { formatting });
     expect(result.warnings).toEqual(['image-removed']);
-    expect(result.html).toBe('<span id="docs-internal-guid-00000000-7fff-4000-8000-000000000005">'
-      // 1.38 is Docs' default 1.15 spacing, the document's own, and the paragraph that held only the image is a division. Its
-      // run's white space changes nothing in the alt text, so the run goes.
-      + '<div dir="ltr"><span>Alt</span></div></span>');
+    // 1.38 is Docs' default 1.15 spacing, the document's own, and the paragraph that held only the image is a division. Its
+    // run's white space changes nothing in the alt text, so the run goes, and so does the wrapper whose id names the copy.
+    expect(result.html).toBe('<div dir="ltr"><span>Alt</span></div>');
   });
 
   it.each(both)('keeps a data image inside the authored Google Docs image box quietly in %s', formatting => {

@@ -70,3 +70,24 @@ export function emptyParagraphMarks(tree: Root): void {
     }
   }
 }
+
+/** Whether an element is the line break Chrome and Safari end a copy with: `<br class="Apple-interchange-newline">`. */
+function interchangeNewline(node: Element): boolean {
+  const className = node.properties.className;
+  return node.tagName === 'br' && Array.isArray(className) && className.includes('Apple-interchange-newline');
+}
+
+/**
+ * Chrome and Safari end a copy whose selection ends at a paragraph's end with a line break of the class
+ * `Apple-interchange-newline`, after the copied content: it marks where the selection ended, no line of the content.
+ * The editor's paste ignores a break that ends the copy, so the cleaned HTML no longer ends with one either; a break
+ * anywhere else, or one without the class, stays.
+ */
+export function dropInterchangeNewline(tree: Root): void {
+  for (let index = tree.children.length - 1; index >= 0; index--) {
+    const child = tree.children[index];
+    if (child === undefined || child.type === 'comment' || (child.type === 'text' && !/[^\t\n\f\r ]/.test(child.value))) continue;
+    if (child.type === 'element' && interchangeNewline(child)) tree.children.splice(index, 1);
+    return;
+  }
+}

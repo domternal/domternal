@@ -109,7 +109,7 @@ describe('Google Docs empty paragraphs', () => {
     const html = docs(paragraph('GB21 Paragraph with a first-line indent.') + '<br /><br />' + paragraph('GB22 After two empty paragraphs.'));
     const result = normalizePasteHTML(html);
     expect(warnings(result)).toEqual([]);
-    expect(result.html.replace(/<span[^>]*>|<\/span>/gu, '')).toBe('<p dir="ltr">GB21 Paragraph with a first-line indent.</p><p></p><p></p><p dir="ltr">GB22 After two empty paragraphs.</p><br>');
+    expect(result.html.replace(/<span[^>]*>|<\/span>/gu, '')).toBe('<p dir="ltr">GB21 Paragraph with a first-line indent.</p><p></p><p></p><p dir="ltr">GB22 After two empty paragraphs.</p>');
   });
 
   it('reads the empty paragraph Docs keeps before a table, between lists and at the end of a copy the same way', () => {
@@ -119,18 +119,18 @@ describe('Google Docs empty paragraphs', () => {
       + table(cell(paragraph('GT02 Column A', '1.2'))) + list('ol', 'decimal', 'GL21 Second number') + '<br />' + list('ul', 'disc', 'GL22 Bullet') + '<br />');
     const result = normalizePasteHTML(html, { formatting: 'adapt' });
     expect(warnings(result)).toEqual([]);
-    // The blocks of the copy in order, each table and list as its tag: Chrome's break after the wrapper stays a break.
+    // The blocks of the copy in order, each table and list as its tag; Chrome's break after the copy goes.
     const outline = result.html.replace(/<(table|ol|ul)\b[^>]*>[\s\S]*?<\/\1>/gu, '<$1>').replace(/<\/?span[^>]*>| dir="ltr"/gu, '');
-    expect(outline).toBe('<h1>GT01 Table</h1><p></p><div><table></div><ol><p></p><ul><p></p><br>');
+    expect(outline).toBe('<h1>GT01 Table</h1><p></p><div><table></div><ol><p></p><ul><p></p>');
   });
 
-  it('keeps a line break inside a paragraph, beside inline content and after the copy, and another source\'s break between blocks', () => {
+  it('keeps a line break inside a paragraph and beside inline content, and another source\'s break between blocks', () => {
     const inside = normalizePasteHTML(docs(`<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;">${run('GB40 First line<br />second line')}</p>`
       + `${run('GB41 Partial')}<br />${run('paragraph')}`)).html;
-    expect(inside.match(/<br>/gu)).toHaveLength(3);
+    expect(inside.match(/<br>/gu)).toHaveLength(2);
     expect(inside).not.toContain('<p></p>');
-    // Chrome's break after the wrapper is no paragraph of Docs: the editor's parse ignores it.
-    expect(normalizePasteHTML(docs(paragraph('GB04 A'))).html.endsWith('</p></span><br>')).toBe(true);
+    // Chrome's break after the copy is no paragraph of Docs: the editor's parse ignores it, and cleanup leaves it out.
+    expect(normalizePasteHTML(docs(paragraph('GB04 A'))).html.endsWith('GB04 A</span></p>')).toBe(true);
     expect(normalizePasteHTML('<p>Web</p><br><br><p>Page</p>').html).toBe('<p>Web</p><br><br><p>Page</p>');
   });
 });
@@ -152,22 +152,22 @@ describe('Google Docs image paragraphs', () => {
       // The table's own wrappers and the cell's attributes aside.
       expect(outline(result.html).replace(/<(table|td)\b[^>]*>/gu, '<$1>').replace(/<\/?(?:tbody|tr|colgroup|col)\b[^>]*>|<div>(?=<table)|(?<=<\/table>)<\/div>/gu, ''))
         .toBe('<p>GI02 Text before the picture.</p><div>[GI03 Blue rectangle]</div><p>GI04 Text after the picture.</p>'
-          + '<table><td><p>GI11 Left cell</p><div>[GI12 Red picture in a cell]</div></td></table><br>');
+          + '<table><td><p>GI11 Left cell</p><div>[GI12 Red picture in a cell]</div></td></table>');
     }
   });
 
   it('leaves the alt text it stands in for a removed image in that division, where the editor opens a paragraph for it', () => {
     const result = normalizePasteHTML(docs(imageParagraph('GI03 Blue rectangle')), { allowDataImages: false });
     expect(warnings(result)).toEqual(['image-removed']);
-    expect(outline(result.html)).toBe('<div>GI03 Blue rectangle</div><br>');
+    expect(outline(result.html)).toBe('<div>GI03 Blue rectangle</div>');
   });
 
   it('keeps a paragraph that holds text beside its image, an aligned image paragraph, and another source\'s image paragraph', () => {
     const mixed = docs(`<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;">${run('GI30 Text ')}<span style="${RUN}">${image('GI31 Picture')}</span></p>`);
     // The space ending its text run needs the white space Docs writes on every run, which the paragraph holds for them.
-    expect(outline(normalizePasteHTML(mixed).html)).toBe('<p style="white-space:pre-wrap">GI30 Text [GI31 Picture]</p><br>');
+    expect(outline(normalizePasteHTML(mixed).html)).toBe('<p style="white-space:pre-wrap">GI30 Text [GI31 Picture]</p>');
     // Docs aligns an image by its paragraph, which a destination with in line images keeps.
-    expect(outline(normalizePasteHTML(docs(imageParagraph('GI32 Picture', 'text-align: center;'))).html)).toBe('<p style="text-align:center">[GI32 Picture]</p><br>');
+    expect(outline(normalizePasteHTML(docs(imageParagraph('GI32 Picture', 'text-align: center;'))).html)).toBe('<p style="text-align:center">[GI32 Picture]</p>');
     expect(outline(normalizePasteHTML(`<p>${image('Web')}</p>`).html)).toBe('<p>[Web]</p>');
   });
 });
@@ -189,19 +189,19 @@ describe('Google Docs list levels of a partial selection', () => {
       const result = normalizePasteHTML(html, { formatting });
       expect(warnings(result)).toEqual([]);
       // Google Docs nests a list directly in its parent list, after the item it belongs to, which the editor's parse moves into that item.
-      expect(shape(result.html)).toBe('<ol><li>·<ol[lower-alpha]><li>\u00a0a</li><ol[lower-roman]><li>GL09 Roman i</li><li>GL10 Roman ii</li></ol><li>GL11 Letter</li></ol></li></ol><br>');
+      expect(shape(result.html)).toBe('<ol><li>·<ol[lower-alpha]><li>\u00a0a</li><ol[lower-roman]><li>GL09 Roman i</li><li>GL10 Roman ii</li></ol><li>GL11 Letter</li></ol></li></ol>');
     }
     // One item of the second level, triple-clicked.
-    expect(shape(normalizePasteHTML(docs(list('ul', item('circle', 2, 'GL03 Second level')))).html)).toBe('<ul><li>·<ul[circle]><li>GL03 Second level</li></ul></li></ul><br>');
+    expect(shape(normalizePasteHTML(docs(list('ul', item('circle', 2, 'GL03 Second level')))).html)).toBe('<ul><li>·<ul[circle]><li>GL03 Second level</li></ul></li></ul>');
     // An item of the third level stands two levels below the copy, with twice the indent.
     expect(shape(normalizePasteHTML(docs(list('ol', item('lower-roman', 3, 'GL09 Roman i').replace('36pt', '72pt')))).html))
-      .toBe('<ol><li>·<ol><li>·<ol[lower-roman]><li>GL09 Roman i</li></ol></li></ol></li></ol><br>');
+      .toBe('<ol><li>·<ol><li>·<ol[lower-roman]><li>GL09 Roman i</li></ol></li></ol></li></ol>');
   });
 
   it('leaves a list whose items stand at their own depth, or at different offsets or indents, as written', () => {
     const full = normalizePasteHTML(docs(list('ul', item('disc', 1, 'GL02 First level'), list('ul', item('circle', 2, 'GL03 Second level', false)))));
     expect(warnings(full)).toEqual([]);
-    expect(shape(full.html)).toBe('<ul[disc]><li>GL02 First level</li><ul[circle]><li>GL03 Second level</li></ul></ul><br>');
+    expect(shape(full.html)).toBe('<ul[disc]><li>GL02 First level</li><ul[circle]><li>GL03 Second level</li></ul></ul>');
     // Items whose levels disagree with the copy's nesting, and an indent that is not the levels' own, keep their report.
     for (const html of [docs(list('ol', item('lower-alpha', 2, 'GL08 a'), item('decimal', 1, 'GL12 Second number', true))),
       docs(list('ul', item('circle', 2, 'GL03 Second level').replace('36pt', '20pt')))]) {
@@ -227,7 +227,7 @@ describe('Google Docs checklists', () => {
       expect(warnings(result)).toEqual([]);
       // The strikethrough Docs gives a checked item's text is in its export too, so it stays.
       expect(outline(result.html)).toBe('<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>GL62 Unchecked task</p></li>'
-        + '<li data-type="taskItem" data-checked="true"><p><s>GL63 Checked task</s></p></li></ul><br>');
+        + '<li data-type="taskItem" data-checked="true"><p><s>GL63 Checked task</s></p></li></ul>');
     }
     // No picture is left for image preparation or a destination to receive.
     expect(normalizePasteHTML(html).html).not.toContain('<img');
@@ -291,5 +291,34 @@ describe('Google Docs table cells', () => {
     const middle = normalizePasteHTML(docs(table(cell(paragraph('GT40 Middle', '1.2')).replace('vertical-align:top', 'vertical-align:middle'))
       + table(cell(paragraph('GT41 Bottom', '1.2')).replace('vertical-align:top', 'vertical-align:bottom')))).html;
     expect([...middle.matchAll(/data-vertical-align="([a-z]+)"/gu)].map(match => match[1])).toEqual(['middle', 'bottom']);
+  });
+});
+
+describe('Google Docs copy envelope', () => {
+  it('leaves out the wrapper whose id names the copy and the break Chrome ends the copy with, so the cleaned HTML holds neither', () => {
+    // The bold of normal weight Docs wraps every copy in, its id a guid made per copy, and Chrome's break after it.
+    const html = docs(paragraph('GB04 Plain paragraph without formatting.') + paragraph('GB06 Second sentence.'));
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const result = normalizePasteHTML(html, { formatting });
+      expect(warnings(result)).toEqual([]);
+      expect(result.html).not.toContain('docs-internal-guid');
+      expect(result.html.replace(/<span[^>]*>|<\/span>/gu, '')).toBe('<p dir="ltr">GB04 Plain paragraph without formatting.</p><p dir="ltr">GB06 Second sentence.</p>');
+    }
+  });
+
+  it('keeps a wrapper that declares more than its weight, without the id, and every other break', () => {
+    // A color on the wrapper reaches the run that declares none, as it did with the wrapper's id.
+    const styled = normalizePasteHTML(docs('<p dir="ltr"><span>GB04 A</span></p>').replace('style="font-weight:normal;"', 'style="font-weight:normal;color:#ff0000;"')).html;
+    expect(styled).not.toContain('docs-internal-guid');
+    expect(styled).toBe('<span><p dir="ltr"><span><span style="color:#ff0000">GB04 A</span></span></p></span>');
+    // A break inside the copy, one after it without the class, and one with the class that does not end the copy stay.
+    expect(normalizePasteHTML(docs(paragraph('GB04 A')).replace('<br class="Apple-interchange-newline">', '<br>')).html.endsWith('</p><br>')).toBe(true);
+    expect(normalizePasteHTML(`<br class="Apple-interchange-newline">${docs(paragraph('GB04 A'))}`).html.startsWith('<br>')).toBe(true);
+  });
+
+  it('leaves out the break that ends another source\'s copy in Chrome and Safari too, which the editor\'s parse ignores', () => {
+    expect(normalizePasteHTML('<p>Web</p><br class="Apple-interchange-newline">').html).toBe('<p>Web</p>');
+    expect(normalizePasteHTML('<p>Web</p><br class="Apple-interchange-newline">\n').html).toBe('<p>Web</p>\n');
+    expect(normalizePasteHTML('<p>Web</p><br>').html).toBe('<p>Web</p><br>');
   });
 });

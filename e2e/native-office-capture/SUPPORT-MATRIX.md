@@ -350,7 +350,10 @@ What the captures show and the fixtures pin:
   image and clip id formats, which the capture does not read. No files, also
   for an image copied alone, which holds `text/html` only.
 - Google wraps a copy in a bold of normal weight whose id is a guid made per
-  copy: it names neither the account nor the document. Every run is a span with
+  copy: it names neither the account nor the document. Cleanup leaves the
+  wrapper out once the copy is read, and the break Chrome ends a copy with after
+  it, which the editor's parse ignores, so the cleaned HTML holds neither,
+  which the fixtures pin. Every run is a span with
   its whole typography, Arial 11 pt and `#000000` included, which the export
   holds as document defaults, not run formatting. Every run also writes
   `white-space: pre-wrap`, which left an empty text style on each pasted run;

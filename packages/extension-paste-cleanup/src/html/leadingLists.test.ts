@@ -24,8 +24,8 @@ describe('a list whose content starts with a list', () => {
 
   it('keeps a numbered Google Docs list one numbered list after moving the item markers to the lists', () => {
     const result = normalizePasteHTML(google(`<ol><ol>${item('lower-alpha', 2, 'a')}</ol>${item('decimal', 1, 'b')}</ol>`));
-    expect(result.html).toBe(`<span id="${GUID}"><ol style="list-style-type:decimal"><li><p></p><ol style="list-style-type:lower-alpha">`
-      + `${cleanItem('a')}</ol></li>${cleanItem('b')}</ol></span>`);
+    expect(result.html).toBe('<ol style="list-style-type:decimal"><li><p></p><ol style="list-style-type:lower-alpha">'
+      + `${cleanItem('a')}</ol></li>${cleanItem('b')}</ol>`);
     expect(result.diagnostics).toEqual([]);
   });
 

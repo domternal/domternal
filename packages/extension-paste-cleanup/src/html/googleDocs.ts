@@ -1,4 +1,4 @@
-import type { Element, ElementContent, Root } from 'hast';
+import type { Element, ElementContent, Root, RootContent } from 'hast';
 import { plainDeclarations } from './styles.js';
 
 /*
@@ -95,6 +95,32 @@ export function googleDocsEmptyParagraphs(tree: Root): void {
       && besideBlock(children, index - 1, -1) && besideBlock(children, index + 1, 1)
       ? { type: 'element', tagName: 'p', properties: {}, children: [] } : child));
   }
+}
+
+/**
+ * The bold of normal weight Docs wraps a copy in, whose id is a guid it makes for each copy, is how its copies name their
+ * source and nothing of the content: once the copy is read, the wrapper goes and its content stands in its place, so the
+ * cleaned HTML holds no id of the copy. A wrapper that declares anything but its normal weight keeps it, without the id.
+ */
+export function googleDocsCopyWrappers(tree: Root): void {
+  const wrappers = new Set(copyWrappers(tree));
+  if (wrappers.size === 0) return;
+  const plain = (wrapper: Element): boolean => ['b', 'span'].includes(wrapper.tagName)
+    && (plainDeclarations(wrapper.properties.style) ?? [['', '']]).every(([name, value]) => name === 'font-weight' && ['normal', '400'].includes(value.toLowerCase()))
+    && Object.keys(wrapper.properties).every(key => key === 'id' || key === 'style');
+  const unwrap = (parent: Root | Element): void => {
+    const children = parent.children.flatMap((child): RootContent[] => {
+      if (child.type !== 'element') return [child];
+      unwrap(child);
+      if (!wrappers.has(child)) return [child];
+      if (plain(child)) return child.children;
+      delete child.properties.id;
+      return [child];
+    });
+    // An element's children and the content of a wrapper unwrapped in it are its content.
+    if (parent.type === 'root') parent.children = children; else parent.children = children as ElementContent[];
+  };
+  unwrap(tree);
 }
 
 /** Whether an element holds images, only inside the runs Docs wraps them in, and white space. */

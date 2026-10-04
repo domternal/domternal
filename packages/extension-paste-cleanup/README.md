@@ -368,10 +368,13 @@ The standalone normalizer and ordinary document parsing retain a final bare
 `<br>`. ProseMirror's clipboard parser treats a final bare `<br>` directly inside
 a block as a placeholder and can remove it. Breaks inside retained inline wrappers
 are distinct from that case. Cleanup does not override this clipboard rule, so
-preserving every unwrapped trailing break during paste is not guaranteed.
+preserving every unwrapped trailing break during paste is not guaranteed. The
+break Chrome and Safari end a copy with, `<br class="Apple-interchange-newline">`
+after the copied content, marks where the selection ended and is no line of it:
+the editor's paste ignores it, and cleanup leaves it out, for every source.
 
 Inline content that follows a block at the top of the pasted HTML, or inside an
-inline element there that holds blocks, such as the Google Docs guid wrapper, is
+inline element there that holds blocks, such as a wrapper a source puts around them, is
 wrapped in a `<div>` when a space between its words is a text node of white
 space only. ProseMirror's clipboard parser reads such a text node there as the
 space between two blocks and drops it, so a partly selected last paragraph
@@ -679,6 +682,11 @@ clipboard in Chrome, which reviewed native captures show:
   spaces, space at its edge, tab or line break, drops it; a span left without
   attributes is unwrapped. Every space stays where it was, and no run carries
   an empty text style. This holds for every source.
+- The bold of normal weight Docs wraps a copy in has an id Docs makes for each
+  copy, which names the source and nothing of the content. Once the copy is read
+  the wrapper goes and its content stands in its place, so the cleaned HTML holds
+  no id of the copy; a wrapper that declares more than its normal weight stays,
+  without the id. The break Chrome ends the copy with after the wrapper goes too.
 
 Docs writes every image as a `data:image/png` URL with its alt text and size, so
 it is kept as an embedded image. In the editor, an image the destination cannot
