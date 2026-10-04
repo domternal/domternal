@@ -184,11 +184,13 @@ export function blocksFromHTML(html) {
     width: size(attribute(node, 'width')), height: size(attribute(node, 'height')),
     ...(context.cell ? { cell: context.cell } : {}) });
   /** One textblock from its inline content, as the editor's paragraph or heading. */
-  const textblock = (nodes, tag, align, context, lineHeight = null) => {
+  const textblock = (nodes, tag, align, context, lineHeight = null, implicit = false) => {
     const runs = [];
     const images = [];
     for (const child of nodes) inline({ childNodes: [child] }, [], runs, images);
     const parsed = parsedWhiteSpace(runs);
+    // Inline content outside a block that holds images and no text: the editor opens a paragraph only for text.
+    if (implicit && parsed.length === 0 && images.length > 0) { for (const child of images) image(child, context); return; }
     const text = parsed.map(run => run.text).join('');
     const inItem = context.list !== undefined && context.first === true;
     blocks.push({
@@ -209,7 +211,7 @@ export function blocksFromHTML(html) {
   const visitChildren = (node, context) => {
     let run = [];
     const flush = () => {
-      if (run.some(child => child.nodeName !== '#text' || /[^\t\n\r ]/u.test(child.value))) textblock(run, 'p', null, context);
+      if (run.some(child => child.nodeName !== '#text' || /[^\t\n\r ]/u.test(child.value))) textblock(run, 'p', null, context, null, true);
       run = [];
     };
     for (const child of node.childNodes ?? []) {
@@ -471,10 +473,23 @@ function runMarks(run) {
  * block's style under the expectations that cover it. A kept value is checked, an absent one is not: the
  * editor's default stands in for a style the copy does not carry inline, and the notice reports real losses.
  */
-function runExhaustiveness(block, found, where, problems, formatting, exhaustive = true, destination = undefined) {
+/**
+ * The range of a mark expectation in the part of a block a partial selection keeps: the first block's end or the last
+ * block's start, so a mark the selection cuts covers the part of its text that arrived.
+ */
+function partialRange(block, found, expected, side) {
+  const full = markRange({ text: block.text ?? '' }, expected);
+  if (full === undefined) return undefined;
+  const shift = side === 'first' ? (block.text ?? '').length - found.text.length : 0;
+  const from = Math.max(0, full.from - shift);
+  const to = Math.min(found.text.length, full.to - shift);
+  return from < to ? { from, to } : undefined;
+}
+
+function runExhaustiveness(block, found, where, problems, formatting, exhaustive = true, destination = undefined, partial = undefined) {
   if (!exhaustive) return;
   const expectations = (block.marks ?? []).filter(mark => mark.formatting === undefined || mark.formatting === formatting)
-    .map(mark => ({ mark, range: markRange(found, mark) })).filter(entry => entry.range !== undefined);
+    .map(mark => ({ mark, range: partial === undefined ? markRange(found, mark) : partialRange(block, found, mark, partial) })).filter(entry => entry.range !== undefined);
   // A literal list item's visible marker keeps the font of its list level, as Word shows the marker: only its text is checked here.
   const marker = ['literalItem', 'textOnly'].includes(block.type) && block.text !== undefined ? Math.max(0, found.text.lastIndexOf(block.text)) : 0;
   let offset = 0;
@@ -642,7 +657,8 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     if (partialFirst || partialLast) {
       const text = partialFirst ? scenario.partial.first : scenario.partial.last;
       if (normalizeText(found.text) !== text) problems.push(`${block.id}: partial text is ${JSON.stringify(found.text)}, expected ${JSON.stringify(text)}`);
-      runExhaustiveness({ textStyle: block.textStyle }, found, block.id, problems, formatting, exhaustive, destination);
+      runExhaustiveness({ textStyle: block.textStyle, marks: block.marks, text: block.text }, found, block.id, problems, formatting, exhaustive, destination,
+        partialFirst ? 'first' : 'last');
       return;
     }
     if (block.type === 'empty') return;

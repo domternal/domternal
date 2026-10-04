@@ -490,6 +490,27 @@ test('the checker requires an image a specification expects kept, with the schem
   assert.deepEqual(dryRun(specification).results.flatMap(result => result.problems), []);
 });
 
+test('the HTML model places an image that inline content outside a block holds without text as the editor does, with no empty paragraph', () => {
+  // A paragraph that held only an image, which cleanup writes as a division: the editor opens no paragraph for the image's run.
+  const image = '<img src="data:image/png;base64,AAAA" alt="GI03 Blue rectangle">';
+  assert.deepEqual(blocksFromHTML(`<div><span style="white-space:pre-wrap">${image}</span></div>`).map(block => [block.type, block.text]), [['image', 'GI03 Blue rectangle']]);
+  // A paragraph element is a paragraph the editor closes empty before a block image, and text beside the image stays a paragraph.
+  assert.deepEqual(blocksFromHTML(`<p><span>${image}</span></p>`).map(block => block.type), ['empty', 'image']);
+  assert.deepEqual(blocksFromHTML(`<div><span>GI30 Text ${image}</span></div>`).map(block => [block.type, block.text]), [['paragraph', 'GI30 Text'], ['image', 'GI03 Blue rectangle']]);
+});
+
+test('a partly selected block is held to the marks of the part it keeps', () => {
+  const specification = { id: 'checker', documents: [{ textStyle: {}, blocks: [
+    { id: 'GB08', type: 'heading', level: 2, text: 'GB08 Inline formatting' },
+    { id: 'GB09', type: 'paragraph', text: 'GB09 bold italic underlined all three', marks: [{ text: 'bold', marks: ['bold'] }, { text: 'italic', marks: ['italic'] },
+      { text: 'underlined', marks: ['underline'] }, { text: 'all three', marks: ['bold', 'italic', 'underline'] }] },
+  ] }], scenarios: [{ id: 'checker', blocks: ['GB08', 'GB09'], partial: { first: 'formatting', last: 'GB09 bold ita' }, outcome: { notice: 'observe' } }] };
+  const html = (first, last) => `<h2>${first}</h2><p>GB09 ${last}</p>`;
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html('formatting', '<b>bold</b> <i>ita</i>'))), []);
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html('<u>format</u>ting', '<i>bold</i> ita'))),
+    ['GB08: "format" is underline, which the source is not', 'GB09: "bold" is italic, which the source is not']);
+});
+
 test('the HTML model reads Google Docs list nesting, cell spans, links, text styles and images', () => {
   const blocks = blocksFromHTML('<ul><li><p>GL02 a</p></li><ul><li><p>GL03 b</p></li><ul><li><p>GL04 c</p></li></ul></ul><li><p>GL05 d</p></li></ul>'
     + '<table><tr><td colspan="2"><p>GT08 x</p></td><td rowspan="2"><p>GT09 y</p></td></tr></table>'
