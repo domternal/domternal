@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-plain-paragraph-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "14170081c14ed50e4f803d3c8b24ecf7e0e176f10eb09507cddc5c68e34eb720"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-plain-paragraph",
+    "blocks": [
+      {
+        "id": "GB04",
+        "type": "paragraph",
+        "docs": "Normal text (Cmd+Option+0), nothing else",
+        "text": "GB04 Plain paragraph without formatting.",
+        "marks": [
+          {
+            "text": "Plain paragraph without formatting.",
+            "style": {
+              "fontFamily": "Arial",
+              "fontSize": "11pt"
+            },
+            "docs": "The default Normal text: Arial 11 pt"
+          }
+        ],
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "ab26ab2302a8b9e157961df5a60f84d81836a031891d84fc1ce4523cf194f651",
+    "captureSha256": "90ca165e45063cb37db383f15e81d04e7d1e1d8e6be97285262e6cdd5beea419",
+    "manifestSha256": "7f9de94af5ce8100726d0c4389349181f5c4c5907bae9d4004aec705da3eb734"
+  }
+}

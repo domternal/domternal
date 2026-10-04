@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-mixed-nesting-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "8aa9316ddb793cefa05f2f9964049825e826c585523a4f47c0da639b53c1c712"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "4479915b0248611ca6b687f9a117ee3c38aa0522fca99e7557f87664384faa86"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-mixed-nesting",
+    "blocks": [
+      {
+        "id": "GL19",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "docsLabel": "1."
+        },
+        "docs": "Numbered list, restarted at 1 if needed",
+        "text": "GL19 Number",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL20",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "circle",
+          "depth": 2,
+          "docsLabel": "○"
+        },
+        "docs": "Enter, Tab, then Bulleted list so Google Docs shows ○ at the second level",
+        "text": "GL20 Bullet below a number",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL21",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 2,
+          "docsLabel": "2."
+        },
+        "docs": "Enter, Shift+Tab, then Numbered list so Google Docs continues with 2. (right-click > Continue previous numbering if it shows 1.)",
+        "text": "GL21 Second number",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL21a",
+        "type": "empty",
+        "docs": "The empty Normal text paragraph GL22's instruction leaves before it",
+        "correction": "GL22 follows an empty paragraph, as its instruction says and the export shows, so a selection from GL21 to GL22 holds it; it was missing from the blocks."
+      },
+      {
+        "id": "GL22",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "docsLabel": "●"
+        },
+        "docs": "Enter twice to end the list, Enter once more to leave an empty Normal text paragraph, then Bulleted list on the next line",
+        "text": "GL22 Bullet",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL23",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 1,
+          "docsLabel": "a."
+        },
+        "docs": "Enter, Tab, then Numbered list so Google Docs shows a. at the second level",
+        "text": "GL23 Number below a bullet",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "fcb049b8b7778cadf688e68df3ffafe5219c577b6e757f75e53da2ecc0e70d85",
+    "captureSha256": "776e97cf33217f5e8cb51fd8cb343352167c559fedecff83dce4179dc252ba52",
+    "manifestSha256": "d8fe55bcd6aba55ade3594a1c5e9fe838989684961874bbdd6362e510d740274"
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-links-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "1ebca24ec5d1bef0bd21427739a0eef872f613fcec4691a7bc08665b65cd73b9"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-links",
+    "blocks": [
+      {
+        "id": "GB11",
+        "type": "heading",
+        "level": 2,
+        "docs": "Heading 2",
+        "text": "GB11 Links",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "16pt"
+        }
+      },
+      {
+        "id": "GB12",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GB12 Link to an example page in a sentence.",
+        "marks": [
+          {
+            "text": "an example page",
+            "link": "https://example.com/domternal/gdocs-v1",
+            "marks": [
+              "underline"
+            ],
+            "style": {
+              "color": "#1155cc"
+            },
+            "docs": "Select the exact phrase an example page, Insert > Link (Cmd+K), paste the address, Apply",
+            "correction": "Docs gives link text its blue and an underline as the run's own formatting, which its export holds as well, so both are expected."
+          }
+        ],
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GB13",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GB13 Bare URL https://example.org/gdocs-v1 becomes a link.",
+        "marks": [
+          {
+            "text": "https://example.org/gdocs-v1",
+            "link": "https://example.org/gdocs-v1",
+            "marks": [
+              "underline"
+            ],
+            "style": {
+              "color": "#1155cc"
+            },
+            "docs": "Select the address, Cmd+K, Apply, so the address links to itself",
+            "correction": "Docs gives link text its blue and an underline as the run's own formatting, which its export holds as well, so both are expected."
+          }
+        ],
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GB14",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GB14 Address pisi@example.com for email.",
+        "marks": [
+          {
+            "text": "pisi@example.com",
+            "link": "mailto:pisi@example.com",
+            "marks": [
+              "underline"
+            ],
+            "style": {
+              "color": "#1155cc"
+            },
+            "docs": "Select the address, Cmd+K, type mailto:pisi@example.com, Apply",
+            "correction": "Docs gives link text its blue and an underline as the run's own formatting, which its export holds as well, so both are expected."
+          }
+        ],
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "ab26ab2302a8b9e157961df5a60f84d81836a031891d84fc1ce4523cf194f651",
+    "captureSha256": "6c38d3183f177bdda9669397ac21dbba7689b70e9c68301fec27f64b7021cf7c",
+    "manifestSha256": "693ae712d5fa1c2a7b833e7e5f17d3dc2aff2b0765e517d1bc90059ca3fb32aa"
+  }
+}

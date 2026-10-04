@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-table-images-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "0cbf5fc50e0a8738e25317084d758c7ccad57e9d05b470d065e16d25cc7d6838"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "273c0cf0206448b8f69f705cc0b2c399e3e6e98ea78220a56dd49d5c81e9266e"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-table-images",
+    "blocks": [
+      {
+        "id": "GI10",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GI10 Table with pictures.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI10a",
+        "type": "empty",
+        "docs": "The empty paragraph Google Docs keeps before the table",
+        "correction": "As GT01a in the tables document."
+      },
+      {
+        "id": "GI11",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 1
+        },
+        "docs": "Insert > Table > 2 x 1 (two columns, one row), the text, then Enter",
+        "text": "GI11 Left cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI12",
+        "type": "image",
+        "src": "data",
+        "width": 160,
+        "height": 120,
+        "file": "gdocs-v1-red-160x120.png",
+        "alt": "GI12 Red picture in a cell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 1
+        },
+        "docs": "In the same cell, below GI11, in a paragraph of its own",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI13",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 2
+        },
+        "docs": "The text, then Enter",
+        "text": "GI13 Right cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI14",
+        "type": "image",
+        "src": "data",
+        "width": 160,
+        "height": 120,
+        "file": "gdocs-v1-purple-160x120.png",
+        "alt": "GI14 Purple picture in a cell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 2
+        },
+        "docs": "In the same cell, below GI13, in a paragraph of its own",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "f985698b856bb867bba20c96603f9d59cb131b1f9c7472425f468cd3070a6b73",
+    "captureSha256": "4653fb88204430248b412202173a730937c5b1a581dac9d2348399e48f55e4f9",
+    "manifestSha256": "76c9da0c2050fb5c87b73b2fe05e43920a79c28d21aad61cdd4cc41b993cda90"
+  }
+}

@@ -323,9 +323,11 @@ function alphabetItems(block) {
 /**
  * A block as a scenario expects it: with the text style its document gives every text block, such as
  * the font of Word's Normal style, under the block's own, such as a heading style's font, size and color.
+ * An image holds it too, the style of the alt text that stands in for it when it is removed, so a selection
+ * of images alone is checked exhaustively as well.
  */
 export function resolvedBlock(document, block) {
-  if (document.textStyle === undefined || ['empty', 'image', 'imageRun', 'generated'].includes(block.type)) return block;
+  if (document.textStyle === undefined || ['empty', 'imageRun', 'generated'].includes(block.type)) return block;
   return { ...block, textStyle: { ...document.textStyle, ...block.textStyle } };
 }
 

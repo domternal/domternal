@@ -1,0 +1,388 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-table-text-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "ee404c94e849755f39159363ff310f43997b466dd5eeda2a42db1920aa2eb790"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "e37ba3e1c4de4218f0f3bba805a6497fd80217f198647818f9c30ac4a0c6a46e"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-table-text",
+    "blocks": [
+      {
+        "id": "GT01",
+        "type": "heading",
+        "level": 1,
+        "docs": "Heading 1",
+        "text": "GT01 Table",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "20pt"
+        }
+      },
+      {
+        "id": "GT01a",
+        "type": "empty",
+        "docs": "The empty paragraph Google Docs keeps before a table it inserts",
+        "correction": "Google Docs keeps an empty paragraph before each table, which the export and Select All hold; it was missing from the blocks."
+      },
+      {
+        "id": "GT02",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 1,
+          "headerRow": true,
+          "header": true
+        },
+        "docs": "Insert > Table > 3 x 3; Table properties > Rows: Pin header row, when offered",
+        "text": "GT02 Column A",
+        "correction": "Google Docs copies the pinned header row as header cells (thead and th), which paste as header cells.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT03",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 2,
+          "headerRow": true,
+          "header": true
+        },
+        "text": "GT03 Column B",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT04",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 1,
+          "column": 3,
+          "headerRow": true,
+          "header": true
+        },
+        "text": "GT04 Column C",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT05",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 1,
+          "shading": "light gray 2",
+          "background": "#efefef"
+        },
+        "docs": "Table properties > Color > Cell background color: light gray 2",
+        "text": "GT05 Gray cell",
+        "correction": "Light gray 2 is #efefef, the background Google Docs writes on the cell.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT06",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 2
+        },
+        "text": "GT06 Plain cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT07",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 3
+        },
+        "text": "GT07 Third cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT08",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 3,
+          "column": 1,
+          "colspan": 2
+        },
+        "docs": "Select the first two cells of row 3, right-click > Merge cells",
+        "text": "GT08 Horizontally merged cells",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT09",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 3,
+          "column": 3
+        },
+        "text": "GT09 Last cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT10",
+        "type": "paragraph",
+        "docs": "Normal text below the first table",
+        "text": "GT10 Between tables.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT10a",
+        "type": "empty",
+        "docs": "The empty paragraph Google Docs keeps before the second table",
+        "correction": "As GT01a."
+      },
+      {
+        "id": "GT11",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 1,
+          "column": 1,
+          "rowspan": 2
+        },
+        "docs": "Insert > Table > 2 x 2; select both cells of the first column, right-click > Merge cells",
+        "text": "GT11 Vertically merged cells",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT12",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 1,
+          "column": 2
+        },
+        "text": "GT12 Top right cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT13",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 2,
+          "column": 2
+        },
+        "text": "GT13 Bottom right cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT14",
+        "type": "paragraph",
+        "docs": "Normal text below the second table",
+        "text": "GT14 Below the merged table.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT14a",
+        "type": "empty",
+        "docs": "The empty paragraph Google Docs keeps before the third table",
+        "correction": "As GT01a."
+      },
+      {
+        "id": "GT15",
+        "type": "tableCell",
+        "cell": {
+          "table": 3,
+          "row": 1,
+          "column": 1
+        },
+        "docs": "Insert > Table > 2 x 1 (two columns, one row); Table properties > Color > Table border: 0 pt",
+        "text": "GT15 Borderless left",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT16",
+        "type": "tableCell",
+        "cell": {
+          "table": 3,
+          "row": 1,
+          "column": 2
+        },
+        "text": "GT16 Borderless right",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT17",
+        "type": "paragraph",
+        "docs": "Normal text below the third table",
+        "text": "GT17 Before the table with a list.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT17a",
+        "type": "empty",
+        "docs": "The empty paragraph Google Docs keeps before the fourth table",
+        "correction": "As GT01a."
+      },
+      {
+        "id": "GT18",
+        "type": "tableCell",
+        "cell": {
+          "table": 4,
+          "row": 1,
+          "column": 1
+        },
+        "docs": "Insert > Table > 1 x 1, then the text",
+        "text": "GT18 List in a cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT19",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "docsLabel": "●"
+        },
+        "cell": {
+          "table": 4,
+          "row": 1,
+          "column": 1
+        },
+        "docs": "Enter in the same cell, Bulleted list",
+        "text": "GT19 First bullet in a cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT20",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "docsLabel": "●"
+        },
+        "cell": {
+          "table": 4,
+          "row": 1,
+          "column": 1
+        },
+        "docs": "Enter",
+        "text": "GT20 Second bullet in a cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT20a",
+        "type": "empty",
+        "docs": "The document's last paragraph, empty, which Google Docs keeps after the last table",
+        "correction": "Google Docs ends a document that ends with a table with an empty paragraph, which Select All copies; it was missing from the blocks."
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "27acad3cd5048ef34f905049ede0089ea735e7bdacbd12da702b25bfa1ee75f7",
+    "captureSha256": "43d89d5dd4be8a40ff4d8bda3395f353067c2eb61fb0f3497d3695f500b9a0ba",
+    "manifestSha256": "9f600611c53c5d6e1e84bd7dfbdba99a3d6c224590cba3c122ce25b68db5d59c"
+  }
+}

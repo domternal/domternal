@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-single-list-item-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "8aa9316ddb793cefa05f2f9964049825e826c585523a4f47c0da639b53c1c712"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "3bac1a1af71b06d553ea2b145a4f66e44bb35b72fb0677edbcadf596adfabb8f"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-single-list-item",
+    "blocks": [
+      {
+        "id": "GL03",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "circle",
+          "depth": 2,
+          "docsLabel": "○"
+        },
+        "docs": "Enter, Tab",
+        "text": "GL03 Second level",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "fcb049b8b7778cadf688e68df3ffafe5219c577b6e757f75e53da2ecc0e70d85",
+    "captureSha256": "830826ceb989e7c749734713bc879b52f8134b9d479025d89ec55f3fdc01fd7f",
+    "manifestSha256": "b78ced2bc4712050473297869eb5602232e41a223bcb66538f8dc4d675c1d352"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "harnessVersion": "native-office-capture-v1",
+  "capturedAt": "2026-10-07T21:05:17.164Z",
+  "status": "complete",
+  "qualification": false,
+  "scope": "allowlisted-formats-and-exposed-files",
+  "provenance": {
+    "eventKind": "synthetic-event",
+    "nativeClipboardCaptured": false,
+    "sourceApplicationVerified": false
+  },
+  "operator": {
+    "os": "Authored variant of macOS 26.5.2 (25F84)",
+    "application": "Authored variant of Google Docs web, 2026-10-05, personal account, Pages format",
+    "browser": "Authored variant of Google Chrome 153.0.8010.47 (Official Build) (arm64)",
+    "scenario": "gdocs-table-images",
+    "fixtureId": "gdocs-table-images-chrome",
+    "fixtureSha256": "0cbf5fc50e0a8738e25317084d758c7ccad57e9d05b470d065e16d25cc7d6838",
+    "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
+    "syntheticSourceConfirmed": true
+  },
+  "limits": {
+    "maxItems": 64,
+    "maxFormats": 32,
+    "maxMetadataLength": 512,
+    "maxFormatBytes": 2097152,
+    "maxTextBytes": 4194304,
+    "maxFileBytes": 5242880,
+    "maxTotalFileBytes": 10485760,
+    "maxClipboardBytes": 12582912,
+    "maxJSONBytes": 25165824,
+    "maxDurationMs": 15000
+  },
+  "diagnostics": [],
+  "payload": {
+    "availableFormats": [
+      "text/plain",
+      "text/html",
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-image-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "omittedFormats": [
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-image-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "text": {
+      "text/html": "<meta charset='utf-8'><meta charset=\"utf-8\"><b style=\"font-weight:normal;\" id=\"docs-internal-guid-1d1b7e7c-7fff-d357-4c59-69596b0d3689\"><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GI10 Table with pictures.</span></p><br /><div dir=\"ltr\" style=\"margin-left:0pt;\" align=\"left\"><table style=\"border:none;border-collapse:collapse;table-layout:fixed;width:468pt\"><colgroup><col /><col /></colgroup><tbody><tr style=\"height:0pt\"><td style=\"border-left:solid #000000 1pt;border-right:solid #000000 1pt;border-bottom:solid #000000 1pt;border-top:solid #000000 1pt;vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;\"><p dir=\"ltr\" style=\"line-height:1.2;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GI11 Left cell</span></p><p dir=\"ltr\" style=\"line-height:1.2;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"><img alt=\"GI12 Red picture in a cell\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAAB4CAYAAAB1ovlvAAADQklEQVR4AezSQW7jMABD0aKn6f0PMdeaWWUxi8RpbFmU+AoUAeJYIj//95+fn7/+MZjlwPeXPwQmEiDgRPiu/voiIAumEiDgVPwuJyAHphLoFXAqdpc/CBDwQcLnFAIEnILdpQ8CBHyQ8DmFAAGnYHfpgwABHyR8TiFAwCnYp14adTkBo+boC0PAvs2jGhMwao6+MATs2zyqMQGj5ugLQ8C+zaMa3ypgVHNhIggQMGKG3hAE7N0+ojkBI2boDUHA3u0jmhMwYobeEAS8ZXuXPCNAwGdkfH8LAQLegtklzwgQ8BkZ399CgIC3YHbJMwIEfEbG97cQIOAtmHsvOWpOwCNCng8lQMCheB1+RICAR4Q8H0qAgEPxOvyIAAGPCHk+lAABh+J1+BGBfQU8au55BAECRszQG4KAvdtHNCdgxAy9IQjYu31EcwJGzNAbgoD7bb9UIwIuNdd+YQm436ZLNSLgUnPtF5aA+226VCMCLjXXfmEJuN+mSzW6VMClmgsbQYCAETP0hiBg7/YRzQkYMUNvCAL2bh/RnIARM/SGIOAl2zvkUwIE/JSc9y4hQMBLMDrkUwIE/JSc9y4hQMBLMDrkUwIE/JSc9y4hQMBLMPYecrY5Ac8S9P4pAgQ8hc/LZwkQ8CxB758iQMBT+Lx8lgABzxL0/ikCBDyFz8tnCawr4Nnm3o8gQMCIGXpDELB3+4jmBIyYoTcEAXu3j2hOwIgZekMQcL3tt0pMwK3mXK8MAdfbbKvEBNxqzvXKEHC9zbZKTMCt5lyvDAHX22yrxL8ScKvmykQQIGDEDL0hCNi7fURzAkbM0BuCgL3bRzQnYMQMvSEI+Nb2fjSKAAFHkXXuWwQI+BYmPxpFgICjyDr3LQIEfAuTH40iQMBRZJ37FgECvoWp90ejmxNwNGHnvyRAwJd4PBxNgICjCTv/JQECvsTj4WgCBBxN2PkvCRDwJR4PRxPIFXB0c+dHECBgxAy9IQjYu31EcwJGzNAbgoC920c0J2DEDL0hCJi3fVUiAlbNnVeWgHmbVCUiYNXceWUJmLdJVSICVs2dV5aAeZtUJfpPwKrmykYQIGDEDL0hCNi7fURzAkbM0BuCgL3bRzT/BwAA//9eZ7w8AAAABklEQVQDAG5OTiBCCwnXAAAAAElFTkSuQmCC\" width=\"160\" height=\"120\" style=\"border:none;\" /></span></p></td><td style=\"border-left:solid #000000 1pt;border-right:solid #000000 1pt;border-bottom:solid #000000 1pt;border-top:solid #000000 1pt;vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;\"><p dir=\"ltr\" style=\"line-height:1.2;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GI13 Right cell</span></p><p dir=\"ltr\" style=\"line-height:1.2;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"><img alt=\"GI14 Purple picture in a cell\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAAB4CAYAAAB1ovlvAAADQ0lEQVR4AezSQW7bMABE0SDX6A17pF62XXnRhS3HEsUh5wUIDFgWOfPnf//+9eevfwxmOfD95Q+BiQQIOBG+q7++CMiCqQQIOBW/ywnIgakEegWcit3lDwIEfJDwOYUAAadgd+mDAAEfJHxOIUDAKdhd+iBAwAcJn1MIEHAK9qmXRl1OwKg5+sIQsG/zqMYEjJqjLwwB+zaPakzAqDn6whCwb/OoxrcKGNVcmAgCBIyYoTcEAXu3j2hOwIgZekMQsHf7iOYEjJihNwQBb9neJc8IEPAZGd/fQoCAt2B2yTMCBHxGxve3ECDgLZhd8owAAZ+R8f0tBAh4C+beS46aE/CIkOdDCRBwKF6HHxEg4BEhz4cSIOBQvA4/IkDAI0KeDyVAwKF4HX5EYF8Bj5p7HkGAgBEz9IYgYO/2Ec0JGDFDbwgC9m4f0ZyAETP0hiDgftsv1YiAS821X1gC7rfpUo0IuNRc+4Ul4H6bLtWIgEvNtV9YAu636VKNLhVwqebCRhAgYMQMvSEI2Lt9RHMCRszQG4KAvdtHNCdgxAy9IQh4yfYO+ZQAAT8l571LCBDwEowO+ZQAAT8l571LCBDwEowO+ZQAAT8l571LCBDwEoy9h5xtTsCzBL1/igABT+Hz8lkCBDxL0PunCBDwFD4vnyVAwLMEvX+KAAFP4fPyWQLrCni2ufcjCBAwYobeEATs3T6iOQEjZugNQcDe7SOaEzBiht4QBFxv+60SE3CrOdcrQ8D1NtsqMQG3mnO9MgRcb7OtEhNwqznXK0PA9TbbKvGPBNyquTIRBAgYMUNvCAL2bh/RnIARM/SGIGDv9hHNCRgxQ28IAr61vR+NIkDAUWSd+xYBAr6FyY9GESDgKLLOfYsAAd/C5EejCBBwFFnnvkWAgG9h6v3R6OYEHE3Y+S8JEPAlHg9HEyDgaMLOf0mAgC/xeDiaAAFHE3b+SwIEfInHw9EEcgUc3dz5EQQIGDFDbwgC9m4f0ZyAETP0hiBg7/YRzQkYMUNvCALmbV+ViIBVc+eVJWDeJlWJCFg1d15ZAuZtUpWIgFVz55UlYN4mVYn+E7CqubIRBAgYMUNvCAL2bh/RnIARM/SGIGDv9hHN/wEAAP//8q3qawAAAAZJREFUAwBrK1PAZK9+SgAAAABJRU5ErkJggg==\" width=\"160\" height=\"120\" style=\"border:none;\" /></span></p></td></tr></tbody></table></div></b>",
+      "text/plain": "GI10 Table with pictures.\n\nGI11 Left cell\n\nGI13 Right cell\n\n\n"
+    },
+    "items": [
+      {
+        "itemIndex": 0,
+        "kind": "string",
+        "type": "text/plain",
+        "file": null
+      },
+      {
+        "itemIndex": 1,
+        "kind": "string",
+        "type": "text/html",
+        "file": null
+      },
+      {
+        "itemIndex": 2,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-document-slice-clip+wrapped",
+        "file": null
+      },
+      {
+        "itemIndex": 3,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-image-clip+wrapped",
+        "file": null
+      },
+      {
+        "itemIndex": 4,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-internal-clip-id",
+        "file": null
+      }
+    ],
+    "files": [],
+    "totals": {
+      "textBytes": 5199,
+      "fileBytes": 0
+    }
+  }
+}

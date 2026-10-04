@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-headings-plain-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "105eeabf7032a28952bd086c3e826eacfe55143766ef96fd61ac8d8e3d1bfba5"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-headings-plain",
+    "blocks": [
+      {
+        "id": "GB01",
+        "type": "heading",
+        "level": 1,
+        "docs": "Heading 1 (Cmd+Option+1)",
+        "text": "GB01 Paste test document",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "20pt"
+        }
+      },
+      {
+        "id": "GB02",
+        "type": "heading",
+        "level": 2,
+        "docs": "Heading 2 (Cmd+Option+2)",
+        "text": "GB02 Level two heading",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "16pt"
+        }
+      },
+      {
+        "id": "GB03",
+        "type": "heading",
+        "level": 3,
+        "docs": "Heading 3 (Cmd+Option+3)",
+        "text": "GB03 Level three heading",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "14pt",
+          "color": "#434343"
+        }
+      },
+      {
+        "id": "GB04",
+        "type": "paragraph",
+        "docs": "Normal text (Cmd+Option+0), nothing else",
+        "text": "GB04 Plain paragraph without formatting.",
+        "marks": [
+          {
+            "text": "Plain paragraph without formatting.",
+            "style": {
+              "fontFamily": "Arial",
+              "fontSize": "11pt"
+            },
+            "docs": "The default Normal text: Arial 11 pt"
+          }
+        ],
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "ab26ab2302a8b9e157961df5a60f84d81836a031891d84fc1ce4523cf194f651",
+    "captureSha256": "b446253d211f45ea9b7c11e2fad39d35930c705207f42726a77a673ba3d0cf0f",
+    "manifestSha256": "e54e169d9624908fc303e58dcb26c9360a013555f52d84d964de351df27113fe"
+  }
+}

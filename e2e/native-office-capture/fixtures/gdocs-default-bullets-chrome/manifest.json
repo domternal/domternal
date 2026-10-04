@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-default-bullets-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "8aa9316ddb793cefa05f2f9964049825e826c585523a4f47c0da639b53c1c712"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "1ef5a37dbbec8be56ba44f3b4555d73f1844d71198cfa1198baac9de691e4855"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-default-bullets",
+    "blocks": [
+      {
+        "id": "GL02",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "docsLabel": "●"
+        },
+        "docs": "Bulleted list (Cmd+Shift+8), default preset",
+        "text": "GL02 First level",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL03",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "circle",
+          "depth": 2,
+          "docsLabel": "○"
+        },
+        "docs": "Enter, Tab",
+        "text": "GL03 Second level",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL04",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "square",
+          "depth": 3,
+          "docsLabel": "■"
+        },
+        "docs": "Enter, Tab",
+        "text": "GL04 Third level",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL05",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "docsLabel": "●"
+        },
+        "docs": "Enter, Shift+Tab twice",
+        "text": "GL05 First level again",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "fcb049b8b7778cadf688e68df3ffafe5219c577b6e757f75e53da2ecc0e70d85",
+    "captureSha256": "2b7e40b2dc33964cf8339d7981a596db7a21b6320b5a746f31ef777da3a56b10",
+    "manifestSha256": "0ca71ac4df9fce0a8de6d5564f9e31784d61e04f1dc0b7c2c69ab578b1bca190"
+  }
+}

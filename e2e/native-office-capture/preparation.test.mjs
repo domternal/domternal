@@ -575,33 +575,44 @@ test('every committed English regression variant passes the offline verifier and
     const report = await verifyCaptureFixture(directory);
     assert.equal(report.integrity.qualification, false); assert.equal(report.integrity.nativeEvidenceAuthenticated, false);
     assert.equal(report.integrity.claimedEventKind, manifest.origin === 'synthetic' ? 'synthetic-event' : 'native-event');
-    const scenario = spec.scenarios.find(entry => entry.id === manifest.expected.scenario);
+    // Word for Mac's fixtures and Google Docs', each held to its own content specification.
+    const specification = [spec, docs].find(entry => entry.id === manifest.expected.specification);
+    assert.ok(specification, manifest.id);
+    const google = specification === docs;
+    const scenario = specification.scenarios.find(entry => entry.id === manifest.expected.scenario);
     assert.ok(scenario, manifest.id);
-    assert.equal(manifest.expected.specification, spec.id);
     assert.match(manifest.id, new RegExp(`^${scenario.id}-(?:safari|chrome|firefox)$`, 'u'));
     // The oracle's blocks are the specification's own, so a correction reaches every fixture of the scenario.
-    assert.deepEqual(manifest.expected.blocks, specifiedExpectation(spec, scenario.id).blocks, manifest.id);
+    assert.deepEqual(manifest.expected.blocks, specifiedExpectation(specification, scenario.id).blocks, manifest.id);
     assert.deepEqual(manifest.expected.partial, scenario.partial, manifest.id);
     const bundle = JSON.parse(await readFile(join(directory, manifest.capture.path), 'utf8'));
     const browser = manifest.id.slice(manifest.id.lastIndexOf('-') + 1);
     // Safari's captures record the scenario a separate selection was captured as, Chrome's and Firefox's its own.
     assert.equal(bundle.operator.scenario, browser === 'safari' ? scenario.capturedAs ?? scenario.id : scenario.id, manifest.id);
     assert.equal(bundle.operator.fixtureId, manifest.id);
-    // Chrome exposes Word's picture of the selection as one image/png file next to Word's HTML; Safari and Firefox expose none.
-    assert.deepEqual(bundle.payload.items.filter(item => item.kind === 'file').map(item => item.type), browser === 'chrome' ? ['image/png'] : [], manifest.id);
+    // Chrome exposes Word's picture of the selection as one image/png file next to Word's HTML; Safari and Firefox expose
+    // none, and Google Docs, whose images are data URLs in its HTML, none in Chrome.
+    assert.deepEqual(bundle.payload.items.filter(item => item.kind === 'file').map(item => item.type), browser === 'chrome' && !google ? ['image/png'] : [], manifest.id);
+    // A Google Docs fixture names its unredacted export, which holds no document properties, and declares no redaction.
+    if (google) { assert.deepEqual(manifest.redactions, []); assert.equal(bundle.operator.fixtureSha256, manifest.source.sha256, manifest.id); }
     sources.set(scenario.document, (sources.get(scenario.document) ?? new Set()).add(manifest.source.sha256));
     // Whether the copy holds a block's hidden text is the browser's: the oracle states what the captured HTML shows.
-    assert.equal(manifest.expected.hiddenText, copiedHiddenText(spec, scenario.id, bundle.payload.text['text/html']), manifest.id);
+    assert.equal(manifest.expected.hiddenText, copiedHiddenText(specification, scenario.id, bundle.payload.text['text/html']), manifest.id);
     // The replay also meets the scenario's own outcome: its required warnings, nothing it does not allow.
-    for (const formatting of ['preserve', 'adapt']) assert.deepEqual(checkScenario(spec, scenario.id, bundle, { formatting }).problems, [], `${manifest.id} ${formatting}`);
+    for (const formatting of ['preserve', 'adapt']) assert.deepEqual(checkScenario(specification, scenario.id, bundle, { formatting }).problems, [], `${manifest.id} ${formatting}`);
     const summary = JSON.parse(await readFile(join(directory, 'capture-summary.json'), 'utf8'));
     assert.equal(summary.reviewed, true); assert.equal(summary.qualification, false); assert.equal(summary.fixtureId, manifest.id);
   }
   // Keep every baseline Word selection in each browser row as a separate English regression.
   const selections = spec.scenarios.filter(entry => entry.document.startsWith('word-mac-v1-') && entry.id !== 'word-large-document').map(entry => entry.id);
   for (const browser of CAPTURED_BROWSERS) {
-    assert.deepEqual(variants.filter(id => id.endsWith(`-${browser}`)).sort(), selections.map(id => `${id}-${browser}`).sort(), browser);
+    assert.deepEqual(variants.filter(id => id.startsWith('word-') && id.endsWith(`-${browser}`)).sort(), selections.map(id => `${id}-${browser}`).sort(), browser);
   }
+  // Every Google Docs selection of the four documents the owner authored, in Chrome: all but the 50 and 51 image limit.
+  const captured = new Set(['gdocs-v1-basics', 'gdocs-v1-lists', 'gdocs-v1-tables', 'gdocs-v1-images']);
+  const googleSelections = docs.scenarios.filter(entry => captured.has(entry.document) && !entry.id.startsWith('gdocs-image-limit-')).map(entry => `${entry.id}-chrome`);
+  assert.equal(googleSelections.length, 28);
+  assert.deepEqual(variants.filter(id => id.startsWith('gdocs-')).sort(), googleSelections.sort());
   assert.deepEqual(variants.filter(id => !CAPTURED_BROWSERS.some(browser => id.endsWith(`-${browser}`))), []);
   // The fixtures of one document share its committed source, so no capture of an earlier version of it stays beside them.
   for (const [document, hashes] of sources) assert.equal(hashes.size, 1, document);
@@ -692,7 +703,9 @@ test('the semantic oracle reports what a broken paste adds: blocks, empty paragr
       const check = output => compareBlocks(specification, manifest.expected.scenario, blocksFromHTML(output), { formatting });
       assert.deepEqual(check(result.html), [], `${manifest.id} ${formatting}`);
       for (const [name, mutate] of [...mutations, ...(formatting === 'preserve' ? preserveOnly : [])]) {
-        if (check(mutate(result.html)).length === 0) missed.push(`${manifest.id} ${formatting}: ${name}`);
+        // A mutation that changes nothing, as bold on a paste without text, is no broken paste.
+        const mutated = mutate(result.html);
+        if (mutated !== result.html && check(mutated).length === 0) missed.push(`${manifest.id} ${formatting}: ${name}`);
       }
     }
   }

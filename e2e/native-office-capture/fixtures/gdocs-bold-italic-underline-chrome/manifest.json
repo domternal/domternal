@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-bold-italic-underline-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "9c1436e780774398ea8888d84f9ff5b25361d796e347f611ddff10537f81d31e"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-bold-italic-underline",
+    "blocks": [
+      {
+        "id": "GB09",
+        "type": "paragraph",
+        "docs": "Normal text. Apply each format to the named words only.",
+        "text": "GB09 bold italic underlined all three",
+        "marks": [
+          {
+            "text": "bold",
+            "marks": [
+              "bold"
+            ],
+            "docs": "Bold (Cmd+B)"
+          },
+          {
+            "text": "italic",
+            "marks": [
+              "italic"
+            ],
+            "docs": "Italic (Cmd+I)"
+          },
+          {
+            "text": "underlined",
+            "marks": [
+              "underline"
+            ],
+            "docs": "Underline (Cmd+U)"
+          },
+          {
+            "text": "all three",
+            "marks": [
+              "bold",
+              "italic",
+              "underline"
+            ],
+            "docs": "Bold, italic and underline together"
+          }
+        ],
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "ab26ab2302a8b9e157961df5a60f84d81836a031891d84fc1ce4523cf194f651",
+    "captureSha256": "4d9b3a054e3a15abc0887d2aa5def045cce7cebbc5b75f466a23090cc117388a",
+    "manifestSha256": "9ee64fb62b7f40967f3ba31b3f74a183bee0d92b0eb564e34ab900b2e0bdf1ae"
+  }
+}

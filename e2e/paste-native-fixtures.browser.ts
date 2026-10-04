@@ -95,10 +95,14 @@ function nativeFixtures(): Fixture[] {
 
 /** Image preparation: none, embedded assets, or embedded assets whose byte limits no captured file fits. */
 type Assets = 'none' | 'embedded' | 'small-limits';
+/** The destination's images: Image as configured, an Image that refuses data URLs, or no Image at all. */
+type ImagePolicy = 'default' | 'no-base64' | 'missing';
 
-async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'default' | 'capability-full', items: Item[], assets: Assets = 'none'): Promise<Replay> {
+async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'default' | 'capability-full', items: Item[], assets: Assets = 'none',
+  imagePolicy: ImagePolicy = 'default'): Promise<Replay> {
   const query = new URLSearchParams({ framework: 'vanilla', formatting, 'list-markers': '1', ...(schema === 'default' ? {} : { schema }),
-    ...(assets === 'none' ? {} : { assets: 'embedded' }), ...(assets === 'small-limits' ? { 'asset-limits': 'small' } : {}) });
+    ...(assets === 'none' ? {} : { assets: 'embedded' }), ...(assets === 'small-limits' ? { 'asset-limits': 'small' } : {}),
+    ...(imagePolicy === 'default' ? {} : { 'image-policy': imagePolicy }) });
   await page.goto(`http://127.0.0.1:5895/?${query.toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
   await page.evaluate(() => {
@@ -243,9 +247,12 @@ for (const fixture of fixtures) {
 
       // Image preparation refuses a paste whose image it cannot bind, so neither a marker picture the HTML holds nor a
       // file the clipboard holds may be one it is offered: Word's picture of the selection is never read, bound or inserted.
+      // An image the content places as a data URL, as Google Docs writes every image, is kept as it is, with no file read.
       const placesImages = fixture.expected?.blocks.some(block => block.type === 'image') === true;
-      if (!placesImages && (fixture.files > 0 || /<img\b/iu.test(fixture.html))) {
-        test(`${formatting}: pastes the same with image preparation, which no marker picture or picture of the selection reaches`, async ({ page }) => {
+      if (fixture.files > 0 || /<img\b/iu.test(fixture.html)) {
+        const title = placesImages ? 'keeps its data images with image preparation, which reads, uploads and matches no file'
+          : 'pastes the same with image preparation, which no marker picture or picture of the selection reaches';
+        test(`${formatting}: ${title}`, async ({ page }) => {
           const expected = fixture.expected;
           if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
           const [outcome] = editorOutcomesOf(expected[formatting]);
@@ -261,6 +268,28 @@ for (const fixture of fixtures) {
               { formatting, destination: result.destination })).toEqual([]);
             expect(result.images).toBe(expected.blocks.filter(block => block.type === 'image').length);
             expect(result.assets).toEqual({ reads: 0, uploads: 0, matches: 0 });
+          }
+        });
+      }
+
+      // A destination that cannot hold a data image, as an Image with allowBase64 false or an editor without Image, removes
+      // each image with its alt text in its place and reports it, where it kept a broken picture or lost the image silently.
+      if (placesImages) {
+        test(`${formatting}: removes each image with its alt text in its place, reported, where the destination refuses data images or has no Image`, async ({ page }) => {
+          const expected = fixture.expected;
+          if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
+          const outcome = editorOutcomesOf(expected[formatting]).find(entry => entry.schema === 'default');
+          if (outcome === undefined) throw new Error(`${fixture.id} has no default schema outcome`);
+          const [{ blocksFromEditorJSON }, { noticeCodes }] = await evidence();
+          const alts = expected.blocks.filter(block => block.type === 'image').map(block => String(block['alt']));
+          for (const imagePolicy of ['no-base64', 'missing'] as const) {
+            const result = await replay(page, formatting, 'default', fixture.items, 'none', imagePolicy);
+            expect(result.operations.at(-1)?.status).toBe('applied');
+            expect(result.images).toBe(0);
+            expect(noticeCodes(result.operations.at(-1)?.diagnostics ?? [])).toEqual([...new Set([...outcome.warnings, 'image-removed'])].sort());
+            expect(result.notice.visible).toBe(true);
+            const texts = blocksFromEditorJSON(result.doc).map(block => block.text.trim());
+            for (const alt of alts) expect(texts).toContain(alt);
           }
         });
       }

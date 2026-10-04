@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-croatian-text-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "2a4ea2ebcb354e56b4320991e49552a012b3c0d519612a26e5c37b67fa03347b"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-croatian-text",
+    "blocks": [
+      {
+        "id": "GB05",
+        "type": "heading",
+        "level": 2,
+        "docs": "Heading 2",
+        "text": "GB05 Croatian characters and quotation marks",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "16pt"
+        }
+      },
+      {
+        "id": "GB06",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GB06 Lowercase č ć đ š ž, uppercase Č Ć Đ Š Ž.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GB07",
+        "type": "paragraph",
+        "docs": "Normal text. Smart quotes must be off so the straight quotes stay straight.",
+        "text": "GB07 Quotation marks „double“, ‚single‘, »reversed«, \"straight\" and 'straight', the apostrophe in don’t, an en dash – and an ellipsis…",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "ab26ab2302a8b9e157961df5a60f84d81836a031891d84fc1ce4523cf194f651",
+    "captureSha256": "411379b884266d2e711e6144cf7afa4be040970804cc2a7fce4ec060cc084914",
+    "manifestSha256": "25386bc4948a3e699be7c7412999e8d1325ad0888ed287d557e97665fc853662"
+  }
+}

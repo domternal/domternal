@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-numbering-start-restart-continue-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "8aa9316ddb793cefa05f2f9964049825e826c585523a4f47c0da639b53c1c712"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "6306b3182ff2d42a4e9df839e7ab4f4ab62f1540ffbaa7fd14df5e379a6a86b7"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-numbering-start-restart-continue",
+    "blocks": [
+      {
+        "id": "GL07",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "docsLabel": "1."
+        },
+        "docs": "Numbered list (Cmd+Shift+7), default preset 1. a. i.",
+        "text": "GL07 First number",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL08",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 1,
+          "docsLabel": "a."
+        },
+        "docs": "Enter, Tab",
+        "text": "GL08 Letter a",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL09",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 1,
+          "docsLabel": "i."
+        },
+        "docs": "Enter, Tab",
+        "text": "GL09 Roman i",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL10",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 2,
+          "docsLabel": "ii."
+        },
+        "docs": "Enter",
+        "text": "GL10 Roman ii",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL11",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 2,
+          "docsLabel": "b."
+        },
+        "docs": "Enter, Shift+Tab",
+        "text": "GL11 Letter b",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL12",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 2,
+          "docsLabel": "2."
+        },
+        "docs": "Enter, Shift+Tab",
+        "text": "GL12 Second number",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL13",
+        "type": "paragraph",
+        "docs": "Enter twice to end the list, Normal text",
+        "text": "GL13 List interruption.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL14",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 3,
+          "docsLabel": "3."
+        },
+        "docs": "Enter, Numbered list; if Google Docs shows 1., right-click > Continue previous numbering so it shows 3.",
+        "text": "GL14 Numbering continues",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL15",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "docsLabel": "1."
+        },
+        "docs": "Enter, then right-click > Restart numbering at 1",
+        "text": "GL15 Restart at one",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL16",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 5,
+          "docsLabel": "5."
+        },
+        "docs": "Enter, then right-click > Restart numbering at 5",
+        "text": "GL16 Start at five",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL17",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 6,
+          "docsLabel": "6."
+        },
+        "docs": "Enter",
+        "text": "GL17 Six",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "fcb049b8b7778cadf688e68df3ffafe5219c577b6e757f75e53da2ecc0e70d85",
+    "captureSha256": "15e7eabf030b555b87a761685eaca2a4b0c4bb65a21d7429f48b4e912977c886",
+    "manifestSha256": "8f920bff8c9149ceebd6e5b61b86255fa6e573775914134ac9dde9f1f69aa46e"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "harnessVersion": "native-office-capture-v1",
+  "capturedAt": "2026-10-07T21:05:17.164Z",
+  "status": "complete",
+  "qualification": false,
+  "scope": "allowlisted-formats-and-exposed-files",
+  "provenance": {
+    "eventKind": "synthetic-event",
+    "nativeClipboardCaptured": false,
+    "sourceApplicationVerified": false
+  },
+  "operator": {
+    "os": "Authored variant of macOS 26.5.2 (25F84)",
+    "application": "Authored variant of Google Docs web, 2026-10-05, personal account, Pages format",
+    "browser": "Authored variant of Google Chrome 153.0.8010.47 (Official Build) (arm64)",
+    "scenario": "gdocs-image-partial-selection",
+    "fixtureId": "gdocs-image-partial-selection-chrome",
+    "fixtureSha256": "0cbf5fc50e0a8738e25317084d758c7ccad57e9d05b470d065e16d25cc7d6838",
+    "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
+    "syntheticSourceConfirmed": true
+  },
+  "limits": {
+    "maxItems": 64,
+    "maxFormats": 32,
+    "maxMetadataLength": 512,
+    "maxFormatBytes": 2097152,
+    "maxTextBytes": 4194304,
+    "maxFileBytes": 5242880,
+    "maxTotalFileBytes": 10485760,
+    "maxClipboardBytes": 12582912,
+    "maxJSONBytes": 25165824,
+    "maxDurationMs": 15000
+  },
+  "diagnostics": [],
+  "payload": {
+    "availableFormats": [
+      "text/plain",
+      "text/html",
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-image-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "omittedFormats": [
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-image-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "text": {
+      "text/html": "<meta charset='utf-8'><meta charset=\"utf-8\"><b style=\"font-weight:normal;\" id=\"docs-internal-guid-6c20c205-7fff-a008-2031-aed8c89e6df1\"><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"> after the picture.</span></p><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"><img alt=\"GI05 Green square\" src=\"data:image/png;base64,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\" width=\"200\" height=\"200\" style=\"border:none;\" /></span></p><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GI06 Between two pictures of the same size.</span></p><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"><img alt=\"GI07 Orange square\" src=\"data:image/png;base64,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\" width=\"200\" height=\"200\" style=\"border:none;\" /></span></p><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GI08 The same picture</span></p></b><br class=\"Apple-interchange-newline\">",
+      "text/plain": " after the picture.\n\nGI06 Between two pictures of the same size.\n\nGI08 The same picture\n"
+    },
+    "items": [
+      {
+        "itemIndex": 0,
+        "kind": "string",
+        "type": "text/plain",
+        "file": null
+      },
+      {
+        "itemIndex": 1,
+        "kind": "string",
+        "type": "text/html",
+        "file": null
+      },
+      {
+        "itemIndex": 2,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-document-slice-clip+wrapped",
+        "file": null
+      },
+      {
+        "itemIndex": 3,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-image-clip+wrapped",
+        "file": null
+      },
+      {
+        "itemIndex": 4,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-internal-clip-id",
+        "file": null
+      }
+    ],
+    "files": [],
+    "totals": {
+      "textBytes": 6552,
+      "fileBytes": 0
+    }
+  }
+}
