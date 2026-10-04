@@ -15,14 +15,16 @@
     ],
     "copyBrowser": "Copy in Google Docs and paste in the same browser: Google Docs writes the clipboard from inside the page, so each browser is its own source path"
   },
+  "captures": [],
   "runbook": "GOOGLE-DOCS-RUNBOOK.md",
   "images": "node e2e/native-office-capture/content/google-docs-images.mjs /private/tmp/gdocs-v1-images",
   "editor": {
     "url": "http://127.0.0.1:5895/?framework=vanilla&formatting=preserve&list-markers=1",
     "adapt": "The same address with formatting=adapt. A scenario with an editorQuery adds it to both addresses.",
-    "images": "No allowRemoteImages and no imageAssets: an image that Google Docs serves by URL is removed with image-removed and its alt text stays in its place; a data image within the bounds would be kept, which is a finding",
-    "lineHeight": "The default schema has no LineHeight: in preserve, the line spacing Google Docs writes on every paragraph is reported as destination-formatting-unconfirmed, and that warning shows the notice; adapt removes the spacing as an informational finding. A quiet scenario allows the warning in preserve, so its notice stays hidden only in adapt or when no pasted paragraph carries line spacing",
-    "lineBreaks": "Google Docs may write a br between blocks, after a table or for an empty paragraph. The editor makes one paragraph of line breaks from each run of them; the check ignores empty blocks a scenario does not name, and gdocs-empty-paragraphs reports a run that arrives as fewer empty paragraphs"
+    "images": "No allowRemoteImages and no imageAssets. Chrome's captures hold every image as a data:image/png URL in the HTML, with its alt text and size, and no file: the editor keeps it as an embedded image, quietly. A destination that refuses data images, or has no image node, removes it with image-removed, its alt text staying in its place. An image Google Docs served by URL would be removed the same way; none of the captured copies holds one",
+    "lineHeight": "Google Docs writes a block's line spacing as a CSS line height of 1.2 times it, so its default 1.15 is 1.38 on every paragraph, heading and list item, and a table cell's default, single, is 1.2. Cleanup reads the Docs spacing back and drops those defaults as the document's own, so the default schema without LineHeight reports only a spacing of its own, as GB19's 1.5, with destination-formatting-unconfirmed",
+    "lineBreaks": "Google Docs writes an empty paragraph as a br between blocks: two for two empty paragraphs, one before each table, one between two lists and one for the last paragraph after a final table. Cleanup makes each the empty paragraph it stands for, which the scenarios name",
+    "correction": "Corrected after the Chrome captures of 2026-10-05: images were expected as URLs and removed, line spacing as unconfirmed on every paragraph, and the breaks as unnamed blocks"
   },
   "conventions": [
     "This is an offline edited English regression specification. Block IDs and v1 document names remain stable. No native recapture was performed; baseline application instructions describe the shape being modeled.",
@@ -32,33 +34,49 @@
     "A marker in list.docsLabel is what Google Docs shows. Do not type it; Google Docs creates it from the list formatting.",
     "Images come from content/google-docs-images.mjs. Insert them only with Insert > Image > Upload from computer, never by URL, from Drive, Photos or a search, and give each the alt text named here (Cmd+Option+Y).",
     "Keep the defaults of a new document: Pages format, Normal text in Arial 11 pt. Add no comments, suggestions, people, smart chips, bookmarks or headers.",
-    "Copy and paste in the same browser, and record the scenario's selection exactly."
+    "Copy and paste in the same browser, and record the scenario's selection exactly.",
+    "A document's textStyle is the text style of Google Docs' Normal text as Docs shows it, Arial 11 pt, and a block's textStyle that of its own style, such as a heading's size and color; Docs' default black is no color. A pasted run may keep these values or none, never another. With them the comparison is exhaustive, as for Word: a block, an empty paragraph, a mark or a style the specification does not author for a selection is a finding. The large image, mixed and large documents are not captured and author none.",
+    "Corrections after the first captures say what changed and why in a correction field on the block or scenario; the earlier expectation is not kept."
   ],
   "documents": [
     {
       "title": "gdocs-v1-basics",
       "export": "gdocs-v1-basics.docx",
+      "textStyle": {
+        "fontFamily": "Arial",
+        "fontSize": "11pt"
+      },
       "blocks": [
         {
           "id": "GB01",
           "type": "heading",
           "level": 1,
           "docs": "Heading 1 (Cmd+Option+1)",
-          "text": "GB01 Paste test document"
+          "text": "GB01 Paste test document",
+          "textStyle": {
+            "fontSize": "20pt"
+          }
         },
         {
           "id": "GB02",
           "type": "heading",
           "level": 2,
           "docs": "Heading 2 (Cmd+Option+2)",
-          "text": "GB02 Level two heading"
+          "text": "GB02 Level two heading",
+          "textStyle": {
+            "fontSize": "16pt"
+          }
         },
         {
           "id": "GB03",
           "type": "heading",
           "level": 3,
           "docs": "Heading 3 (Cmd+Option+3)",
-          "text": "GB03 Level three heading"
+          "text": "GB03 Level three heading",
+          "textStyle": {
+            "fontSize": "14pt",
+            "color": "#434343"
+          }
         },
         {
           "id": "GB04",
@@ -81,7 +99,10 @@
           "type": "heading",
           "level": 2,
           "docs": "Heading 2",
-          "text": "GB05 Croatian characters and quotation marks"
+          "text": "GB05 Croatian characters and quotation marks",
+          "textStyle": {
+            "fontSize": "16pt"
+          }
         },
         {
           "id": "GB06",
@@ -100,7 +121,10 @@
           "type": "heading",
           "level": 2,
           "docs": "Heading 2",
-          "text": "GB08 Inline formatting"
+          "text": "GB08 Inline formatting",
+          "textStyle": {
+            "fontSize": "16pt"
+          }
         },
         {
           "id": "GB09",
@@ -189,9 +213,13 @@
               "marks": [
                 "highlight"
               ],
+              "style": {
+                "backgroundColor": "#ffff00"
+              },
               "formatting": "preserve",
               "docs": "Highlight color: yellow, the fourth swatch of the bright row (#ffff00)",
-              "expectation": "adapt removes the highlight with the other colors, so it is checked in preserve only."
+              "expectation": "adapt removes the highlight with the other colors, so it is checked in preserve only.",
+              "correction": "The highlight is the run's background color #ffff00, as Chrome's capture writes it and the editor keeps it."
             }
           ]
         },
@@ -200,7 +228,10 @@
           "type": "heading",
           "level": 2,
           "docs": "Heading 2",
-          "text": "GB11 Links"
+          "text": "GB11 Links",
+          "textStyle": {
+            "fontSize": "16pt"
+          }
         },
         {
           "id": "GB12",
@@ -211,7 +242,14 @@
             {
               "text": "an example page",
               "link": "https://example.com/domternal/gdocs-v1",
-              "docs": "Select the exact phrase an example page, Insert > Link (Cmd+K), paste the address, Apply"
+              "marks": [
+                "underline"
+              ],
+              "style": {
+                "color": "#1155cc"
+              },
+              "docs": "Select the exact phrase an example page, Insert > Link (Cmd+K), paste the address, Apply",
+              "correction": "Docs gives link text its blue and an underline as the run's own formatting, which its export holds as well, so both are expected."
             }
           ]
         },
@@ -224,7 +262,14 @@
             {
               "text": "https://example.org/gdocs-v1",
               "link": "https://example.org/gdocs-v1",
-              "docs": "Select the address, Cmd+K, Apply, so the address links to itself"
+              "marks": [
+                "underline"
+              ],
+              "style": {
+                "color": "#1155cc"
+              },
+              "docs": "Select the address, Cmd+K, Apply, so the address links to itself",
+              "correction": "Docs gives link text its blue and an underline as the run's own formatting, which its export holds as well, so both are expected."
             }
           ]
         },
@@ -237,7 +282,14 @@
             {
               "text": "pisi@example.com",
               "link": "mailto:pisi@example.com",
-              "docs": "Select the address, Cmd+K, type mailto:pisi@example.com, Apply"
+              "marks": [
+                "underline"
+              ],
+              "style": {
+                "color": "#1155cc"
+              },
+              "docs": "Select the address, Cmd+K, type mailto:pisi@example.com, Apply",
+              "correction": "Docs gives link text its blue and an underline as the run's own formatting, which its export holds as well, so both are expected."
             }
           ]
         },
@@ -246,7 +298,11 @@
           "type": "heading",
           "level": 3,
           "docs": "Heading 3",
-          "text": "GB15 Alignment and spacing"
+          "text": "GB15 Alignment and spacing",
+          "textStyle": {
+            "fontSize": "14pt",
+            "color": "#434343"
+          }
         },
         {
           "id": "GB16",
@@ -311,13 +367,20 @@
     {
       "title": "gdocs-v1-lists",
       "export": "gdocs-v1-lists.docx",
+      "textStyle": {
+        "fontFamily": "Arial",
+        "fontSize": "11pt"
+      },
       "blocks": [
         {
           "id": "GL01",
           "type": "heading",
           "level": 1,
           "docs": "Heading 1",
-          "text": "GL01 Bullets"
+          "text": "GL01 Bullets",
+          "textStyle": {
+            "fontSize": "20pt"
+          }
         },
         {
           "id": "GL02",
@@ -372,7 +435,10 @@
           "type": "heading",
           "level": 1,
           "docs": "Enter twice to end the list, Heading 1",
-          "text": "GL06 Numbering"
+          "text": "GL06 Numbering",
+          "textStyle": {
+            "fontSize": "20pt"
+          }
         },
         {
           "id": "GL07",
@@ -515,7 +581,10 @@
           "type": "heading",
           "level": 1,
           "docs": "Enter twice to end the list, Heading 1",
-          "text": "GL18 Mixed nesting"
+          "text": "GL18 Mixed nesting",
+          "textStyle": {
+            "fontSize": "20pt"
+          }
         },
         {
           "id": "GL19",
@@ -556,6 +625,12 @@
           "text": "GL21 Second number"
         },
         {
+          "id": "GL21a",
+          "type": "empty",
+          "docs": "The empty Normal text paragraph GL22's instruction leaves before it",
+          "correction": "GL22 follows an empty paragraph, as its instruction says and the export shows, so a selection from GL21 to GL22 holds it; it was missing from the blocks."
+        },
+        {
           "id": "GL22",
           "type": "listItem",
           "list": {
@@ -585,7 +660,10 @@
           "type": "heading",
           "level": 1,
           "docs": "Enter twice to end the list, Heading 1",
-          "text": "GL24 Punctuation and letter case"
+          "text": "GL24 Punctuation and letter case",
+          "textStyle": {
+            "fontSize": "20pt"
+          }
         },
         {
           "id": "GL25",
@@ -670,7 +748,10 @@
           "type": "heading",
           "level": 1,
           "docs": "Enter twice to end the list, Heading 1",
-          "text": "GL31 Alphabet after Z"
+          "text": "GL31 Alphabet after Z",
+          "textStyle": {
+            "fontSize": "20pt"
+          }
         },
         {
           "id": "GL32",
@@ -680,67 +761,120 @@
           "literalAfter": null,
           "docs": "Paste the 28 lines GL32 Item 1 to GL59 Item 28 with Cmd+Shift+V, select them and apply the numbered preset whose first level shows A. (restart at A if Google Docs continues the earlier list). Google Docs shows A. to Z., then two more labels; record them.",
           "textPattern": "GL{32+n} Item {1+n}",
-          "expectation": "Google Docs writes semantic list items, so all 28 items stay one upper-alpha list with ordinals 1 to 28 and no office-list-unsupported."
+          "expectation": "Google Docs writes semantic list items, so all 28 items stay one upper-alpha list with ordinals 1 to 28 and no office-list-unsupported. The editor labels the items after Z. as CSS upper-alpha does, AA. and AB.; what Google Docs shows there is the owner's to record."
         },
         {
           "id": "GL60",
           "type": "heading",
           "level": 1,
           "docs": "Heading 1",
-          "text": "GL60 Other profiles"
+          "text": "GL60 Other profiles",
+          "textStyle": {
+            "fontSize": "20pt"
+          }
         },
         {
           "id": "GL61",
-          "type": "textOnly",
+          "type": "listItem",
+          "list": {
+            "kind": "bullet",
+            "marker": "disc",
+            "depth": 1
+          },
           "docsLabel": "❖",
           "docs": "Format > Bullets & numbering > Bulleted list: the preset whose first level shows ❖",
           "text": "GL61 Diamond bullet",
-          "expectation": "No CSS marker names ❖. Record the list-style-type Google Docs writes and whether the item arrives as a bullet list or a literal paragraph."
+          "expectation": "No CSS marker names ❖.",
+          "correction": "Google Docs writes the ❖ preset's item with list-style-type disc, so it pastes as a disc bullet item: the copy does not hold the ❖."
         },
         {
           "id": "GL62",
-          "type": "textOnly",
+          "type": "listItem",
+          "list": {
+            "kind": "task",
+            "depth": 1,
+            "checked": false
+          },
           "docsLabel": "☐",
           "docs": "Enter twice to end the list, then Checklist (Cmd+Shift+9), left unchecked",
           "text": "GL62 Unchecked task",
-          "expectation": "Record whether the item arrives as a task item, a bullet item or a paragraph."
+          "correction": "Google Docs writes a checklist item as an ARIA checkbox with its state beside a picture of its box, which cleanup makes a task item without the picture."
         },
         {
           "id": "GL63",
-          "type": "textOnly",
+          "type": "listItem",
+          "list": {
+            "kind": "task",
+            "depth": 1,
+            "checked": true
+          },
           "docsLabel": "☑",
           "docs": "Enter, then tick the box; Google Docs strikes the text through",
           "text": "GL63 Checked task",
-          "expectation": "Record whether the checked state and the strikethrough reach the capture."
+          "marks": [
+            {
+              "text": "GL63 Checked task",
+              "marks": [
+                "strike"
+              ],
+              "docs": "Docs strikes a checked item's text through"
+            }
+          ],
+          "correction": "The checked state arrives as aria-checked; the strikethrough is in the copy and in the export, so the checked task item's text keeps it."
         },
         {
           "id": "GL64",
-          "type": "textOnly",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 1
+          },
           "docsLabel": "1.",
           "docs": "Enter twice to end the list, then the numbered preset whose levels show 1. 1.1. 1.1.1.",
           "text": "GL64 Legal number",
-          "expectation": "Record whether legal numbering arrives as nested decimal lists or as literal paragraphs."
+          "correction": "The first level of the legal preset is decimal numbering, which Google Docs writes as such."
         },
         {
           "id": "GL65",
-          "type": "textOnly",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 2,
+            "ordinal": 1
+          },
           "docsLabel": "1.1.",
           "docs": "Enter, Tab",
           "text": "GL65 Legal subnumber",
-          "expectation": "Record the depth and marker; the composed 1.1. label has no marker class."
+          "correction": "Google Docs writes the legal second level as a nested decimal list, so it pastes as 1. at the second level: the composed 1.1. label is not in the copy."
         }
       ]
     },
     {
       "title": "gdocs-v1-tables",
       "export": "gdocs-v1-tables.docx",
+      "textStyle": {
+        "fontFamily": "Arial",
+        "fontSize": "11pt"
+      },
       "blocks": [
         {
           "id": "GT01",
           "type": "heading",
           "level": 1,
           "docs": "Heading 1",
-          "text": "GT01 Table"
+          "text": "GT01 Table",
+          "textStyle": {
+            "fontSize": "20pt"
+          }
+        },
+        {
+          "id": "GT01a",
+          "type": "empty",
+          "docs": "The empty paragraph Google Docs keeps before a table it inserts",
+          "correction": "Google Docs keeps an empty paragraph before each table, which the export and Select All hold; it was missing from the blocks."
         },
         {
           "id": "GT02",
@@ -749,11 +883,12 @@
             "table": 1,
             "row": 1,
             "column": 1,
-            "headerRow": true
+            "headerRow": true,
+            "header": true
           },
           "docs": "Insert > Table > 3 x 3; Table properties > Rows: Pin header row, when offered",
           "text": "GT02 Column A",
-          "expectation": "Record whether the pinned row copies as header cells; header cells are not compared."
+          "correction": "Google Docs copies the pinned header row as header cells (thead and th), which paste as header cells."
         },
         {
           "id": "GT03",
@@ -762,7 +897,8 @@
             "table": 1,
             "row": 1,
             "column": 2,
-            "headerRow": true
+            "headerRow": true,
+            "header": true
           },
           "text": "GT03 Column B"
         },
@@ -773,7 +909,8 @@
             "table": 1,
             "row": 1,
             "column": 3,
-            "headerRow": true
+            "headerRow": true,
+            "header": true
           },
           "text": "GT04 Column C"
         },
@@ -784,10 +921,12 @@
             "table": 1,
             "row": 2,
             "column": 1,
-            "shading": "light gray 2"
+            "shading": "light gray 2",
+            "background": "#efefef"
           },
           "docs": "Table properties > Color > Cell background color: light gray 2",
-          "text": "GT05 Gray cell"
+          "text": "GT05 Gray cell",
+          "correction": "Light gray 2 is #efefef, the background Google Docs writes on the cell."
         },
         {
           "id": "GT06",
@@ -838,6 +977,12 @@
           "text": "GT10 Between tables."
         },
         {
+          "id": "GT10a",
+          "type": "empty",
+          "docs": "The empty paragraph Google Docs keeps before the second table",
+          "correction": "As GT01a."
+        },
+        {
           "id": "GT11",
           "type": "tableCell",
           "cell": {
@@ -876,6 +1021,12 @@
           "text": "GT14 Below the merged table."
         },
         {
+          "id": "GT14a",
+          "type": "empty",
+          "docs": "The empty paragraph Google Docs keeps before the third table",
+          "correction": "As GT01a."
+        },
+        {
           "id": "GT15",
           "type": "tableCell",
           "cell": {
@@ -901,6 +1052,12 @@
           "type": "paragraph",
           "docs": "Normal text below the third table",
           "text": "GT17 Before the table with a list."
+        },
+        {
+          "id": "GT17a",
+          "type": "empty",
+          "docs": "The empty paragraph Google Docs keeps before the fourth table",
+          "correction": "As GT01a."
         },
         {
           "id": "GT18",
@@ -946,19 +1103,32 @@
           },
           "docs": "Enter",
           "text": "GT20 Second bullet in a cell"
+        },
+        {
+          "id": "GT20a",
+          "type": "empty",
+          "docs": "The document's last paragraph, empty, which Google Docs keeps after the last table",
+          "correction": "Google Docs ends a document that ends with a table with an empty paragraph, which Select All copies; it was missing from the blocks."
         }
       ]
     },
     {
       "title": "gdocs-v1-images",
       "export": "gdocs-v1-images.docx",
+      "textStyle": {
+        "fontFamily": "Arial",
+        "fontSize": "11pt"
+      },
       "blocks": [
         {
           "id": "GI01",
           "type": "heading",
           "level": 1,
           "docs": "Heading 1",
-          "text": "GI01 Pictures"
+          "text": "GI01 Pictures",
+          "textStyle": {
+            "fontSize": "20pt"
+          }
         },
         {
           "id": "GI02",
@@ -969,6 +1139,9 @@
         {
           "id": "GI03",
           "type": "image",
+          "src": "data",
+          "width": 320,
+          "height": 200,
           "file": "gdocs-v1-blue-320x200.png",
           "alt": "GI03 Blue rectangle",
           "docs": "Enter, then Insert > Image > Upload from computer, In line wrapping, in a paragraph of its own; alt text (Cmd+Option+Y) as given"
@@ -982,6 +1155,9 @@
         {
           "id": "GI05",
           "type": "image",
+          "src": "data",
+          "width": 200,
+          "height": 200,
           "file": "gdocs-v1-green-200x200.png",
           "alt": "GI05 Green square",
           "docs": "Image in a paragraph of its own, alt text as given"
@@ -995,6 +1171,9 @@
         {
           "id": "GI07",
           "type": "image",
+          "src": "data",
+          "width": 200,
+          "height": 200,
           "file": "gdocs-v1-orange-200x200.png",
           "alt": "GI07 Orange square",
           "docs": "Image in a paragraph of its own, same size as GI05, alt text as given"
@@ -1008,6 +1187,9 @@
         {
           "id": "GI09",
           "type": "image",
+          "src": "data",
+          "width": 200,
+          "height": 200,
           "file": "gdocs-v1-green-200x200.png",
           "alt": "GI09 Green square again",
           "docs": "Upload the same green file again in a paragraph of its own, with its own alt text"
@@ -1017,6 +1199,12 @@
           "type": "paragraph",
           "docs": "Normal text",
           "text": "GI10 Table with pictures."
+        },
+        {
+          "id": "GI10a",
+          "type": "empty",
+          "docs": "The empty paragraph Google Docs keeps before the table",
+          "correction": "As GT01a in the tables document."
         },
         {
           "id": "GI11",
@@ -1032,6 +1220,9 @@
         {
           "id": "GI12",
           "type": "image",
+          "src": "data",
+          "width": 160,
+          "height": 120,
           "file": "gdocs-v1-red-160x120.png",
           "alt": "GI12 Red picture in a cell",
           "cell": {
@@ -1055,6 +1246,9 @@
         {
           "id": "GI14",
           "type": "image",
+          "src": "data",
+          "width": 160,
+          "height": 120,
           "file": "gdocs-v1-purple-160x120.png",
           "alt": "GI14 Purple picture in a cell",
           "cell": {
@@ -1069,7 +1263,10 @@
           "type": "heading",
           "level": 2,
           "docs": "Below the table, Heading 2",
-          "text": "GI18 Limit of 50 pictures"
+          "text": "GI18 Limit of 50 pictures",
+          "textStyle": {
+            "fontSize": "16pt"
+          }
         },
         {
           "id": "GI19",
@@ -1288,18 +1485,14 @@
         "GB04"
       ],
       "expected": {
-        "preserve": "GB01, GB02 and GB03 as headings of levels 1, 2 and 3 and GB04 as a paragraph, in that order. The Google Docs fonts, sizes and colors stay as text styles (GB04 in Arial 11 pt). Paragraph spacing is dropped without a finding; the line spacing on every paragraph is reported as destination-formatting-unconfirmed.",
+        "preserve": "GB01, GB02 and GB03 as headings of levels 1, 2 and 3 and GB04 as a paragraph, in that order. The Google Docs fonts and sizes stay as text styles (GB04 in Arial 11 pt, the headings in Arial 20, 16 and 14 pt) and Heading 3 keeps its gray #434343; black, Docs' default text color, is no color of the runs. Paragraph spacing and Docs' default line spacing are the document's own and dropped without a finding.",
         "adapt": "The same blocks and heading levels without font, size, color or line spacing. Only informational formatting-adapted findings, so no notice."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "Docs' default 1.15 spacing, written 1.38, and its default black are the document's own, so preserve raises no finding either."
     },
     {
       "id": "gdocs-plain-paragraph",
@@ -1309,18 +1502,14 @@
         "GB04"
       ],
       "expected": {
-        "preserve": "One paragraph, GB04, in Arial 11 pt; its line spacing is reported as destination-formatting-unconfirmed.",
+        "preserve": "One paragraph, GB04, in Arial 11 pt; its line spacing is Docs' default, dropped without a finding.",
         "adapt": "The same paragraph without text styles; no notice."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "As gdocs-headings-plain."
     },
     {
       "id": "gdocs-croatian-text",
@@ -1332,18 +1521,14 @@
         "GB07"
       ],
       "expected": {
-        "preserve": "GB05 as a heading of level 2, then GB06 and GB07 as paragraphs with every diacritic, quote, apostrophe, dash and ellipsis exactly as in this file. Text styles stay; line spacing is reported as destination-formatting-unconfirmed.",
+        "preserve": "GB05 as a heading of level 2, then GB06 and GB07 as paragraphs with every diacritic, quote, apostrophe, dash and ellipsis exactly as in this file. Text styles stay; Docs' default line spacing is dropped without a finding.",
         "adapt": "The same text without text styles; no notice."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "As gdocs-headings-plain."
     },
     {
       "id": "gdocs-bold-italic-underline",
@@ -1353,18 +1538,14 @@
         "GB09"
       ],
       "expected": {
-        "preserve": "GB09 as one paragraph: bold bold, italic italic, underlined underlined and all three bold, italic and underlined, all as semantic marks. Line spacing is reported as destination-formatting-unconfirmed.",
+        "preserve": "GB09 as one paragraph: bold bold, italic italic, underlined underlined and all three bold, italic and underlined, all as semantic marks. Docs' default line spacing is dropped without a finding.",
         "adapt": "The same marks without text styles; no notice."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "As gdocs-headings-plain."
     },
     {
       "id": "gdocs-inline-formatting",
@@ -1375,20 +1556,16 @@
         "GB10"
       ],
       "expected": {
-        "preserve": "GB10: strikethrough struck through, the first 2 subscript, the second 2 superscript, Georgia in Georgia 14 pt, red in #ff0000 and highlighted highlighted. The full schema has Subscript, Superscript and LineHeight, so the line spacing raises no finding. Google Docs may size the subscript and superscript relative to their run, for example 0.6em; cleanup resolves that to an absolute size, 6.6pt in an 11 pt run, which stays as a text style without a finding. Record the shape and every finding.",
+        "preserve": "GB10: strikethrough struck through, the first 2 subscript, the second 2 superscript, Georgia in Georgia 14 pt, red in #ff0000 and highlighted highlighted. The full schema has Subscript, Superscript and LineHeight, so the line spacing raises no finding. Google Docs draws each script as a span of 0.6em aligned to sub or super inside its run: that size is how Docs draws a script, which the subscript and superscript marks draw in the destination, so the 2 keeps its run's 11 pt. The default schema has neither mark, so there the 2 pastes plain and destination-formatting-unconfirmed shows the notice in both policies.",
         "adapt": "Strike, subscript and superscript stay; font, size, color and highlight are removed as informational formatting-adapted findings."
       },
       "outcome": {
         "notice": "observe",
         "allowedWarnings": [
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+          "destination-formatting-unconfirmed"
+        ]
+      },
+      "correction": "Google Docs writes 14 pt as 13.999999999999998pt, which cleanup reads as 14pt, and a script as 0.6em of its run, which was expected to stay as 6.6pt and now keeps the run's size under the script mark. The fixture pins the default schema without Subscript and Superscript as well."
     },
     {
       "id": "gdocs-links",
@@ -1401,18 +1578,14 @@
         "GB14"
       ],
       "expected": {
-        "preserve": "GB11 as a heading of level 2; an example page linked to https://example.com/domternal/gdocs-v1, the GB13 address linked to itself and pisi@example.com linked to mailto:pisi@example.com. Google Docs styles link text with its own blue and an underline, so the link text also keeps an underline mark and the color #1155cc. No link-removed.",
+        "preserve": "GB11 as a heading of level 2; an example page linked to https://example.com/domternal/gdocs-v1, the GB13 address linked to itself and pisi@example.com linked to mailto:pisi@example.com. Google Docs gives link text its blue and an underline as the run's own formatting, which the export holds too, so the link text also keeps an underline mark and the color #1155cc. No link-removed.",
         "adapt": "The same links and underline marks without the blue; no notice."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "As gdocs-headings-plain."
     },
     {
       "id": "gdocs-alignment-spacing",
@@ -1426,18 +1599,20 @@
         "GB19"
       ],
       "expected": {
-        "preserve": "GB15 as a heading of level 3; GB16 centered, GB17 right aligned and GB18 justified; GB19's 1.5 spacing, like every Google Docs line spacing, is reported as destination-formatting-unconfirmed.",
+        "preserve": "GB15 as a heading of level 3; GB16 centered, GB17 right aligned and GB18 justified; GB19's 1.5 spacing, which Docs writes 1.7999999999999998, stays as 1.5 where the destination has LineHeight and is reported as destination-formatting-unconfirmed where it has not; Heading 3 is Arial 14 pt in #434343.",
         "adapt": "The same blocks with default alignment and spacing; no notice."
       },
       "outcome": {
         "notice": "quiet",
         "allowedWarnings": [],
         "preserve": {
-          "allowedWarnings": [
+          "notice": "visible",
+          "requiredWarnings": [
             "destination-formatting-unconfirmed"
           ]
         }
-      }
+      },
+      "correction": "Only GB19's spacing is the paragraph's own: the fixture editor's default schema has no LineHeight and shows the notice in preserve, as for Word's B12, and a destination with LineHeight draws it; Docs' default spacing on the other blocks raises nothing."
     },
     {
       "id": "gdocs-indentation-loss",
@@ -1455,13 +1630,9 @@
         "notice": "visible",
         "requiredWarnings": [
           "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        ]
+      },
+      "correction": "Docs' default line spacing raises nothing, so only the indentation is reported."
     },
     {
       "id": "gdocs-empty-paragraphs",
@@ -1474,20 +1645,16 @@
         "GB22"
       ],
       "expected": {
-        "preserve": "GB21 without its first line indentation (unsupported-formatting), two empty paragraphs, then GB22. Google Docs may copy each empty paragraph as a br between the paragraphs; the editor then keeps both line breaks in one paragraph, which the check reports as GB22b: expected an empty paragraph. Record which shape the capture holds.",
+        "preserve": "GB21 without its first line indentation (unsupported-formatting), two empty paragraphs, then GB22. Google Docs copies each empty paragraph as a br between the paragraphs, which cleanup makes the empty paragraph it stands for.",
         "adapt": "The same blocks and findings without text styles."
       },
       "outcome": {
         "notice": "visible",
         "requiredWarnings": [
           "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        ]
+      },
+      "correction": "The capture holds two breaks between GB21 and GB22, which pasted as one paragraph of two lines before cleanup made each an empty paragraph."
     },
     {
       "id": "gdocs-partial-formatted-text",
@@ -1512,16 +1679,10 @@
         "adapt": "The same blocks and marks without text styles."
       },
       "outcome": {
-        "notice": "observe",
-        "allowedWarnings": [
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes the selection's first space as a no-break space and the partly selected last paragraph as a whole paragraph; nothing in it is reported."
     },
     {
       "id": "gdocs-default-bullets",
@@ -1534,18 +1695,14 @@
         "GL05"
       ],
       "expected": {
-        "preserve": "One bullet list: GL02 and GL05 at the first level with disc markers, GL03 at the second level with a circle marker and GL04 at the third with a square marker. Google Docs writes each marker as list-style-type on its li, not on the list: cleanup that does not take the marker from the items leaves the depth defaults and reports unsupported-formatting per item, which this check shows as marker mismatches and unexpected warnings.",
+        "preserve": "One bullet list: GL02 and GL05 at the first level with disc markers, GL03 at the second level with a circle marker and GL04 at the third with a square marker. Google Docs writes each marker as list-style-type on its li, not on the list, and nests each list directly in its parent list; cleanup moves the markers to their lists.",
         "adapt": "The same lists and markers: adapt keeps list markers."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes each marker as list-style-type on its li, which cleanup moves to its list, and Docs' default line spacing raises nothing."
     },
     {
       "id": "gdocs-default-numbering",
@@ -1565,13 +1722,9 @@
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes each marker as list-style-type on its li, which cleanup moves to its list, and Docs' default line spacing raises nothing."
     },
     {
       "id": "gdocs-numbering-start-restart-continue",
@@ -1596,13 +1749,9 @@
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes each marker as list-style-type on its li, which cleanup moves to its list, and Docs' default line spacing raises nothing."
     },
     {
       "id": "gdocs-mixed-nesting",
@@ -1612,22 +1761,19 @@
         "GL19",
         "GL20",
         "GL21",
+        "GL21a",
         "GL22",
         "GL23"
       ],
       "expected": {
-        "preserve": "GL19 decimal 1 with GL20 nested as a circle bullet; GL21 continues at 2; GL22 starts a disc bullet list with GL23 nested as lower-alpha a. Record whether Google Docs keeps GL21 in GL19's list.",
+        "preserve": "GL19 decimal 1 with GL20 nested as a circle bullet; GL21 continues at 2 in GL19's list; an empty paragraph; GL22 starts a disc bullet list with GL23 nested as lower-alpha a.",
         "adapt": "The same lists, markers and ordinals."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "The selection holds the empty paragraph GL21a, which Google Docs copies as a br between the lists."
     },
     {
       "id": "gdocs-list-presets",
@@ -1642,18 +1788,14 @@
         "GL30"
       ],
       "expected": {
-        "preserve": "Three lists of two items: GL25 and GL26 decimal (marker classes do not keep the parenthesis), GL27 and GL28 upper-alpha, GL29 and GL30 upper-roman. If a preset is not offered, record that and leave its blocks out of the document.",
+        "preserve": "Three lists of two items: GL25 and GL26 decimal (Google Docs writes the 1) preset as decimal, so the parenthesis is not in the copy), GL27 and GL28 upper-alpha, GL29 and GL30 upper-roman.",
         "adapt": "The same lists and markers."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes each marker as list-style-type on its li, which cleanup moves to its list, and Docs' default line spacing raises nothing."
     },
     {
       "id": "gdocs-alpha-beyond-z",
@@ -1668,13 +1810,9 @@
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes each marker as list-style-type on its li, which cleanup moves to its list, and Docs' default line spacing raises nothing."
     },
     {
       "id": "gdocs-other-list-profiles",
@@ -1688,21 +1826,14 @@
         "GL65"
       ],
       "expected": {
-        "preserve": "The text of GL61 to GL65 in order. The diamond bullet, the checklist and the legal numbering have no expected structure: record whether each arrives as a bullet list, a task list, nested decimal lists or literal paragraphs, and every finding.",
-        "adapt": "The same text in order; record the same observations."
+        "preserve": "GL61 as a disc bullet item, since Google Docs writes the ❖ preset as disc; GL62 and GL63 as a task list, GL62 unchecked and GL63 checked with its text struck through, without the pictures Google Docs draws the boxes with; GL64 as decimal 1. and GL65 as decimal 1. at the second level, the legal 1.1. label not being in the copy.",
+        "adapt": "The same lists, task items and marks."
       },
       "outcome": {
-        "notice": "observe",
-        "allowedWarnings": [
-          "office-list-unsupported",
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "The captures show the structure the specification left open: Google Docs writes ❖ as disc, a checklist as ARIA checkbox items with pictures of their boxes and the legal list as nested decimal lists."
     },
     {
       "id": "gdocs-list-partial-selection",
@@ -1723,20 +1854,14 @@
         "GL12"
       ],
       "expected": {
-        "preserve": "First block a, last block GL11 Letter; GL09 and GL10 stay lower-roman i and ii at the third level. Record the depth, marker and start of the first item.",
+        "preserve": "First block a at the second level after one empty item of the first, last block GL11 Letter at the second level; GL09 and GL10 stay lower-roman i and ii at the third level.",
         "adapt": "The same blocks."
       },
       "outcome": {
-        "notice": "observe",
-        "allowedWarnings": [
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes the copied levels as nested lists from the second, each item with its aria-level and a left margin of 36 pt for the level above the copy, which cleanup nests as Docs shows them, as a Word selection that starts in a nested item opens the levels above it."
     },
     {
       "id": "gdocs-single-list-item",
@@ -1746,20 +1871,14 @@
         "GL03"
       ],
       "expected": {
-        "preserve": "GL03 as a circle item at the second level. Record whether it arrives at the second level, the first level or as a paragraph.",
+        "preserve": "GL03 as a circle item at the second level, after one empty item of the first.",
         "adapt": "The same."
       },
       "outcome": {
-        "notice": "observe",
-        "allowedWarnings": [
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "As gdocs-list-partial-selection: Google Docs writes the item at aria-level 2 with a left margin of 36 pt in a list of its own."
     },
     {
       "id": "gdocs-table-text",
@@ -1767,6 +1886,7 @@
       "selection": "Select All (Cmd+A)",
       "blocks": [
         "GT01",
+        "GT01a",
         "GT02",
         "GT03",
         "GT04",
@@ -1776,30 +1896,30 @@
         "GT08",
         "GT09",
         "GT10",
+        "GT10a",
         "GT11",
         "GT12",
         "GT13",
         "GT14",
+        "GT14a",
         "GT15",
         "GT16",
         "GT17",
+        "GT17a",
         "GT18",
         "GT19",
-        "GT20"
+        "GT20",
+        "GT20a"
       ],
       "expected": {
-        "preserve": "GT01 as a heading of level 1; table 1 of three rows with GT08 spanning two columns; GT10; table 2 with GT11 spanning two rows; GT14; table 3, whose borders are destination layout and are dropped without a finding; GT17; table 4 with GT18 and the bullet list GT19 and GT20 in its cell. GT05's background stays as the cell background.",
+        "preserve": "GT01 as a heading of level 1; the empty paragraph Google Docs keeps before each table; table 1 of three rows whose first row is header cells, with GT08 spanning two columns; GT10; table 2 with GT11 spanning two rows; GT14; table 3, whose borders are destination layout and are dropped without a finding; GT17; table 4 with GT18 and the bullet list GT19 and GT20 in its cell; the document's last, empty paragraph. GT05's background #efefef stays as the cell background.",
         "adapt": "The same tables and spans; the cell background is removed as an informational finding; no notice."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "Select All holds the empty paragraph before each table and the last one after table 4, and the pinned header row arrives as header cells."
     },
     {
       "id": "gdocs-merged-cells",
@@ -1807,24 +1927,21 @@
       "selection": "From the start of GT10 to the end of GT14, across the whole second table",
       "blocks": [
         "GT10",
+        "GT10a",
         "GT11",
         "GT12",
         "GT13",
         "GT14"
       ],
       "expected": {
-        "preserve": "GT10, a table with GT11 spanning two rows beside GT12 and GT13, then GT14.",
+        "preserve": "GT10, an empty paragraph, a table with GT11 spanning two rows beside GT12 and GT13, then GT14.",
         "adapt": "The same blocks and spans."
       },
       "outcome": {
         "notice": "quiet",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "allowedWarnings": []
+      },
+      "correction": "The selection holds the empty paragraph Google Docs keeps before the table."
     },
     {
       "id": "gdocs-partial-table",
@@ -1840,84 +1957,62 @@
         "GT08"
       ],
       "expected": {
-        "preserve": "A one row table with GT05, GT06 and GT07. Record whether Google Docs copies the row as a table, the whole table or paragraphs.",
+        "preserve": "A one row table with GT05, GT06 and GT07, as Google Docs copies the selected row, GT05 with its background #efefef.",
         "adapt": "The same."
       },
       "outcome": {
-        "notice": "observe",
-        "allowedWarnings": [],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs copies the selected row as a table of that row."
     },
     {
       "id": "gdocs-mixed-one-image",
       "document": "gdocs-v1-images",
       "selection": "GI02 to GI04",
-      "images": "removed",
+      "images": "kept",
       "blocks": [
         "GI02",
         "GI03",
         "GI04"
       ],
-      "capture": "One img element whose src is an https URL; record the scheme and whether it carries the alt text.",
+      "capture": "One img element whose src is a data:image/png URL, with its alt text and size.",
       "expected": {
-        "preserve": "GI02, GI03's alt text as a paragraph of its own and GI04. Google Docs serves the image by URL and the editor allows no remote images, so the image is removed with image-removed and the notice shows. Without copied alt text the paragraph is simply missing. Google Docs wraps the image in a sized span, which may add unsupported-formatting.",
-        "adapt": "The same blocks and findings without text styles."
+        "preserve": "GI02, the image GI03 of 320 x 200 with its alt text, and GI04, with no empty paragraph before the image.",
+        "adapt": "The same blocks without text styles."
       },
       "outcome": {
-        "notice": "visible",
-        "requiredWarnings": [
-          "image-removed"
-        ],
-        "allowedWarnings": [
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes every image as a data:image/png URL in the HTML, with its alt text and size, and no file, so the image is kept as an embedded image, quietly, where the scenario expected a URL and its removal."
     },
     {
       "id": "gdocs-two-images-same-size",
       "document": "gdocs-v1-images",
       "selection": "GI05 to GI07",
-      "images": "removed",
+      "images": "kept",
       "blocks": [
         "GI05",
         "GI06",
         "GI07"
       ],
-      "capture": "Two img elements with different URLs and equal dimensions.",
+      "capture": "Two img elements with different data URLs and equal dimensions.",
       "expected": {
-        "preserve": "GI05's alt text, GI06 and GI07's alt text; both images removed with image-removed.",
+        "preserve": "The image GI05, GI06 and the image GI07, both 200 x 200 with their alt texts.",
         "adapt": "The same."
       },
       "outcome": {
-        "notice": "visible",
-        "requiredWarnings": [
-          "image-removed"
-        ],
-        "allowedWarnings": [
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes every image as a data:image/png URL in the HTML, with its alt text and size, and no file, so the image is kept as an embedded image, quietly, where the scenario expected a URL and its removal."
     },
     {
       "id": "gdocs-repeated-image",
       "document": "gdocs-v1-images",
       "selection": "GI05 to GI09",
-      "images": "removed",
+      "images": "kept",
       "blocks": [
         "GI05",
         "GI06",
@@ -1925,89 +2020,65 @@
         "GI08",
         "GI09"
       ],
-      "capture": "Three img elements; record whether the two green images share a URL.",
+      "capture": "Three img elements; the two green images hold the same data URL.",
       "expected": {
-        "preserve": "GI05 to GI09 in order, each image removed with image-removed and replaced by its own alt text.",
+        "preserve": "GI05 to GI09 in order, each image kept with its own alt text.",
         "adapt": "The same."
       },
       "outcome": {
-        "notice": "visible",
-        "requiredWarnings": [
-          "image-removed"
-        ],
-        "allowedWarnings": [
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes every image as a data:image/png URL in the HTML, with its alt text and size, and no file, so the image is kept as an embedded image, quietly, where the scenario expected a URL and its removal."
     },
     {
       "id": "gdocs-table-images",
       "document": "gdocs-v1-images",
       "selection": "GI10 to GI14, through the whole table",
-      "images": "removed",
+      "images": "kept",
       "blocks": [
         "GI10",
+        "GI10a",
         "GI11",
         "GI12",
         "GI13",
         "GI14"
       ],
-      "capture": "Two img elements inside table cells.",
+      "capture": "Two img elements with data URLs inside table cells.",
       "expected": {
-        "preserve": "GI10, then a one row table: GI11 and GI12's alt text in the left cell, GI13 and GI14's alt text in the right cell; both images removed with image-removed.",
+        "preserve": "GI10, the empty paragraph Google Docs keeps before a table, then a one row table: GI11 and the image GI12 in the left cell, GI13 and the image GI14 in the right cell, both 160 x 120.",
         "adapt": "The same."
       },
       "outcome": {
-        "notice": "visible",
-        "requiredWarnings": [
-          "image-removed"
-        ],
-        "allowedWarnings": [
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes both images as data URLs, which are kept, and keeps an empty paragraph before the table, which the selection holds."
     },
     {
       "id": "gdocs-image-only",
       "document": "gdocs-v1-images",
       "selection": "Click GI03's image so that only the image is selected, then Cmd+C",
-      "images": "observe",
+      "images": "kept",
       "blocks": [
         "GI03"
       ],
-      "capture": "Record every flavor and file item: an image file next to the HTML decides the editor result.",
+      "capture": "Only text/html, which holds the image as a data URL with its alt text and size: no text/plain and no file.",
       "expected": {
-        "preserve": "Either Google Docs exposes the image as a file and the editor pastes that file as an embedded image (untracked, no notice), or only the URL arrives and the image is removed with image-removed, leaving its alt text if copied. Record which.",
+        "preserve": "The image GI03 of 320 x 200 with its alt text, from the HTML: Google Docs exposes no file.",
         "adapt": "The same."
       },
       "outcome": {
-        "notice": "observe",
-        "allowedWarnings": [
-          "image-removed",
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "Neither alternative the scenario expected: the image arrives in the HTML as a data URL, not as a file or a URL."
     },
     {
       "id": "gdocs-image-partial-selection",
       "document": "gdocs-v1-images",
       "selection": "From after 'GI04 Text' to after 'GI08 The same picture'",
-      "images": "removed",
+      "images": "kept",
       "partial": {
         "first": "after the picture.",
         "last": "GI08 The same picture"
@@ -2023,25 +2094,16 @@
         "GI03",
         "GI09"
       ],
-      "capture": "Two img elements, for GI05 and GI07 only.",
+      "capture": "Two img elements with data URLs, for GI05 and GI07 only.",
       "expected": {
-        "preserve": "A paragraph after the picture., GI05's alt text, GI06, GI07's alt text and a paragraph GI08 The same picture; both images removed with image-removed. GI03 and GI09 are outside the selection and must not arrive.",
+        "preserve": "A paragraph after the picture., the image GI05, GI06, the image GI07 and a paragraph GI08 The same picture. GI03 and GI09 are outside the selection and must not arrive.",
         "adapt": "The same."
       },
       "outcome": {
-        "notice": "visible",
-        "requiredWarnings": [
-          "image-removed"
-        ],
-        "allowedWarnings": [
-          "unsupported-formatting"
-        ],
-        "preserve": {
-          "allowedWarnings": [
-            "destination-formatting-unconfirmed"
-          ]
-        }
-      }
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "Google Docs writes every image as a data:image/png URL in the HTML, with its alt text and size, and no file, so the image is kept as an embedded image, quietly, where the scenario expected a URL and its removal."
     },
     {
       "id": "gdocs-large-image",
@@ -2226,16 +2288,25 @@
       }
     }
   ],
-  "captures": [],
-  "historicalBaselineCaptures": [],
+  "historicalBaselineCaptures": [
+    {
+      "date": "2026-10-05",
+      "application": "Google Docs web, 2026-10-05, personal account, Pages format",
+      "os": "macOS 26.5.2 (25F84)",
+      "browser": "Google Chrome 153.0.8010.47 (Official Build) (arm64)",
+      "scenarios": "The 28 scenarios of the basics, lists, tables and images documents, except gdocs-image-limit-50 and gdocs-image-limit-51",
+      "fixtures": "fixtures/<scenario>-chrome",
+      "note": "The owner authored gdocs-v1-basics, -lists, -tables and -images natively and exported each with File > Download > .docx, whose package holds no document properties; the images document without its 50 and 51 image part, GI18 to GI21. The large image, mixed and large documents, the slow copy and every Safari and Firefox capture are pending. Chrome exposes text/plain and text/html, and Google's own slice, image and clip id formats, which the capture lists without their bytes; no files."
+    }
+  ],
   "sourceContext": "Historical authoring-specification context only. The source application versions and destinations above do not describe production of the offline edited English variant. Original capture facts are retained separately in historicalBaselineCaptures; their fixture paths identify scenario lineage, not an attestation of the current edited bytes.",
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "871bedd2d3f3e24c7dd168818f14b22c1722af5a",
-    "originalSpecificationSha256": "d9f9c193b30a63518216c6995434b5b7b29cc7aa893002e3d19a6bb7a30dd6bd",
+    "originalSpecificationBlob": "a553b0e49bcfe4e874c80779974af0db5e836b0e",
+    "originalSpecificationSha256": "94db064aad050f94350595bb3077c43d7eec27858d39426d060aa7a8a7ad3cdd",
     "originalKind": "domternal-native-capture-content",
-    "originalStatus": "prepared-not-captured",
+    "originalStatus": "captured-in-part",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",
     "baselinePolicy": "Original sources and evidence remain preserved privately. This English variant is synthetic edited regression evidence, not a native Word or Google Docs capture.",
     "notesPolicy": "Existing correction, provenance, capture, application instructions and observation descriptions explain the original source shapes or inherited expectations. They do not claim a new native observation of the English bytes."

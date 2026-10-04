@@ -280,9 +280,11 @@ test('prepare-fixture refuses paths outside the fixture, other ids and synthetic
 });
 
 test('the Google Docs content specification is complete, addressable and consistent with its images', async () => {
+  // Captured in Chrome for the basics, lists, tables and images documents; the rest is prepared.
   assert.equal(docs.status, 'authored-English-regression-variant');
   assert.deepEqual(docs.captures, []);
   assert.equal(docs.editedRegressionProvenance.nativeCapturePerformed, false);
+  assert.deepEqual(docs.historicalBaselineCaptures.map(capture => [capture.browser, capture.fixtures]), [['Google Chrome 153.0.8010.47 (Official Build) (arm64)', 'fixtures/<scenario>-chrome']]);
   assert.deepEqual(docs.source.destinations, ['Chrome', 'Safari', 'Firefox']);
   const page = await readFile(join(here, 'index.html'), 'utf8');
   const titles = new Set(docs.documents.map(document => document.title));
@@ -294,9 +296,13 @@ test('the Google Docs content specification is complete, addressable and consist
     if (block.type === 'image') { assert.ok(files.has(block.file), block.id); assert.ok(block.alt.startsWith(block.id), block.id); }
     if (block.type === 'imageRun') assert.equal(GOOGLE_DOCS_IMAGES.filter(image => image.name.startsWith('gdocs-v1-limit-')).length, block.count);
     if (block.list) {
-      const markers = block.list.kind === 'bullet' ? ['disc', 'circle', 'square'] : ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'];
+      // A task item has its checked state and no marker.
+      const markers = block.list.kind === 'task' ? [undefined] : block.list.kind === 'bullet' ? ['disc', 'circle', 'square'] : ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'];
       assert.ok(markers.includes(block.list.marker), block.id);
+      assert.equal(typeof block.list.checked, block.list.kind === 'task' ? 'boolean' : 'undefined', block.id);
     }
+    // An image expected kept names the scheme of its source and its size.
+    if (block.src !== undefined) assert.ok(block.src === 'data' && Number.isSafeInteger(block.width) && Number.isSafeInteger(block.height), block.id);
   }
   for (const scenario of docs.scenarios) {
     assert.match(scenario.id, /^gdocs-/u);
@@ -304,7 +310,11 @@ test('the Google Docs content specification is complete, addressable and consist
     assert.ok(page.includes(`<option>${scenario.id}</option>`), scenario.id);
     assert.ok(['quiet', 'visible', 'observe'].includes(scenario.outcome.notice), scenario.id);
     assert.equal(typeof scenario.expected.preserve, 'string', scenario.id); assert.equal(typeof scenario.expected.adapt, 'string', scenario.id);
-    assert.ok([undefined, 'removed', 'observe'].includes(scenario.images), scenario.id);
+    assert.ok([undefined, 'removed', 'kept', 'observe'].includes(scenario.images), scenario.id);
+    // A scenario whose images are kept names each with its source's scheme, and one whose images are removed none.
+    const images = expectedBlocks(docs, scenario.id).expected.filter(block => block.type === 'image');
+    if (scenario.images === 'kept') assert.ok(images.length > 0 && images.every(block => block.src === 'data'), scenario.id);
+    if (scenario.images === 'removed') assert.ok(images.every(block => block.src === undefined), scenario.id);
     assert.ok([undefined, 'schema=capability-full'].includes(scenario.editorQuery), scenario.id);
     for (const id of scenario.excluded ?? []) { assert.ok(blocks.has(id), id); assert.ok(!scenario.blocks.includes(id), id); }
   }
@@ -364,11 +374,15 @@ test('the dry run result catches markers, spans, links, excluded blocks, kept im
     return checkScenario(docs, scenario, result, { formatting }).problems.join('\n');
   };
   assert.match(check('gdocs-default-bullets', doc => { doc.content[0].content[0].content[1].attrs.listStyleType = null; }), /GL03: list marker is null, expected circle/u);
-  assert.match(check('gdocs-merged-cells', doc => { doc.content[1].content[0].content[0].attrs.rowspan = 1; }), /GT11: rowspan is 1, expected 2/u);
-  assert.match(check('gdocs-links', doc => { doc.content[1].content[1].marks[0].attrs.href = 'https://example.com/'; }), /is not a link to https:\/\/example\.com\/domternal\/gdocs-v1/u);
+  // The empty paragraph Google Docs keeps before the table comes first.
+  assert.match(check('gdocs-merged-cells', doc => { doc.content[2].content[0].content[0].attrs.rowspan = 1; }), /GT11: rowspan is 1, expected 2/u);
+  assert.match(check('gdocs-links', doc => { doc.content[1].content[1].marks.find(mark => mark.type === 'link').attrs.href = 'https://example.com/'; }), /is not a link to https:\/\/example\.com\/domternal\/gdocs-v1/u);
   assert.match(check('gdocs-image-partial-selection', doc => { doc.content.push({ type: 'paragraph', content: [{ type: 'text', text: 'GI09 Green square again' }] }); }), /GI09: outside the selection but pasted/u);
-  assert.match(check('gdocs-mixed-one-image', doc => { doc.content[1] = { type: 'image', attrs: { src: 'data:image/png;base64,AAAA', alt: 'GI03 Blue rectangle' } }; }), /images: 1 kept \(data\), expected removal/u);
-  assert.deepEqual(check('gdocs-mixed-one-image', doc => { doc.content.splice(1, 1); }), '');
+  // The uncaptured mixed document still expects its image served by URL and removed; the captured images are data URLs, kept.
+  assert.match(check('gdocs-mixed-document', doc => { doc.content.splice(7, 1, { type: 'image', attrs: { src: 'data:image/png;base64,AAAA', alt: 'GM11 Blue picture' } }); }),
+    /images: 1 kept \(data\), expected removal/u);
+  assert.match(check('gdocs-mixed-one-image', doc => { doc.content.splice(1, 1); }), /GI03: missing/u);
+  assert.match(check('gdocs-mixed-one-image', doc => { doc.content.splice(1, 0, { type: 'paragraph', attrs: { textAlign: null }, content: [] }); }), /unexpected empty paragraph at block 2/u);
   assert.match(check('gdocs-plain-paragraph', doc => { doc.content[0].content[0].marks = [{ type: 'textStyle', attrs: { fontFamily: 'Arial, sans-serif', fontSize: null } }]; }, 'adapt'), /GB04: adapt kept fontFamily/u);
   assert.match(check('gdocs-alignment-spacing', doc => { doc.content[1].attrs.textAlign = 'center'; }, 'adapt'), /GB16: adapt kept alignment center/u);
   const styled = syntheticEditorResult(docs, 'gdocs-plain-paragraph', 'preserve');
@@ -397,8 +411,11 @@ test('a transparent background in replayed HTML is neither a highlight nor a tex
 
 test('outcomes differ by policy and colors compare across notations', () => {
   const unconfirmed = [{ code: 'destination-formatting-unconfirmed', severity: 'warning' }];
-  assert.deepEqual(compareOutcome(docs, 'gdocs-headings-plain', unconfirmed, { formatting: 'preserve' }), []);
-  assert.match(compareOutcome(docs, 'gdocs-headings-plain', unconfirmed, { formatting: 'adapt' }).join('\n'), /unexpected destination-formatting-unconfirmed/u);
+  // GB19's own 1.5 spacing is unconfirmed in a destination without LineHeight; Docs' default spacing of the other blocks is not.
+  assert.deepEqual(compareOutcome(docs, 'gdocs-alignment-spacing', unconfirmed, { formatting: 'preserve' }), []);
+  assert.match(compareOutcome(docs, 'gdocs-alignment-spacing', [], { formatting: 'preserve' }).join('\n'), /destination-formatting-unconfirmed is required/u);
+  assert.match(compareOutcome(docs, 'gdocs-alignment-spacing', unconfirmed, { formatting: 'adapt' }).join('\n'), /unexpected destination-formatting-unconfirmed/u);
+  assert.match(compareOutcome(docs, 'gdocs-headings-plain', unconfirmed, { formatting: 'preserve' }).join('\n'), /unexpected destination-formatting-unconfirmed/u);
   assert.match(compareOutcome(docs, 'gdocs-mixed-document', [], { formatting: 'adapt' }).join('\n'), /image-removed is required/u);
   const result = syntheticEditorResult(docs, 'gdocs-inline-formatting', 'preserve');
   const color = result.doc.content[0].content.find(node => node.text === 'red').marks[0];
