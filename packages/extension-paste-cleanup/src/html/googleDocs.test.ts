@@ -208,3 +208,34 @@ describe('Google Docs list levels of a partial selection', () => {
     }
   });
 });
+
+describe('Google Docs checklists', () => {
+  const BOX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+  const STRUCK = RUN.replace('text-decoration:none;', 'text-decoration:line-through;-webkit-text-decoration-skip:none;text-decoration-skip-ink:none;');
+  const task = (checked: boolean, text: string): string => `<li dir="ltr" role="checkbox" aria-checked="${String(checked)}" style="list-style-type:none;`
+    + `${(checked ? STRUCK : RUN).replace('white-space:pre-wrap;', '')}" aria-level="1"><img src="${BOX}" width="17.599999999999998px" height="17.599999999999998px" `
+    + `alt="${checked ? 'checked' : 'unchecked'}" aria-roledescription="checkbox" style="margin-right:3px;" /><p dir="ltr" style="line-height:1.38;margin-top:0pt;`
+    + `margin-bottom:0pt;display:inline-block;vertical-align:top;margin-top:0;" role="presentation">${run(text, checked ? STRUCK : RUN)}</p></li>`;
+  const checklist = (...items: string[]): string => `<ul style="margin-top:0;margin-bottom:0;padding-inline-start:28px;">${items.join('')}</ul>`;
+  const outline = (html: string): string => html.replace(/<span[^>]*>|<\/span>| dir="ltr"| style="[^"]*"/gu, '');
+
+  it('pastes a checklist as a task list, each item checked as Docs shows it, without the pictures Docs draws its boxes with', () => {
+    const html = docs(checklist(task(false, 'GL62 Unchecked task'), task(true, 'GL63 Checked task')));
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const result = normalizePasteHTML(html, { formatting });
+      expect(warnings(result)).toEqual([]);
+      // The strikethrough Docs gives a checked item's text is in its export too, so it stays.
+      expect(outline(result.html)).toBe('<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>GL62 Unchecked task</p></li>'
+        + '<li data-type="taskItem" data-checked="true"><p><s>GL63 Checked task</s></p></li></ul><br>');
+    }
+    // No picture is left for image preparation or a destination to receive.
+    expect(normalizePasteHTML(html).html).not.toContain('<img');
+  });
+
+  it('leaves a list that is not wholly a checklist, and another source\'s checkbox items, as written', () => {
+    const mixed = normalizePasteHTML(docs(checklist(task(false, 'GL62 Unchecked task'),
+      `<li dir="ltr" style="list-style-type:disc;${RUN}" aria-level="1"><p dir="ltr">${run('GL61 Diamond bullet')}</p></li>`))).html;
+    expect(mixed).not.toContain('taskList');
+    expect(normalizePasteHTML(`<ul><li role="checkbox" aria-checked="true"><p>Web</p></li></ul>`).html).toBe('<ul><li><p>Web</p></li></ul>');
+  });
+});

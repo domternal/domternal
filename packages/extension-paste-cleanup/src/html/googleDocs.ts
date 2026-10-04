@@ -199,3 +199,59 @@ export function googleDocsListLevels(tree: Root): void {
     });
   }
 }
+
+/** A style without the named declarations; undefined when CSS may read it otherwise. */
+function withoutDeclarations(style: unknown, names: readonly string[]): string | undefined {
+  const declarations = plainDeclarations(style);
+  return declarations?.filter(([name]) => !names.includes(name)).map(([name, value]) => `${name}:${value}`).join(';');
+}
+
+const setStyle = (element: Element, style: string | undefined): void => {
+  if (style === undefined) return;
+  if (style === '') delete element.properties.style; else element.properties.style = style;
+};
+
+/** A checklist item as Docs writes it: an ARIA checkbox with its state, its marker none. */
+function checklistItem(node: ElementContent): node is Element {
+  return node.type === 'element' && node.tagName === 'li' && node.properties.role === 'checkbox'
+    && (node.properties.ariaChecked === 'true' || node.properties.ariaChecked === 'false');
+}
+
+/** The picture Docs draws a checklist item's box with, which names itself a checkbox. */
+function checkboxPicture(node: ElementContent): boolean {
+  const description = node.type === 'element' && node.tagName === 'img' ? node.properties.ariaRoleDescription : undefined;
+  return (Array.isArray(description) ? description.join(' ') : typeof description === 'string' ? description : '').toLowerCase() === 'checkbox';
+}
+
+/**
+ * Docs writes a checklist as a list whose items are ARIA checkboxes with their checked state, each drawing its
+ * box as a picture of a checkbox and laying its paragraph beside it. Pasted as written, it became bullet items
+ * without a marker, each with a black checkbox picture and its text in a paragraph after it. A list whose every
+ * item is such a checkbox becomes the editor's task list, each item checked as Docs shows it: the pictures, the
+ * marker and the paragraphs' row layout are how Docs draws the boxes, which the task items draw themselves. The
+ * strikethrough Docs gives a checked item's text is in its export too, so it stays.
+ */
+export function googleDocsChecklists(tree: Root): void {
+  const pending: (Root | Element)[] = [tree];
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    for (const child of node.children) if (child.type === 'element') pending.push(child);
+    if (node.type !== 'element' || node.tagName !== 'ul') continue;
+    // Its items, beside the lists Docs nests directly in a list.
+    const elements = node.children.filter(child => child.type === 'element');
+    const items = elements.filter(child => child.tagName === 'li');
+    if (items.length === 0 || !items.every(checklistItem) || elements.some(child => child.tagName !== 'li' && !LISTS.has(child.tagName))) continue;
+    node.properties.dataType = 'taskList';
+    setStyle(node, withoutDeclarations(node.properties.style, ['list-style-type']));
+    for (const item of items) {
+      item.properties.dataType = 'taskItem';
+      item.properties['dataChecked'] = item.properties.ariaChecked;
+      delete item.properties.role;
+      delete item.properties.ariaChecked;
+      setStyle(item, withoutDeclarations(item.properties.style, ['list-style-type']));
+      item.children = item.children.filter(child => !checkboxPicture(child));
+      for (const child of item.children) {
+        if (child.type === 'element' && child.tagName === 'p') setStyle(child, withoutDeclarations(child.properties.style, ['display', 'vertical-align']));
+      }
+    }
+  }
+}
