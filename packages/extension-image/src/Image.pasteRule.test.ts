@@ -1,8 +1,8 @@
 /**
  * Which pastes insert the clipboard's image files, without PasteCleanup: the files are the paste
  * when the pasted content has no text of its own (Core's rule), and one file keeps the alt text of
- * the one image the content held. Content with text of its own keeps the paste, since Office and
- * Google Docs put a picture of the copied selection next to it.
+ * the one image the content held. Content with text of its own keeps the paste, since Office puts
+ * a picture of the copied selection next to it.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Document, Editor, Link, Paragraph, Text } from '@domternal/core';

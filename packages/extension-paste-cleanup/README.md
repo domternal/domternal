@@ -260,8 +260,8 @@ ran. A drop's image files win over its content, even content cleanup rejected, s
 the input limit, since that content is not inserted: the drop reports `untracked` without
 findings and no blocked notice. One dropped file keeps the alt text cleanup left in place of the
 one image that drop's content held; a later drop of files alone, as an operating system's file
-drag carries them, keeps none. Content with text of its own keeps the paste, since Word, Excel
-and Google Docs put a picture of the copied selection next to it, and so does a Word or Excel copy
+drag carries them, keeps none. Content with text of its own keeps the paste, since Word and
+Excel put a picture of the copied selection next to it, and so does a Word or Excel copy
 that places no image, such as empty paragraphs or cells, whose file Chrome exposes as that
 picture. Text cleanup removed, Word's hidden text, counts as text of the content's own, so the
 picture of the selection, which can show that text, is never the paste of such a copy, also

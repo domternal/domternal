@@ -56,7 +56,7 @@ function hoist(list: Element): void {
 /**
  * Move a list-style-type that every direct item of a list declares, or takes from its list, to the list.
  * An item's marker takes precedence over its list's in CSS, so the rendered markers do not change. This is
- * the shape Google Docs is expected to write, checked against authored HTML, not native captures. Lists
+ * the shape Google Docs writes, which its native Chrome captures confirm. Lists
  * whose items disagree, hold a marker their kind cannot represent, have an HTML type of their own or carry
  * a style CSS may read otherwise, and lists holding other elements, are left for the item report, and task
  * lists never keep a marker.

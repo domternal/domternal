@@ -1,6 +1,6 @@
 /**
- * When a paste's image files are the paste. Office applications and Google Docs put a picture of
- * the copied selection next to its HTML, so a paste whose content has text of its own keeps that
+ * When a paste's image files are the paste. Office applications put a picture of the copied
+ * selection next to its HTML, so a paste whose content has text of its own keeps that
  * content and ignores the files, and so does a Word or Excel copy that places no image, such as a
  * selection of empty paragraphs or cells. A paste whose content has no text of its own, such as a
  * copied image (an `<img>` with its file) or a screenshot, inserts the files instead. One rule,
