@@ -137,12 +137,15 @@ path this evidence is meant to show.
   levels, list kind (a task item with its checked state), marker, depth and
   ordinal, the table, row, column and spans of each cell and, where a
   specification authors it, whether it is a header cell, alignment, text,
-  marks, links and text styles, image removal and
+  marks, links and text styles, each image kept with its source scheme and size
+  in the table cell it is authored in, or removed, and
   the diagnostic outcome of the chosen policy, including text styles that `adapt`
-  must remove. For a specification that authors its documents' `textStyle`, as
-  the Word one does, the comparison is exhaustive: a block, an empty paragraph, a
-  mark, a text style value, an alignment, a line spacing or a cell shading the
-  specification does not author is a problem, and a kept text style must be the
+  must remove. A selection that starts in a nested item must open each level
+  above it with exactly one empty item of its list kind. For a specification
+  that authors its documents' `textStyle`, as the Word one does, the comparison
+  is exhaustive: a block, an empty paragraph, a mark, a text style value, an
+  alignment, a line spacing or a cell shading the specification does not author
+  is a problem, and a kept text style must be the
   one Word shows. A result without the attribute, such as the default schema
   without LineHeight, has no spacing to compare; the notice reports it. A stored
   line height must be a plain ratio, the only form LineHeight renders: a
@@ -438,8 +441,8 @@ documents are pending, with the [Google Docs runbook](./GOOGLE-DOCS-RUNBOOK.md).
   starts below a list's first level writes each item's `aria-level` and a 36 pt
   margin per level above the copy, which cleanup nests under one empty item per
   level; a checklist is ARIA checkbox items beside pictures of their boxes, which
-  paste as task items. The checker compares task items with their checked state
-  and the header cells a scenario authors.
+  paste as task items. The checker compares task items with their checked state,
+  the header cells a scenario authors and the cell each image is placed in.
 
 Check that the checker can express every scenario under both policies:
 

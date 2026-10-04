@@ -3,7 +3,7 @@
  * Compare a pasted result with an authored content specification, independently of exact HTML:
  * block order by identifier, block types, heading levels, list kind, marker, depth and ordinal,
  * table, row, column and spans of each cell and its shading, alignment, line spacing, text,
- * semantic marks, links and text styles, image removal, plus the diagnostic outcome of each
+ * semantic marks, links and text styles, images kept in their cells or removed, plus the diagnostic outcome of each
  * formatting policy. The comparison is exhaustive: a block, an empty paragraph, a mark, a text
  * style, an alignment or a spacing the specification does not author for the selection is a problem. The input is the editor result the owner saves
  * from the fixture editor, HTML from the offline replay, or a capture bundle whose HTML is replayed
@@ -558,36 +558,61 @@ function blockFormatting(block, found, where, problems, formatting, tables, exha
         problems.push(`${where}: cell background is ${actual ?? 'none'}, expected ${expected ?? 'none'}`);
       }
     }
-    if (block.cell.table !== undefined && found.cell.table !== undefined) {
-      // Tables are matched in order of appearance: one authored table is one pasted table. A selection of part of a
-      // table pastes its rows and columns from the first, so positions count from the first cell of each table.
-      const known = tables.get(block.cell.table);
-      const offset = { row: found.cell.row - (block.cell.row ?? found.cell.row), column: found.cell.column - (block.cell.column ?? found.cell.column) };
-      if (known === undefined) {
-        if ([...tables.values()].some(entry => entry.table === found.cell.table)) problems.push(`${where}: shares a table with a cell of another table`);
-        tables.set(block.cell.table, { table: found.cell.table, ...offset });
-      } else {
-        if (known.table !== found.cell.table) problems.push(`${where}: is in another table than the cells of its own`);
-        for (const key of ['row', 'column']) {
-          if (block.cell[key] !== undefined && found.cell[key] !== block.cell[key] + known[key]) {
-            problems.push(`${where}: ${key} is ${String(found.cell[key] - known[key])}, expected ${String(block.cell[key])}`);
-          }
-        }
-      }
+    cellPosition(block, found, where, problems, tables);
+  }
+}
+
+/** A block's table, row and column against the cell it is authored in. */
+function cellPosition(block, found, where, problems, tables) {
+  if (block.cell?.table === undefined || found.cell?.table === undefined) return;
+  // Tables are matched in order of appearance: one authored table is one pasted table. A selection of part of a
+  // table pastes its rows and columns from the first, so positions count from the first cell of each table.
+  const known = tables.get(block.cell.table);
+  const offset = { row: found.cell.row - (block.cell.row ?? found.cell.row), column: found.cell.column - (block.cell.column ?? found.cell.column) };
+  if (known === undefined) {
+    if ([...tables.values()].some(entry => entry.table === found.cell.table)) problems.push(`${where}: shares a table with a cell of another table`);
+    tables.set(block.cell.table, { table: found.cell.table, ...offset });
+    return;
+  }
+  if (known.table !== found.cell.table) problems.push(`${where}: is in another table than the cells of its own`);
+  for (const key of ['row', 'column']) {
+    if (block.cell[key] !== undefined && found.cell[key] !== block.cell[key] + known[key]) {
+      problems.push(`${where}: ${key} is ${String(found.cell[key] - known[key])}, expected ${String(block.cell[key])}`);
     }
   }
+}
+
+/**
+ * Where an image, or the alt text that stands for it, is against its authored place: in the table cell it is authored
+ * in, or outside any table. A text block's type says the same, a table cell's text or a paragraph; an image's does not.
+ */
+function imagePlacement(block, found, problems, tables) {
+  if (block.cell !== undefined && found.cell === undefined) problems.push(`${block.id}: is outside the table cell it is authored in`);
+  else if (block.cell === undefined && found.cell !== undefined) problems.push(`${block.id}: is in a table cell, expected outside any table`);
+  else cellPosition(block, found, block.id, problems, tables);
 }
 
 /** Whether two texts differ only where one has a no-break space and the other a space. */
 const spacesDiffer = (left, right) => left !== right && left.replace(/\u00a0/gu, ' ') === right.replace(/\u00a0/gu, ' ');
 
 /**
+ * The alt text that stands for an image a destination cannot hold, in the image's place: a paragraph, or its cell's
+ * text in the cell the image is authored in, in the style of the document's text. An image without alt text leaves nothing.
+ */
+const altTextStandIn = block => (block.alt === undefined ? [] : [{ id: block.id, type: block.cell === undefined ? 'paragraph' : 'tableCell', text: block.alt,
+  ...(block.cell === undefined ? {} : { cell: block.cell }), ...(block.textStyle === undefined ? {} : { textStyle: block.textStyle }) }]);
+
+/**
  * Problems between the authored scenario and actual blocks. An empty list means the capture matches. Hidden text a
  * block authors never pastes, whether the copy holds it or the browser left it out: the block's text is the text
- * without it. Whether the copy holds it decides the notice, which `compareOutcome` checks.
+ * without it. Whether the copy holds it decides the notice, which `compareOutcome` checks. `imagesRemoved` compares
+ * a paste into a destination that holds none of the scenario's images, as one whose Image refuses data URLs: each
+ * image is expected as its alt text in its place, and none kept.
  */
-export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'preserve', destination } = {}) {
-  const { scenario, expected } = expectedBlocks(spec, scenarioId);
+export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'preserve', destination, imagesRemoved = false } = {}) {
+  const authored = expectedBlocks(spec, scenarioId);
+  const scenario = imagesRemoved ? { ...authored.scenario, images: 'removed' } : authored.scenario;
+  const expected = imagesRemoved ? authored.expected.flatMap(block => (block.type === 'image' ? altTextStandIn(block) : [block])) : authored.expected;
   const problems = [];
   const actual = [...actualBlocks];
   const positions = new Map();
@@ -609,18 +634,26 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
   // A specification that authors its documents' text style is checked for everything a paste adds, formatting included;
   // one that does not yet, such as Google Docs before its captures, for its structure, marks it names and blocks.
   const exhaustive = expected.some(block => block.textStyle !== undefined);
-  // A selection that starts in a nested item: the levels above it open with one empty item each, before anything else.
+  // A selection that starts in a nested item: each level above it opens with one empty item of the item's list kind,
+  // level by level, before anything else. An empty item more than that is a block the paste added.
   const consumed = new Set();
   const first = expected.find(block => block.type !== 'image' && block.type !== 'imageRun');
-  for (let index = 0; first?.list !== undefined && index < actual.length; index++) {
-    const block = actual[index];
-    if (block.type !== 'empty' || block.list === undefined || block.list.depth >= first.list.depth) break;
-    consumed.add(index);
+  if (first?.list !== undefined) {
+    let level = 1;
+    for (let index = 0; index < actual.length && level < first.list.depth; index++) {
+      const block = actual[index];
+      if (block.type !== 'empty' || block.list === undefined || block.list.depth >= first.list.depth) break;
+      if (block.list.depth !== level) continue;
+      if (block.list.kind !== first.list.kind) problems.push(`${first.id}: the empty item at level ${String(level)} above the selection is ${block.list.kind}, expected ${first.list.kind}`);
+      consumed.add(index);
+      level++;
+    }
+    if (level < first.list.depth) problems.push(`${first.id}: no empty item opens level ${String(level)} above the selection`);
   }
   // A partial selection names the blocks just outside it; their text must not arrive.
   for (const id of scenario.excluded ?? []) if (positions.has(id)) problems.push(`${id}: outside the selection but pasted`);
   const tables = new Map();
-  let previous = consumed.size - 1;
+  let previous = Math.max(-1, ...consumed);
   expected.forEach((block, order) => {
     if (block.type === 'image' || block.type === 'imageRun') {
       // Removal keeps the alt text in the image's place. A source may copy no alt text, and a run of images has none.
@@ -630,6 +663,7 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
       if (index <= previous) problems.push(`${block.id}: out of order`);
       previous = index;
       consumed.add(index);
+      imagePlacement(block, actual[index], problems, tables);
       if (block.src !== undefined) {
         const found = actual[index];
         if (found.type !== 'image') problems.push(`${block.id}: expected an image with a ${block.src} source, found its alt text as text`);
@@ -704,13 +738,14 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
   });
   // Everything else the paste added: blocks the selection does not hold, text without an identifier, empty paragraphs.
   const excluded = new Set(scenario.excluded ?? []);
-  const expectsImages = expected.some(block => block.type === 'image' || block.type === 'imageRun');
+  // Every image the scenario authors with alt text is matched by it above; one without, as a run of images, cannot be named.
+  const unnamedImages = expected.some(block => block.type === 'imageRun' || (block.type === 'image' && block.alt === undefined));
   actual.forEach((block, index) => {
     if (consumed.has(index)) return;
     const id = IDENTIFIER.exec(block.text)?.[1];
     // Without the exhaustive check an empty paragraph the scenario does not name is not compared, as a break Google Docs writes between blocks.
     if (block.type === 'empty') { if (exhaustive) problems.push(`unexpected empty paragraph at block ${String(index + 1)}`); }
-    else if (block.type === 'image') { if (!expectsImages && scenario.images !== 'removed') problems.push(`unexpected image at block ${String(index + 1)}`); }
+    else if (block.type === 'image') { if (!unnamedImages && scenario.images !== 'removed') problems.push(`unexpected image at block ${String(index + 1)}`); }
     else if (id === undefined) problems.push(`unexpected text ${JSON.stringify(normalizeText(block.text).slice(0, 40))} at block ${String(index + 1)}`);
     else if (!excluded.has(id) && !expected.some(entry => entry.id === id)) problems.push(`${id}: not in the selection but pasted`);
   });

@@ -507,6 +507,81 @@ test('the checker requires an image a specification expects kept, with the schem
   assert.deepEqual(dryRun(specification).results.flatMap(result => result.problems), []);
 });
 
+test('the checker holds an image to the table cell it is authored in, and reports an image the scenario does not author', () => {
+  const specification = { id: 'checker', documents: [{ textStyle: {}, blocks: [
+    { id: 'GI10', type: 'paragraph', text: 'GI10 Table with pictures.' },
+    { id: 'GI11', type: 'tableCell', cell: { table: 1, row: 1, column: 1 }, text: 'GI11 Left cell' },
+    { id: 'GI12', type: 'image', src: 'data', alt: 'GI12 Red picture in a cell', cell: { table: 1, row: 1, column: 1 } },
+    { id: 'GI13', type: 'tableCell', cell: { table: 1, row: 1, column: 2 }, text: 'GI13 Right cell' },
+    { id: 'GI14', type: 'image', src: 'data', alt: 'GI14 Purple picture in a cell', cell: { table: 1, row: 1, column: 2 } },
+  ] }], scenarios: [{ id: 'checker', blocks: ['GI10', 'GI11', 'GI12', 'GI13', 'GI14'], outcome: { notice: 'observe' } }] };
+  const image = alt => `<img src="data:image/png;base64,AAAA" alt="${alt}">`;
+  const html = (left, right, after = '') => `<p>GI10 Table with pictures.</p><table><tr><td><p>GI11 Left cell</p>${left}</td>`
+    + `<td>${right}</td></tr></table>${after}`;
+  const gi12 = image('GI12 Red picture in a cell');
+  const gi14 = image('GI14 Purple picture in a cell');
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html(gi12, `<p>GI13 Right cell</p>${gi14}`))), []);
+  // An image moved out of its cell, after the table, or into the other cell, kept its order and passed.
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html(gi12, '<p>GI13 Right cell</p>', gi14))), ['GI14: is outside the table cell it is authored in']);
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html('', `${gi12}<p>GI13 Right cell</p>${gi14}`))), ['GI12: column is 2, expected 1']);
+  // An image in a cell where the scenario authors it outside any table.
+  const outside = structuredClone(specification);
+  delete outside.documents[0].blocks[4].cell;
+  assert.deepEqual(compareBlocks(outside, 'checker', blocksFromHTML(html(gi12, `<p>GI13 Right cell</p>${gi14}`))), ['GI14: is in a table cell, expected outside any table']);
+  // An image the scenario does not author, with or without alt text, is a block the paste added.
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html(gi12, `<p>GI13 Right cell</p>${gi14}`, '<img src="data:image/png;base64,AAAA">'))),
+    ['unexpected image at block 6']);
+  // A specification with images it cannot name, such as a run of images without alt text, leaves an unnamed image to its count.
+  const unnamed = structuredClone(specification);
+  unnamed.documents[0].blocks.push({ id: 'GI20', type: 'imageRun', count: 1 });
+  unnamed.scenarios[0].blocks.push('GI20');
+  assert.deepEqual(compareBlocks(unnamed, 'checker', blocksFromHTML(html(gi12, `<p>GI13 Right cell</p>${gi14}`, '<img src="data:image/png;base64,AAAA">'))), []);
+});
+
+test('a destination that holds no image is held to each image\'s alt text in its place, a paragraph or its cell\'s text, and to everything around it', () => {
+  const specification = { id: 'checker', documents: [{ textStyle: { fontFamily: 'Arial' }, blocks: [
+    { id: 'GI02', type: 'paragraph', text: 'GI02 Text before the picture.' },
+    { id: 'GI03', type: 'image', src: 'data', alt: 'GI03 Blue rectangle', width: 320, height: 200 },
+    { id: 'GI04', type: 'paragraph', text: 'GI04 Text after the picture.' },
+    { id: 'GI11', type: 'tableCell', cell: { table: 1, row: 1, column: 1 }, text: 'GI11 Left cell' },
+    { id: 'GI12', type: 'image', src: 'data', alt: 'GI12 Red picture in a cell', cell: { table: 1, row: 1, column: 1 } },
+    { id: 'GI13', type: 'tableCell', cell: { table: 1, row: 1, column: 2 }, text: 'GI13 Right cell' },
+  ] }], scenarios: [{ id: 'checker', blocks: ['GI02', 'GI03', 'GI04', 'GI11', 'GI12', 'GI13'], outcome: { notice: 'observe' } }] };
+  const run = text => `<span style="font-family:Arial">${text}</span>`;
+  const html = ({ gi02 = `<p>${run('GI02 Text before the picture.')}</p>`, gi03 = `<p>${run('GI03 Blue rectangle')}</p>`, gi04 = `<p>${run('GI04 Text after the picture.')}</p>`,
+    gi12 = `<p>${run('GI12 Red picture in a cell')}</p>`, right = `<p>${run('GI13 Right cell')}</p>` } = {}) =>
+    `${gi02}${gi03}${gi04}<table><tr><td><p>${run('GI11 Left cell')}</p>${gi12}</td><td>${right}</td></tr></table>`;
+  const removed = result => compareBlocks(specification, 'checker', blocksFromHTML(result), { imagesRemoved: true });
+  assert.deepEqual(removed(html()), []);
+  // The blocks around an image lost, alt texts swapped or moved out of their cell, an image kept, the alt text a heading.
+  assert.deepEqual(removed(html({ gi02: '', gi04: '' })), ['GI02: missing', 'GI04: missing']);
+  assert.deepEqual(removed(html({ gi03: '', gi04: `<p>${run('GI04 Text after the picture.')}</p><p>${run('GI03 Blue rectangle')}</p>` })), ['GI04: out of order']);
+  assert.deepEqual(removed(html({ gi12: '', right: `<p>${run('GI12 Red picture in a cell')}</p><p>${run('GI13 Right cell')}</p>` })), ['GI12: column is 2, expected 1']);
+  assert.deepEqual(removed(html({ gi03: '<img src="data:image/png;base64,AAAA" alt="GI03 Blue rectangle">' })),
+    ['GI03: type is image, expected paragraph', 'images: 1 kept (data), expected removal']);
+  assert.deepEqual(removed(html({ gi03: `<h2>${run('GI03 Blue rectangle')}</h2>` })), ['GI03: type is heading, expected paragraph']);
+  // The alt text is held to the style of the document's text, as every block is.
+  assert.deepEqual(removed(html({ gi03: '<p><span style="font-family:Arial;color:#ff0000">GI03 Blue rectangle</span></p>' })),
+    ['GI03: "GI03 Blue rectangle" color is #ff0000, expected none']);
+  // Without the option the same images are expected kept.
+  assert.match(compareBlocks(specification, 'checker', blocksFromHTML(html())).join('\n'), /GI03: expected an image with a data source, found its alt text as text/u);
+});
+
+test('a selection that starts below the first level is held to exactly one empty item of its list kind for each level above it', () => {
+  const specification = { id: 'checker', documents: [{ textStyle: {}, blocks: [
+    { id: 'GL09', type: 'listItem', list: { kind: 'ordered', marker: 'lower-roman', depth: 3, ordinal: 1 }, text: 'GL09 Roman i' },
+  ] }], scenarios: [{ id: 'checker', blocks: ['GL09'], outcome: { notice: 'observe' } }] };
+  const item = '<li><p>GL09 Roman i</p></li>';
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(`<ol><li><p></p><ol><li><p></p><ol style="list-style-type:lower-roman">${item}</ol></li></ol></li></ol>`)), []);
+  // Two empty items for the first level, an item missing for the second, a level above of another kind: each passed.
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(`<ol><li><p></p></li><li><p></p><ol><li><p></p><ol style="list-style-type:lower-roman">${item}</ol></li></ol></li></ol>`)),
+    ['unexpected empty paragraph at block 2']);
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(`<ol><li><p></p><ol style="list-style-type:lower-roman">${item}</ol></li></ol>`)),
+    ['GL09: no empty item opens level 2 above the selection', 'GL09: list depth is 2, expected 3']);
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(`<ul><li><p></p><ol><li><p></p><ol style="list-style-type:lower-roman">${item}</ol></li></ol></li></ul>`)),
+    ['GL09: the empty item at level 1 above the selection is bullet, expected ordered']);
+});
+
 test('the HTML model places an image that inline content outside a block holds without text as the editor does, with no empty paragraph', () => {
   // A paragraph that held only an image, which cleanup writes as a division: the editor opens no paragraph for the image's run.
   const image = '<img src="data:image/png;base64,AAAA" alt="GI03 Blue rectangle">';

@@ -313,16 +313,16 @@ for (const fixture of fixtures) {
           if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
           const outcome = editorOutcomesOf(expected[formatting]).find(entry => entry.schema === 'default');
           if (outcome === undefined) throw new Error(`${fixture.id} has no default schema outcome`);
-          const [{ blocksFromEditorJSON }, { noticeCodes }] = await evidence();
-          const alts = expected.blocks.filter(block => block.type === 'image').map(block => String(block['alt']));
+          const [{ blocksFromEditorJSON, compareBlocks }, { noticeCodes, semanticSpecification }] = await evidence();
           for (const imagePolicy of ['no-base64', 'missing'] as const) {
             const result = await replay(page, formatting, 'default', fixture.items, 'none', imagePolicy);
             expect(result.operations.at(-1)?.status).toBe('applied');
             expect(result.images).toBe(0);
             expect(noticeCodes(result.operations.at(-1)?.diagnostics ?? [])).toEqual([...new Set([...outcome.warnings, 'image-removed'])].sort());
             expect(result.notice.visible).toBe(true);
-            const texts = blocksFromEditorJSON(result.doc).map(block => block.text.trim());
-            for (const alt of alts) expect(texts).toContain(alt);
+            // Every block of the scenario in its place, each image as its alt text where the image stood: a paragraph, or its cell's text.
+            expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc),
+              { formatting, destination: result.destination, imagesRemoved: true })).toEqual([]);
           }
         });
       }
