@@ -487,8 +487,10 @@ of an original (see [Declared redactions](./README.md#declared-redactions)):
 - The Google Docs fixtures need no redaction. The exports hold no document
   properties, the guid of Google's wrapper is made per copy, the only address,
   `pisi@example.com`, is at a domain reserved for documentation, which the
-  fixture scan now allows as the repository gate does, and the images are the
-  generated ones, embedded as data URLs, with no Google address.
+  fixture scan now allows, as the repository gate does; it allows no other
+  reserved name the gate does, such as `.local`, at which a company's directory
+  can hold a real address. The images are the generated ones, embedded as data
+  URLs, with no Google address.
 
 No privacy scan finds anything in the committed files, including what the RTF
 flavors' hexadecimal groups decode to and the device the pictures' display

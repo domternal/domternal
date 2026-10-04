@@ -230,7 +230,11 @@ nothing in the tooling is specific to a browser:
    clipboard files (text chunks, and the device a display profile, EXIF, XMP
    or IPTC names: a serial number, a make or model, an author, a position), people and custom document properties, text written with
    HTML, percent or CSS escapes, and what an RTF flavor's hexadecimal groups
-   decode to. `redact.mjs` cannot edit an image inside a document or a clipboard
+   decode to. It allows an e-mail address only at a domain reserved for
+   documentation (`example.com`, `.net` and `.org`, `.example`, `.invalid`), as
+   the specification's own example address, not at the `.local`, `.localhost`
+   or `.test` names the repository gate also allows, where a real mailbox can
+   exist. `redact.mjs` cannot edit an image inside a document or a clipboard
    file's pixels: when one holds personal data, capture again from a document
    whose pictures carry none. The one clipboard file it edits is a PNG whose
    display profile names its display unit, as Chrome's picture of the

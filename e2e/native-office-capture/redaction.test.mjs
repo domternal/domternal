@@ -371,29 +371,34 @@ test('the privacy scan names categories and offsets only, in parts, flavors and 
   assert.ok(!JSON.stringify(report).includes(ACCOUNT) && !JSON.stringify(report).includes(AUTHOR));
 });
 
-test('the privacy scan allows an e-mail address at a domain reserved for documentation, as the gate does, and no other', async t => {
+test('the privacy scan allows an e-mail address only at a domain reserved for documentation, which no mailbox can use', async t => {
   // A specification's own example address, such as the mailto: link of the Google Docs links scenario, reaches nobody.
   // Assembled at run time, as above.
   const at = (user, domain) => [user, domain].join('@');
-  for (const domain of ['example.com', 'example.org', 'example.net', 'mail.example.com', 'docs.example', 'probe.invalid', 'host.test']) {
+  const documentation = ['example.com', 'example.org', 'example.net', 'mail.example.com', 'docs.example', 'probe.invalid'];
+  for (const domain of documentation) {
     assert.deepEqual(scanText('reserved', `<a href="mailto:${at('pisi', domain)}">${at('pisi', domain)}</a>`, []), [], domain);
   }
-  // A domain that only starts or ends like a reserved one is somebody's, in the text and in what its escapes decode to.
-  for (const domain of ['example.com.synthetic-mail.net', 'example-person.net', 'invalid.synthetic-mail.net']) {
-    assert.deepEqual(scanText('other', `mail ${at('pisi', domain)}`, []).map(entry => entry.category), ['e-mail address'], domain);
+  // A domain that only starts or ends like a reserved one is somebody's, and so is a name reserved for local networks or
+  // tests, on which a company or a test machine can run mail, as a directory account at a .local domain: the gate allows
+  // those, the fixture scan does not.
+  const personal = ['example.com.synthetic-mail.net', 'example-person.net', 'invalid.synthetic-mail.net', 'contoso.local', 'printer.local', 'box.localhost', 'host.test'];
+  for (const domain of personal) {
+    assert.deepEqual(scanText('other', `mail ${at('jane.doe', domain)}`, []).map(entry => entry.category), ['e-mail address'], domain);
   }
   assert.deepEqual(scanText('encoded', `mail ${at('pisi', 'synthetic-mail.net').replace('@', '&#64;')}`, []).map(entry => entry.category), ['e-mail address']);
-  // The repository gate reads every one of these domains the same way.
-  for (const domain of ['example.com', 'mail.example.org', 'docs.example', 'probe.invalid', 'host.test', 'box.localhost', 'printer.local',
-    'example.com.synthetic-mail.net', 'example-person.net', 'invalid.synthetic-mail.net', 'synthetic-mail.net']) {
+  // Every address the fixture scan allows, the repository gate allows too.
+  for (const domain of [...documentation, ...personal, 'synthetic-mail.net']) {
     const text = at('pisi', domain);
     const gate = judge('fixture.json', { category: 'e-mail address', text, offset: 0, length: text.length });
-    assert.equal(reservedAddress(text), gate === null, domain);
+    if (reservedAddress(text)) assert.equal(gate, null, domain);
   }
   const base = await mkdtemp(join(tmpdir(), 'domternal-privacy-'));
   t.after(() => rm(base, { recursive: true, force: true }));
   await writeFile(join(base, 'capture.json'), JSON.stringify(originalBundle('0'.repeat(64), `<p>GB14 Address <a href="mailto:${at('pisi', 'example.com')}">${at('pisi', 'example.com')}</a></p>`)));
   assert.deepEqual(await scanFiles([join(base, 'capture.json')], []), []);
+  await writeFile(join(base, 'local.json'), JSON.stringify(originalBundle('0'.repeat(64), `<p><a href="mailto:${at('jane.doe', 'contoso.local')}">${at('jane.doe', 'contoso.local')}</a></p>`)));
+  assert.ok((await scanFiles([join(base, 'local.json')], [])).some(entry => entry.category === 'e-mail address'));
 });
 
 /** A PNG with the given text chunks, valid enough for a reader of chunks. */
