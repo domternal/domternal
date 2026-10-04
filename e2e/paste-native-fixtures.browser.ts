@@ -190,6 +190,22 @@ function checkContrast(contrast: Replay['contrast']): void {
   }
 }
 
+/** The text of a node, for naming it in a finding. */
+function textOf(node: JSONContent): string {
+  return (node.text ?? '') + (node.content ?? []).map(textOf).join('');
+}
+
+/** The cells that store the top alignment the table draws every cell with: a stored top only marks a cell as aligned. */
+function topAlignedCells(doc: JSONContent): string[] {
+  const found: string[] = [];
+  const visit = (node: JSONContent): void => {
+    if ((node.type === 'tableCell' || node.type === 'tableHeader') && node.attrs?.['verticalAlign'] === 'top') found.push(textOf(node).slice(0, 24));
+    for (const child of node.content ?? []) visit(child);
+  };
+  visit(doc);
+  return found;
+}
+
 const fixtures = nativeFixtures();
 
 /** A policy oracle's editor outcomes, one per schema, as offline.mjs editorOutcomes reads them; synchronous for test titles. */
@@ -238,6 +254,8 @@ for (const fixture of fixtures) {
             { formatting, destination: result.destination })).toEqual([]);
           // A line height the document stores is one the view draws, never a value kept without its spacing.
           expect(result.unrenderedLineHeights).toEqual([]);
+          // A cell keeps no vertical alignment the table draws by default, as Google Docs aligns every cell to the top.
+          expect(topAlignedCells(result.doc)).toEqual([]);
           // An image the content places is one the scenario authors: a file next to the copy, such as Chrome's picture of a Word selection, is none.
           expect(result.images).toBe(expected.blocks.filter(block => block.type === 'image').length);
           // Text without a color of its own needs 4.5:1 (WCAG 1.4.3) against what it lands on, in either theme.

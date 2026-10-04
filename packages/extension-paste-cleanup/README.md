@@ -669,6 +669,9 @@ clipboard in Chrome, which reviewed native captures show:
   script is not made smaller twice. This holds for every source.
 - A size or line height written with floating point noise, as Docs writes 14 pt
   as `13.999999999999998pt`, is read as the value it stands for, in every source.
+- Docs aligns every table cell to the top, which is where the table draws every
+  cell, so no pasted cell stores a vertical alignment; a cell aligned to the
+  middle or the bottom keeps it. This holds for every source.
 
 Docs writes every image as a `data:image/png` URL with its alt text and size, so
 it is kept as an embedded image. In the editor, an image the destination cannot

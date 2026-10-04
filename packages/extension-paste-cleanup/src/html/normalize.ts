@@ -327,7 +327,9 @@ export function normalizeClipboardHTML(
           const verticalAlign = styles.get('vertical-align');
           const background = styles.get('background-color');
           if (clean['dataTextAlign'] === undefined && textAlign !== undefined && ['left', 'right', 'center', 'justify'].includes(textAlign)) clean['dataTextAlign'] = textAlign;
-          if (clean['dataVerticalAlign'] === undefined && verticalAlign !== undefined && ['top', 'middle', 'bottom'].includes(verticalAlign)) clean['dataVerticalAlign'] = verticalAlign;
+          // The top is where the table draws every cell, which stores no value for it: a stored top only marked the cell
+          // as aligned, as Google Docs writes it on every cell. The style keeps it for a reader of the HTML.
+          if (clean['dataVerticalAlign'] === undefined && verticalAlign !== undefined && ['middle', 'bottom'].includes(verticalAlign)) clean['dataVerticalAlign'] = verticalAlign;
           if (clean['dataBackground'] === undefined && background !== undefined) clean['dataBackground'] = background;
         }
         if (styles.size > 0) clean.style = serializeStyles(styles);

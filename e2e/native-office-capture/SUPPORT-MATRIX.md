@@ -394,6 +394,9 @@ What the captures show and the fixtures pin:
 - The pinned header row arrives as header cells, merged cells as spans and
   light gray 2 as the cell background `#efefef`; borders, padding and widths
   are the destination's. Google copies a selected row as a one row table.
+  Docs aligns every cell to the top, where the table draws every cell, so no
+  cell stores a vertical alignment, which the fixtures pin; before, every cell
+  stored one, which only marked it as aligned.
 - Every image is a `data:image/png` URL in the HTML with its alt text and size,
   pixel for pixel the generated image and without metadata; the repeated image
   is the same data URL twice. The editor keeps each as an embedded image,

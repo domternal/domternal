@@ -272,3 +272,23 @@ describe('Google Docs subscript and superscript', () => {
     expect(relative).toContain('font-size:5.5pt');
   });
 });
+
+describe('Google Docs table cells', () => {
+  it('stores no vertical alignment for the top Docs aligns every cell to, which is the table\'s own', () => {
+    // Docs writes vertical-align:top on every cell and header cell; the table draws a cell at the top and stores nothing for it.
+    const html = docs('<div dir="ltr" style="margin-left:0pt;" align="left"><table style="border:none;border-collapse:collapse;table-layout:fixed;width:468pt">'
+      + '<colgroup><col /><col /></colgroup><thead><tr style="height:0pt">'
+      + `<th style="vertical-align:top;padding:5pt 5pt 5pt 5pt;" scope="col">${paragraph('GT02 Column A', '1.2')}</th>`
+      + `<th style="vertical-align:top;padding:5pt 5pt 5pt 5pt;" scope="col">${paragraph('GT03 Column B', '1.2')}</th></tr></thead><tbody><tr style="height:0pt">`
+      + cell(paragraph('GT05 Gray cell', '1.2'), 'background-color:#efefef;') + cell(paragraph('GT06 Plain cell', '1.2')) + '</tr></tbody></table></div>');
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const result = normalizePasteHTML(html, { formatting });
+      expect(warnings(result)).toEqual([]);
+      expect(result.html).not.toContain('data-vertical-align');
+    }
+    // A cell Docs aligns to the middle or the bottom keeps that alignment.
+    const middle = normalizePasteHTML(docs(table(cell(paragraph('GT40 Middle', '1.2')).replace('vertical-align:top', 'vertical-align:middle'))
+      + table(cell(paragraph('GT41 Bottom', '1.2')).replace('vertical-align:top', 'vertical-align:bottom')))).html;
+    expect([...middle.matchAll(/data-vertical-align="([a-z]+)"/gu)].map(match => match[1])).toEqual(['middle', 'bottom']);
+  });
+});

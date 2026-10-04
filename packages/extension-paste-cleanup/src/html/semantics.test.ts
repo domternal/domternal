@@ -168,6 +168,14 @@ describe('supported HTML semantics', () => {
     }
   );
 
+  it.each(['td', 'th'])('stores no vertical alignment for a %s aligned to the top, where the table draws every cell', (tag) => {
+    // The table's own alignment: a stored top only marked the cell as aligned, as Google Docs aligns every cell.
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const root = normalizedDOM(`<table><tr><${tag} style="vertical-align:top"><p>Cell</p></${tag}></tr></table>`, { formatting });
+      expect(root.querySelector(tag)?.hasAttribute('data-vertical-align')).toBe(false);
+    }
+  });
+
   it('preserves validated table metadata when redundant CSS disagrees', () => {
     const root = normalizedDOM(
       '<table><tr><td data-text-align="center" data-vertical-align="top" data-background="#abcdef" style="text-align:right;vertical-align:bottom;background-color:#123456">Cell</td></tr></table>'
