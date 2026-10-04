@@ -195,6 +195,16 @@ export function normalizeClipboardHTML(
       pixels += count;
       return true;
     };
+    // A destination without an image node, or whose image refuses a kind of source, as Image with allowBase64 false
+    // refuses data URLs, would drop such an image or keep it without its picture. Asked once per kind.
+    const refusedImages = new Map<PasteDestinationFeature, boolean>();
+    const destinationRefuses = (src: string): boolean => {
+      if (destination === undefined) return false;
+      const kind: PasteDestinationFeature = /^data:/i.test(src) ? 'image-data' : 'image';
+      let refused = refusedImages.get(kind);
+      if (refused === undefined) { refused = destination([kind]).includes(kind); refusedImages.set(kind, refused); }
+      return refused;
+    };
     // A slice marker alone is structural context. Only a verified own copy keeps editor formatting as is.
     const { anchor, own } = readSliceOrigin(tree, ownCopy);
     if (!own) {
@@ -336,9 +346,12 @@ export function normalizeClipboardHTML(
           if (href === undefined) report('link-removed', child); else clean.href = href;
         }
         if (child.tagName === 'img') {
-          const src = ++images > limits.maxImages ? undefined : safeImage(original.src, options.allowRemoteImages === true, options.allowDataImages !== false, consumePixels);
+          const allowed = ++images > limits.maxImages ? undefined : safeImage(original.src, options.allowRemoteImages === true, options.allowDataImages !== false, consumePixels);
+          // An image the destination cannot hold is removed like a refused source, its alt text in its place.
+          const refused = allowed !== undefined && destinationRefuses(allowed);
+          const src = refused ? undefined : allowed;
           if (src === undefined) {
-            const slot = images <= limits.maxImages ? preparation?.reserveImage(child, original) : undefined;
+            const slot = !refused && images <= limits.maxImages ? preparation?.reserveImage(child, original) : undefined;
             if (slot === undefined) {
               preparation?.removedImage?.();
               report('image-removed', child);

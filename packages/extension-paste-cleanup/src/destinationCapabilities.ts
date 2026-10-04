@@ -12,6 +12,7 @@ const FEATURES: readonly PasteDestinationFeature[] = Object.freeze([
   'ordered-list-style', 'bullet-list-style',
   'link-http', 'link-https', 'link-mailto', 'link-tel',
   'heading-text-at-list-item-start', 'heading-text-in-summary', 'heading-text-in-preformatted',
+  'image', 'image-data',
 ]);
 /**
  * One constant fragment per place where Core's Heading parses a heading as the enclosing block's
@@ -35,6 +36,16 @@ const LINK_PROBES: Readonly<Partial<Record<PasteDestinationFeature, string>>> = 
   'link-https': 'https://probe.invalid/',
   'link-mailto': 'mailto:probe@probe.invalid',
   'link-tel': 'tel:+10000000000',
+});
+/**
+ * One constant source per kind of image source: a remote address and a one pixel PNG as a data URL. A kind is held
+ * when the parsed fragment has a node whose src is exactly that source, which covers the destination Image's own
+ * source policy, as allowBase64 for data URLs. The probes are parsed in a document without a window, which loads
+ * no image.
+ */
+const IMAGE_PROBES: Readonly<Partial<Record<PasteDestinationFeature, string>>> = Object.freeze({
+  image: 'https://probe.invalid/probe.png',
+  'image-data': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC',
 });
 const MARK_TAGS: Readonly<Record<string, string>> = Object.freeze({
   bold: 'strong', italic: 'em', underline: 'u', strike: 's', subscript: 'sub', superscript: 'sup',
@@ -93,8 +104,9 @@ export function getUnsupportedDestinationFeatures(
   let parser: DOMParser;
   try { parser = DOMParser.fromSchema(schema); }
   catch { return Object.freeze(requested); }
-  const parse = (html: string): readonly PMNode[] => {
-    const container = document.createElement('div');
+  let inert: Document | undefined;
+  const parse = (html: string, owner: Document = document): readonly PMNode[] => {
+    const container = owner.createElement('div');
     // These strings contain only this module's constants, never source HTML or URLs.
     container.innerHTML = html;
     const slice = parser.parseSlice(container);
@@ -138,6 +150,16 @@ export function getUnsupportedDestinationFeatures(
       const nodes = parse(`<p><a href="${probe}">Probe</a></p>`);
       return nodes.length === 1 && paragraph(nodes[0] ?? null, 'Probe')
         && nodes[0]?.firstChild?.marks.some(mark => mark.attrs['href'] === probe) === true;
+    }
+    const image = IMAGE_PROBES[feature];
+    if (image !== undefined) {
+      inert ??= document.implementation.createHTMLDocument('');
+      let held = false;
+      for (const node of parse(`<p><img src="${image}" alt="Probe"></p>`, inert)) {
+        if (node.attrs['src'] === image) held = true;
+        node.descendants(child => { if (child.attrs['src'] === image) held = true; return !held; });
+      }
+      return held;
     }
     const markTag = MARK_TAGS[feature];
     if (markTag) {

@@ -12,6 +12,12 @@ const FULL_HTML = '<h2 style="text-align:center;line-height:1.5"><strong>Bold</s
   + '<p><span style="font-family:Georgia;font-size:18pt;color:#123456;background-color:#ffff00">Painted</span></p>'
   + '<ol start="7"><li><p>Seven</p><ul><li><p>Nested</p></li></ul></li><li><p>Eight</p></li></ol>'
   + '<table><tr><th><p>Header A</p></th><th><p>Header B</p></th></tr><tr><td><p>A</p></td><td><p>B</p></td></tr></table>';
+// English authored variant of a Google Docs image between paragraphs, using Chrome's captured shape and a synthetic data image.
+const GOOGLE_RUN = 'font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;white-space:pre-wrap;';
+const GOOGLE_IMAGE_HTML = '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-a5c727ca-7fff-16a5-f500-346b1a0df84d">'
+  + `<p dir="ltr" style="line-height:1.38;"><span style="${GOOGLE_RUN}">GI02 Text before the picture.</span></p><p dir="ltr" style="line-height:1.38;"><span style="${GOOGLE_RUN}">`
+  + '<img alt="GI03 Blue rectangle" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC" '
+  + `width="320" height="200" style="border:none;" /></span></p><p dir="ltr" style="line-height:1.38;"><span style="${GOOGLE_RUN}">GI04 Text after the picture.</span></p></b>`;
 
 interface Snapshot { doc: unknown; selection: unknown }
 interface History { undo: number; redo: number }
@@ -37,7 +43,7 @@ type Transport = 'synthetic-event' | 'programmatic';
 
 async function open(page: Page, framework: string, options: {
   schema?: 'capability-minimal' | 'capability-full' | 'heading-levels'; formatting?: 'preserve' | 'adapt'; diagnostics?: 'one';
-  'link-protocols'?: 'https'; 'smart-paste'?: 'off'; 'unique-id'?: 'off';
+  'link-protocols'?: 'https'; 'smart-paste'?: 'off'; 'unique-id'?: 'off'; 'image-policy'?: 'no-base64' | 'missing';
 } = {}): Promise<void> {
   const query = new URLSearchParams({ framework, ...options });
   await page.goto(`${BASE_URL}/?${query.toString()}`);
@@ -166,6 +172,28 @@ for (const framework of FRAMEWORKS) {
         await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
         await notice.locator('summary').click();
         await expect(notice).toContainText('This editor may not preserve some pasted formatting.');
+      });
+    }
+
+    for (const policy of ['no-base64', 'missing'] as const) {
+      test(`a data image ${policy === 'missing' ? 'a destination without Image' : 'an Image that refuses data URLs'} cannot hold is removed with its alt text in its place, reported`, async ({ page }) => {
+        // Before, an Image with allowBase64 false kept the image without its source, a broken picture, and an editor
+        // without Image dropped the image and its alt text, each without a finding.
+        await open(page, framework, { 'image-policy': policy });
+        await seed(page);
+        const observed = await paste(page, GOOGLE_IMAGE_HTML);
+        expect(observed.operations[0]?.status).toBe('applied');
+        expect(observed.results[0]?.diagnostics.filter(diagnostic => diagnostic.severity !== 'info').map(diagnostic => diagnostic.code)).toEqual(['image-removed']);
+        expect(await page.evaluate(() => {
+          const texts: string[] = [];
+          let images = 0;
+          (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.descendants(node => {
+            if (node.type.name === 'image') images++;
+            if (node.isTextblock) texts.push(node.textContent);
+          });
+          return { images, texts };
+        })).toEqual({ images: 0, texts: ['GI02 Text before the picture.', 'GI03 Blue rectangle', 'GI04 Text after the picture.'] });
+        await expect(page.getByRole('region', { name: 'Paste notice', exact: true }).locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
       });
     }
 

@@ -246,3 +246,38 @@ describe('built-in destination parser capabilities', () => {
     }
   });
 });
+
+describe('destination image capabilities', () => {
+  const PROBE_SOURCES = /^(?:https:\/\/probe\.invalid\/|data:image\/png;base64,)/u;
+  function imageSchema(refuseData: boolean | 'none'): Schema {
+    const nodes: Record<string, NodeSpec> = { doc: { content: 'block+' }, paragraph: { group: 'block', content: 'inline*', parseDOM: [{ tag: 'p' }] }, text: { group: 'inline' } };
+    if (refuseData !== 'none') {
+      nodes['image'] = { group: 'block', attrs: { src: { default: null } }, parseDOM: [{ tag: 'img[src]', getAttrs: dom => {
+        const src = dom.getAttribute('src');
+        return { src: refuseData && src?.startsWith('data:') === true ? null : src };
+      } }] };
+    }
+    return new Schema({ nodes });
+  }
+
+  it('reports the kinds of image source a destination cannot hold: none, data URLs, or every one without an image node', () => {
+    expect(getUnsupportedDestinationFeatures(imageSchema(false), document, ['image', 'image-data'])).toEqual([]);
+    expect(getUnsupportedDestinationFeatures(imageSchema(true), document, ['image', 'image-data'])).toEqual(['image-data']);
+    expect(getUnsupportedDestinationFeatures(imageSchema('none'), document, ['image', 'image-data'])).toEqual(['image', 'image-data']);
+  });
+
+  it('parses its image probes in a document that has no window, which loads nothing', () => {
+    const created: Element[] = [];
+    const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML') as { set: (this: Element, value: string) => void };
+    vi.spyOn(Element.prototype, 'innerHTML', 'set').mockImplementation(function(this: Element, value: string): void {
+      descriptor.set.call(this, value); created.push(this);
+    });
+    getUnsupportedDestinationFeatures(imageSchema(false), document, ['image', 'image-data']);
+    expect(created).toHaveLength(2);
+    for (const element of created) {
+      expect(element.ownerDocument).not.toBe(document);
+      expect(element.ownerDocument.defaultView).toBeNull();
+      expect(element.querySelector('img')?.getAttribute('src')).toMatch(PROBE_SOURCES);
+    }
+  });
+});

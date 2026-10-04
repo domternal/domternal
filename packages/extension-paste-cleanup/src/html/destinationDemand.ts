@@ -13,6 +13,8 @@ export type PasteDestinationFeature =
   | 'table' | 'table-header' | 'ordered-list' | 'bullet-list' | 'nested-list'
   | 'ordered-list-style' | 'bullet-list-style'
   | 'link-http' | 'link-https' | 'link-mailto' | 'link-tel'
+  // An image node that holds a remote source, and one that holds a data URL. Asked for each image a paste keeps.
+  | 'image' | 'image-data'
   // Where the destination parses a heading as the enclosing block's text: at the start of a list
   // item, in a summary, in a preformatted block. Asked only by heading level adaptation.
   | 'heading-text-at-list-item-start' | 'heading-text-in-summary' | 'heading-text-in-preformatted';
