@@ -463,6 +463,33 @@ test('the checker compares header cells and task items where a specification aut
   assert.deepEqual(dryRun(specification).results.flatMap(result => result.problems), []);
 });
 
+test('the checker requires an image a specification expects kept, with the scheme of its source and its size, in HTML, editor results and the dry run', () => {
+  const specification = { id: 'checker', documents: [{ blocks: [
+    { id: 'GI02', type: 'paragraph', text: 'GI02 Text before the picture.' },
+    { id: 'GI03', type: 'image', alt: 'GI03 Blue rectangle', src: 'data', width: 320, height: 200 },
+    { id: 'GI04', type: 'paragraph', text: 'GI04 Text after the picture.' },
+  ] }], scenarios: [{ id: 'checker', blocks: ['GI02', 'GI03', 'GI04'], outcome: { notice: 'observe' } }] };
+  const html = image => `<p>GI02 Text before the picture.</p>${image}<p>GI04 Text after the picture.</p>`;
+  const kept = (width = '320') => `<img src="data:image/png;base64,AAAA" alt="GI03 Blue rectangle" width="${width}" height="200">`;
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html(kept()))), []);
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html(kept('300')))), ['GI03: image width is 300, expected 320']);
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html('<img src="https://probe.invalid/a.png" alt="GI03 Blue rectangle" width="320" height="200">'))),
+    ['GI03: image source is https, expected data']);
+  // Removed with its alt text in its place, or gone altogether.
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html('<p>GI03 Blue rectangle</p>'))), ['GI03: expected an image with a data source, found its alt text as text']);
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromHTML(html(''))), ['GI03: missing']);
+  const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'GI02 Text before the picture.' }] },
+    { type: 'image', attrs: { src: 'data:image/png;base64,AAAA', alt: 'GI03 Blue rectangle', width: '320', height: '200' } },
+    { type: 'paragraph', content: [{ type: 'text', text: 'GI04 Text after the picture.' }] }] };
+  assert.deepEqual(compareBlocks(specification, 'checker', blocksFromEditorJSON(doc)), []);
+  // An empty paragraph an editor closed before a block image is a block the copy does not hold, where the comparison is exhaustive.
+  const exhaustive = structuredClone(specification);
+  exhaustive.documents[0].blocks[0].textStyle = {};
+  doc.content.splice(1, 0, { type: 'paragraph', content: [] });
+  assert.deepEqual(compareBlocks(exhaustive, 'checker', blocksFromEditorJSON(doc)), ['unexpected empty paragraph at block 2']);
+  assert.deepEqual(dryRun(specification).results.flatMap(result => result.problems), []);
+});
+
 test('the HTML model reads Google Docs list nesting, cell spans, links, text styles and images', () => {
   const blocks = blocksFromHTML('<ul><li><p>GL02 a</p></li><ul><li><p>GL03 b</p></li><ul><li><p>GL04 c</p></li></ul></ul><li><p>GL05 d</p></li></ul>'
     + '<table><tr><td colspan="2"><p>GT08 x</p></td><td rowspan="2"><p>GT09 y</p></td></tr></table>'

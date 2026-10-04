@@ -30,6 +30,8 @@ const normalizeText = value => value.replace(/[\t\n\r ]+/gu, ' ').trim();
 const empty = value => /^[\t\n\r ]*$/u.test(value);
 // Only the URL scheme of an image source is ever reported, never the address.
 const scheme = source => /^([a-z][a-z0-9+.-]*):/iu.exec(source ?? '')?.[1]?.toLowerCase() ?? 'relative';
+// An image's width or height in pixels, as the editor stores the attribute it parses, or null.
+const size = value => (value === undefined || value === null || value === '' || !Number.isFinite(Number(value)) ? null : Number(value));
 
 /** The cell of a table grid: its table, row and first column, counted past the cells that rows above span into it. */
 function gridCells(rows) {
@@ -51,6 +53,7 @@ export function blocksFromEditorJSON(doc) {
   const blocks = [];
   let tables = 0;
   const image = (node, context) => blocks.push({ type: 'image', text: node.attrs?.alt ?? '', src: scheme(node.attrs?.src), runs: [], align: null,
+    width: size(node.attrs?.width), height: size(node.attrs?.height),
     ...(context.cell ? { cell: context.cell } : {}) });
   const visit = (node, context) => {
     if (!node || typeof node !== 'object') return;
@@ -178,6 +181,7 @@ export function blocksFromHTML(html) {
     }
   };
   const image = (node, context) => blocks.push({ type: 'image', text: attribute(node, 'alt') ?? '', src: scheme(attribute(node, 'src')), runs: [], align: null,
+    width: size(attribute(node, 'width')), height: size(attribute(node, 'height')),
     ...(context.cell ? { cell: context.cell } : {}) });
   /** One textblock from its inline content, as the editor's paragraph or heading. */
   const textblock = (nodes, tag, align, context, lineHeight = null) => {
@@ -604,10 +608,19 @@ export function compareBlocks(spec, scenarioId, actualBlocks, { formatting = 'pr
     if (block.type === 'image' || block.type === 'imageRun') {
       // Removal keeps the alt text in the image's place. A source may copy no alt text, and a run of images has none.
       const index = block.alt === undefined ? undefined : positions.get(block.id);
-      if (index === undefined) return;
+      // An image the specification expects kept, with the scheme of its source, is missing when nothing stands for it.
+      if (index === undefined) { if (block.src !== undefined) problems.push(`${block.id}: missing`); return; }
       if (index <= previous) problems.push(`${block.id}: out of order`);
       previous = index;
       consumed.add(index);
+      if (block.src !== undefined) {
+        const found = actual[index];
+        if (found.type !== 'image') problems.push(`${block.id}: expected an image with a ${block.src} source, found its alt text as text`);
+        else {
+          if (found.src !== block.src) problems.push(`${block.id}: image source is ${String(found.src)}, expected ${block.src}`);
+          for (const key of ['width', 'height']) if (block[key] !== undefined && found[key] !== block[key]) problems.push(`${block.id}: image ${key} is ${String(found[key])}, expected ${String(block[key])}`);
+        }
+      }
       if (actual[index].type !== 'image' && normalizeText(actual[index].text) !== block.alt) {
         problems.push(`${block.id}: alt text is ${JSON.stringify(normalizeText(actual[index].text))}, expected ${JSON.stringify(block.alt)}`);
       }
@@ -844,6 +857,12 @@ export function syntheticEditorResult(spec, scenarioId, formatting = 'preserve')
         continue;
       }
       lists = [];
+      // An image the specification expects kept, as a block image node with a source of its scheme.
+      if (block.type === 'image' && block.src !== undefined) {
+        content.push({ type: 'image', attrs: { src: `${block.src}:${block.src === 'data' ? 'image/png;base64,AAAA' : '//probe.invalid/image.png'}`, alt: block.alt ?? null,
+          width: block.width === undefined ? null : String(block.width), height: block.height === undefined ? null : String(block.height) } });
+        continue;
+      }
       if (block.type === 'empty') content.push({ type: 'paragraph', attrs: { textAlign: null }, content: [] });
       else if (block.type === 'generated') {
         for (let index = 1; index <= block.tokens; index++) content.push({ type: 'paragraph', attrs: { textAlign: null }, content: [{ type: 'text', text: `G${String(index).padStart(5, '0')} text` }] });
