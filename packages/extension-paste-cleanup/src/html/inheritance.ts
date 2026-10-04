@@ -361,7 +361,11 @@ export function resolveInlineInheritance(
       if (family !== undefined) { state.family = family; adapted.push('font-family'); }
       const size = styles.get('font-size');
       if (defaultSize) delete state.size;
-      if (size !== undefined) {
+      // A size relative to its run on a subscript or superscript is how the source draws the script, as Google Docs
+      // writes 0.6em, which the destination's script mark draws: the run keeps its size, so the script is not made
+      // smaller twice and keeps no size of its own once the mark is gone.
+      const scriptSize = inline && (vertical === 'sub' || vertical === 'super') && size !== undefined && /(?:em|%)$/i.test(size);
+      if (size !== undefined && !scriptSize) {
         adapted.push('font-size');
         const resolved = resolveSize(size, inherited.size);
         // An unknown relative base is a loss only when typography is preserved.

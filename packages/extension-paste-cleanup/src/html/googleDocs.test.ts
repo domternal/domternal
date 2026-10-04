@@ -239,3 +239,25 @@ describe('Google Docs checklists', () => {
     expect(normalizePasteHTML(`<ul><li role="checkbox" aria-checked="true"><p>Web</p></li></ul>`).html).toBe('<ul><li><p>Web</p></li></ul>');
   });
 });
+
+describe('Google Docs subscript and superscript', () => {
+  it('reads the relative size Docs draws a script with as the script\'s own, so the run keeps its size and the mark draws it', () => {
+    // H2O and x2: Docs wraps each 2 in a span of 0.6em aligned to sub or super inside the 11 pt run.
+    const html = docs(`<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;">${run('GB10 H')}`
+      + `<span style="${RUN}"><span style="font-size:0.6em;vertical-align:sub;">2</span></span>${run('O x')}`
+      + `<span style="${RUN}"><span style="font-size:0.6em;vertical-align:super;">2</span></span></p>`);
+    const preserve = normalizePasteHTML(html);
+    expect(warnings(preserve)).toEqual([]);
+    expect(preserve.html).not.toContain('6.6pt');
+    expect(preserve.html).toContain('<span style="font-family:Arial,sans-serif;font-size:11pt"><sub>2</sub></span>');
+    expect(preserve.html).toContain('<span style="font-family:Arial,sans-serif;font-size:11pt"><sup>2</sup></span>');
+    expect(warnings(normalizePasteHTML(html, { formatting: 'adapt' }))).toEqual([]);
+  });
+
+  it('keeps an absolute size on a script run, and a relative size on a run that is no script', () => {
+    const absolute = normalizePasteHTML(docs(`<p dir="ltr">${run('GB50 x')}<span style="${RUN}"><span style="font-size:8pt;vertical-align:super;">2</span></span></p>`)).html;
+    expect(absolute).toContain('font-size:8pt"><sup>2</sup>');
+    const relative = normalizePasteHTML(docs(`<p dir="ltr"><span style="${RUN}"><span style="font-size:0.5em;">half</span></span></p>`)).html;
+    expect(relative).toContain('font-size:5.5pt');
+  });
+});
