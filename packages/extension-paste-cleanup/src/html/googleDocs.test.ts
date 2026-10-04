@@ -170,3 +170,41 @@ describe('Google Docs image paragraphs', () => {
     expect(outline(normalizePasteHTML(`<p>${image('Web')}</p>`).html)).toBe('<p>[Web]</p>');
   });
 });
+
+describe('Google Docs list levels of a partial selection', () => {
+  const item = (marker: string, level: number, text: string, indent = level > 1): string =>
+    `<li dir="ltr" style="list-style-type:${marker};${RUN.replace('white-space:pre-wrap;', '')}${indent ? 'margin-left: 36pt;' : ''}" aria-level="${String(level)}">`
+    + `<p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;" role="presentation">${run(text)}</p></li>`;
+  const list = (tag: string, ...content: string[]): string => `<${tag} style="margin-top:0;margin-bottom:0;padding-inline-start:48px;">${content.join('')}</${tag}>`;
+  /** Each list with its marker and items, an item as its text and the lists it holds, from the cleaned HTML. */
+  const shape = (html: string): string => html.replace(/<span[^>]*>|<\/span>| dir="ltr"| style="(?!list-style-type)[^"]*"/gu, '')
+    .replace(/<p><\/p>/gu, '·').replace(/<\/?p>/gu, '').replace(/ style="list-style-type:([a-z-]+)"/gu, '[$1]');
+
+  it('nests a selection that starts below the first level as deep as Docs shows it, the levels above opening with one empty item', () => {
+    // From inside GL08 to inside GL11: the copy's top list is Docs' second level, its nested list the third, each item indented 36 pt.
+    const html = docs(list('ol', item('lower-alpha', 2, '&nbsp;a'), list('ol', item('lower-roman', 3, 'GL09 Roman i'), item('lower-roman', 3, 'GL10 Roman ii')),
+      item('lower-alpha', 2, 'GL11 Letter')));
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const result = normalizePasteHTML(html, { formatting });
+      expect(warnings(result)).toEqual([]);
+      // Google Docs nests a list directly in its parent list, after the item it belongs to, which the editor's parse moves into that item.
+      expect(shape(result.html)).toBe('<ol><li>·<ol[lower-alpha]><li>\u00a0a</li><ol[lower-roman]><li>GL09 Roman i</li><li>GL10 Roman ii</li></ol><li>GL11 Letter</li></ol></li></ol><br>');
+    }
+    // One item of the second level, triple-clicked.
+    expect(shape(normalizePasteHTML(docs(list('ul', item('circle', 2, 'GL03 Second level')))).html)).toBe('<ul><li>·<ul[circle]><li>GL03 Second level</li></ul></li></ul><br>');
+    // An item of the third level stands two levels below the copy, with twice the indent.
+    expect(shape(normalizePasteHTML(docs(list('ol', item('lower-roman', 3, 'GL09 Roman i').replace('36pt', '72pt')))).html))
+      .toBe('<ol><li>·<ol><li>·<ol[lower-roman]><li>GL09 Roman i</li></ol></li></ol></li></ol><br>');
+  });
+
+  it('leaves a list whose items stand at their own depth, or at different offsets or indents, as written', () => {
+    const full = normalizePasteHTML(docs(list('ul', item('disc', 1, 'GL02 First level'), list('ul', item('circle', 2, 'GL03 Second level', false)))));
+    expect(warnings(full)).toEqual([]);
+    expect(shape(full.html)).toBe('<ul[disc]><li>GL02 First level</li><ul[circle]><li>GL03 Second level</li></ul></ul><br>');
+    // Items whose levels disagree with the copy's nesting, and an indent that is not the levels' own, keep their report.
+    for (const html of [docs(list('ol', item('lower-alpha', 2, 'GL08 a'), item('decimal', 1, 'GL12 Second number', true))),
+      docs(list('ul', item('circle', 2, 'GL03 Second level').replace('36pt', '20pt')))]) {
+      expect([...new Set(warnings(normalizePasteHTML(html)))]).toEqual(['unsupported-formatting']);
+    }
+  });
+});

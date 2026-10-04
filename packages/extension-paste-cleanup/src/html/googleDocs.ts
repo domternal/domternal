@@ -134,3 +134,68 @@ export function googleDocsImageParagraphs(tree: Root): void {
     }
   }
 }
+
+const LISTS = new Set(['ul', 'ol']);
+/** Docs indents each list level by half an inch. */
+const LEVEL_INDENT_PT = 36;
+
+/** An item's aria-level, the list level Docs shows it at, from 1. */
+function ariaLevel(item: Element): number | undefined {
+  const level = Number(item.properties.ariaLevel);
+  return Number.isSafeInteger(level) && level >= 1 && level <= 9 ? level : undefined;
+}
+
+/** The items of a list Docs wrote, each with its depth in the copy: its lists nest directly in their parent lists. */
+function listItems(list: Element, depth: number, items: { item: Element; depth: number }[]): void {
+  for (const child of list.children) {
+    if (child.type !== 'element') continue;
+    if (child.tagName === 'li') {
+      items.push({ item: child, depth });
+      for (const nested of child.children) if (nested.type === 'element' && LISTS.has(nested.tagName)) listItems(nested, depth + 1, items);
+    } else if (LISTS.has(child.tagName)) listItems(child, depth + 1, items);
+  }
+}
+
+/** A style without its left margin when that is the given indent, or undefined when it has none or another one, or CSS may read it otherwise. */
+function withoutIndent(style: unknown, points: number): string | undefined {
+  const declarations = plainDeclarations(style);
+  if (declarations === undefined) return undefined;
+  const margins = declarations.filter(([name]) => name === 'margin-left');
+  if (margins.length !== 1 || margins[0]?.[1].toLowerCase() !== `${String(points)}pt`) return undefined;
+  return declarations.filter(([name]) => name !== 'margin-left').map(([name, value]) => `${name}:${value}`).join(';');
+}
+
+/**
+ * A selection that starts below the first level of a list: Docs writes the copied levels as nested lists from
+ * the first one it holds, and each item with the level Docs shows it at, `aria-level`, and a left margin of half
+ * an inch for every level above the copy. The editor would paste the items that many levels too high, each with
+ * an indentation it reports. When every item of a list stands the same number of levels below its depth in the
+ * copy, with exactly that margin, the list is nested that many levels deep, each level above it opening with one
+ * empty item, as a Word selection that starts in a nested item opens the levels above it; the margin, which the
+ * nesting now draws, goes. The levels above take the list's own kind without a marker, which the copy does not name.
+ */
+export function googleDocsListLevels(tree: Root): void {
+  const pending: (Root | Element)[] = [tree];
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    node.children = node.children.map(child => {
+      if (child.type !== 'element') return child;
+      if (!LISTS.has(child.tagName)) { if (child.tagName !== 'li') pending.push(child); return child; }
+      const items: { item: Element; depth: number }[] = [];
+      listItems(child, 1, items);
+      const offsets = new Set(items.map(({ item, depth }) => { const level = ariaLevel(item); return level === undefined ? 0 : level - depth; }));
+      const [offset] = offsets;
+      if (offsets.size !== 1 || offset === undefined || offset < 1) return child;
+      const styles = items.map(({ item }) => withoutIndent(item.properties.style, LEVEL_INDENT_PT * offset));
+      if (styles.some(style => style === undefined)) return child;
+      items.forEach(({ item }, index) => {
+        const style = styles[index];
+        if (style === '' || style === undefined) delete item.properties.style; else item.properties.style = style;
+      });
+      let nested: Element = child;
+      for (let level = 0; level < offset; level++) {
+        nested = { type: 'element', tagName: child.tagName, properties: {}, children: [{ type: 'element', tagName: 'li', properties: {}, children: [nested] }] };
+      }
+      return nested;
+    });
+  }
+}
