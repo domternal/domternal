@@ -22,6 +22,7 @@ import { HardBreak } from './HardBreak.js';
 import { HorizontalRule } from './HorizontalRule.js';
 import { Bold } from '../marks/Bold.js';
 import { Italic } from '../marks/Italic.js';
+import { TextAlign } from '../extensions/TextAlign.js';
 import { createDocument } from '../helpers/createDocument.js';
 import { generateJSON } from '../helpers/ssr.js';
 import type { AnyExtension, ContentDiagnosticProps, JSONContent } from '../types/index.js';
@@ -241,6 +242,13 @@ describe('a configured heading tag where a heading cannot stand', () => {
   it('keeps the text and marks of a heading at a list item start in the item paragraph', () => {
     const { editor } = mount('<ul><li><h2><strong>T</strong> <em>u</em></h2><h3>B</h3></li></ul>', undefined, [...STRUCTURES, Bold, Italic]);
     expect(editor.getHTML()).toBe('<ul><li><p><strong>T</strong> <em>u</em></p><h3>B</h3></li></ul>');
+  });
+
+  it('gives the item paragraph only the text of a heading at a list item start, not its alignment or id, as a tag without a rule', () => {
+    const html = '<ol><li><h1 id="intro" style="text-align: center">Centered</h1><p>b</p></li></ol><h2 style="text-align: center">Kept</h2>';
+    const { editor } = mount(html, undefined, [...STRUCTURES, TextAlign]);
+    expect(editor.getHTML()).toBe('<ol><li><p>Centered</p><p>b</p></li></ol><h2 style="text-align: center;">Kept</h2>');
+    expect(editor.getJSON()).toEqual(mount(html.replace(/<(\/?)h1/g, '<$1div'), undefined, [...STRUCTURES, TextAlign]).editor.getJSON());
   });
 
   it('keeps a checked task item and its paragraph', () => {

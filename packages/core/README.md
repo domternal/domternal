@@ -474,7 +474,9 @@ level, so with levels 1 to 4 an `h5` becomes a level 4 heading instead of a para
 heading cannot stand, every heading tag, a configured level too, parses as that block's text: at
 the start of a list or task item, whose first block is a paragraph, and inside a details summary
 or a preformatted block, so the list keeps its items and numbering and the summary its text
-instead of a heading moving out and splitting them. Content before the heading in the item, such
+instead of a heading moving out and splitting them. Only the heading's text and inline formatting
+carry over: its alignment, `id` and other block attributes are dropped without a report, as for
+any element parsed as text. Content before the heading in the item, such
 as text, a no-break space, a line break, an image or a paragraph element, even an empty `<p></p>`
 as `getHTML` writes an empty item label, gives the item its paragraph, so the heading after it
 stays a heading and such HTML loads back unchanged. A block before it, such as a horizontal rule,
