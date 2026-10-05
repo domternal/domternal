@@ -10,7 +10,7 @@ export default defineConfig({
   timeout: 30000,
   workers: 2,
   reporter: 'list',
-  testMatch: ['nested-lists.spec.ts', 'list-audit-fixes.spec.ts', 'notion-list-cursor-context.spec.ts', 'list-join-on-insert.spec.ts'],
+  testMatch: ['nested-lists.spec.ts', 'list-audit-fixes.spec.ts', 'notion-list-cursor-context.spec.ts', 'list-join-on-insert.spec.ts', 'notion-list-strict.spec.ts'],
   use: { trace: 'retain-on-failure' },
   projects: ['chromium', 'firefox', 'webkit'].flatMap(browserName => demoTargets.map(target => ({
     name: `${target.name}-${browserName}`,
