@@ -230,7 +230,9 @@ export function normalizeClipboardHTML(
       if (result.source === 'google-docs') {
         // A checklist is ARIA checkbox items, and a selection that starts below a list's first level writes the
         // levels above as aria-level and indent.
-        googleDocsChecklists(tree);
+        // A checked item's strikethrough is how Docs draws its state, which a destination with task lists holds, asked once.
+        let taskLists: boolean | undefined;
+        googleDocsChecklists(tree, () => (taskLists ??= destination?.(['task-list']).includes('task-list') !== true));
         googleDocsListLevels(tree);
       }
       hoistListItemMarkers(tree);

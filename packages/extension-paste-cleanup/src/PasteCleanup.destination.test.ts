@@ -139,6 +139,24 @@ describe('destination capability feedback through the editor', () => {
       expect(list?.type.name).toBe(tasks ? 'taskList' : 'bulletList');
       expect(list?.textContent).toBe('GL62 Unchecked taskGL63 Checked task');
       if (tasks) expect([list?.child(0).attrs['checked'], list?.child(1).attrs['checked']]).toEqual([false, true]);
+      // The strikethrough Docs draws a checked item with is its checked state: a task item holds the state, which struck
+      // text no longer outlives when the item is unchecked, and bullets, which lose it, keep the line as all that is left.
+      const struck = (): boolean[] => {
+        const items: boolean[] = [];
+        fixture.editor.state.doc.firstChild?.forEach(item => {
+          let strike = false;
+          item.descendants(node => { if (node.marks.some(mark => mark.type.name === 'strike')) strike = true; });
+          items.push(strike);
+        });
+        return items;
+      };
+      expect(struck()).toEqual([false, !tasks]);
+      if (tasks) {
+        const position = 1 + (list?.child(0).nodeSize ?? 0);
+        fixture.editor.view.dispatch(fixture.editor.state.tr.setNodeMarkup(position, undefined, { ...list?.child(1).attrs, checked: false }));
+        expect(fixture.editor.state.doc.firstChild?.child(1).attrs['checked']).toBe(false);
+        expect(struck()).toEqual([false, false]);
+      }
     }
   });
 

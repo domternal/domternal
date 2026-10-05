@@ -261,15 +261,55 @@ function checkboxPicture(node: ElementContent): boolean {
   return (Array.isArray(description) ? description.join(' ') : typeof description === 'string' ? description : '').toLowerCase() === 'checkbox';
 }
 
+/** The text decoration lines an element declares, lowercased; undefined without one or for a style CSS may read otherwise. */
+function decorationLines(element: Element): string[] | undefined {
+  let value: string | undefined;
+  for (const [name, written] of plainDeclarations(element.properties.style) ?? []) {
+    if (name === 'text-decoration' || name === 'text-decoration-line') value = written.toLowerCase();
+  }
+  return value?.split(/\s+/u).filter(token => token !== '');
+}
+
+/** Whether every text of a list item, outside the lists it holds, stands under its nearest declared line-through, as Docs strikes a checked item. */
+function struckThrough(item: Element): boolean {
+  let texts = 0;
+  let struck = true;
+  const visit = (node: Element, through: boolean): void => {
+    for (const child of node.children) {
+      if (child.type === 'text' && /[^\t\n\f\r ]/.test(child.value)) { texts++; struck &&= through; }
+      if (child.type === 'element' && !LISTS.has(child.tagName)) visit(child, decorationLines(child)?.includes('line-through') ?? through);
+    }
+  };
+  visit(item, decorationLines(item)?.includes('line-through') === true);
+  return texts > 0 && struck;
+}
+
+/** Remove the line-through an element and its content, outside the lists it holds, declare, keeping every other decoration. */
+function clearLineThrough(element: Element): void {
+  const declarations = plainDeclarations(element.properties.style);
+  if (declarations?.some(([name, value]) => ['text-decoration', 'text-decoration-line'].includes(name) && /line-through/i.test(value)) === true) {
+    setStyle(element, declarations.map(([name, value]) => {
+      if (!['text-decoration', 'text-decoration-line'].includes(name)) return `${name}:${value}`;
+      const lines = value.split(/\s+/u).filter(token => token !== '' && token.toLowerCase() !== 'line-through');
+      return `${name}:${lines.length > 0 ? lines.join(' ') : 'none'}`;
+    }).join(';'));
+  }
+  for (const child of element.children) if (child.type === 'element' && !LISTS.has(child.tagName)) clearLineThrough(child);
+}
+
 /**
  * Docs writes a checklist as a list whose items are ARIA checkboxes with their checked state, each drawing its
  * box as a picture of a checkbox and laying its paragraph beside it. Pasted as written, it became bullet items
  * without a marker, each with a black checkbox picture and its text in a paragraph after it. A list whose every
  * item is such a checkbox becomes the editor's task list, each item checked as Docs shows it: the pictures, the
- * marker and the paragraphs' row layout are how Docs draws the boxes, which the task items draw themselves. The
- * strikethrough Docs gives a checked item's text is in its export too, so it stays.
+ * marker and the paragraphs' row layout are how Docs draws the boxes, which the task items draw themselves.
+ * Docs draws a checked item struck through as well, on the item and on every run of its text, and takes the line
+ * away when the item is unchecked: that strikethrough is the checked state, which the task item holds, so it goes
+ * where the destination has task lists; kept, it stayed when the item was unchecked in the editor. A strikethrough
+ * on part of a checked item's text or on an unchecked item is the author's and stays, and so does a checked one
+ * where the destination has no task lists, whose bullets keep no checked state but the line.
  */
-export function googleDocsChecklists(tree: Root): void {
+export function googleDocsChecklists(tree: Root, taskLists: () => boolean): void {
   const pending: (Root | Element)[] = [tree];
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
     for (const child of node.children) if (child.type === 'element') pending.push(child);
@@ -281,6 +321,9 @@ export function googleDocsChecklists(tree: Root): void {
     node.properties.dataType = 'taskList';
     setStyle(node, withoutDeclarations(node.properties.style, ['list-style-type']));
     for (const item of items) {
+      if (item.properties.ariaChecked === 'true' && decorationLines(item)?.includes('line-through') === true && struckThrough(item) && taskLists()) {
+        clearLineThrough(item);
+      }
       item.properties.dataType = 'taskItem';
       item.properties['dataChecked'] = item.properties.ariaChecked;
       delete item.properties.role;

@@ -668,8 +668,13 @@ clipboard in Chrome, which reviewed native captures show:
   above opening with one empty item of the list's kind, and the margin goes.
 - A list whose every item is an ARIA checkbox with its checked state, Docs'
   checklist, becomes a task list checked as Docs shows it, without the pictures
-  of the boxes Docs draws beside the items. An editor without task lists pastes
-  it as bullets and reports `destination-formatting-unconfirmed`, since the
+  of the boxes Docs draws beside the items. Docs also strikes a checked item
+  through, on the item and every run of its text: that line shows the checked
+  state, which the task item holds, so it goes, and the text is not left struck
+  once the item is unchecked. A line on part of a checked item's text or on an
+  unchecked item is the author's and stays. An editor without task lists pastes
+  the checklist as bullets, which keep a checked item's line as the only sign of
+  its state, and reports `destination-formatting-unconfirmed`, since the
   checked state is lost.
 - A size relative to its run on a subscript or superscript, as Docs draws a
   script at 0.6em, is the script mark's own, so the run keeps its size and the

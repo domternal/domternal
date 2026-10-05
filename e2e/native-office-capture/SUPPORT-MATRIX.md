@@ -388,10 +388,13 @@ What the captures show and the fixtures pin:
   report.
 - A checklist is written as ARIA checkbox items with their checked state, each
   beside a picture of its box. It pastes as a task list, checked as Docs shows
-  it, without the pictures; the checked item's strikethrough is in the copy and
-  the export, so it stays. An editor without task lists pastes it as bullets and
-  reports `destination-formatting-unconfirmed`, which the fixture pins; before,
-  the checked state was lost without a finding.
+  it, without the pictures. Docs strikes an item through when its box is
+  ticked, on the item and every run, as the export writes the line too: the
+  line shows the checked state, which the task item holds, so it goes; kept, it
+  outlived the state when the item was unchecked in the editor. An editor
+  without task lists pastes the checklist as bullets, which keep the line as
+  the only sign of the state, and reports `destination-formatting-unconfirmed`,
+  which the fixture pins; before, the checked state was lost without a finding.
 - Docs draws a script as a span of 0.6em aligned to sub or super: that size is
   the script's own, so the run keeps its 11 pt under the script mark.
 - Links carry Docs' link blue `#1155cc` and an underline as the runs' own
@@ -437,7 +440,10 @@ Decisions that waited on the captures, for this row: D9 holds after the fixes
 above; PCL-04 is confirmed and kept; OD-01 and OD-53 hold, no capture proves
 them wrong. V2-1 and V2-2 do not arise: Google Docs exposes no file. Open owner
 questions: what Docs labels the items after `Z.`, whether Docs' link look should
-yield to the destination's, and Heading 3's gray on the dark theme.
+yield to the destination's, Heading 3's gray on the dark theme, and whether a
+checked checklist item should keep Docs' strikethrough, which the default drops
+where the editor has task lists, since a line the author drew over a whole
+checked item cannot be told from the one Docs draws.
 
 RTF/RTFD image matching, local blob URL retrieval and general source-specific
 association profiles are not implemented by this harness. A native capture that

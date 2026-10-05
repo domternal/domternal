@@ -811,16 +811,7 @@
           "docsLabel": "☑",
           "docs": "Enter, then tick the box; Google Docs strikes the text through",
           "text": "GL63 Checked task",
-          "marks": [
-            {
-              "text": "GL63 Checked task",
-              "marks": [
-                "strike"
-              ],
-              "docs": "Docs strikes a checked item's text through"
-            }
-          ],
-          "correction": "The checked state arrives as aria-checked; the strikethrough is in the copy and in the export, so the checked task item's text keeps it."
+          "correction": "The checked state arrives as aria-checked. Docs strikes an item through when its box is ticked, on the item and on every run, and its export writes the line too: the line is how Docs shows the checked state, which the task item holds, so the item's text pastes without it where the editor has task lists. Kept, it outlived the state when the item was unchecked in the editor."
         },
         {
           "id": "GL64",
@@ -1826,7 +1817,7 @@
         "GL65"
       ],
       "expected": {
-        "preserve": "GL61 as a disc bullet item, since Google Docs writes the ❖ preset as disc; GL62 and GL63 as a task list, GL62 unchecked and GL63 checked with its text struck through, without the pictures Google Docs draws the boxes with; GL64 as decimal 1. and GL65 as decimal 1. at the second level, the legal 1.1. label not being in the copy.",
+        "preserve": "GL61 as a disc bullet item, since Google Docs writes the ❖ preset as disc; GL62 and GL63 as a task list, GL62 unchecked and GL63 checked, without the pictures Google Docs draws the boxes with and without the strikethrough it draws a checked item with, which the checked state stands for; GL64 as decimal 1. and GL65 as decimal 1. at the second level, the legal 1.1. label not being in the copy.",
         "adapt": "The same lists, task items and marks."
       },
       "outcome": {
@@ -2303,8 +2294,8 @@
   "editedRegressionProvenance": {
     "origin": "authored-English-regression-variant",
     "nativeCapturePerformed": false,
-    "originalSpecificationBlob": "a553b0e49bcfe4e874c80779974af0db5e836b0e",
-    "originalSpecificationSha256": "94db064aad050f94350595bb3077c43d7eec27858d39426d060aa7a8a7ad3cdd",
+    "originalSpecificationBlob": "f8d2ce34ed38e931b3815c686e93206b367894c6",
+    "originalSpecificationSha256": "555ac058a824506b3ef3a1d289598e6790b72f332f8ad820ae115d502aac0c95",
     "originalKind": "domternal-native-capture-content",
     "originalStatus": "captured-in-part",
     "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",

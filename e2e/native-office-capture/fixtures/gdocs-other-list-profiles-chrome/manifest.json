@@ -62,16 +62,7 @@
         "docsLabel": "☑",
         "docs": "Enter, then tick the box; Google Docs strikes the text through",
         "text": "GL63 Checked task",
-        "marks": [
-          {
-            "text": "GL63 Checked task",
-            "marks": [
-              "strike"
-            ],
-            "docs": "Docs strikes a checked item's text through"
-          }
-        ],
-        "correction": "The checked state arrives as aria-checked; the strikethrough is in the copy and in the export, so the checked task item's text keeps it.",
+        "correction": "The checked state arrives as aria-checked. Docs strikes an item through when its box is ticked, on the item and on every run, and its export writes the line too: the line is how Docs shows the checked state, which the task item holds, so the item's text pastes without it where the editor has task lists. Kept, it outlived the state when the item was unchecked in the editor.",
         "textStyle": {
           "fontFamily": "Arial",
           "fontSize": "11pt"
@@ -153,6 +144,6 @@
     "kind": "english-text-variant",
     "sourceSha256": "fcb049b8b7778cadf688e68df3ffafe5219c577b6e757f75e53da2ecc0e70d85",
     "captureSha256": "9cb35b56049812fc1ffe3602cfda9816e91741f4f31c0a2974a34b6cb1797405",
-    "manifestSha256": "026786ba5af9a67bc0d69e39a55f92429b6a03624b6be89e71eb97598a40ef7e"
+    "manifestSha256": "f9b43c00e76e5abb531bfa77c05c64e439a523d46d58c93bc7d0f45c847598e3"
   }
 }

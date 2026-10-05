@@ -252,12 +252,32 @@ describe('Google Docs checklists', () => {
     for (const formatting of ['preserve', 'adapt'] as const) {
       const result = normalizePasteHTML(html, { formatting });
       expect(warnings(result)).toEqual([]);
-      // The strikethrough Docs gives a checked item's text is in its export too, so it stays.
+      // The strikethrough Docs draws a checked item with is the checked state, which the task item holds: kept, it stayed when the item was unchecked.
       expect(outline(result.html)).toBe('<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>GL62 Unchecked task</p></li>'
-        + '<li data-type="taskItem" data-checked="true"><p><s>GL63 Checked task</s></p></li></ul>');
+        + '<li data-type="taskItem" data-checked="true"><p>GL63 Checked task</p></li></ul>');
     }
     // No picture is left for image preparation or a destination to receive.
     expect(normalizePasteHTML(html).html).not.toContain('<img');
+  });
+
+  it('keeps a strikethrough that is not how Docs draws a checked item: on part of its text, on an unchecked item, or where the destination has no task lists', () => {
+    const struck = (html: string): string[] => [...html.matchAll(/<s>([^<]*)<\/s>/gu)].map(match => match[1] ?? '');
+    // A checked item with one run struck and one not: Docs struck the whole text, so the author changed it, and the copy
+    // keeps what it draws, the item's line over both runs.
+    const partial = task(true, 'GL63 Checked').replace('</span></p></li>', `</span>${run(' task')}</p></li>`);
+    expect(struck(normalizePasteHTML(docs(checklist(partial))).html)).toEqual(['GL63 Checked', ' task']);
+    // An unchecked item the author struck through.
+    const unchecked = task(false, 'GL62 Strikethrough').replace(/text-decoration:none;/gu, 'text-decoration:line-through;');
+    expect(struck(normalizePasteHTML(docs(checklist(unchecked))).html)).toEqual(['GL62 Strikethrough']);
+    // An editor without task lists pastes bullets, which lose the checked state: the strikethrough is what is left of it.
+    const html = docs(checklist(task(false, 'GL62 Unchecked task'), task(true, 'GL63 Checked task')));
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      expect(struck(pasted(html, ['task-list'], { formatting }).html)).toEqual(['GL63 Checked task']);
+      expect(struck(pasted(html, [], { formatting }).html)).toEqual([]);
+    }
+    // An underline beside the strikethrough stays.
+    const underlined = task(true, 'GL63 Underlined').replace(/text-decoration:line-through;/gu, 'text-decoration:underline line-through;');
+    expect(outline(normalizePasteHTML(docs(checklist(underlined))).html)).toBe('<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p><u>GL63 Underlined</u></p></li></ul>');
   });
 
   it('reports a checklist that a destination without task lists can only paste as bullets, which lose the checked state', () => {
