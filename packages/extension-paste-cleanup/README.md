@@ -689,8 +689,12 @@ clipboard in Chrome, which reviewed native captures show:
   block whose every text stands under one such value now holds it, where a
   text needs it, and a run whose text reads alike without it, with no run of
   spaces, space at its edge, tab or line break, drops it; a span left without
-  attributes is unwrapped. Every space stays where it was, and no run carries
-  an empty text style. This holds for every source.
+  attributes is unwrapped. Runs outside any block, as Docs writes a selection
+  inside one paragraph, are read together as the paragraph the editor gathers
+  them into, so a space at the edge of a run between two words needs no white
+  space either. Every space stays where it was, and no run carries an empty
+  text style, except a run whose space starts or ends such a copy or meets
+  other white space, which needs it. This holds for every source.
 - The bold of normal weight Docs wraps a copy in has an id Docs makes for each
   copy, which names the source and nothing of the content. Once the copy is read
   the wrapper goes and its content stands in its place, so the cleaned HTML holds

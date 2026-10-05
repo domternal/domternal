@@ -78,6 +78,33 @@ describe('white space a source writes on every run', () => {
     expect(cleaned('<span style="white-space:pre-wrap">GB09 bold</span>')).toBe('GB09 bold');
   });
 
+  it('drops it from the runs Docs writes outside any block, as for a selection inside one paragraph, where their text reads alike without it', () => {
+    // Docs writes a selection inside one paragraph as its runs alone in the wrapper, as it writes an image copied alone:
+    // with no block to hold the white space, each run whose own text has a space at its edge kept it, an empty text style.
+    const runs = run('GB09 ') + run('bold', RUN.replace('font-weight:400', 'font-weight:700')) + run(' ') + run('italic', RUN.replace('font-style:normal', 'font-style:italic'))
+      + run(' ') + run('all three');
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      const result = normalizePasteHTML(docs(runs), { formatting });
+      expect(result.diagnostics.filter(diagnostic => diagnostic.severity !== 'info')).toEqual([]);
+      expect(result.html).not.toContain('white-space');
+      // The editor's paste gathers the runs into one paragraph.
+      const { texts, emptyStyles } = read(parsed(`<p>${result.html}</p>`));
+      expect(texts).toEqual(['GB09 bold italic all three']);
+      expect(emptyStyles).toBe(0);
+    }
+    expect(normalizePasteHTML(docs(runs), { formatting: 'adapt' }).html).toBe('GB09 <strong>bold</strong> <em>italic</em> all three');
+    // A run of spaces, or a space at the edge of the copy, reads otherwise without it, so the run that holds it keeps it.
+    const kept = (html: string): string[] => spanStyles(normalizePasteHTML(docs(html), { formatting: 'adapt' }).html);
+    expect(kept(run('GB09 ') + run(' two'))).toEqual(['white-space:pre-wrap', 'white-space:pre-wrap']);
+    expect(kept(run('GB09 ') + run('end '))).toEqual(['white-space:pre-wrap']);
+    // A space beside an image, which a destination can place as a block that ends the paragraph, keeps it too.
+    expect(kept(run('GB09 ') + run('<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC" alt="">')
+      + run('end'))).toEqual(['white-space:pre-wrap']);
+    // Runs at the top of the copy after a block, which the editor gathers into a paragraph of their own, the same way.
+    expect(normalizePasteHTML(docs(block('h2', run('GB08 Heading')) + run('GB09 ') + run('bold')), { formatting: 'adapt' }).html)
+      .toBe('<h2 dir="ltr">GB08 Heading</h2>GB09 bold');
+  });
+
   it('leaves a block whose texts stand under different values, and keeps a span that holds another attribute', () => {
     const cleaned = (html: string): string => normalizePasteHTML(html, { formatting: 'adapt' }).html;
     const mixed = '<p><span style="white-space:pre-wrap">a  b</span><span style="white-space:pre">c  d</span></p>';

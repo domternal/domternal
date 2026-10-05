@@ -233,6 +233,27 @@ for (const framework of FRAMEWORKS) {
       });
     }
 
+    test('a selection inside one Google Docs paragraph, its runs outside any block, pastes into a paragraph without an empty text style, every space kept', async ({ page }) => {
+      // Docs writes such a selection as its runs alone in the wrapper; adapt left each run with a space at its edge an empty text style.
+      const run = (text: string, weight = 400): string => `<span style="${GOOGLE_RUN.replace('font-weight:400', `font-weight:${String(weight)}`)}">${text}</span>`;
+      const html = '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-534ccdc5-7fff-60e7-0535-d5029c756a08">'
+        + `${run('GB09 ')}${run('bold', 700)}${run(' ')}${run('and bold', 700)}</b>`;
+      await open(page, framework, { formatting: 'adapt' });
+      const before = 'Before ';
+      await seed(page, `<p>${before}, and after</p>`);
+      await page.evaluate(position => { (window as unknown as ProbeWindow).__pasteCleanup.select(position, position); }, before.length + 1);
+      const observed = await paste(page, html);
+      expect(observed.results[0]?.diagnostics.filter(diagnostic => diagnostic.severity !== 'info')).toEqual([]);
+      expect(await page.evaluate(() => {
+        const doc = (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc;
+        let empty = 0;
+        doc.descendants(node => {
+          if (node.marks.some(mark => mark.type.name === 'textStyle' && Object.values(mark.attrs).every(value => value === null))) empty++;
+        });
+        return { texts: doc.children.map(node => node.textContent), empty };
+      })).toEqual({ texts: ['Before GB09 bold and bold, and after'], empty: 0 });
+    });
+
     test('keeps links whose scheme the editor stores and reports each other one as link-removed (H2, H3, H9)', async ({ page }) => {
       // The probe parses constant anchors in a detached container: no request may leave the page.
       const requests: string[] = [];

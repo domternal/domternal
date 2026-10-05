@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Bold, Document, Editor, FontFamily, FontSize, Heading, Paragraph, Text, TextColor, TextStyle } from '@domternal/core';
 import type { JSONContent } from '@domternal/core';
+import { TextSelection } from '@domternal/pm/state';
 import { PasteCleanup } from './index.js';
 import type { PasteCleanupOptions } from './index.js';
 
@@ -55,6 +56,22 @@ describe('white space a source writes on every run, in the editor', () => {
     expect(textStyles(doc).filter(attrs => Object.values(attrs).every(value => value === null || value === undefined))).toEqual([]);
     expect(doc.content?.map(block => (block.content ?? []).map(child => child.text ?? '').join(''))).toEqual(['GB08 Heading', 'GB09 bold  two spaces']);
     // Preserve keeps the typography of every run.
+    expect(textStyles(doc).length).toBe(formatting === 'preserve' ? 4 : 0);
+  });
+
+  it.each(['preserve', 'adapt'] as const)('pastes a selection inside one Google Docs paragraph, its runs outside any block, without an empty text style, in %s mode', formatting => {
+    // Docs writes a selection inside one paragraph as its runs alone in the wrapper, as it writes an image copied alone.
+    const runs = '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-534ccdc5-7fff-60e7-0535-d5029c756a08">'
+      + `<span style="${RUN}">GB09 </span><span style="${RUN.replace('font-weight:400', 'font-weight:700')}">bold</span><span style="${RUN}"> </span>`
+      + `<span style="${RUN.replace('font-weight:400', 'font-weight:700')}">also bold</span></b>`;
+    const editor = mount({ formatting });
+    editor.commands.setContent('<p>Before , and after</p>');
+    // Into the middle of a paragraph, after "Before ", as an inline paste lands.
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1 + 'Before '.length)));
+    paste(editor, runs);
+    const doc = editor.getJSON();
+    expect(textStyles(doc).filter(attrs => Object.values(attrs).every(value => value === null || value === undefined))).toEqual([]);
+    expect(doc.content?.map(block => (block.content ?? []).map(child => child.text ?? '').join(''))).toEqual(['Before GB09 bold also bold, and after']);
     expect(textStyles(doc).length).toBe(formatting === 'preserve' ? 4 : 0);
   });
 });

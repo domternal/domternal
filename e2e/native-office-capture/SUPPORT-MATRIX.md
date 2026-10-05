@@ -358,7 +358,10 @@ What the captures show and the fixtures pin:
   holds as document defaults, not run formatting. Every run also writes
   `white-space: pre-wrap`, which left an empty text style on each pasted run;
   the block holds it now where a text needs it, so no run carries one and every
-  space stays, which the fixtures pin. Black is Docs' default text
+  space stays, which the fixtures pin. Runs outside any block, as Docs is
+  expected to write a selection inside one paragraph, as it writes an image
+  copied alone, are read together as the paragraph the editor gathers them
+  into; no capture holds such a text selection, so unit and editor tests pin it. Black is Docs' default text
   color, so no run keeps it and pasted text follows the theme, at 4.5:1 in both
   themes. Docs' heading styles keep their sizes and Heading 3 its `#434343`,
   which reads below 3:1 on the dark theme and is annotated, like Word's heading
