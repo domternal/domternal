@@ -165,6 +165,8 @@ describe('heading levels in clipboard normalization with a destination', () => {
     ['at the start of a list item', '<ul><li><h6>Item</h6><p>b</p></li></ul>'],
     ['at the start of a list item after white space and empty wrappers', '<ul><li> <span></span><div><h5>Item</h5></div></li></ul>'],
     ['at the start of a task item after its checkbox', '<ul><li><label><input type="checkbox"></label><div><h6>Task</h6></div></li></ul>'],
+    // Cleanup pastes such a span as a space, as Chromium's paste does, which the editor drops.
+    ['at the start of a list item after a bare span of one no-break space', '<ul><li><span>\u00a0</span><h6>Item</h6></li></ul>'],
     ['in a summary', '<details><summary><h5>Summary</h5></summary><p>body</p></details>'],
     ['in a summary after its text', '<details><summary>Lead <h6>Summary</h6></summary></details>'],
     ['in a preformatted block', '<pre><h6>code</h6></pre>'],
@@ -197,10 +199,20 @@ describe('heading levels in clipboard normalization with a destination', () => {
     ['after an empty paragraph of its list item, as getHTML writes an empty label', '<ul><li><p></p><h6>Item</h6></li></ul>'],
     ['after a paragraph inside a wrapper of its list item', '<ul><li><div><p></p></div><h6>Item</h6></li></ul>'],
     ['after an empty paragraph of a task item', '<ul><li><label><input type="checkbox"></label><div><p></p><h6>Task</h6></div></li></ul>'],
+    ['after a line break of its list item', '<ul><li><br><h6>Item</h6></li></ul>'],
+    ['after a no-break space of its list item', '<ul><li>\u00a0<h6>Item</h6></li></ul>'],
+    ['after a horizontal rule of its list item', '<ul><li><hr><h6>Item</h6></li></ul>'],
   ])('maps a heading %s, where Core keeps it', (_name, html) => {
     const { result } = normalizeClipboardHTML(html, {}, undefined, undefined, stub(levelsFrom(5)));
     expect(result.html).toContain('<h4>');
     expect(result.diagnostics.filter(item => item.code === 'destination-heading-level-adapted')).toHaveLength(1);
+    expect(headingOutline(result)).toEqual([true]);
+  });
+
+  it('maps a heading after an image of its list item, as a pasted feature list writes an icon, where Core keeps it', () => {
+    const html = '<ul><li><img src="https://example.test/icon.png"><h6>Fast</h6><p>Desc</p></li></ul>';
+    const { result } = normalizeClipboardHTML(html, { allowRemoteImages: true }, undefined, undefined, stub(levelsFrom(5)));
+    expect(result.html).toBe('<ul><li><img src="https://example.test/icon.png"><h4>Fast</h4><p>Desc</p></li></ul>');
     expect(headingOutline(result)).toEqual([true]);
   });
 

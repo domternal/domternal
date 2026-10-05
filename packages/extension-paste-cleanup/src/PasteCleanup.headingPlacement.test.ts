@@ -6,7 +6,7 @@
  * a heading when it does not; after an explicit item paragraph, even an empty one, it stays one.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { BulletList, CodeBlock, Document, Editor, Heading, History, ListItem, Paragraph, Text } from '@domternal/core';
+import { BulletList, CodeBlock, Document, Editor, HardBreak, Heading, History, ListItem, Paragraph, Text } from '@domternal/core';
 import type { AnyExtension } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { PasteCleanup } from './index.js';
@@ -54,6 +54,13 @@ describe('heading renames that follow where the editor keeps a heading', () => {
     const { editor, completed } = mount([BulletList, ListItem]);
     await paste(editor, '<ul><li><p></p><h6>Item</h6></li></ul>');
     expect(editor.getHTML()).toBe('<ul><li><p></p><h4>Item</h4></li></ul>');
+    expect(codes(completed)).toContain(ADAPTED);
+  });
+
+  it('renames and reports a heading after a line break of its item, which gives the item its paragraph', async () => {
+    const { editor, completed } = mount([BulletList, ListItem, HardBreak]);
+    await paste(editor, '<ul><li><br><h6>Item</h6></li></ul>');
+    expect(editor.getHTML()).toBe('<ul><li><p><br></p><h4>Item</h4></li></ul>');
     expect(codes(completed)).toContain(ADAPTED);
   });
 

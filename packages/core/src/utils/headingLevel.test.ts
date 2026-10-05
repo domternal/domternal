@@ -183,6 +183,14 @@ describe('headingCannotStand', () => {
     '<ul><li><table><tr><td><h5 id="h">a</h5></td></tr></table></li></ul>',
     '<ul><li><blockquote><h5 id="h">a</h5></blockquote></li></ul>',
     '<ul><li><p>Label</p><details><summary>S</summary><div><h5 id="h">a</h5></div></details></li></ul>',
+    // ProseMirror keeps a no-break space as text, and a line break, an image or a block opens the item.
+    '<ul><li>&nbsp;<h5 id="h">a</h5></li></ul>',
+    '<ul><li><span>\u00a0</span><h5 id="h">a</h5></li></ul>',
+    '<ul><li>\ufeff<h5 id="h">a</h5></li></ul>',
+    '<ul><li><br><h5 id="h">a</h5></li></ul>',
+    '<ul><li><span><img src="x.png"></span><h5 id="h">a</h5></li></ul>',
+    '<ul><li><hr><h5 id="h">a</h5></li></ul>',
+    '<ul><li><ul></ul><h5 id="h">a</h5></li></ul>',
   ])('lets a heading stand in %s', html => {
     expect(headingCannotStand(heading(html))).toBe(false);
   });

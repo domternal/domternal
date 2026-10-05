@@ -70,18 +70,13 @@ export function unconfiguredTagPriority(level: number, levels: readonly number[]
 // Elements whose text ProseMirror's parser never reads.
 const UNREAD = new Set(['HEAD', 'NOSCRIPT', 'OBJECT', 'SCRIPT', 'STYLE', 'TEMPLATE', 'TITLE']);
 
-/**
- * Whether a node before the heading gives its list item the paragraph it must
- * start with: text the parser reads into the item, or a paragraph element,
- * even an empty one, such as the `<p></p>` getHTML writes for an empty label.
- */
-function givesLabel(node: ChildNode): boolean {
-  if (node.nodeType === 3) return /\S/.test(node.nodeValue ?? '');
-  if (node.nodeType !== 1) return false;
-  const element = node as Element;
-  if (UNREAD.has(element.tagName.toUpperCase())) return false;
-  return /\S/.test(element.textContent) || element.tagName.toUpperCase() === 'P' || element.querySelector('p') !== null;
-}
+// Text ProseMirror's parser reads between blocks: anything but the white space it collapses, so a
+// no-break space counts.
+const READ_TEXT = /[^ \t\r\n\f]/;
+
+// Without a schema, the elements a Domternal schema parses as nodes count by name. PasteCleanup's
+// copy of this rule counts the same ones in a cleaned fragment.
+const NODE_ELEMENTS = new Set(['BLOCKQUOTE', 'BR', 'DETAILS', 'HR', 'IMG', 'OL', 'P', 'PRE', 'TABLE', 'UL']);
 
 /** The schema a heading is parsed into, and its heading node type. */
 export interface HeadingParseContext {
@@ -90,27 +85,71 @@ export interface HeadingParseContext {
 }
 
 /**
- * The node type a schema's parse rules give an element, as its parser matches
- * rules in priority order, apart from rule contexts; null when no node rule
- * matches, so the element's content joins the enclosing node.
+ * The tag rule a schema's parser applies to an element: the first that matches in priority
+ * order, apart from rule contexts.
  */
-function parsedNodeType(schema: Schema, element: Element): NodeType | null {
+function matchedRule(schema: Schema, element: Element): TagParseRule | undefined {
   for (const rule of DOMParser.fromSchema(schema).rules) {
     if (!('tag' in rule)) continue;
-    const { tag, node, getAttrs, skip, closeParent, ignore } = rule as TagParseRule;
+    const { tag, getAttrs } = rule as TagParseRule;
     let matches: boolean;
     try {
       matches = element.matches(tag);
     } catch {
       continue;
     }
-    if (!matches || (getAttrs !== undefined && getAttrs(element as HTMLElement) === false)) continue;
-    // A rule that skips, closes the parent or ignores the element makes no node of it.
-    if (node === undefined || ignore === true || closeParent === true || skip === true) return null;
-    return schema.nodes[node] ?? null;
+    if (matches && (getAttrs === undefined || getAttrs(element as HTMLElement) !== false)) return rule as TagParseRule;
   }
-  return null;
+  return undefined;
 }
+
+/**
+ * The node type a schema's parse rules give an element; null when no node rule matches, so the
+ * element's content joins the enclosing node.
+ */
+function parsedNodeType(schema: Schema, element: Element): NodeType | null {
+  const rule = matchedRule(schema, element);
+  if (rule === undefined) return null;
+  const { node, skip, closeParent, ignore } = rule;
+  // A rule that skips, closes the parent or ignores the element makes no node of it.
+  if (node === undefined || ignore === true || closeParent === true || skip === true) return null;
+  return schema.nodes[node] ?? null;
+}
+
+/**
+ * Whether a node before a heading puts content into its list item, so the heading no longer
+ * starts the item: text the parser reads, a no-break space too, or an element a parse rule makes
+ * a node of, such as a line break, an image, a horizontal rule or a paragraph, even the empty
+ * `<p></p>` getHTML writes for an empty label. Inline content opens the item's paragraph, and a
+ * block moves the heading after it. Any other element, such as a wrapper or a mark, counts by
+ * what it holds. Without the parse context, the elements alone decide.
+ */
+function holdsContent(node: ChildNode, context: HeadingParseContext | undefined): boolean {
+  if (node.nodeType === 3) return READ_TEXT.test(node.nodeValue ?? '');
+  if (node.nodeType !== 1) return false;
+  const element = node as Element;
+  const name = element.tagName.toUpperCase();
+  const rule = context === undefined ? undefined : matchedRule(context.schema, element);
+  if (rule === undefined) {
+    if (UNREAD.has(name)) return false;
+    if (context === undefined && NODE_ELEMENTS.has(name)) return true;
+  } else if (rule.ignore === true) {
+    // The parser still opens a paragraph for a line break a rule ignores.
+    return name === 'BR';
+  } else if (rule.skip !== true && (rule.node !== undefined || rule.closeParent === true)) {
+    return true;
+  }
+  for (let child = element.firstChild; child !== null; child = child.nextSibling) {
+    if (holdsContent(child, context)) return true;
+  }
+  return false;
+}
+
+/**
+ * The list item whose content before a heading is being read. Reading it matches the rules of
+ * each heading element before that heading, which asks this rule again; see headingCannotStand.
+ */
+let reading: Element | undefined;
 
 /** Whether the node an element parses as can start with a heading; true when no node parses it. */
 function startsWithHeading(context: HeadingParseContext, element: Element): boolean {
@@ -122,9 +161,9 @@ function startsWithHeading(context: HeadingParseContext, element: Element): bool
 /**
  * Whether a heading element sits where a heading cannot stand: in a summary or
  * a preformatted block, whose content is inline, or at the start of its list
- * item, whose first block must be a paragraph, with no text and no paragraph
- * element before it. ProseMirror would move a heading out of each, splitting
- * the list or emptying the summary, so every heading tag there parses as that
+ * item, whose first block must be a paragraph, with nothing before it that the
+ * item would hold. ProseMirror would move a heading out of each, splitting the
+ * list or emptying the summary, so every heading tag there parses as that
  * block's text, as 1.2 parsed the tags the levels lacked.
  *
  * With the parse context, only the nodes the schema holds count: without a
@@ -140,10 +179,21 @@ export function headingCannotStand(element: HTMLElement, context?: HeadingParseC
   const item = element.parentElement?.closest('li, td, th, blockquote, details');
   if (item?.tagName.toUpperCase() !== 'LI') return false;
   if (context !== undefined && startsWithHeading(context, item)) return false;
-  for (let node: ChildNode | null = element; node !== null && node !== item; node = node.parentNode as ChildNode | null) {
-    for (let before = node.previousSibling; before !== null; before = before.previousSibling) {
-      if (givesLabel(before)) return false;
+  // An earlier heading of the item being read counts by what it holds, so it is
+  // answered as text. Had it stood, content before it would have let it, and the
+  // reading finds that content too. So the reading never nests within one item,
+  // however many headings it holds.
+  if (item === reading) return true;
+  const outer = reading;
+  reading = item;
+  try {
+    for (let node: ChildNode | null = element; node !== null && node !== item; node = node.parentNode as ChildNode | null) {
+      for (let before = node.previousSibling; before !== null; before = before.previousSibling) {
+        if (holdsContent(before, context)) return false;
+      }
     }
+  } finally {
+    reading = outer;
   }
   return true;
 }

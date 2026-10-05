@@ -18,6 +18,8 @@ import { TaskList } from './TaskList.js';
 import { TaskItem } from './TaskItem.js';
 import { CodeBlock } from './CodeBlock.js';
 import { Blockquote } from './Blockquote.js';
+import { HardBreak } from './HardBreak.js';
+import { HorizontalRule } from './HorizontalRule.js';
 import { Bold } from '../marks/Bold.js';
 import { Italic } from '../marks/Italic.js';
 import { createDocument } from '../helpers/createDocument.js';
@@ -356,6 +358,74 @@ describe('a heading after an explicit item paragraph, as getHTML writes an empty
   it('still parses a heading as the label when only an empty element other than a paragraph comes before it', () => {
     const { editor } = mount('<ul><li><div></div><span> </span><h2>A</h2></li></ul>', undefined, STRUCTURES);
     expect(editor.getHTML()).toBe('<ul><li><p>A</p></li></ul>');
+  });
+});
+
+// An inline image and a block image, as extension-image configures its node; a chip with no text of its own.
+const InlineImage = Node.create({
+  name: 'image', group: 'inline', inline: true, atom: true,
+  addAttributes: () => ({ src: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute('src') } }),
+  parseHTML: () => [{ tag: 'img[src]' }], renderHTML: ({ HTMLAttributes }) => ['img', HTMLAttributes],
+});
+const BlockImage = InlineImage.extend({ group: 'block', inline: false });
+const Chip = Node.create({
+  name: 'chip', group: 'inline', inline: true, atom: true,
+  parseHTML: () => [{ tag: 'span[data-chip]' }], renderHTML: () => ['span', { 'data-chip': '' }],
+});
+
+describe('a heading after content other than a paragraph at a list item start', () => {
+  const INLINE = [...STRUCTURES, HardBreak, InlineImage, Chip];
+
+  it.each([
+    ['after a line break', '<ul><li><br><h1>A</h1></li></ul>', '<ul><li><p><br></p><h1>A</h1></li></ul>'],
+    ['after a line break in a numbered item', '<ol><li><br><h2>A</h2></li><li><p>B</p></li></ol>', '<ol><li><p><br></p><h2>A</h2></li><li><p>B</p></li></ol>'],
+    ['after a no-break space', '<ul><li>&nbsp;<h1>A</h1></li></ul>', '<ul><li><p>\u00a0</p><h1>A</h1></li></ul>'],
+    ['after a no-break space in a wrapper, before more blocks', '<ul><li><span>&nbsp;</span><h2>A</h2><p>b</p></li></ul>', '<ul><li><p>\u00a0</p><h2>A</h2><p>b</p></li></ul>'],
+    ['after an inline image, as a pasted feature list writes an icon', '<ul><li><img src="x.png"><h3>Fast</h3><p>Desc</p></li><li><img src="y.png"><h3>Safe</h3><p>Desc</p></li></ul>',
+      '<ul><li><p><img src="x.png"></p><h3>Fast</h3><p>Desc</p></li><li><p><img src="y.png"></p><h3>Safe</h3><p>Desc</p></li></ul>'],
+    ['after an inline node with no text of its own', '<ul><li><span data-chip="1"></span><h2>A</h2></li></ul>', '<ul><li><p><span data-chip=""></span></p><h2>A</h2></li></ul>'],
+    ['after a line break in a task item', '<ul data-type="taskList"><li data-type="taskItem"><label><input type="checkbox"></label><div><br><h2>T</h2></div></li></ul>',
+      '<ul data-type="taskList"><li data-checked="false" data-type="taskItem"><label contenteditable="false"><input type="checkbox" aria-label="Task status"></label><div><p><br></p><h2>T</h2></div></li></ul>'],
+  ])('stays a heading %s, which gives the item its paragraph, on load, setContent, SSR and paste', (_name, html, expected) => {
+    const { editor } = mount(html, undefined, INLINE);
+    expect(editor.getHTML().replace(/&nbsp;/g, '\u00a0')).toBe(expected);
+    const json = editor.getJSON();
+
+    editor.commands.setContent(html);
+    expect(editor.getJSON()).toEqual(json);
+    expect(createDocument(html, editor.schema).toJSON()).toEqual(json);
+    expect(generateJSON(html, extensionsFor(undefined, INLINE))).toEqual(json);
+
+    const pasted = mount('<p></p>', undefined, INLINE);
+    paste(pasted.editor, html);
+    expect(JSON.stringify(pasted.editor.getJSON())).toContain('"heading"');
+  });
+
+  it.each([
+    ['a horizontal rule', '<ul><li><hr><h1>A</h1></li></ul>', '<ul><li><p></p></li></ul><hr><h1>A</h1>'],
+    ['a horizontal rule in a numbered item', '<ol><li><hr><h2>A</h2></li></ol>', '<ol><li><p></p></li></ol><hr><h2>A</h2>'],
+    ['a block image', '<ul><li><img src="x.png"><h3>Fast</h3></li></ul>', '<ul><li><p></p></li></ul><img src="x.png"><h3>Fast</h3>'],
+  ])('stays a heading after %s, which moves it off the item start, on every path as in 1.2', (_name, html, expected) => {
+    const extensions = [...STRUCTURES, HorizontalRule, BlockImage];
+    const { editor } = mount(html, undefined, extensions);
+    expect(editor.getHTML()).toBe(expected);
+    editor.commands.setContent(html);
+    expect(editor.getHTML()).toBe(expected);
+    expect(generateJSON(html, extensionsFor(undefined, extensions))).toEqual(editor.getJSON());
+
+    // A paste opens the item with an empty label and keeps the block and the heading in it.
+    const pasted = mount('<p></p>', undefined, extensions);
+    paste(pasted.editor, html);
+    expect(JSON.stringify(pasted.editor.getJSON())).toContain('"heading"');
+  });
+
+  it('keeps every heading after the first in an item of many headings, without deep recursion', () => {
+    const html = `<ul><li>${'<h2>x</h2>'.repeat(5000)}</li></ul>`;
+    const json = generateJSON(html, extensionsFor(undefined, STRUCTURES));
+    const item = json.content?.[0]?.content?.[0]?.content ?? [];
+    expect(item).toHaveLength(5000);
+    expect(item[0]?.type).toBe('paragraph');
+    expect(item.filter(node => node.type === 'heading')).toHaveLength(4999);
   });
 });
 

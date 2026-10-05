@@ -58,21 +58,25 @@ export function recordHeadingOutline(result: object, outline: readonly boolean[]
 // Elements whose text a browser's parser never reads into the document.
 const UNREAD = new Set(['head', 'noscript', 'object', 'script', 'style', 'template', 'title']);
 
+// Text the editor reads between blocks: anything but the white space it collapses, so a no-break space counts.
+const READ_TEXT = /[^ \t\r\n\f]/;
+
+// The elements of a cleaned fragment the editor parses as nodes, as Core counts them without a schema.
+const NODE_ELEMENTS = new Set(['blockquote', 'br', 'details', 'hr', 'img', 'ol', 'p', 'pre', 'table', 'ul']);
+
 /**
- * Whether a node before a heading gives its list item the paragraph it must start with, as Core
- * judges it: text the editor reads, or a paragraph element, even an empty one.
+ * Whether a node before a heading puts content into its list item, as Core judges it, so the
+ * heading no longer starts the item: text the editor reads, a no-break space too, or an element it
+ * parses as a node, such as a line break, an image, a horizontal rule or a paragraph, even an
+ * empty one. Any other element counts by what it holds.
  */
-function givesLabel(node: Nodes): boolean {
-  if (node.type === 'text') return /\S/.test(node.value);
-  if (node.type !== 'element' || UNREAD.has(node.tagName)) return false;
-  if (node.tagName === 'p') return true;
-  const pending: Nodes[] = [...node.children];
-  for (let child = pending.pop(); child !== undefined; child = pending.pop()) {
-    if (child.type === 'text' && /\S/.test(child.value)) return true;
-    if (child.type === 'element' && !UNREAD.has(child.tagName)) {
-      if (child.tagName === 'p') return true;
-      pending.push(...child.children);
-    }
+function holdsContent(node: Nodes): boolean {
+  const pending: Nodes[] = [node];
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    if (next.type === 'text' && READ_TEXT.test(next.value)) return true;
+    if (next.type !== 'element' || UNREAD.has(next.tagName)) continue;
+    if (NODE_ELEMENTS.has(next.tagName)) return true;
+    pending.push(...next.children);
   }
   return false;
 }
@@ -94,7 +98,7 @@ const KEEPS_NONE: HeadingPlacement = Object.freeze({ listItemStart: false, summa
 /**
  * Whether a heading sits where Core's Heading cannot place one, and parses it as that block's
  * text instead: inside a summary or a preformatted block, or at the start of its list item with
- * no text and no paragraph element before it. The same rule as Core's `headingCannotStand`, over
+ * nothing before it that the item would hold. The same rule as Core's `headingCannotStand`, over
  * the cleaned tree, since this bundle must not import Core. `parents` maps each node of the walk
  * to its parent.
  */
@@ -111,7 +115,7 @@ function headingCannotStand(heading: Element, parents: ReadonlyMap<Nodes, Elemen
     const parent = parents.get(node);
     if (parent === undefined) return false;
     for (const sibling of parent.children.slice(0, parent.children.indexOf(node as never))) {
-      if (givesLabel(sibling)) return false;
+      if (holdsContent(sibling)) return false;
     }
     node = parent;
   }
