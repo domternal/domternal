@@ -363,7 +363,7 @@ describe('Google Docs copy envelope', () => {
     expect(normalizePasteHTML(`<br class="Apple-interchange-newline">${docs(paragraph('GB04 A'))}`).html.startsWith('<br>')).toBe(true);
   });
 
-  it('leaves out the break that ends another source\'s copy in Chrome and Safari too, which the editor\'s parse ignores', () => {
+  it('leaves out the break that ends another source\'s copy too, which the editor\'s parse ignores', () => {
     expect(normalizePasteHTML('<p>Web</p><br class="Apple-interchange-newline">').html).toBe('<p>Web</p>');
     expect(normalizePasteHTML('<p>Web</p><br class="Apple-interchange-newline">\n').html).toBe('<p>Web</p>\n');
     expect(normalizePasteHTML('<p>Web</p><br>').html).toBe('<p>Web</p><br>');

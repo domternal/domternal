@@ -90,7 +90,7 @@ release advertises: the macOS rows below; every other source is unqualified.
 | Word desktop | Microsoft Word 16.113.3 (16.113.26092714) for Mac to Safari 26.5.2 (21624.2.5.11.8), macOS 26.5.2 (25F84) | Nineteen: `fixtures/word-*-safari`, every `word-*` [scenario](./content/word-mac-v1.json) except `word-large-document`, `word-headings-styles` as its three selections; the ten list and table fixtures from the 2026-10-04 recapture | **Qualified** for the text, heading, inline formatting, alignment, spacing, indentation, hidden text, empty paragraph, list and table scenarios, with the limits below. The large document and `domternal-own-copy` are not captured. |
 | Word desktop | Microsoft Word 16.113.3 (16.113.26092714) for Mac to Google Chrome 154.0.8037.93, macOS 26.5.2 (25F84) | Nineteen: `fixtures/word-*-chrome`, the same scenarios | **Qualified** for the same scenarios, with the limits below. The large document and `domternal-own-copy` are not captured. |
 | Word desktop | Microsoft Word 16.113.3 (16.113.26092714) for Mac to Mozilla Firefox 155.0.1 (BuildID 20260903215306), macOS 26.5.2 (25F84) | Nineteen: `fixtures/word-*-firefox`, the same scenarios | **Qualified** for the same scenarios, with the limits below. The large document and `domternal-own-copy` are not captured. |
-| Google Docs | Google Docs web (2026-10-05, personal account, Pages format) to Google Chrome 153.0.8010.47 (Official Build) (arm64), macOS 26.5.2 (25F84) | Twenty-eight: `fixtures/gdocs-*-chrome`, every `gdocs-*` [scenario](./content/google-docs-v1.json) of the basics, lists, tables and images documents except `gdocs-image-limit-50` and `gdocs-image-limit-51` | **Qualified** for the text, heading, inline formatting, link, alignment, spacing, indentation, empty paragraph, list, checklist, table and image scenarios, with the limits below. |
+| Google Docs | Google Docs web (2026-10-05, personal account, Pages format) to Google Chrome 153.0.8010.47 (Official Build) (arm64) as the operator recorded it, macOS 26.5.2 (25F84) | Twenty-eight: `fixtures/gdocs-*-chrome`, every `gdocs-*` [scenario](./content/google-docs-v1.json) of the basics, lists, tables and images documents except `gdocs-image-limit-50` and `gdocs-image-limit-51` | **Qualified** for the text, heading, inline formatting, link, alignment, spacing, indentation, empty paragraph, list, checklist, table and image scenarios, with the limits below. |
 | Google Docs | Google Docs web on macOS to Safari and Firefox; the large image, slow copy, 50 and 51 image, mixed and large document scenarios in every browser | None | Pending, a later release: the [content specification](./content/google-docs-v1.json), generated images and the [runbook](./GOOGLE-DOCS-RUNBOOK.md) are prepared. |
 | Word desktop | Windows to Chrome, Edge and Firefox | None | Unqualified; not inferred from the macOS rows. |
 | Word web | Each source browser to each destination | None | Unqualified; separate from desktop Word. |
@@ -361,18 +361,27 @@ What the captures show and the fixtures pin:
   space stays, which the fixtures pin. Runs outside any block, as Docs is
   expected to write a selection inside one paragraph, as it writes an image
   copied alone, are read together as the paragraph the editor gathers them
-  into; no capture holds such a text selection, so unit and editor tests pin it. Black is Docs' default text
-  color, so no run keeps it and pasted text follows the theme, at 4.5:1 in both
-  themes. Docs' heading styles keep their sizes and Heading 3 its `#434343`,
-  which reads below 3:1 on the dark theme and is annotated, like Word's heading
-  colors. Docs writes 14 pt as `13.999999999999998pt`, read as 14 pt.
+  into; no capture holds such a text selection, so unit and editor tests pin
+  it. Black is Docs' default text color, so no run keeps it and pasted text
+  follows the theme, at 4.5:1 in both themes. Docs' heading styles keep their
+  sizes and Heading 3 its `#434343`, which reads below 3:1 on the dark theme and
+  is annotated, like Word's heading colors. Docs writes 14 pt as
+  `13.999999999999998pt`, read as 14 pt.
 - Docs writes a block's line spacing as a CSS line height of 1.2 times it: its
   default 1.15 is 1.38 on every paragraph, heading and list item, single, a
   table cell's default, is 1.2, and GB19's 1.5 is `1.7999999999999998`. Cleanup
-  reads the spacing back and drops the defaults as the document's own, as its
-  export's document defaults and table style say, so the routine scenarios paste
-  without a notice in both schemas (D9 holds) and GB19 stores 1.5, which
-  LineHeight draws; the editor's default schema, without LineHeight, reports it.
+  reads the spacing back and drops the defaults as the document's own, so the
+  routine scenarios paste without a notice in both schemas (D9 holds) and GB19
+  stores 1.5, which LineHeight draws; the editor's default schema, without
+  LineHeight, reports it. The export holds 1.15 as its document default (a line
+  of 276) but single on each cell paragraph (240), as GB19 holds its 1.5, not in
+  a table style: Docs gives every cell paragraph it makes single spacing, so
+  dropping it follows the D9 default for spacing the source sets by itself, a
+  policy, not what the export says; a single spacing an author sets in a cell
+  cannot be told from it. A spacing outside the values LineHeight draws, by
+  default 1, 1.15, 1.25, 1.5 and 2, such as Docs' 1.3 or the 1.08 of a document
+  converted from Word, is stored but neither drawn nor reported (deferred,
+  F-26).
 - Docs writes each empty paragraph as a `br` between blocks: two for two empty
   paragraphs, one before each table, one between two lists and one for the last
   paragraph after a final table. Each pastes as the empty paragraph it stands
@@ -385,10 +394,12 @@ What the captures show and the fixtures pin:
   `1.1.` label are not in the copy. Twenty-eight upper-alpha items stay one
   list, which the editor labels `AA.` and `AB.` after `Z.`, as CSS does.
 - A selection that starts below a list's first level is written with each
-  item's `aria-level` and a 36 pt margin for each level above the copy. It
-  pastes at the levels Docs shows, under one empty item per level above, as a
-  Word selection that starts in a nested item does, without an indentation
-  report.
+  item's `aria-level` and a 36 pt margin for each level above the copy. Its
+  items paste at the depths Docs shows them, without an indentation report,
+  each level above opening with one empty item of the list's kind, which Docs
+  does not show, as a Word selection that starts in a nested item opens the
+  levels above it; the checker holds the paste to exactly one such item per
+  level.
 - A checklist is written as ARIA checkbox items with their checked state, each
   beside a picture of its box. It pastes as a task list, checked as Docs shows
   it, without the pictures. Docs strikes an item through when its box is
@@ -399,7 +410,11 @@ What the captures show and the fixtures pin:
   the only sign of the state, and reports `destination-formatting-unconfirmed`,
   which the fixture pins; before, the checked state was lost without a finding.
 - Docs draws a script as a span of 0.6em aligned to sub or super: that size is
-  the script's own, so the run keeps its 11 pt under the script mark.
+  the script's own, so the run keeps its 11 pt under the script mark, which
+  draws it smaller, as a Word script pastes. This reverses the analysis, which
+  kept 6.6 pt: the editor now draws the script at about 12 px where Docs draws
+  8.8 px (6.6 pt drew 7.3 px), and a destination without Subscript or
+  Superscript no longer gets a baseline digit at 6.6 pt.
 - Links carry Docs' link blue `#1155cc` and an underline as the runs' own
   formatting, which the export holds too, so `preserve` keeps both and `adapt`
   the underline; the blue reads 2.54:1 on the dark theme and is annotated.
@@ -439,14 +454,21 @@ Limits of this row:
   the 50 and 51 image limit, the mixed and large documents, and Safari and
   Firefox.
 
+The browser version is the operator's record: the capture page records no user
+agent. The Word captures of the day before, on the same macOS, recorded Chrome
+154.0.8037.93, a later version, so the owner is asked to confirm the Chrome
+install and profile these copies came from (analysis F-23).
+
 Decisions that waited on the captures, for this row: D9 holds after the fixes
 above; PCL-04 is confirmed and kept; OD-01 and OD-53 hold, no capture proves
 them wrong. V2-1 and V2-2 do not arise: Google Docs exposes no file. Open owner
 questions: what Docs labels the items after `Z.`, whether Docs' link look should
-yield to the destination's, Heading 3's gray on the dark theme, and whether a
+yield to the destination's, Heading 3's gray on the dark theme, whether a
 checked checklist item should keep Docs' strikethrough, which the default drops
 where the editor has task lists, since a line the author drew over a whole
-checked item cannot be told from the one Docs draws.
+checked item cannot be told from the one Docs draws, whether a script should
+keep Docs' 0.6em rather than the script mark's size, and which Chrome install
+the copies came from (Chrome 153 recorded here, 154 for Word the day before).
 
 RTF/RTFD image matching, local blob URL retrieval and general source-specific
 association profiles are not implemented by this harness. A native capture that

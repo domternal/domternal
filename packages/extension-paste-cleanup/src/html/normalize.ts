@@ -214,7 +214,7 @@ export function normalizeClipboardHTML(
     // The divisions Google Docs' image paragraphs became, which stand as paragraphs again for the alt text of removed images.
     let imageParagraphs: ReadonlySet<Element> | undefined;
     if (!own) {
-      // The break Chrome and Safari end a copy with marks where the selection ended, no line of the content.
+      // The break a browser ends a copy of a page with, as Chrome ends a Google Docs copy, marks where the selection ended, no line of the content.
       dropInterchangeNewline(tree);
       const hidden = result.source === 'word' ? wordHiddenText(tree) : undefined;
       if (/\bmso-list\s*:/i.test(html)) {

@@ -261,7 +261,8 @@ the input limit, since that content is not inserted: the drop reports `untracked
 findings and no blocked notice. One dropped file keeps the alt text cleanup left in place of the
 one image that drop's content held; a later drop of files alone, as an operating system's file
 drag carries them, keeps none. Content with text of its own keeps the paste, since Word and
-Excel put a picture of the copied selection next to it, and so does a Word or Excel copy
+Excel put a picture of the copied selection next to it (Google Docs' copies in Chrome hold no
+file; its copies in Safari and Firefox are not captured), and so does a Word or Excel copy
 that places no image, such as empty paragraphs or cells, whose file Chrome exposes as that
 picture. Text cleanup removed, Word's hidden text, counts as text of the content's own, so the
 picture of the selection, which can show that text, is never the paste of such a copy, also
@@ -369,9 +370,10 @@ The standalone normalizer and ordinary document parsing retain a final bare
 a block as a placeholder and can remove it. Breaks inside retained inline wrappers
 are distinct from that case. Cleanup does not override this clipboard rule, so
 preserving every unwrapped trailing break during paste is not guaranteed. The
-break Chrome and Safari end a copy with, `<br class="Apple-interchange-newline">`
-after the copied content, marks where the selection ended and is no line of it:
-the editor's paste ignores it, and cleanup leaves it out, for every source.
+break a browser ends a copy of a page with, `<br class="Apple-interchange-newline">`
+after the copied content, as Chrome ends its Google Docs copies, marks where the
+selection ended and is no line of it: the editor's paste ignores it, and cleanup
+leaves it out, for every source.
 
 Inline content that follows a block at the top of the pasted HTML, or inside an
 inline element there that holds blocks, such as a wrapper a source puts around them, is
@@ -646,7 +648,10 @@ clipboard in Chrome, which reviewed native captures show:
   The spacing is read back, as LineHeight stores and draws it, and the defaults
   of text and of table cells are dropped as the document's own, so a routine copy
   raises no `destination-formatting-unconfirmed` in a destination without
-  LineHeight; another spacing, as 1.5, is kept or reported.
+  LineHeight; another spacing, as 1.5, is kept or reported. A spacing outside
+  the values the destination's LineHeight draws, by default 1, 1.15, 1.25, 1.5
+  and 2, such as Docs' 1.3, is kept in the document without being drawn or
+  reported, a limit of this release.
 - Black on every run is Docs' default text color, which its export names no run
   with, so no run keeps it and pasted text follows the editor's theme. Every
   other color stays, Heading 3's gray and the link blue among them.
@@ -664,8 +669,9 @@ clipboard in Chrome, which reviewed native captures show:
 - A selection that starts below a list's first level writes each item's
   `aria-level` and a 36 pt margin for each level above the copy. When every item
   of a list stands the same number of levels below its depth in the copy, with
-  exactly that margin, the list is nested as deep as Docs shows it, each level
-  above opening with one empty item of the list's kind, and the margin goes.
+  exactly that margin, its items are nested as deep as Docs shows them, each
+  level above opening with one empty item of the list's kind, which Docs does
+  not show, as for a Word selection, and the margin goes.
 - A list whose every item is an ARIA checkbox with its checked state, Docs'
   checklist, becomes a task list checked as Docs shows it, without the pictures
   of the boxes Docs draws beside the items. Docs also strikes a checked item

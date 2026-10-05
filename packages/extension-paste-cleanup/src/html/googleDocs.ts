@@ -31,9 +31,11 @@ function withLineHeight(style: unknown, ratio: (written: number) => number | und
 
 /**
  * Read each block's line height as the Docs spacing it stands for, the ratio LineHeight stores and renders,
- * as Word's 150 % is its 1.5: 1.7999999999999998 is 1.5. The default spacing of its place, 1.15 for text,
- * headings and list items and single in a table cell, is the document's own rather than formatting, as the
- * export's document defaults and table style say, so it is dropped like Word's Normal spacing.
+ * as Word's 150 % is its 1.5: 1.7999999999999998 is 1.5. The spacing Docs gives each place is the document's
+ * own rather than the author's formatting, so it is dropped like Word's Normal spacing: 1.15 for text, headings
+ * and list items, its export's document default, and single in a table cell, which Docs gives every cell
+ * paragraph it makes and its export writes on each of them. A single spacing an author set in a cell cannot be
+ * told from it.
  */
 export function googleDocsLineHeights(tree: Root): void {
   const pending: { node: Root | Element; cell: boolean }[] = [{ node: tree, cell: false }];
