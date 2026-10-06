@@ -13,9 +13,10 @@
  *
  * Tests below verify:
  *  - parse-time autofix kicks in for HTML where the first li child
- *    isn't a paragraph: a heading there, with no text or paragraph
- *    before it, parses as the label paragraph's text, and a codeBlock,
- *    blockquote or bare nested ul is hoisted out of the item
+ *    isn't a paragraph: a heading there, with nothing before it that
+ *    the item holds, parses as the label paragraph's text, and on
+ *    setContent a codeBlock, blockquote or bare nested ul is hoisted
+ *    out of the item
  *  - the visual alignment bug is fixed: checkbox stays aligned with
  *    the paragraph label, never with a nested heading
  *  - DOM round-trip (setContent → getHTML → setContent) is stable
@@ -147,17 +148,20 @@ test.describe('Notion-strict list schema - rule sanity', () => {
 test.describe('Notion-strict list schema - parse-time autofix', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  // A heading tag at the start of an `<li>`, with no text or paragraph
-  // element before it, cannot stand there under `paragraph block*`, so
-  // the Heading parse rules decline it and its text becomes the item's
-  // label paragraph: the list keeps the item and its marker (see "Heading
-  // parsing" in the heading docs). Any other block the first-child slot
-  // cannot take (codeBlock, blockquote, a bare nested ul) is not turned
-  // into text: PM's HTML parser HOISTS it UP to the outermost level where
-  // it can fit (top-level alongside the bulletList), and the listItem
-  // retains an auto-injected empty paragraph only. Tests below pin both
-  // observable behaviours, which are also the migration path for
-  // documents authored under the previous `block+` schema.
+  // A heading tag at the start of an `<li>`, with nothing before it that
+  // the item holds (text, a line break, an image, a paragraph), cannot
+  // stand there under `paragraph block*`, so the Heading parse rules
+  // decline it and its text becomes the item's label paragraph: the list
+  // keeps the item and its marker (see the Attributes section of the
+  // heading docs, /v1/nodes/heading/#attributes). Any other block the
+  // first-child slot cannot take (codeBlock, blockquote, a bare nested
+  // ul) is not turned into text: on setContent PM's HTML parser HOISTS
+  // it UP to the outermost level where it can fit (top-level alongside
+  // the bulletList), and the listItem retains an auto-injected empty
+  // paragraph only, while a paste keeps the block in the item after such
+  // an empty paragraph. Tests below pin the setContent behaviours, which
+  // are also the migration path for documents authored under the
+  // previous `block+` schema.
   test('<li><h1>...</h1></li> parses the heading as the label paragraph text, keeping one list item', async ({ page }) => {
     await setContent(page, '<ul><li><h1>Heading first</h1></li></ul>');
     const top = await page.evaluate(() => {
@@ -236,6 +240,21 @@ test.describe('Notion-strict list schema - parse-time autofix', () => {
       children: [
         { type: 'paragraph', text: 'Label' },
         { type: 'heading', text: 'Below' },
+      ],
+    });
+  });
+
+  test('<li><br><h2>...</h2></li> keeps the heading below the label paragraph the line break opens', async ({ page }) => {
+    // A line break is content the item holds, like text or an image, so
+    // the heading after it no longer starts the item and stays a heading.
+    await setContent(page, '<ul><li><br><h2>After a break</h2></li></ul>');
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      childCount: 2,
+      children: [
+        { type: 'paragraph', childCount: 1 },
+        { type: 'heading', text: 'After a break' },
       ],
     });
   });
@@ -868,16 +887,20 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
 
   // ── Schema-autofix ↔ children-indent interaction ──────────────────
 
-  test('legacy `<li><h1>...</h1></li>` leaves no heading in the children zone: the label paragraph holds the text, unindented', async ({ page }) => {
-    // The heading tag cannot satisfy the first-child slot, so its text
-    // parses as the li's label paragraph. No heading is left, inside
-    // the li or after the list, and the label takes no children-zone
-    // indent. This locks in that interaction.
-    await setContent(page, '<ul><li><h1>Heading text</h1></li></ul>');
+  test('legacy `<li><h1>...</h1><h2>...</h2></li>`: the first heading\'s text labels the item, unindented, and the heading after it stays in the children zone, indented', async ({ page }) => {
+    // The first heading tag cannot satisfy the first-child slot, so its
+    // text parses as the li's label paragraph, which takes no
+    // children-zone indent. That label is content the item holds, so the
+    // second heading stays a heading and renders indented below it. This
+    // locks in that interaction.
+    await setContent(page, '<ul><li><h1>Heading text</h1><h2>Kept heading</h2></li></ul>');
     await expect(page.locator(`${editorSelector} h1`)).toHaveCount(0);
     await expect(page.locator(`${editorSelector} li > p`)).toHaveText('Heading text');
+    await expect(page.locator(`${editorSelector} li > h2`)).toHaveText('Kept heading');
     const labelMl = await marginLeft(page, `${editorSelector} li > p`);
     expect(labelMl).toBe(0);
+    const headingMl = await marginLeft(page, `${editorSelector} li > h2`);
+    expect(headingMl).toBeGreaterThanOrEqual(20);
   });
 
   test('schema-valid li with empty label + nested heading still indents the heading', async ({ page }) => {
