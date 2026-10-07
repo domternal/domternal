@@ -324,10 +324,10 @@ Subscript
 SubscriptOptions
 Superscript
 SuperscriptOptions
-surfaceTone
-SurfaceTone
-surfaceToneAttributes
-SurfaceToneAttributes
+surfaceTone @experimental
+SurfaceTone @experimental
+surfaceToneAttributes @experimental
+SurfaceToneAttributes @experimental
 TaskItem
 TaskItemOptions
 TaskList

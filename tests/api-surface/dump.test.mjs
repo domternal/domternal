@@ -591,7 +591,7 @@ test('the rendered snapshot marks tagged names and keeps the name order', () => 
   assert.equal(renderSnapshot(new Set(['b', 'a', 'c']), new Set(['c', 'a'])), 'a @experimental\nb\nc @experimental\n');
 });
 
-test('the committed Core snapshot marks the attribute registry helpers experimental', () => {
+test('the committed Core snapshot marks the attribute registry and surface tone helpers experimental', () => {
   const core = readFileSync(join(here, 'snapshots/core.txt'), 'utf8').trimEnd().split('\n');
   assert.deepEqual(core.filter((line) => line.endsWith(' @experimental')), [
     'AttributeNormalizer @experimental',
@@ -599,6 +599,10 @@ test('the committed Core snapshot marks the attribute registry helpers experimen
     'pastedAttributesPlugin @experimental',
     'registerAttributeNormalizer @experimental',
     'resolveAttributeValue @experimental',
+    'surfaceTone @experimental',
+    'SurfaceTone @experimental',
+    'surfaceToneAttributes @experimental',
+    'SurfaceToneAttributes @experimental',
   ]);
 });
 

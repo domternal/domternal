@@ -138,6 +138,10 @@ The marks exist only in a live editor view. To show stored HTML with readable te
 render it in a read-only editor (`editable: false`) rather than inserting `getHTML()` output into the
 page.
 
+A node view or decoration of your own that paints a kept background can add the same mark with
+`surfaceToneAttributes(value)` from `@domternal/core`, and `surfaceTone(value)` reads the tone itself.
+Both are experimental: a minor release can read more color forms or report more tones.
+
 ## Floating menu descriptions
 
 The 1.1 stylesheet supports the optional `FloatingMenuItem.description` rendered

@@ -8,7 +8,7 @@
  */
 import { isSafeCssValue } from './isSafeCssValue.js';
 
-/** How a kept background reads: its tone, and whether it is a mid tone. */
+/** @experimental How a kept background reads: its tone, and whether it is a mid tone. */
 export interface SurfaceTone {
   /** `light`: black text reads best on it; `dark`: white text does. */
   tone: 'light' | 'dark';
@@ -172,9 +172,10 @@ function readTone(value: string): SurfaceTone | null | undefined {
 }
 
 /**
- * The tone of a background color the document keeps: light, dark, and
- * whether it is a mid tone; or null when it paints no color the editor can
- * read.
+ * @experimental The tone of a background color the document keeps: light,
+ * dark, and whether it is a mid tone; or null when it paints no color the
+ * editor can read. A later release can read more color forms or report more
+ * tones.
  *
  * Reads hex colors (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`), `rgb()` and
  * `rgba()` in their comma and space syntax, `hsl()` and `hsla()`, and the CSS
@@ -204,7 +205,7 @@ export function surfaceTone(value: unknown): SurfaceTone | null {
   return readTone(value) ?? null;
 }
 
-/** The view attributes of an element that paints a kept background; see surfaceToneAttributes. */
+/** @experimental The view attributes of an element that paints a kept background; see surfaceToneAttributes. */
 export interface SurfaceToneAttributes {
   /** `light` or `dark`, followed by `mid` for a mid tone; or `unknown` for a painted value the editor cannot read. */
   'data-dm-tone': string;
@@ -231,8 +232,8 @@ function painted(value: string, read: boolean): boolean {
 const answers = new Map<string, SurfaceToneAttributes | null>();
 
 /**
- * The view attributes that mark an element painting `value` as its
- * background: `data-dm-tone` with `light` or `dark`, followed by `mid` for a
+ * @experimental The view attributes that mark an element painting `value` as
+ * its background: `data-dm-tone` with `light` or `dark`, followed by `mid` for a
  * mid tone, and the theme draws text without a color of its own in black or
  * white on it. A value the browser paints but this reader cannot read, such
  * as `var()`, `oklch()`, `color-mix()` or a system color, is marked
@@ -241,7 +242,8 @@ const answers = new Map<string, SurfaceToneAttributes | null>();
  * not a safe CSS value), when the browser does not paint it (asked through
  * `CSS.supports` where there is one), when it paints no color of its own
  * (`transparent`, `currentcolor`, CSS-wide keywords), or when it is
- * translucent and the surface behind it decides its tone.
+ * translucent and the surface behind it decides its tone. A later release can
+ * read more color forms or report more tones.
  *
  * @example
  * ```ts
