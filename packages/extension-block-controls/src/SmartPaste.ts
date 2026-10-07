@@ -247,23 +247,25 @@ function completeNode(node: PMNode, openStart: number, openEnd: number): PMNode 
 
 // The context a ProseMirror copy records in its clipboard HTML, the nodes around the copied content, as
 // written: only HTML that holds it is parsed. ProseMirror reads the marker's value as its parser reads it.
-const SLICE_CONTEXT = /\bdata-pm-slice="\d+ \d+(?: -\d+)? \[[^"]*\]"/;
+const SLICE_CONTEXT = /\bdata-pm-slice="\d+ \d+(?: -\d+)? (\[[^"]*\])"/;
 const SLICE_DATA = /^\d+ \d+(?: -\d+)? (\[.*\])$/;
 
 /**
  * The context of the marker ProseMirror reads from clipboard HTML: the `data-pm-slice` attribute of the
  * first element that carries one, as the browser parses the HTML. HTML whose text, comment or another
- * attribute shows such a marker has none.
+ * attribute shows such a marker has none, except where the page's Trusted Types refuse the parser.
  */
 function sliceContext(html: string): string | undefined {
-  if (!SLICE_CONTEXT.test(html)) return undefined;
+  const written = SLICE_CONTEXT.exec(html)?.[1];
+  if (written === undefined) return undefined;
   try {
     // A template's content is inert, and keeps a copy that starts with table rows or cells, as ProseMirror wraps them.
     const template = document.createElement('template');
     template.innerHTML = html;
     return SLICE_DATA.exec(template.content.querySelector('[data-pm-slice]')?.getAttribute('data-pm-slice') ?? '')?.[1];
   } catch {
-    return undefined;
+    // A page whose Trusted Types refuse the parser, which ProseMirror passes with a policy of its own, has it read as written.
+    return written;
   }
 }
 

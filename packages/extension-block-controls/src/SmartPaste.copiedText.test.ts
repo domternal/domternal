@@ -99,6 +99,25 @@ describe('SmartPaste and text copied from inside a container', () => {
     expect(editor.state.doc.toString()).toBe(`doc(paragraph("x"), ${block})`);
   });
 
+  // Chromium and WebKit refuse a template's innerHTML on a page that requires Trusted Types and has no default policy.
+  // ProseMirror reads the record there with a policy of its own, and the copied word landed beside the paragraph as a list.
+  it('reads the record as written where the page\'s Trusted Types refuse the browser\'s parser, as before it was parsed', () => {
+    const html = copy('<ul><li><p>alpha beta</p></li></ul>', 'beta');
+    const editor = mount('<p>x</p>');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)));
+    Object.defineProperty(HTMLTemplateElement.prototype, 'innerHTML', {
+      ...Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML'),
+      configurable: true,
+      set() { throw new TypeError('This assignment requires a TrustedHTML'); },
+    });
+    try {
+      paste(editor, html);
+    } finally {
+      delete (HTMLTemplateElement.prototype as { innerHTML?: string }).innerHTML;
+    }
+    expect(editor.state.doc.toString()).toBe('doc(paragraph("xbeta"))');
+  });
+
   it('still pastes items copied across items, and a list from outside an editor, as a list', () => {
     for (const [html, items] of [
       [copy('<ul><li><p>alpha</p></li><li><p>beta</p></li></ul>', 'alpha', 'beta'), 'listItem(paragraph("alpha")), listItem(paragraph("beta"))'],
