@@ -117,6 +117,7 @@ describe('the markup each application writes still names it', () => {
     ['a MsoNormal class', '<p class=MsoNormal style="line-height:1.15">Spaced<o:p></o:p></p>'],
     ['a MsoNormalTable class', '<table class="MsoNormalTable"><tr><td><p style="line-height:1.15">Spaced</p></td></tr></table>'],
     ['a MsoNormal class among others, in capitals', '<p CLASS="Lead MSONORMAL" style="line-height:1.15">Spaced</p>'],
+    ['a MsoNormal class with a prefix, as Gmail writes a quoted Word message\'s', '<p class="gmail-MsoNormal" style="line-height:1.15">Spaced</p>'],
     ['an Office declaration in a style attribute', '<p style="line-height:1.15;mso-pagination:widow-orphan">Spaced</p>'],
     ['an Office declaration on a later line of a style attribute', "<p style='line-height:1.15;\r\nmso-bidi-font-size:12.0pt'>Spaced</p>"],
     ['an unquoted Office declaration', '<p style=mso-spacerun:yes>Spaced</p><p style="line-height:1.15">Spaced</p>'],

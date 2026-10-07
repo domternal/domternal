@@ -319,7 +319,8 @@ The result contains:
 - `html`: normalized editor input, still subject to the destination schema.
 - `source`: an advisory signature, never proof of origin or trust. It is read from the copy's
   markup as the HTML parser reads it: `word` from Office's namespace declarations, `MsoNormal`
-  classes, `mso-*` declarations and stylesheet rules, `google-docs` from the wrapper whose id
+  classes, also with a mail client's prefix such as `gmail-MsoNormal`, `mso-*` declarations and
+  stylesheet rules, `google-docs` from the wrapper whose id
   begins `docs-internal-guid-`, `libreoffice` from a `generator` meta that names LibreOffice or
   OpenOffice, each also inside Office's conditional comments, and Word first. Text never counts,
   nor a title, alt text, link, other attribute or comment that names them, so a page about

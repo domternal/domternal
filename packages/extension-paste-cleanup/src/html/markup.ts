@@ -40,8 +40,9 @@ const LIST_CANDIDATE = /mso-list[\t\n\f\r ]*:/i;
 const CONDITIONAL = /^\[if[\t\n\f\r ]/i;
 const XMLNS = /^xmlns(?::|$)/;
 const OFFICE_NAMESPACE = /urn:schemas-microsoft-com:office/i;
-// A class token as Word writes its Normal style's paragraphs and tables: MsoNormal, MsoNormalTable.
-const WORD_CLASS = /(?:^|[\t\n\f\r ])msonormal/i;
+// A class as Word writes its Normal style's paragraphs and tables, MsoNormal and MsoNormalTable, also with a prefix
+// such as gmail- that a mail client adds.
+const WORD_CLASS = /\bmsonormal/i;
 // A declaration of one of Office's own properties, as Word writes them in style attributes and stylesheet rules.
 const OFFICE_DECLARATION = /(?:^|[\t\n\f\r ;{])mso-[\w-]*[\t\n\f\r ]*:/i;
 const LIST_DECLARATION = /(?:^|[\t\n\f\r ;{])mso-list[\t\n\f\r ]*:/i;
