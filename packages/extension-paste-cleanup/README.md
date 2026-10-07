@@ -317,7 +317,13 @@ The result contains:
 
 - `status`: `cleaned` or `rejected`. Rejection always returns empty HTML.
 - `html`: normalized editor input, still subject to the destination schema.
-- `source`: an advisory signature, never proof of origin or trust.
+- `source`: an advisory signature, never proof of origin or trust. It is read from the copy's
+  markup as the HTML parser reads it: `word` from Office's namespace declarations, `MsoNormal`
+  classes, `mso-*` declarations and stylesheet rules, `google-docs` from the wrapper whose id
+  begins `docs-internal-guid-`, `libreoffice` from a `generator` meta that names LibreOffice or
+  OpenOffice, each also inside Office's conditional comments, and Word first. Text never counts,
+  nor a title, alt text, link, other attribute or comment that names them, so a page about
+  Office HTML is cleaned as `html`.
 - `diagnostics`: stable codes, severity, and an optional UTF-16 source offset. The code list
   is open: a minor release can add a code, so keep a default branch when you switch on it.
 - `diagnosticsTruncated`: at least one finding was dropped because the
@@ -507,7 +513,9 @@ every fragment, including own copies. Core accepts one copy annotation per
 editor; [Clipboard ownership](#clipboard-ownership) describes a conflict.
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
-`mso-list:Ignore` marker can become semantic lists. When the clipboard HTML carries
+`mso-list:Ignore` marker can become semantic lists. Reconstruction runs only where the markup
+declares `mso-list`, in a style attribute, a stylesheet rule or a conditional comment; text that
+names the property starts none. When the clipboard HTML carries
 Word's stylesheet, its `@list lN:levelN` level definition, with a matching
 `lfoN` instance override applied over it, and the font of the marker run identify
 the list profile. The visible label must be exactly what that definition produces

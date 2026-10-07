@@ -107,7 +107,9 @@ values must be trusted application constants, never user-supplied content.
   without SmartPaste, though the copy records the container around it; before, it landed
   beside the textblock in a list, quote, table or details of its own. Into a list, the list
   rules still keep a copied item's list and its marker, and HTML from outside an editor,
-  without that record, still pastes its blocks as blocks. It inserts whole blocks,
+  without that record, still pastes its blocks as blocks. The record is the `data-pm-slice`
+  attribute of the first element that carries one, as ProseMirror reads it, so a page that shows
+  such a marker in its text, a comment or another attribute pastes its blocks as blocks too. It inserts whole blocks,
   so a pasted slice that starts or ends inside a block first gets what its schema requires there: a list whose
   first item starts with a nested list, as a browser copies a selection that starts inside
   a nested item, keeps its nesting under an empty first item, and an empty item or quote

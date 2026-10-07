@@ -54,7 +54,7 @@ validator still returns `qualification: false` and `nativeEvidenceAuthenticated:
 since saved JSON cannot authenticate its origin; the qualification is this
 matrix's reviewed statement, bounded by the limits it lists. Editing a bundle and its manifest can produce matching hashes. Hashes
 detect disagreement with a reviewed manifest; they are not signatures or proof of
-capture origin. Source detection such as `source: word` is an HTML heuristic.
+capture origin. Source detection such as `source: word` is an HTML heuristic that reads the copy's markup, never its text.
 
 ## Implemented behavior and its current evidence
 
