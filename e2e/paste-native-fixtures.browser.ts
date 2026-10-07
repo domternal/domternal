@@ -221,6 +221,20 @@ function emptyTextStyles(doc: JSONContent): string[] {
 
 const fixtures = nativeFixtures();
 
+// A paragraph about Office HTML that names each application's markup in its text: Word's list property, Normal class
+// and namespace, Google Docs' copy wrapper and LibreOffice. The control spells each one otherwise, with the same length.
+const MENTION = 'Word writes mso-list: l0 level1 lfo1, class=MsoNormal and xmlns:w="urn:schemas-microsoft-com:office:word", '
+  + 'Google Docs id="docs-internal-guid-0", LibreOffice its own.';
+const CONTROL = MENTION.replace('mso-list', 'msx-list').replace('MsoNormal', 'MsxNormal').replace('schemas-microsoft-com:office', 'schemas-microsoft-com:offize')
+  .replace('docs-internal-guid', 'docs-internxl-guid').replace('LibreOffice', 'LibreOffize');
+// The first block or run the copy holds, before which the paragraph goes: past Word's head and stylesheet, inside Docs' wrapper.
+const FIRST_BLOCK = /<(?:p|h[1-6]|ul|ol|table|div|span)\b/i;
+/** A copy's items with the paragraph before its first block; every other flavor and file as captured. */
+const withParagraph = (items: readonly Item[], text: string): Item[] =>
+  items.map(item => (item.kind === 'string' && item.type === 'text/html' ? { ...item, value: item.value.replace(FIRST_BLOCK, `<p>${text}</p>$&`) } : item));
+/** A document's JSON without the random ids UniqueID gives its blocks. */
+const withoutIds = (doc: JSONContent): string => JSON.stringify(doc).replace(/"id":"[^"]*"/gu, '"id":null');
+
 /** A policy oracle's editor outcomes, one per schema, as offline.mjs editorOutcomes reads them; synchronous for test titles. */
 function editorOutcomesOf(oracle: PolicyOracle): readonly EditorOutcome[] {
   return Array.isArray(oracle.editor) ? oracle.editor as readonly EditorOutcome[] : [oracle.editor as EditorOutcome];
@@ -349,5 +363,21 @@ for (const fixture of fixtures) {
         });
       }
     }
+
+    // The source is read from markup, never from text: the capture with a paragraph whose text names Word, Google Docs and
+    // LibreOffice markup pastes as the same capture with that paragraph spelled otherwise, from the source its oracle names.
+    // A Google Docs copy whose text named a Word property was cleaned as Word, with Docs' spacing and black kept on every block.
+    test('preserve: pastes the same when its text names another application\'s markup', async ({ page }) => {
+      const expected = fixture.expected;
+      if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
+      expect(fixture.html).toMatch(FIRST_BLOCK);
+      const mentioned = await replay(page, 'preserve', 'default', withParagraph(fixture.items, MENTION));
+      const control = await replay(page, 'preserve', 'default', withParagraph(fixture.items, CONTROL));
+      expect(mentioned.operations.at(-1)?.source).toBe(expected.preserve.source);
+      expect(control.operations.at(-1)?.source).toBe(expected.preserve.source);
+      expect(mentioned.operations.at(-1)?.diagnostics).toEqual(control.operations.at(-1)?.diagnostics);
+      expect(withoutIds(mentioned.doc).replace(JSON.stringify(MENTION).slice(1, -1), JSON.stringify(CONTROL).slice(1, -1))).toBe(withoutIds(control.doc));
+      expect(mentioned.images).toBe(control.images);
+    });
   });
 }
