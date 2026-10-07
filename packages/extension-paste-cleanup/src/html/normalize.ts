@@ -35,7 +35,7 @@ import {
 } from './googleDocs.js';
 import { wordHiddenText } from './hiddenText.js';
 import { recordRemovedText } from './removedText.js';
-import { readClipboardMarkup } from './markup.js';
+import { clipboardMarkup } from './markup.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits,
@@ -172,12 +172,17 @@ export function normalizeClipboardHTML(
   if (html.length > limits.maxInputLength) {
     result.status = 'rejected'; report('input-limit', undefined, 'error'); return { result, preserveOrderedListStart };
   }
-  // From the markup only, before parsing, so a rejected paste reports its source too.
-  const markup = readClipboardMarkup(html);
-  result.source = markup.source;
+  // Read from the markup the parser reads, never from text. A paste the parse refuses reports what its markup named.
+  const markup = clipboardMarkup();
+  let officeLists: boolean;
   try {
     assertTagWork(html);
-    let tree = parseBoundedHTML(html, limits);
+    let tree: Root;
+    try {
+      tree = parseBoundedHTML(html, limits, undefined, markup.observer);
+    } finally {
+      ({ source: result.source, officeLists } = markup.settle(data => { parseBoundedHTML(data, limits, undefined, markup.observer); }));
+    }
     // Before the table bounds, so the cells of bare rows count as the cells of a table. A
     // destination without tables keeps their texts, as its paste without cleanup does.
     if (startsWithTablePart(tree) && destination?.(['table']).includes('table') !== true) {
@@ -214,7 +219,7 @@ export function normalizeClipboardHTML(
       dropInterchangeNewline(tree);
       const hidden = result.source === 'word' ? wordHiddenText(tree) : undefined;
       // Only where the markup declares an Office list: the text of a page that names the property opens no list pass.
-      if (markup.officeLists) {
+      if (officeLists) {
         // A list item Word hides is not pasted, so an item cleanup cannot rebuild is no finding when it is hidden.
         const lists = reconstructOfficeLists(tree, { ...limits, ...capabilities?.() }, (code, node) => {
           if (hidden?.conceals(node) !== true) report(code, node);

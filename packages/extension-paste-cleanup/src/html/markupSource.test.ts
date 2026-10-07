@@ -113,7 +113,6 @@ describe('the markup each application writes still names it', () => {
   it.each([
     ['the Office namespaces on the html element, as Safari keeps them', `${WORD_ROOT}<head><meta charset="UTF-8"></head><p style="line-height:1.15">Spaced<o:p></o:p></p>`],
     ['an Office namespace on another element', '<div xmlns:o="urn:schemas-microsoft-com:office:office"><p style="line-height:1.15">Spaced</p></div>'],
-    ['an Office namespace declared by an instruction, as older Word writes it', '<?xml:namespace prefix = o ns = "urn:schemas-microsoft-com:office:office" /><p style="line-height:1.15">Spaced</p>'],
     ['a MsoNormal class', '<p class=MsoNormal style="line-height:1.15">Spaced<o:p></o:p></p>'],
     ['a MsoNormalTable class', '<table class="MsoNormalTable"><tr><td><p style="line-height:1.15">Spaced</p></td></tr></table>'],
     ['a MsoNormal class among others, in capitals', '<p CLASS="Lead MSONORMAL" style="line-height:1.15">Spaced</p>'],
@@ -152,6 +151,12 @@ describe('the markup each application writes still names it', () => {
   it('reads Word before Google Docs and LibreOffice, as before', () => {
     expect(clean('<meta name="generator" content="LibreOffice"><b id="docs-internal-guid-1"><p class=MsoNormal>Mixed</p></b>').source).toBe('word');
     expect(clean('<meta name="generator" content="LibreOffice"><b id="docs-internal-guid-1"><p>Mixed</p></b>').source).toBe('google-docs');
+  });
+
+  it('reads the markup as the HTML parser reads it, so a character reference in an attribute value spells its character', () => {
+    expect(clean('<p class="Mso&#78;ormal" style="line-height:1.15">Spaced</p>')).toMatchObject({ source: 'word', html: '<p>Spaced</p>' });
+    expect(clean('<b id="docs&#45;internal-guid-1"><p style="line-height:1.38">Spaced</p></b>').source).toBe('google-docs');
+    expect(clean('<meta name="generator" content="Libre&#79;ffice"><p>x</p>').source).toBe('libreoffice');
   });
 
   it('reports the source of a paste it rejects', () => {

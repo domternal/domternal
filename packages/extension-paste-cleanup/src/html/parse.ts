@@ -3,6 +3,7 @@ import type { DefaultTreeAdapterTypes as P5, TreeAdapter, DefaultTreeAdapterMap 
 import { fromParse5 } from 'hast-util-from-parse5';
 import type { Element, Nodes, Root } from 'hast';
 import type { PasteHTMLLimits } from './types.js';
+import type { MarkupObserver } from './markup.js';
 
 export class StructureLimitError extends Error {}
 
@@ -11,9 +12,10 @@ export const imageSourceAttributes = new WeakMap<Element, ReadonlyMap<string, st
 
 /**
  * Reject hostile nesting before the recursive HAST conversion or sanitizer runs. A `table` context
- * parses the HTML as a table's content, as a browser parses bare rows or cells inside a table.
+ * parses the HTML as a table's content, as a browser parses bare rows or cells inside a table. An
+ * observer receives the markup the parser reads as it reads it, the html start tag's attributes included.
  */
-export function parseBoundedHTML(html: string, limits: PasteHTMLLimits, context?: 'table'): Root {
+export function parseBoundedHTML(html: string, limits: PasteHTMLLimits, context?: 'table', observer?: MarkupObserver): Root {
   let allocations = 0;
   const allocate = (): void => {
     if (++allocations > limits.maxNodes) throw new StructureLimitError();
@@ -28,9 +30,14 @@ export function parseBoundedHTML(html: string, limits: PasteHTMLLimits, context?
   };
   const adapter: TreeAdapter<DefaultTreeAdapterMap> = {
     ...defaultTreeAdapter,
-    createElement(...args) { allocate(); return defaultTreeAdapter.createElement(...args); },
-    createCommentNode(...args) { allocate(); return defaultTreeAdapter.createCommentNode(...args); },
-    insertText(parent, text) { allocate(); checkParent(parent); defaultTreeAdapter.insertText(parent, text); },
+    createElement(...args) { allocate(); observer?.element(args[0], args[2]); return defaultTreeAdapter.createElement(...args); },
+    createCommentNode(data) { allocate(); observer?.comment(data); return defaultTreeAdapter.createCommentNode(data); },
+    adoptAttributes(recipient, attributes) { observer?.element(recipient.tagName, attributes); defaultTreeAdapter.adoptAttributes(recipient, attributes); },
+    insertText(parent, text) {
+      allocate(); checkParent(parent);
+      if ('tagName' in parent && parent.tagName === 'style') observer?.style(parent, text);
+      defaultTreeAdapter.insertText(parent, text);
+    },
     insertTextBefore(parent, text, reference) {
       allocate(); checkParent(parent); defaultTreeAdapter.insertTextBefore(parent, text, reference);
     },
