@@ -14,11 +14,13 @@ export const imageSourceAttributes = new WeakMap<Element, ReadonlyMap<string, st
  * Reject hostile nesting before the recursive HAST conversion or sanitizer runs. A `table` context
  * parses the HTML as a table's content, as a browser parses bare rows or cells inside a table. An
  * observer receives the markup the parser reads as it reads it, the html start tag's attributes included.
+ * Parses given one `allowance` share its maxNodes allocations.
  */
-export function parseBoundedHTML(html: string, limits: PasteHTMLLimits, context?: 'table', observer?: MarkupObserver): Root {
-  let allocations = 0;
+export function parseBoundedHTML(
+  html: string, limits: PasteHTMLLimits, context?: 'table', observer?: MarkupObserver, allowance = { allocations: 0 },
+): Root {
   const allocate = (): void => {
-    if (++allocations > limits.maxNodes) throw new StructureLimitError();
+    if (++allowance.allocations > limits.maxNodes) throw new StructureLimitError();
   };
   const checkParent = (parent: P5.ParentNode): void => {
     let depth = 1;

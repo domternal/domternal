@@ -53,6 +53,7 @@ const LIBRE_GENERATOR = /libreoffice|openoffice/i;
 /**
  * Collects what the parser hands over (`observer`), then settles the answer: `settle` reads each conditional comment
  * that can still change it as markup, through `parse`, which hands that markup to the observer in turn, one level deep.
+ * The first comment `parse` refuses ends the reading.
  */
 export function clipboardMarkup(): { observer: MarkupObserver; settle(parse: (html: string) => void): ClipboardMarkup } {
   const found = { word: false, docs: false, libre: false, lists: false };
@@ -94,13 +95,16 @@ export function clipboardMarkup(): { observer: MarkupObserver; settle(parse: (ht
       },
     },
     settle(parse) {
-      settleStyles();
       nested = true;
-      for (const data of conditional) {
-        if (found.word && (found.lists || !LIST_CANDIDATE.test(data))) continue;
-        try { parse(data); } catch { /* Markup the limits refuse names nothing. */ }
-        settleStyles();
+      try {
+        for (const data of conditional) {
+          settleStyles();
+          if (!found.word || (!found.lists && LIST_CANDIDATE.test(data))) parse(data);
+        }
+      } catch {
+        // Markup the limits refuse names nothing, nor do the comments after it, which share its allowance.
       }
+      settleStyles();
       return { source: found.word ? 'word' : found.docs ? 'google-docs' : found.libre ? 'libreoffice' : 'html', officeLists: found.lists };
     },
   };

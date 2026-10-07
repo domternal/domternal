@@ -6,7 +6,8 @@
  * the Docs rules divided line heights by 1.2 and dropped black text, and a real Google Docs copy whose text named a
  * Word property was cleaned as Word.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { defaultTreeAdapter } from 'parse5';
 import { normalizePasteHTML } from './index.js';
 import type { NormalizePasteHTMLResult } from './types.js';
 
@@ -167,5 +168,30 @@ describe('the markup each application writes still names it', () => {
   it('ignores a tag the input ends in, which a browser never builds', () => {
     expect(clean('<p>x</p><p class="MsoNormal"').source).toBe('html');
     expect(clean('<p>x</p><p class="MsoNormal">').source).toBe('word');
+  });
+});
+
+// Each conditional comment read again with an allowance of its own let a page of comments that each hold almost
+// maxNodes elements make the parser build them all: 22 comments of 29,000 paragraphs took seconds where 1.2 took 0.1.
+describe('Office\'s conditional comments are read again within the parser limits', () => {
+  const COMMENT = `<!--[if gte mso 9]>mso-${'<p>'.repeat(900)}<![endif]-->`;
+
+  it.each([
+    ['a paste it cleans', COMMENT.repeat(20), 'cleaned'],
+    ['a paste the parse refused', COMMENT.repeat(20) + '<i>x</i>'.repeat(600), 'rejected'],
+  ] as const)('shares one allowance of maxNodes between them in %s', (_name, html, status) => {
+    const created = vi.spyOn(defaultTreeAdapter, 'createElement');
+    try {
+      expect(normalizePasteHTML(html, { limits: { maxNodes: 1_000 } })).toMatchObject({ status, source: 'html' });
+      // The parse of the paste and the comments' one allowance, each at most maxNodes.
+      expect(created.mock.calls.length).toBeLessThanOrEqual(2 * 1_000);
+    } finally {
+      created.mockRestore();
+    }
+  });
+
+  it('still reads Word from a conditional comment read before the allowance is spent', () => {
+    const word = '<!--[if gte mso 10]><style>table.MsoNormalTable{mso-style-name:"Table Normal";}</style><![endif]-->';
+    expect(normalizePasteHTML(word + COMMENT, { limits: { maxNodes: 1_000 } }).source).toBe('word');
   });
 });

@@ -181,7 +181,9 @@ export function normalizeClipboardHTML(
     try {
       tree = parseBoundedHTML(html, limits, undefined, markup.observer);
     } finally {
-      ({ source: result.source, officeLists } = markup.settle(data => { parseBoundedHTML(data, limits, undefined, markup.observer); }));
+      // Office's conditional comments are read again with one allowance between them, so they at most double the parse.
+      const comments = { allocations: 0 };
+      ({ source: result.source, officeLists } = markup.settle(data => { parseBoundedHTML(data, limits, undefined, markup.observer, comments); }));
     }
     // Before the table bounds, so the cells of bare rows count as the cells of a table. A
     // destination without tables keeps their texts, as its paste without cleanup does.

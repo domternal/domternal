@@ -1013,7 +1013,10 @@ when the clipboard has no plain text, and the text it makes of it then goes thro
 the plain-text checks.
 
 Parser allocations count every element, comment and text insertion the HTML
-parser makes. The parser inserts text once per run of whitespace or
+parser makes. Office's conditional comments, whose content is parsed again for
+the source and for Office lists, share one more allowance of `maxNodes`, and
+reading them stops at the first comment the limits refuse.
+The parser inserts text once per run of whitespace or
 non-whitespace, so the count grows with words rather than with nodes, and a Word
 clipboard stylesheet uses allocations as well (1,027 for a representative 9 KB
 stylesheet). A measurement of synthetic documents on one machine, recorded in
