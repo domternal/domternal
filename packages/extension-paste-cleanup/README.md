@@ -320,8 +320,8 @@ The result contains:
 - `source`: an advisory signature, never proof of origin or trust. It is read from the copy's
   markup as the HTML parser reads it: `word` from Office's namespace declarations, `MsoNormal`
   classes, also with a mail client's prefix such as `gmail-MsoNormal`, `mso-*` declarations and
-  stylesheet rules, `google-docs` from the wrapper whose id
-  begins `docs-internal-guid-`, `libreoffice` from a `generator` meta that names LibreOffice or
+  stylesheet rules, `google-docs` from the wrapper whose id is `docs-internal-guid-` and a GUID's
+  hex digits and hyphens, `libreoffice` from a `generator` meta that names LibreOffice or
   OpenOffice, each also inside Office's conditional comments, and Word first. Text never counts,
   nor a title, alt text, link, other attribute or comment that names them, so a page about
   Office HTML is cleaned as `html`.
@@ -650,9 +650,10 @@ the destination Image extension's `allowBase64` policy.
 
 ### Google Docs copies
 
-A copy whose source detection names Google Docs, by the wrapper whose id begins
-`docs-internal-guid-`, is read in the shapes Google Docs web writes to the
-clipboard in Chrome, which reviewed native captures show:
+A copy whose source detection names Google Docs, by the wrapper whose id is
+`docs-internal-guid-` and a GUID's hex digits and hyphens, is read in the
+shapes Google Docs web writes to the clipboard in Chrome, which reviewed native
+captures show:
 
 - Docs writes a block's line spacing as a CSS line height of 1.2 times the
   spacing Docs shows: its default 1.15 is 1.38 on every paragraph, heading and

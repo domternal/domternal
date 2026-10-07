@@ -83,6 +83,20 @@ describe('the source of a paste is read from markup, never from text', () => {
     }
   });
 
+  // A site generator derives a heading's id from its text, so a page about Google Docs' wrapper carried an id that
+  // starts as the wrapper's does and was cleaned with the Docs rules. Docs goes on with the hex digits of a GUID.
+  it('cleans a page whose id starts as Google Docs\' wrapper\'s but goes on in words, as a heading\'s slug does, as plain HTML', () => {
+    for (const html of [
+      '<h2 id="docs-internal-guid-wrappers">Docs internal GUID wrappers</h2>',
+      '<h2 id="docs-internal-guid-explained">Docs internal GUID, explained</h2>',
+      '<p id="docs-internal-guid-">x</p>',
+    ]) {
+      const result = clean(SPACED + html);
+      expect(result.source, html).toBe('html');
+      expect(result.html.startsWith(KEPT), html).toBe(true);
+    }
+  });
+
   it('keeps a red Safari web copy whose text names a Word property red, and a MsoTitle paragraph a paragraph', () => {
     // Word's caret color rule takes a color equal to the caret color for Word's automatic color, in a Word source only.
     expect(clean('<p style="caret-color: rgb(200, 0, 0); color: rgb(200, 0, 0);">Red text about mso- styles</p>').html)

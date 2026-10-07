@@ -22,7 +22,8 @@ export interface MarkupObserver {
  *   (`urn:schemas-microsoft-com:office:*`), a class starting `MsoNormal`, an `mso-*` declaration in a style
  *   attribute, a stylesheet whose rules declare an `mso-*` property, style a `MsoNormal` class or name the Office
  *   namespace, or any of them in a conditional comment (`<!--[if gte mso 10]>...<![endif]-->`).
- * - Google Docs: an element whose id starts `docs-internal-guid-`, the wrapper Docs puts around its copy.
+ * - Google Docs: an element whose id is `docs-internal-guid-` and a GUID's hex digits and hyphens, the wrapper Docs
+ *   puts around its copy. A heading's id a site derives from text that names it goes on in words, and is no wrapper.
  * - LibreOffice: a `meta` named `generator` whose content names LibreOffice or OpenOffice.
  *
  * Word comes first, then Google Docs, then LibreOffice. `officeLists` says whether the markup declares an Office list
@@ -47,7 +48,7 @@ const WORD_CLASS = /\bmsonormal/i;
 const OFFICE_DECLARATION = /(?:^|[\t\n\f\r ;{])mso-[\w-]*[\t\n\f\r ]*:/i;
 const LIST_DECLARATION = /(?:^|[\t\n\f\r ;{])mso-list[\t\n\f\r ]*:/i;
 const WORD_RULES = /\.msonormal|urn:schemas-microsoft-com:office/i;
-const DOCS_ID = /^docs-internal-guid-/i;
+const DOCS_ID = /^docs-internal-guid-[-\da-f]+$/i;
 const GENERATOR = /^generator$/i;
 const LIBRE_GENERATOR = /libreoffice|openoffice/i;
 
