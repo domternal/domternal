@@ -324,7 +324,10 @@ The result contains:
   hex digits and hyphens, `libreoffice` from a `generator` meta that names LibreOffice or
   OpenOffice, each also inside Office's conditional comments, and Word first. Text never counts,
   nor a title, alt text, link, other attribute or comment that names them, so a page about
-  Office HTML is cleaned as `html`.
+  Office HTML is cleaned as `html`. A style attribute counts as written, its CSS comments and
+  strings included, and a stylesheet without its comments. Markup the parser drops, such as the
+  attributes of a `body` tag, does not count either, and a paste the limits refuse reports what
+  its markup named up to where the parse stopped.
 - `diagnostics`: stable codes, severity, and an optional UTF-16 source offset. The code list
   is open: a minor release can add a code, so keep a default branch when you switch on it.
 - `diagnosticsTruncated`: at least one finding was dropped because the
@@ -515,8 +518,8 @@ editor; [Clipboard ownership](#clipboard-ownership) describes a conflict.
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
 `mso-list:Ignore` marker can become semantic lists. Reconstruction runs only where the markup
-declares `mso-list`, in a style attribute, a stylesheet rule or a conditional comment; text that
-names the property starts none. When the clipboard HTML carries
+declares `mso-list`, in a style attribute as written, a stylesheet rule or a conditional comment;
+text that names the property starts none. When the clipboard HTML carries
 Word's stylesheet, its `@list lN:levelN` level definition, with a matching
 `lfoN` instance override applied over it, and the font of the marker run identify
 the list profile. The visible label must be exactly what that definition produces

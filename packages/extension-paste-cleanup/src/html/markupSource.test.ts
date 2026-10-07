@@ -175,9 +175,12 @@ describe('the markup each application writes still names it', () => {
     expect(clean('<meta name="generator" content="Libre&#79;ffice"><p>x</p>').source).toBe('libreoffice');
   });
 
-  it('reports the source of a paste it rejects', () => {
+  it('reports the source of a paste it rejects, from the markup read up to where the parse stopped', () => {
     const result = normalizePasteHTML(`<p class=MsoNormal>${'<b>'.repeat(200)}deep</p>`, { limits: { maxDepth: 32 } });
     expect(result).toMatchObject({ status: 'rejected', source: 'word' });
+    // The limits stop the parse before the Word paragraph, which therefore names nothing.
+    expect(normalizePasteHTML(`${'<i>x</i>'.repeat(600)}<p class=MsoNormal>w</p>`, { limits: { maxNodes: 1_000 } }))
+      .toMatchObject({ status: 'rejected', source: 'html' });
   });
 
   // A fragment parse drops the rows after a leading col, as Excel's fragment between StartFragment and EndFragment

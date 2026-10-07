@@ -19,9 +19,10 @@ export interface MarkupObserver {
  * property or namespace, or Google Docs' copy wrapper, is no copy of that application:
  *
  * - Word (and the other Office applications): an `xmlns:*` declaration of an Office namespace
- *   (`urn:schemas-microsoft-com:office:*`), a class starting `MsoNormal`, an `mso-*` declaration in a style
- *   attribute, a stylesheet whose rules declare an `mso-*` property, style a `MsoNormal` class or name the Office
- *   namespace, or any of them in a conditional comment (`<!--[if gte mso 10]>...<![endif]-->`).
+ *   (`urn:schemas-microsoft-com:office:*`), a class starting `MsoNormal`, also after a mail client's prefix such as
+ *   `gmail-`, an `mso-*` declaration in a style attribute as written, a stylesheet whose rules declare an `mso-*`
+ *   property, style a `MsoNormal` class or name the Office namespace, or any of them in a conditional comment
+ *   (`<!--[if gte mso 10]>...<![endif]-->`).
  * - Google Docs: an element whose id is `docs-internal-guid-` and a GUID's hex digits and hyphens, the wrapper Docs
  *   puts around its copy. A heading's id a site derives from text that names it goes on in words, and is no wrapper.
  * - LibreOffice: a `meta` named `generator` whose content names LibreOffice or OpenOffice.
