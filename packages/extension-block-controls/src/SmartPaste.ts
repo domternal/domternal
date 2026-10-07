@@ -245,8 +245,27 @@ function completeNode(node: PMNode, openStart: number, openEnd: number): PMNode 
   return content.eq(node.content) ? node : node.copy(content);
 }
 
-// The context a ProseMirror copy records in its clipboard HTML: the nodes around the copied content.
-const SLICE_CONTEXT = /\bdata-pm-slice="\d+ \d+(?: -\d+)? (\[[^"]*\])"/;
+// The context a ProseMirror copy records in its clipboard HTML, the nodes around the copied content, as
+// written: only HTML that holds it is parsed. ProseMirror reads the marker's value as its parser reads it.
+const SLICE_CONTEXT = /\bdata-pm-slice="\d+ \d+(?: -\d+)? \[[^"]*\]"/;
+const SLICE_DATA = /^\d+ \d+(?: -\d+)? (\[.*\])$/;
+
+/**
+ * The context of the marker ProseMirror reads from clipboard HTML: the `data-pm-slice` attribute of the
+ * first element that carries one, as the browser parses the HTML. HTML whose text, comment or another
+ * attribute shows such a marker has none.
+ */
+function sliceContext(html: string): string | undefined {
+  if (!SLICE_CONTEXT.test(html)) return undefined;
+  try {
+    // A template's content is inert, and keeps a copy that starts with table rows or cells, as ProseMirror wraps them.
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    return SLICE_DATA.exec(template.content.querySelector('[data-pm-slice]')?.getAttribute('data-pm-slice') ?? '')?.[1];
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Whether the paste is text copied from inside a textblock that sits in other nodes: the clipboard
@@ -256,7 +275,7 @@ const SLICE_CONTEXT = /\bdata-pm-slice="\d+ \d+(?: -\d+)? (\[[^"]*\])"/;
 function isCopiedText(event: ClipboardEvent, slice: Slice): boolean {
   let html: string;
   try { html = event.clipboardData?.getData('text/html') ?? ''; } catch { return false; }
-  const context = SLICE_CONTEXT.exec(html)?.[1];
+  const context = sliceContext(html);
   if (context === undefined || context === '[]') return false;
   let { content, openStart, openEnd } = slice;
   for (let node = content.firstChild; content.childCount === 1 && node !== null && openStart > 0 && openEnd > 0; node = content.firstChild) {

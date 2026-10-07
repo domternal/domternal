@@ -81,6 +81,24 @@ describe('SmartPaste and text copied from inside a container', () => {
     expect(editor.state.doc.toString()).toBe('doc(bulletList(listItem(paragraph("one")), listItem(paragraph("beta")), listItem(paragraph("two"))))');
   });
 
+  // A page that shows a ProseMirror copy's marker in its text, a comment or another attribute, as a page about editors
+  // does, is no ProseMirror copy: its list or quote lands as a block after the paragraph, as without the mention.
+  it.each([
+    ['a list item\'s text', '<meta charset="utf-8"><ul><li>Editors write data-pm-slice="1 1 [x]" on copies</li></ul>',
+      'bulletList(listItem(paragraph("Editors write data-pm-slice=\\"1 1 [x]\\" on copies")))'],
+    ['a quote\'s text', '<meta charset="utf-8"><blockquote><p>Editors write data-pm-slice="1 1 [x]" on copies</p></blockquote>',
+      'blockquote(paragraph("Editors write data-pm-slice=\\"1 1 [x]\\" on copies"))'],
+    ['code in a list item', '<ul><li><code>&lt;li data-pm-slice="2 2 [&amp;quot;bulletList&amp;quot;,null]"&gt;</code></li></ul>',
+      'bulletList(listItem(paragraph("<li data-pm-slice=\\"2 2 [&quot;bulletList&quot;,null]\\">")))'],
+    ['a comment', '<!-- data-pm-slice="1 1 [&quot;bulletList&quot;,null]" --><ul><li>beta</li></ul>', 'bulletList(listItem(paragraph("beta")))'],
+    ['another attribute', '<ul title=\'data-pm-slice="1 1 [x]"\'><li>beta</li></ul>', 'bulletList(listItem(paragraph("beta")))'],
+  ])('pastes a list or quote whose clipboard HTML shows the marker only in %s as a block', (_name, html, block) => {
+    const editor = mount('<p>x</p>');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)));
+    paste(editor, html);
+    expect(editor.state.doc.toString()).toBe(`doc(paragraph("x"), ${block})`);
+  });
+
   it('still pastes items copied across items, and a list from outside an editor, as a list', () => {
     for (const [html, items] of [
       [copy('<ul><li><p>alpha</p></li><li><p>beta</p></li></ul>', 'alpha', 'beta'), 'listItem(paragraph("alpha")), listItem(paragraph("beta"))'],
