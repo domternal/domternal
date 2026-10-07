@@ -128,8 +128,16 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
     await chooser.setFiles({ name: 'i18n-pending.png', mimeType: 'image/png', buffer });
     await expect.poll(() => page.evaluate(() => (window as unknown as AsyncWindow).__i18nOwnership.asyncStatus().uploadCalls)).toBe(1);
     await expect(editor).toBeFocused();
-    await expect(editor.locator('img')).toHaveCount(0);
+    // A chosen file waits at a placeholder, a widget decoration outside the document, as a pasted or
+    // dropped file does. Chromium and WebKit render ProseMirror's separator img after a widget that
+    // ends a textblock; that img is not an image of the document.
+    const placeholder = editor.locator('.domternal-image-uploading');
+    const images = editor.locator('img:not(.ProseMirror-separator)');
+    await expect(placeholder).toHaveCount(1);
+    await expect(images).toHaveCount(0);
     await expect(editor).toHaveText('Upload anchor');
+    expect(await page.evaluate(() => (window as unknown as AsyncWindow).__i18nOwnership.editor.getHTML())).toBe('<p>Upload anchor</p>');
+    const indicator = await placeholder.evaluateHandle(node => node);
     await settle(page);
     const pending = await page.evaluate(() => {
       const probe = (window as unknown as AsyncWindow).__i18nOwnership;
@@ -147,10 +155,15 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
     await expect(editor).toHaveAttribute('aria-label', 'Éditeur avec téléversement');
     await expect(page.getByRole('button', { name: 'Insérer une image', exact: true })).toHaveAttribute('lang', 'fr');
     await expect(editor).toBeFocused();
-    await expect(editor.locator('img')).toHaveCount(0);
+    // The replacement keeps the pending upload's own placeholder element and adds no image.
+    await expect(placeholder).toHaveCount(1);
+    expect(await indicator.evaluate(node => node.isConnected)).toBe(true);
+    await expect(images).toHaveCount(0);
     await expectPreserved(page);
     expect(await page.evaluate(() => (window as unknown as AsyncWindow).__i18nOwnership.asyncStatus())).toEqual(pending);
     await page.evaluate(() => { (window as unknown as AsyncWindow).__i18nOwnership.finishUpload(); });
+    // The image takes its placeholder's place, and the paragraph, ending in text again, has no separator.
+    await expect(placeholder).toHaveCount(0);
     const image = editor.locator('img');
     await expect(image).toHaveCount(1);
     await expect(image).toHaveAttribute('src', uploadedSource);
