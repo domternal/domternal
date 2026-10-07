@@ -440,6 +440,36 @@ describe('the picture an Office application adds of its selection', () => {
     expect(pasteHasOwnText(pasteEvent({ html: late, files: [png()] }), Slice.empty)).toBe(false);
   });
 
+  // The whole HTML parsed by the browser, and each conditional comment as a document of its own, let a crafted Office
+  // copy of a few hundred kilobytes take seconds in Chromium and Firefox and minutes in WebKit.
+  it('parses no more than the HTML\'s first 8,192 characters, once, and only when they name Word or Excel as written', () => {
+    const parse = vi.spyOn(window.DOMParser.prototype, 'parseFromString');
+    const comments = '<!--[if gte mso 9]><xml><o:OfficeDocumentSettings></o:OfficeDocumentSettings></xml><![endif]-->'.repeat(1000);
+    try {
+      // A copied image or a screenshot names neither, and is not parsed at all.
+      expect(pasteHasOwnText(pasteEvent({ html: '<meta charset="utf-8"><img src="https://example.com/a.png">', files: [png()] }), Slice.empty)).toBe(false);
+      expect(parse).not.toHaveBeenCalled();
+      expect(pasteHasOwnText(pasteEvent({ html: word(comments + EMPTY), files: [png()] }), Slice.empty)).toBe(true);
+      expect(pasteHasOwnText(pasteEvent({ html: word(comments + PICTURE), files: [png()] }), Slice.empty)).toBe(false);
+      expect(parse).toHaveBeenCalledTimes(2);
+      expect(parse.mock.calls.every(([html]) => html.length <= 8_192)).toBe(true);
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
+  it('reads an image tag past the first 8,192 characters as written, so there it places an image wherever it stands', () => {
+    const comments = '<!--[if gte mso 9]><xml><o:OfficeDocumentSettings></o:OfficeDocumentSettings></xml><![endif]-->'.repeat(100);
+    const html = word(`${comments}<!-- <img src="clip_image002.png"> -->${EMPTY}`);
+    expect(html.length).toBeGreaterThan(8_192);
+    expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty)).toBe(false);
+  });
+
+  it('reads an image tag anywhere in a conditional comment, which holds Office\'s own markup, as an image', () => {
+    const html = word(`<!--[if gte vml 1]><v:shape alt="<img>"></v:shape><![endif]-->${EMPTY}`);
+    expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty)).toBe(false);
+  });
+
   it('takes text a handler removed, such as Word\'s hidden text, as the content\'s own, so the picture that can show it is not the paste', () => {
     const insert = vi.fn(() => true);
     const ed = mount();

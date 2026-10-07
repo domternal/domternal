@@ -274,11 +274,14 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   the files win over whatever else the drop carries.
   A paste whose content has text of its own keeps that content, because Office applications put
   a picture of the copied selection next to it. So does a Word or Excel copy that
-  places no image (HTML whose markup, as the browser parses it, has a `ProgId` meta that names
-  `Word.Document` or `Excel.Sheet` or an element that declares Word's or Excel's namespace in its
-  first 8,192 characters, and no `img` element or VML image data, also inside Office's conditional
-  comments; text, attribute values and other comments that name them do not count), such as a copy of
+  places no image (HTML whose first 8,192 characters, as written and as the browser parses them,
+  have a `ProgId` meta that names `Word.Document` or `Excel.Sheet` or an element that declares
+  Word's or Excel's namespace, and that places no `img` element or VML image data, nor an image tag
+  in Office's conditional comments, where Office writes only markup; text, attribute values and
+  other comments that name them do not count), such as a copy of
   empty paragraphs or cells: Chrome exposes Word's picture of the selection as a file next to it.
+  Only those first 8,192 characters are parsed: past them an image tag counts wherever it is
+  written, since a browser's parser can take seconds over a few hundred kilobytes of crafted markup.
   Text a handler removed counts as text of its own when the handler says so (`removedText`), as
   Paste Cleanup does for Word's hidden text: the picture of the selection can show it, so it is
   neither a paste's files nor, for `dropClipboardImageFiles`, a drop's.
