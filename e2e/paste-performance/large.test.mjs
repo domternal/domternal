@@ -40,6 +40,12 @@ test('large profiles keep their authored shapes and word counts', () => {
   assert.equal(generateLarge('word-default-lists', 12).html.match(/mso-list:l[01] level[1-3]/g)?.length, 12);
   assert.match(generateLarge('word-short-paragraphs', 1).html, /@list l0:level9/u);
   assert.match(generateLarge('gdocs-document', 1).html, /id="docs-internal-guid-/u);
+  // English prose keeps explicit non-ASCII tokens even in the shortest text profiles.
+  for (const profile of LARGE_PROFILES.filter(profile => profile !== 'heavily-formatted-runs')) {
+    const html = generateLarge(profile, 6).html;
+    assert.match(html, /čćšžđ/u, profile);
+    assert.match(html, /ČĆŠŽĐ/u, profile);
+  }
 });
 
 test('large profile sources are pinned so recorded measurements stay reproducible', () => {

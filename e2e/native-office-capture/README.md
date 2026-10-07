@@ -1,18 +1,5 @@
 # Native Office clipboard evidence capture
 
-> History rewrite context: the original dates, versions, findings and results
-> below describe this revision's archived baseline. Where fixture content has
-> been translated, the committed artifacts are authored English regression
-> variants, not new native Office captures. Original native evidence remains
-> unchanged in the owner's private baseline bundle. A variant's `derivation`
-> references that baseline's source, capture and manifest hashes; its own hashes
-> identify the edited bytes. Word Chrome screenshot alternatives become
-> synthetic PNG controls. Historical qualification remains limited to the
-> original reviewed paths; no old result is a test of translated bytes. The
-> later synthetic variants preserve regression intent and make no fresh native
-> qualification claim. Future native admission still needs an actual capture.
-
-
 This is local research tooling, not the PasteCleanup extension or an Office
 source matcher. It captures the representations exposed by one browser paste
 event. It does not control Office applications, infer image bindings, upload
@@ -21,9 +8,35 @@ data, request clipboard permissions or call `navigator.clipboard.read()`.
 The harness itself captures nothing automatically: its automated tests use
 synthetic events and generated File objects, and a complete bundle always has
 `qualification: false`, with its source application and operator metadata
-self-reported, including when its event was trusted. The native captures in
-[`fixtures`](./fixtures) were made by the owner with this page and reviewed; the
-[support matrix](./SUPPORT-MATRIX.md) states what they qualify.
+self-reported, including when its event was trusted. The original reviewed
+native captures are retained unchanged in the owner's private evidence archive.
+The [support matrix](./SUPPORT-MATRIX.md) records their historical qualification.
+
+## Committed English regression variants
+
+The eighty-five semantic fixtures in [`fixtures`](./fixtures) are now authored
+English variants of that archived baseline. They retain its scenario identifiers,
+markup shapes and semantic regression coverage, with translated source references
+and text. They are not fresh Word or Google Docs captures. Google Docs source
+DOCX files are translated reference exports, not newly authored native documents.
+The nineteen Word Chrome raster alternatives are synthetic PNG controls, not
+translated screenshots or evidence of new clipboard pixels.
+
+Each version 2 variant has `origin: synthetic`, `synthetic-event` provenance,
+`nativeClipboardCaptured: false`, no redactions and an `english-text-variant`
+derivation containing the archived source, capture and manifest hashes. These
+references identify the private baseline; the offline verifier does not retrieve
+or authenticate that archive. Current source and capture hashes describe the
+English artifacts. Their timestamp records preparation, not an Office copy, and
+historical application versions are explicitly labelled as the variant's context.
+No historical test result is relabelled as a test of these new bytes.
+
+The content specifications keep their stable v1 identifiers for consumers, but
+are marked `authored-English-regression-variant`, with empty `captures` and
+separate `historicalBaselineCaptures`. Their English text, marks, partial ranges
+and Unicode sentinels are the current regression oracle. Historical `correction`
+and `provenance` notes explain the original findings, not new native evidence.
+The procedures below remain available for future actual native admission.
 
 ## Start locally
 
@@ -108,26 +121,28 @@ local blob adapter would need its own capture and lifetime evidence.
 
 ## Word for Mac capture preparation
 
-Status: **captured for Safari, Chrome and Firefox.** The owner made the captures
+Historical status: **native baseline captured for Safari, Chrome and Firefox.** The owner made the captures
 with Microsoft Word 16.113.3 (16.113.26092714) on macOS 26.5.2 (25F84): in Safari
 26.5.2 (21624.2.5.11.8) on 2026-10-02, and in Google Chrome 154.0.8037.93 and
 Mozilla Firefox 155.0.1 on 2026-10-04, when the list and table scenarios were
 also captured again in Safari from recreated documents. Each covers every
 `word-*` scenario except the large document, `word-headings-styles` as its three
-selections. They are the reviewed fixtures `fixtures/<scenario>-<browser>`; the
+selections. They are retained in the private archive; the matching
+`fixtures/<scenario>-<browser>` paths now hold English synthetic variants. The
 large document and `domternal-own-copy` are pending. The owner or a named tester
 creates the documents and performs every copy and paste. Native Word is not automated:
 earlier automation attempts timed out, and a scripted copy would not be the user
 path this evidence is meant to show.
 
 - [`content/word-mac-v1.json`](./content/word-mac-v1.json) is the machine-readable
-  content specification, prepared for Word 16.111 (build 16.111.26071325) on
-  macOS and captured with Word 16.113.3, as its `captures` record. It defines four
+  English regression content specification. Its historical source context was
+  prepared for Word 16.111 (build 16.111.26071325) on macOS and captured with
+  Word 16.113.3, as `historicalBaselineCaptures` records. It defines four
   documents block by block (exact text starting with a block identifier, Word
   style or button to use, expected structure, marks and list markers) and the
   scenarios with their selection and expected notice outcome. Corrections after
   the first captures carry a `correction` that says what changed and why. The
-  text is synthetic Croatian and English without personal data.
+  prose is English; intentional Croatian characters remain Unicode test data.
 - [`content/large-source.mjs`](./content/large-source.mjs) generates the large
   source: 128 sections, 10,000 words, headings, paragraphs, nested lists and
   tables, every block starting with a consecutive `G00001` token.
@@ -198,7 +213,7 @@ Word-saved `.docx` locally and save it as `.odt`.
 
 Word for Mac to Safari, Chrome and Firefox (record the exact versions at capture
 time), for every `word-*` scenario and the `domternal-own-copy` scenario, with
-both preserve and adapt. All three are captured, except the large document and
+both preserve and adapt. The archived baseline captured all three, except the large document and
 the own copy. A selection that a scenario names as a separate one, such as
 `word-headings-styles-b06`, has a scenario of its own. Its capture may record that
 scenario, as the Chrome and Firefox captures do, or the one `capturedAs` names, as
@@ -265,7 +280,10 @@ same scenarios from recreated documents, under the same fixture identifiers. The
 first lists document defined its lists as named list definitions from
 templates rather than Word's own libraries, so it showed no right aligned
 numbering level, and the first tables document ended with two empty paragraphs
-after the last table. Those captures stay in Git history; the unit tests in
+after the last table. Those original captures and their history are retained in
+the private baseline bundle, not the English rewritten Git history. The old
+commit identifier above is historical and requires that bundle's identity map.
+The unit tests in
 `packages/extension-paste-cleanup/src/html/safariWordLists.test.ts` keep their
 shape as regression coverage.
 
@@ -396,13 +414,14 @@ node e2e/native-office-capture/redact.mjs file capture.json capture.json --item 
 
 ## Google Docs capture preparation
 
-Status: **captured in Chrome.** The owner authored the basics, lists, tables and
+Historical status: **native baseline captured in Chrome.** The owner authored the basics, lists, tables and
 images documents natively in Google Docs web (personal account, Pages format)
 and copied every scenario of them in Google Chrome 153.0.8010.47 on macOS
 26.5.2 on 2026-10-05, except the 50 and 51 image limit, whose part of the images
-document was not authored. They are the reviewed fixtures
-`fixtures/<scenario>-chrome`, each with its document's export as its source; the
-[support matrix](./SUPPORT-MATRIX.md) qualifies that row. Safari and Firefox,
+document was not authored. The unchanged captures and native exports are in the
+private baseline archive. `fixtures/<scenario>-chrome` now holds English authored
+variants and translated reference exports. The [support matrix](./SUPPORT-MATRIX.md)
+retains that row's historical qualification, with no new native claim. Safari and Firefox,
 the large image, the slow copy, the image limit and the mixed and large
 documents are pending, with the [Google Docs runbook](./GOOGLE-DOCS-RUNBOOK.md).
 
@@ -412,8 +431,9 @@ documents are pending, with the [Google Docs runbook](./GOOGLE-DOCS-RUNBOOK.md).
   and `-large`) are defined block by block with the Google Docs command for
   each, and 34 `gdocs-*` scenarios give the selection, the expected editor
   result in preserve and in adapt, the machine-checked outcome of each policy
-  and, for images, what to record from the capture. Its `captures` record the
-  Chrome captures, and corrections after them carry a `correction` that says
+  and, for images, what to record from a future capture. Its empty `captures`
+  makes no new native claim; `historicalBaselineCaptures` records the archived
+  Chrome baseline, and corrections after it carry a `correction` that says
   what changed and why. The four captured documents author Docs' text styles,
   so their check is exhaustive, as for Word; the others author none yet.
 - [`content/google-docs-images.mjs`](./content/google-docs-images.mjs) writes the
@@ -424,7 +444,7 @@ documents are pending, with the [Google Docs runbook](./GOOGLE-DOCS-RUNBOOK.md).
   and has a document of its own, whose `.docx` export, the fixture source of each
   of its captures, stays below the 16 MiB source limit of `prepare-fixture.mjs`
   and `offline.mjs`.
-- Chrome's captures hold every image as a `data:image/png` URL in the HTML, with
+- The archived Chrome captures held every image as a `data:image/png` URL in the HTML, with
   its alt text and size, and no file: the editor keeps it as an embedded image,
   and the specification names each with `src`, `width` and `height`. A
   destination that refuses data images, or has no image node, removes it with
@@ -569,7 +589,7 @@ and late completion. They do not constitute native Office captures.
 ## Offline evidence validation and replay
 
 The versioned [support matrix](./SUPPORT-MATRIX.md) separates implemented behavior,
-synthetic checks and the still-pending native Office evidence. The included
+synthetic checks, retained historical native evidence and unqualified paths. The included
 `fixtures/synthetic-v1` bundle is authored synthetic data, not an Office capture.
 
 With Node 22 and the existing public Free HTML build available:
@@ -584,8 +604,12 @@ pnpm exec eslint e2e/native-office-capture/offline.mjs e2e/native-office-capture
 names one source artifact and one complete capture JSON, with exact SHA-256
 values, origin, fixture ID, license and preserve/adapt oracles. A version 1
 manifest, such as the synthetic fixtures', holds exact HTML oracles. A version 2
-manifest, for claimed native fixtures only, adds the declared redactions and
-holds a semantic oracle instead: the blocks the content specification authors
+manifest holds a semantic oracle instead. A `claimed-native` version 2 fixture
+retains the native provenance and declared-redaction contract, and must not have
+a `derivation`. A synthetic version 2 English variant requires the exact
+`derivation` fields `kind`, `sourceSha256`, `captureSha256` and `manifestSha256`,
+with kind `english-text-variant` and lowercase SHA-256 values, and its `redactions`
+must be empty. Both compare the blocks the content specification authors
 for the selection, and for each policy the status, the source and the sorted
 warning and error codes, which the replay must match exactly, with the block
 model of [`semantics.mjs`](./semantics.mjs) rather than exact HTML, whether the
@@ -612,7 +636,7 @@ allocated. The capture's own lower limits remain in force. Resource ceilings
 bound representations and work, not exact JavaScript heap usage or GC timing.
 
 Replay loads the built public `@domternal/extension-paste-cleanup/html` entry,
-normalizes only the captured HTML with remote images disabled and data images
+normalizes only the stored HTML with remote images disabled and data images
 enabled, and compares exact output, source signature and diagnostic codes with
 the reviewed manifest. Each expected output is limited to 32,768 UTF-16 units
 and 100 diagnostic codes. The source artifact is hashed, not parsed or executed.
@@ -631,9 +655,10 @@ claimed to be erased from engine memory.
 Every committed version 2 fixture is also replayed into the real fixture editor
 by [`paste-native-fixtures.browser.ts`](../paste-native-fixtures.browser.ts), which
 the paste cleanup browser workflow runs in Chromium, Firefox and WebKit. The
-paste carries every captured item in captured order, each file rebuilt from its
-bytes with its name, type and modification time, so Chrome's picture of a Word
-selection reaches the editor as it did the capture page:
+paste carries every stored item in order, each file rebuilt from its bytes with
+its name, type and modification time. English Word Chrome variants exercise the
+raster-alternative rejection with synthetic images. They do not replay the
+archived screenshot pixels:
 
 ```sh
 pnpm exec playwright test --config e2e/paste-cleanup.config.ts paste-native-fixtures.browser.ts

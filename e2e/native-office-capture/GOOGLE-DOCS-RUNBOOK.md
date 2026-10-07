@@ -1,26 +1,22 @@
 # Google Docs capture runbook: Chrome, Safari and Firefox on macOS
 
-> History rewrite context: the original dates, versions, findings and results
-> below describe this revision's archived baseline. Where fixture content has
-> been translated, the committed artifacts are authored English regression
-> variants, not new native Office captures. Original native evidence remains
-> unchanged in the owner's private baseline bundle. A variant's `derivation`
-> references that baseline's source, capture and manifest hashes; its own hashes
-> identify the edited bytes. Word Chrome screenshot alternatives become
-> synthetic PNG controls. Historical qualification remains limited to the
-> original reviewed paths; no old result is a test of translated bytes. The
-> later synthetic variants preserve regression intent and make no fresh native
-> qualification claim. Future native admission still needs an actual capture.
+Current status: the twenty-eight committed Google Docs fixtures are authored
+English regression variants, not fresh native captures. Their archived baseline
+was captured in Chrome for the basics, lists, tables and images documents on
+2026-10-05. The original captures remain unchanged in the owner's private
+baseline bundle; the current `fixtures/<scenario>-chrome` artifacts carry
+synthetic provenance and baseline derivation hashes. Translated source DOCX
+files are reference exports, not newly authored Google Docs documents.
 
-
-Status: **captured in Chrome for four documents.** On 2026-10-05 the owner made
-the Chrome captures of the basics, lists, tables and images documents, which are
-the reviewed fixtures `fixtures/<scenario>-chrome`; Safari, Firefox, the large
-image, the slow copy, the 50 and 51 image limit and the mixed and large
-documents are pending. The owner or a named tester performs every
-step by hand. The documents, selections and expected results for preserve and
-adapt are in [`content/google-docs-v1.json`](./content/google-docs-v1.json); a
-capture made this way is evidence for review, never a qualification.
+The historical baseline did not qualify Safari, Firefox, the large image, slow
+copy, the 50 and 51 image limit, or the mixed and large documents. Those paths
+remain unqualified. The procedures below describe future native admission,
+not work already performed on the English variants. An owner or named tester
+must perform every capture step by hand and record the actual current versions.
+The documents, selections and expected results for preserve and adapt are in
+[`content/google-docs-v1.json`](./content/google-docs-v1.json), now explicitly
+marked as authored English regression content with no new captures. A future
+capture is evidence for review, never automatic qualification.
 
 ## Never include
 
@@ -39,12 +35,12 @@ capture made this way is evidence for review, never a qualification.
 - Other software in the clipboard path: quit clipboard managers and remote
   desktop sessions, and use a browser profile without extensions.
 
-Chrome's captures hold every image as a data URL of its pixels, with no address.
+The archived Chrome captures held every image as a data URL of its pixels, with no address.
 A copy that holds an address Google Docs serves would open the image for anyone
 who has it, which is acceptable only because the images are generated; a bundle
 that holds anything else must be deleted, not edited.
 
-## Prepare once
+## Prepare once for a future native capture
 
 1. In the repository, run `pnpm build`, then
    `node e2e/native-office-capture/content/google-docs-images.mjs /private/tmp/gdocs-v1-images`
@@ -71,7 +67,7 @@ that holds anything else must be deleted, not edited.
    `unzip -p <file>.docx docProps/core.xml docProps/app.xml` shows no name or
    address.
 
-## Per capture, in Chrome, Safari and Firefox
+## Per future capture, in Chrome, Safari and Firefox
 
 1. Run `node e2e/native-office-capture/server.mjs` and open
    `http://127.0.0.1:5896` in the browser being captured, the same browser that
@@ -109,8 +105,9 @@ that holds anything else must be deleted, not edited.
    place of the editor result. The bundle report replays the captured HTML and
    counts its images by URL scheme without printing an address. Problems are
    findings to record; never edit a capture.
-7. Put the export as `source.docx` and the bundle as `capture.json` into
-   `e2e/native-office-capture/fixtures/<fixture identifier>/` and run
+7. Keep the existing authored regression variants unchanged. Use a new fixture
+   identifier, put the export as `source.docx` and the bundle as `capture.json`
+   into `e2e/native-office-capture/fixtures/<fixture identifier>/` and run
    `node e2e/native-office-capture/prepare-fixture.mjs <that directory> --id <fixture identifier> --source source.docx`.
    Commit nothing before the privacy review of the source and the bundle.
 

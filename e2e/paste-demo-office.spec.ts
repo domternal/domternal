@@ -1,4 +1,4 @@
-/** Real Office capture replays in the demos, not operating-system clipboard automation. */
+/** Office fixture replays in the demos, including authored English variants; no operating-system clipboard automation. */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';

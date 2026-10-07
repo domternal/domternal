@@ -1,19 +1,18 @@
-/** Historical replay implementation with authored English variants. The retained checks are synthetic replays,
- * and archived native descriptions below refer to the original baseline, not to newly captured English bytes. */
 /**
- * Every committed claimed native Office fixture, replayed into the real fixture editor in each engine and
- * policy: one paste event whose DataTransfer holds every captured item in captured order, its text flavors and
- * its files, each file rebuilt from its captured bytes with its name, type and modification time, as Chrome
- * exposes Word's picture of the selection next to Word's HTML. The editor result is checked against the fixture's reviewed semantic oracle, which is authored from the content
+ * Every committed semantic Office fixture, replayed into the real fixture editor in each engine and
+ * policy: one paste event whose DataTransfer holds every stored item in order, its text flavors and files,
+ * each file rebuilt from its fixture bytes with its name, type and modification time. A Word Chrome fixture
+ * includes a raster alternative next to the HTML, replaced by a synthetic image in an English variant.
+ * The editor result is checked against the fixture's reviewed semantic oracle, which is authored from the content
  * specification: blocks, list structure and markers, marks, the notice and its codes. Pasted text must stay
  * readable against what it lands on, which white automatic color text was not: text without a color of its own
  * reaches 4.5:1 in the light theme and, after a switch, in the dark one; a color the source authored keeps 3:1
  * in the light theme, and where the dark theme takes it below 3:1 the run is annotated (owner question Q1).
  *
  * The event is synthetic, so this is not a native paste: no engine computes styles in the receiving page, and
- * a capture's blob: URLs are dead here. Each fixture also runs in the engines other than the one it was captured
- * in: the replay shows that the result does not depend on the receiving engine, not how that browser would
- * deliver the copy, which only its own row's captures show.
+ * a capture's blob: URLs are dead here. Authored English variants reference archived captures and make no new
+ * native capture claim. Each fixture also runs in other receiving engines: the replay checks engine-independent
+ * handling of the stored items, not what an Office application or browser would copy now.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -35,9 +34,9 @@ interface ProbeWindow {
     assetReads: number; assetUploads: number; assetMatchRequests: unknown[] };
   __contrastTools: ContrastTools;
 }
-/** A captured item: a text flavor with its value, or a file with its captured bytes. */
+/** A stored fixture item: a text flavor with its value, or a file with its recorded bytes. */
 type Item = { kind: 'string'; type: string; value: string } | { kind: 'file'; type: string; name: string; fileType: string; lastModified: number; base64: string };
-interface Fixture { id: string; directory: string; expected: SemanticExpected | undefined; items: Item[]; files: number; html: string }
+interface Fixture { id: string; directory: string; origin: 'claimed-native' | 'synthetic'; expected: SemanticExpected | undefined; items: Item[]; files: number; html: string }
 interface Run { text: string; ratio: number; authored: boolean }
 interface Replay {
   operations: PasteOperationResult[];
@@ -59,8 +58,8 @@ interface Replay {
 const FIXTURES = join(__dirname, 'native-office-capture', 'fixtures');
 const policies = ['preserve', 'adapt'] as const;
 
-/** The claimed native fixtures: version 2 manifests, whose oracles are authored from a content specification. */
-function nativeFixtures(): Fixture[] {
+/** Version 2 semantic fixtures with native or explicitly synthetic provenance, checked by the offline verifier. */
+function semanticFixtures(): Fixture[] {
   const fixtures: Fixture[] = [];
   for (const entry of readdirSync(FIXTURES, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
@@ -73,7 +72,7 @@ function nativeFixtures(): Fixture[] {
       items: { itemIndex: number; kind: string; type: string; file: { name: string; type: string; lastModified: number } | null }[];
       files: { itemIndex: number; base64: string }[];
     } };
-    // Every captured item in captured order: a text flavor the capture holds, and a file with its bytes.
+    // Every stored item in order: a text flavor the fixture holds, or a file with its bytes.
     const items = bundle.payload.items.flatMap((item): Item[] => {
       if (item.kind === 'string') {
         const value = bundle.payload.text[item.type];
@@ -87,7 +86,7 @@ function nativeFixtures(): Fixture[] {
     // the offline verifier checks the oracle's full shape.
     const expected = manifest.expected as Partial<SemanticExpected> | null;
     const authored = expected?.preserve?.editor !== undefined && expected.adapt?.editor !== undefined ? expected as SemanticExpected : undefined;
-    fixtures.push({ id: manifest.id, directory, expected: authored, items, files: items.filter(item => item.kind === 'file').length,
+    fixtures.push({ id: manifest.id, directory, origin: manifest.origin, expected: authored, items, files: items.filter(item => item.kind === 'file').length,
       html: bundle.payload.text['text/html'] ?? '' });
   }
   return fixtures.sort((left, right) => left.id.localeCompare(right.id));
@@ -219,7 +218,7 @@ function emptyTextStyles(doc: JSONContent): string[] {
   return found;
 }
 
-const fixtures = nativeFixtures();
+const fixtures = semanticFixtures();
 
 // A paragraph about Office HTML that names each application's markup in its text: Word's list property, Normal class
 // and namespace, Google Docs' copy wrapper and LibreOffice. The control spells each one otherwise, with the same length.
@@ -240,7 +239,7 @@ function editorOutcomesOf(oracle: PolicyOracle): readonly EditorOutcome[] {
   return Array.isArray(oracle.editor) ? oracle.editor as readonly EditorOutcome[] : [oracle.editor as EditorOutcome];
 }
 
-test('the native fixture directory holds claimed native fixtures to replay', () => {
+test('the Office fixture directory holds semantic fixtures to replay', () => {
   expect(fixtures.length).toBeGreaterThan(0);
 });
 
@@ -251,6 +250,11 @@ for (const fixture of fixtures) {
       const [, { verifyCaptureFixture }] = await evidence();
       const report = await verifyCaptureFixture(fixture.directory);
       expect(report.integrity.qualification).toBe(false);
+      expect(report.integrity.nativeEvidenceAuthenticated).toBe(false);
+      expect(report.integrity.origin).toBe(fixture.origin);
+      expect(report.integrity.claimedEventKind).toBe(fixture.origin === 'synthetic' ? 'synthetic-event' : 'native-event');
+      if (fixture.origin === 'synthetic') expect(report.integrity.derivation?.kind).toBe('english-text-variant');
+      else expect(report.integrity.derivation).toBeUndefined();
       expect(report.replay.kind).toBe('offline-semantic-replay');
     });
 
@@ -265,7 +269,7 @@ for (const fixture of fixtures) {
           const oracle = expected[formatting];
           const [{ blocksFromEditorJSON, compareBlocks }, { noticeCodes, semanticSpecification }] = await evidence();
           const result = await replay(page, formatting, outcome.schema, fixture.items);
-          // The paste carries every captured item: each text flavor and each file, such as Chrome's picture of a Word selection.
+          // The paste carries every stored item: each text flavor and file, including the Word Chrome raster alternative.
           expect(result.transfer.files).toBe(fixture.files);
           for (const item of fixture.items) if (item.kind === 'string') expect(result.transfer.types).toContain(item.type);
           const operation = result.operations.at(-1);

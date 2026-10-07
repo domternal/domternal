@@ -642,14 +642,23 @@ test('the Google Docs dry run fixture passes the offline verifier, and its repla
 test('every committed English regression variant passes the offline verifier and holds its authored scenario blocks', async () => {
   const directories = (await readdir(join(here, 'fixtures'), { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => join(here, 'fixtures', entry.name));
   const variants = [];
+  const derivations = [];
   const sources = new Map();
   for (const directory of directories) {
     const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
     if (manifest.schemaVersion !== 2) continue;
     variants.push(manifest.id);
+    assert.equal(manifest.origin, 'synthetic', manifest.id);
+    assert.deepEqual(manifest.redactions, [], manifest.id);
+    assert.equal(manifest.derivation.kind, 'english-text-variant', manifest.id);
+    for (const key of ['sourceSha256', 'captureSha256', 'manifestSha256']) assert.match(manifest.derivation[key], /^[a-f0-9]{64}$/u, manifest.id);
+    derivations.push({ id: manifest.id, sourceSha256: manifest.derivation.sourceSha256,
+      captureSha256: manifest.derivation.captureSha256, manifestSha256: manifest.derivation.manifestSha256 });
     const report = await verifyCaptureFixture(directory);
     assert.equal(report.integrity.qualification, false); assert.equal(report.integrity.nativeEvidenceAuthenticated, false);
-    assert.equal(report.integrity.claimedEventKind, manifest.origin === 'synthetic' ? 'synthetic-event' : 'native-event');
+    assert.equal(report.integrity.origin, 'synthetic');
+    assert.equal(report.integrity.claimedEventKind, 'synthetic-event');
+    assert.deepEqual(report.integrity.derivation, manifest.derivation, manifest.id);
     // Word for Mac's fixtures and Google Docs', each held to its own content specification.
     const specification = [spec, docs].find(entry => entry.id === manifest.expected.specification);
     assert.ok(specification, manifest.id);
@@ -665,11 +674,11 @@ test('every committed English regression variant passes the offline verifier and
     // Safari's captures record the scenario a separate selection was captured as, Chrome's and Firefox's its own.
     assert.equal(bundle.operator.scenario, browser === 'safari' ? scenario.capturedAs ?? scenario.id : scenario.id, manifest.id);
     assert.equal(bundle.operator.fixtureId, manifest.id);
-    // Chrome exposes Word's picture of the selection as one image/png file next to Word's HTML; Safari and Firefox expose
-    // none, and Google Docs, whose images are data URLs in its HTML, none in Chrome.
+    // English variants preserve the baseline item inventory, using a synthetic PNG for Word Chrome's raster alternative.
     assert.deepEqual(bundle.payload.items.filter(item => item.kind === 'file').map(item => item.type), browser === 'chrome' && !google ? ['image/png'] : [], manifest.id);
-    // A Google Docs fixture names its unredacted export, which holds no document properties, and declares no redaction.
-    if (google) { assert.deepEqual(manifest.redactions, []); assert.equal(bundle.operator.fixtureSha256, manifest.source.sha256, manifest.id); }
+    // The current hash names the translated source reference, never the baseline document or a new native export.
+    assert.equal(bundle.operator.fixtureSha256, manifest.source.sha256, manifest.id);
+    assert.equal(bundle.provenance.nativeClipboardCaptured, false, manifest.id);
     sources.set(scenario.document, (sources.get(scenario.document) ?? new Set()).add(manifest.source.sha256));
     // Whether the copy holds a block's hidden text is the browser's: the oracle states what the captured HTML shows.
     assert.equal(manifest.expected.hiddenText, copiedHiddenText(specification, scenario.id, bundle.payload.text['text/html']), manifest.id);
@@ -689,6 +698,9 @@ test('every committed English regression variant passes the offline verifier and
   assert.equal(googleSelections.length, 28);
   assert.deepEqual(variants.filter(id => id.startsWith('gdocs-')).sort(), googleSelections.sort());
   assert.deepEqual(variants.filter(id => !CAPTURED_BROWSERS.some(browser => id.endsWith(`-${browser}`))), []);
+  assert.equal(variants.length, 85);
+  derivations.sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  assert.equal(digest(JSON.stringify(derivations)), ENGLISH_DERIVATION_BASELINE_SHA256);
   // The fixtures of one document share its committed source, so no capture of an earlier version of it stays beside them.
   for (const [document, hashes] of sources) assert.equal(hashes.size, 1, document);
 });
@@ -777,6 +789,8 @@ test('the printed specification lists every text an operator enters', () => {
 
 /** Historical Word browser rows, each retained with every selection as an English regression. */
 const CAPTURED_BROWSERS = ['safari', 'chrome', 'firefox'];
+// Hash of the canonical id/source/capture/manifest references read from the original archived artifact bytes.
+const ENGLISH_DERIVATION_BASELINE_SHA256 = '037e2190d00866ccc21ec517a62e0043d5f7e796d8c7ec9873ab8c3914188236';
 
 const blocksById = specification => new Map(specification.documents.flatMap(document => document.blocks.map(block => [block.id, block])));
 

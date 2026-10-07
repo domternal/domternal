@@ -714,17 +714,17 @@ function redactionSummary(declaration) {
     ...(declaration.artifact === 'clipboard-file' ? { itemIndex: declaration.itemIndex } : {}) };
 }
 
-/** Archived baseline references identify an authored variant, not a new native capture. */
-function readDerivation(value) {
-  shape(value, ['kind', 'sourceSha256', 'captureSha256', 'manifestSha256']);
-  if (value.kind !== 'english-text-variant') fail('evidence-provenance');
-  for (const field of ['sourceSha256', 'captureSha256', 'manifestSha256']) hash(value[field]);
-  return value;
-}
 function artifactPath(value) {
   text(value, 512);
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/u.test(value) || isAbsolute(value)
     || value.split('/').some(part => !part || part === '.' || part === '..')) fail('evidence-path');
+  return value;
+}
+/** Hash references to the archived baseline, not authentication of a new native capture. */
+function readDerivation(value) {
+  shape(value, ['kind', 'sourceSha256', 'captureSha256', 'manifestSha256']);
+  if (value.kind !== 'english-text-variant') fail('evidence-provenance');
+  for (const field of ['sourceSha256', 'captureSha256', 'manifestSha256']) hash(value[field]);
   return value;
 }
 async function readContained(root, name, maximum) {
@@ -756,7 +756,7 @@ export async function verifyCaptureFixture(directory) {
     manifestBytes = await readContained(root, 'manifest.json', MAX_MANIFEST_BYTES);
     const manifest = parseJSON(manifestBytes, MAX_MANIFEST_BYTES);
     if (manifest?.schemaVersion === 2) {
-      // Historical compatibility for explicitly authored English variants; native claims keep their exact schema.
+      // Semantic fixtures retain their distinct provenance; only synthetic variants declare a derivation.
       const synthetic = manifest.origin === 'synthetic';
       shape(manifest, ['schemaVersion', 'id', 'origin', 'license', 'source', 'capture', 'redactions', 'expected',
         ...(synthetic ? ['derivation'] : [])]);

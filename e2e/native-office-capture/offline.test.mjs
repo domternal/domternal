@@ -181,3 +181,104 @@ test('refuses changed source bytes before capture replay and hides missing-path 
   await editManifest(fixture, value => { value.source.path = 'PRIVATE-MISSING-SOURCE'; });
   await assert.rejects(verifyCaptureFixture(fixture), failure('evidence-read'));
 });
+
+/** Authored semantic controls use the existing synthetic fixture as a baseline, never a real native capture. */
+async function semanticFixture(t, { origin = 'synthetic', bundle: changeBundle, manifest: changeManifest } = {}) {
+  const { fixture } = await scratch(t);
+  const source = Buffer.from('<p class="MsoNormal">B01 <strong>Alpha</strong> <em>Beta</em><img src="cid:2" alt=" diagram"></p>');
+  const bundle = structuredClone(original);
+  bundle.capturedAt = '2026-10-07T18:00:00.000Z';
+  bundle.operator.fixtureSha256 = digest(source);
+  bundle.operator.copyMethod = 'Authored English semantic control; no native copy';
+  bundle.payload.text['text/html'] = source.toString('utf8');
+  bundle.payload.text['text/plain'] = 'B01 Alpha Beta diagram';
+  bundle.payload.totals.textBytes = Object.values(bundle.payload.text).reduce((sum, value) => sum + Buffer.byteLength(value), 0);
+  if (origin === 'claimed-native') {
+    bundle.provenance.eventKind = 'native-event';
+    bundle.provenance.nativeClipboardCaptured = true;
+  }
+  changeBundle?.(bundle);
+  const capture = Buffer.from(JSON.stringify(bundle));
+  const oracle = { status: 'cleaned', source: 'word', warnings: ['image-removed'],
+    editor: { schema: 'default', notice: 'visible', warnings: ['image-removed'] } };
+  const value = {
+    schemaVersion: 2, id: manifest.id, origin, license: 'MIT; authored semantic fixture control',
+    source: { path: 'source.html', sha256: digest(source) },
+    capture: { path: 'capture.json', sha256: digest(capture) }, redactions: [],
+    expected: { specification: 'english-control', scenario: 'english-control',
+      blocks: [{ id: 'B01', type: 'paragraph', text: 'B01 Alpha Beta diagram',
+        marks: [{ text: 'Alpha', marks: ['bold'] }, { text: 'Beta', marks: ['italic'] }] }],
+      preserve: structuredClone(oracle), adapt: structuredClone(oracle) },
+    ...(origin === 'synthetic' ? { derivation: { kind: 'english-text-variant', sourceSha256: manifest.source.sha256,
+      captureSha256: manifest.capture.sha256, manifestSha256: digest(await readFile(join(directory, 'manifest.json'))) } } : {}),
+  };
+  changeManifest?.(value);
+  await writeFile(join(fixture, 'source.html'), source);
+  await writeFile(join(fixture, 'capture.json'), capture);
+  await writeFile(join(fixture, 'manifest.json'), JSON.stringify(value));
+  return { fixture, manifest: value };
+}
+
+test('semantic English variants retain archived hashes without becoming native or qualified evidence', async t => {
+  const { fixture, manifest: value } = await semanticFixture(t);
+  const report = await verifyCaptureFixture(fixture);
+  assert.deepEqual(report.integrity.derivation, value.derivation);
+  assert.ok(Object.isFrozen(report.integrity.derivation));
+  assert.equal(report.integrity.origin, 'synthetic');
+  assert.equal(report.integrity.claimedEventKind, 'synthetic-event');
+  assert.equal(report.integrity.qualification, false);
+  assert.equal(report.integrity.nativeEvidenceAuthenticated, false);
+  assert.equal(report.integrity.sourceSha256, value.source.sha256);
+  assert.notEqual(report.integrity.sourceSha256, value.derivation.sourceSha256);
+  assert.equal(report.integrity.captureSha256, value.capture.sha256);
+  assert.notEqual(report.integrity.captureSha256, value.derivation.captureSha256);
+  assert.deepEqual(report.integrity.redactions, []);
+  assert.equal(report.replay.kind, 'offline-semantic-replay');
+  assert.deepEqual(report.replay.outcomes.map(outcome => outcome.warnings), [['image-removed'], ['image-removed']]);
+  assert.equal(report.replay.qualification, false);
+});
+
+for (const [name, mutate, code] of [
+  ['missing derivation', value => { delete value.derivation; }, 'evidence-schema'],
+  ['null derivation', value => { value.derivation = null; }, 'evidence-schema'],
+  ['unknown derivation field', value => { value.derivation.native = true; }, 'evidence-schema'],
+  ['unknown derivation kind', value => { value.derivation.kind = 'native-recapture'; }, 'evidence-provenance'],
+  ...['sourceSha256', 'captureSha256', 'manifestSha256'].flatMap(field => [
+    [`missing ${field}`, value => { Reflect.deleteProperty(value.derivation, field); }, 'evidence-schema'],
+    [`invalid ${field}`, value => { value.derivation[field] = 'not-a-hash'; }, 'evidence-schema'],
+  ]),
+  ['redaction on a synthetic variant', value => { value.redactions = [{}]; }, 'evidence-provenance'],
+  ['non-array redactions', value => { value.redactions = null; }, 'evidence-provenance'],
+  ['native upgrade with derivation', value => { value.origin = 'claimed-native'; }, 'evidence-schema'],
+  ['native upgrade without derivation', value => { value.origin = 'claimed-native'; delete value.derivation; }, 'evidence-provenance'],
+  ['wrong actual source hash', value => { value.source.sha256 = '0'.repeat(64); }, 'evidence-checksum'],
+  ['wrong actual capture hash', value => { value.capture.sha256 = '0'.repeat(64); }, 'evidence-checksum'],
+  ['wrong semantic text', value => { value.expected.blocks[0].text = 'B01 Different text'; }, 'evidence-replay-mismatch'],
+]) test(`semantic English variants refuse ${name}`, async t => {
+  const { fixture } = await semanticFixture(t, { manifest: mutate });
+  await assert.rejects(verifyCaptureFixture(fixture), failure(code));
+});
+
+test('synthetic semantic variants reject native event claims even with a complete derivation', async t => {
+  const { fixture } = await semanticFixture(t, { bundle: value => {
+    value.provenance.eventKind = 'native-event'; value.provenance.nativeClipboardCaptured = true;
+  } });
+  await assert.rejects(verifyCaptureFixture(fixture), failure('evidence-provenance'));
+});
+
+test('native semantic fixtures keep their existing contract and reject synthetic provenance or derivation', async t => {
+  const { fixture } = await semanticFixture(t, { origin: 'claimed-native' });
+  const report = await verifyCaptureFixture(fixture);
+  assert.equal(report.integrity.origin, 'claimed-native');
+  assert.equal(report.integrity.claimedEventKind, 'native-event');
+  assert.equal(report.integrity.derivation, undefined);
+  assert.equal(report.integrity.qualification, false);
+  const { fixture: synthetic } = await semanticFixture(t, { origin: 'claimed-native', bundle: value => {
+    value.provenance.eventKind = 'synthetic-event'; value.provenance.nativeClipboardCaptured = false;
+  } });
+  await assert.rejects(verifyCaptureFixture(synthetic), failure('evidence-provenance'));
+  const { fixture: derived } = await semanticFixture(t, { origin: 'claimed-native', manifest: value => {
+    value.derivation = { kind: 'english-text-variant', sourceSha256: '1'.repeat(64), captureSha256: '2'.repeat(64), manifestSha256: '3'.repeat(64) };
+  } });
+  await assert.rejects(verifyCaptureFixture(derived), failure('evidence-schema'));
+});
