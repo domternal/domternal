@@ -282,6 +282,8 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   empty paragraphs or cells: Chrome exposes Word's picture of the selection as a file next to it.
   Only those first 8,192 characters are parsed: past them an image tag counts wherever it is
   written, since a browser's parser can take seconds over a few hundred kilobytes of crafted markup.
+  On a page whose Trusted Types refuse the browser's parser, as Chromium and WebKit do without a
+  default policy, the rule reads the HTML as written instead, so text that names them counts there.
   Text a handler removed counts as text of its own when the handler says so (`removedText`), as
   Paste Cleanup does for Word's hidden text: the picture of the selection can show it, so it is
   neither a paste's files nor, for `dropClipboardImageFiles`, a drop's.

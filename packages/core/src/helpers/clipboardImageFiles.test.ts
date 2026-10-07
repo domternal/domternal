@@ -465,6 +465,24 @@ describe('the picture an Office application adds of its selection', () => {
     expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty)).toBe(false);
   });
 
+  // Chromium and WebKit refuse DOMParser on a page that requires Trusted Types and has no default policy, where a Word
+  // copy of empty paragraphs then pasted Word's picture of the selection as an image.
+  it('reads the HTML as written where the page\'s Trusted Types refuse the browser\'s parser, as before markup was parsed', () => {
+    const parse = vi.spyOn(window.DOMParser.prototype, 'parseFromString').mockImplementation(() => {
+      throw new TypeError('This assignment requires a TrustedHTML');
+    });
+    try {
+      for (const html of [word(EMPTY), word(CELL), '<META NAME=progid CONTENT=excel.sheet><table><tr><td></td></tr></table>']) {
+        expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty), html).toBe(true);
+      }
+      for (const html of [word(PICTURE), word(VML), '<meta charset="utf-8"><p></p>', '<p>urn:schemas-microsoft-com:office:word</p>']) {
+        expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty), html).toBe(false);
+      }
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
   it('reads an image tag anywhere in a conditional comment, which holds Office\'s own markup, as an image', () => {
     const html = word(`<!--[if gte vml 1]><v:shape alt="<img>"></v:shape><![endif]-->${EMPTY}`);
     expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty)).toBe(false);

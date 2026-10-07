@@ -155,7 +155,8 @@ function placesImage(parsed: Document): boolean {
  * name Word or Excel as written: an element that declares Word's or Excel's namespace, or a ProgId meta
  * that names one, and an image element. A page whose text, attribute values or comments name the
  * namespace, the ProgId or an image is no such document. Past those characters an image tag counts as
- * written, since a browser's parser can take seconds over a few hundred kilobytes of crafted markup.
+ * written, since a browser's parser can take seconds over a few hundred kilobytes of crafted markup, and so does
+ * all of it where the page's Trusted Types refuse the parser.
  */
 function officeSelectionPicture(data: DataTransfer | null | undefined): boolean {
   if (!data || !hasType(data, 'text/html')) return false;
@@ -169,7 +170,8 @@ function officeSelectionPicture(data: DataTransfer | null | undefined): boolean 
   if (!WRITTEN_NAMESPACE.test(written)
     && !Array.from(written.matchAll(WRITTEN_META)).some(([tag]) => WRITTEN_PROG_ID.test(tag) && WRITTEN_OFFICE_PROG_ID.test(tag))) return false;
   const head = parseHTML(written);
-  if (head === undefined) return false;
+  // A page whose Trusted Types refuse the parser has the HTML read as written, as before the markup was parsed.
+  if (head === undefined) return !IMAGE_TAG.test(html);
   const office = Array.from(head.querySelectorAll('*')).some(element =>
     (element.localName === 'meta' && PROG_ID.test(element.getAttribute('name') ?? '') && OFFICE_PROG_ID.test(element.getAttribute('content') ?? ''))
     || Array.from(element.attributes).some(({ name, value }) => NAMESPACE_DECLARATION.test(name) && OFFICE_NAMESPACE.test(value)));
