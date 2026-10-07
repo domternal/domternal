@@ -1,3 +1,4 @@
+import { demoPasteCleanupExtensions } from './demo-paste-cleanup.js';
 import {
   Bold, Italic, Underline, Strike, Code, Link,
   Heading, Blockquote, HardBreak, HorizontalRule,
@@ -16,6 +17,7 @@ export const sharedExtensions: AnyExtension[] = [
   Bold, Italic, Underline, Strike, Code, Link,
   Heading, Blockquote, HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList, ListIndent,
+  ...demoPasteCleanupExtensions,
   SelectionDecoration, ClearFormatting, Dropcursor,
 ];
 

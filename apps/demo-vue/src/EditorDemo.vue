@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { demoPasteCleanupExtensions } from './demo-paste-cleanup.js';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   useEditor,
@@ -87,6 +88,7 @@ const extensions = [
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
+  ...demoPasteCleanupExtensions,
   TextAlign, TextColor, FontSize, FontFamily, LineHeight,
   Table.configure({ constrainToContainer: constrainTable, resizeBehavior }),
   Details,

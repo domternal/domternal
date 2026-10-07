@@ -1,3 +1,4 @@
+import { demoPasteCleanupExtensions } from './demo-paste-cleanup.js';
 import { useDemoI18n } from './demo-language.js';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -107,6 +108,7 @@ const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
+  ...demoPasteCleanupExtensions,
   TextAlign, TextColor, FontSize, FontFamily, LineHeight,
   NotionColorPicker,
   Table,

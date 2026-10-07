@@ -1,3 +1,4 @@
+import { demoPasteCleanupExtensions } from './demo-paste-cleanup.js';
 import { useDemoI18n } from './demo-language.js';
 import { useEffect, useState } from 'react';
 import {
@@ -84,6 +85,7 @@ const extensions = [
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
+  ...demoPasteCleanupExtensions,
   TextAlign, TextColor, FontSize, FontFamily, LineHeight,
   Table.configure({ constrainToContainer: constrainTable, resizeBehavior }),
   Details,

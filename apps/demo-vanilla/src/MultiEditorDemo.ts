@@ -1,3 +1,4 @@
+import { demoPasteCleanupExtensions } from './demo-paste-cleanup.js';
 import type { I18nOptions } from '@domternal/core';
 import { DomternalEditor, DomternalToolbar, DomternalBubbleMenu } from '@domternal/vanilla';
 import {
@@ -32,6 +33,7 @@ function buildExtensions(): AnyExtension[] {
     Bold, Italic, Underline, Strike, Code, Link,
     Heading, Blockquote, HardBreak, HorizontalRule,
     BulletList, OrderedList, TaskList, ListIndent,
+    ...demoPasteCleanupExtensions,
     SelectionDecoration, ClearFormatting, Dropcursor,
   ];
 }

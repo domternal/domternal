@@ -6,6 +6,7 @@ import * as emojiGerman from '@domternal/extension-emoji/locales/de';
 import * as imageGerman from '@domternal/extension-image/locales/de';
 import * as mathGerman from '@domternal/extension-math/locales/de';
 import * as mentionGerman from '@domternal/extension-mention/locales/de';
+import * as pasteCleanupGerman from '@domternal/extension-paste-cleanup/locales/de';
 import * as tableGerman from '@domternal/extension-table/locales/de';
 import * as tocGerman from '@domternal/extension-toc/locales/de';
 
@@ -24,6 +25,7 @@ export const DEMO_I18N: Readonly<Record<DemoLanguage, I18nOptions>> = Object.fre
       ...imageGerman.deMessages,
       ...mathGerman.deMessages,
       ...mentionGerman.deMessages,
+      ...pasteCleanupGerman.deMessages,
       ...tableGerman.deMessages,
       ...tocGerman.deMessages,
     }),
@@ -35,6 +37,7 @@ export const DEMO_I18N: Readonly<Record<DemoLanguage, I18nOptions>> = Object.fre
       ...imageGerman.deSearchAliases,
       ...mathGerman.deSearchAliases,
       ...mentionGerman.deSearchAliases,
+      ...pasteCleanupGerman.deSearchAliases,
       ...tableGerman.deSearchAliases,
       ...tocGerman.deSearchAliases,
     }),

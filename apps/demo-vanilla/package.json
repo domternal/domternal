@@ -22,6 +22,7 @@
     "@domternal/extension-markdown": "workspace:*",
     "@domternal/extension-math": "workspace:*",
     "@domternal/extension-mention": "workspace:*",
+    "@domternal/extension-paste-cleanup": "workspace:*",
     "@domternal/extension-table": "workspace:*",
     "@domternal/extension-toc": "workspace:*",
     "@domternal/theme": "workspace:*",

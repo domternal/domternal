@@ -1,3 +1,4 @@
+import { demoPasteCleanupExtensions } from '../demo-paste-cleanup.js';
 import { Component, ChangeDetectionStrategy, OnDestroy, signal, input, effect, untracked, computed } from '@angular/core';
 import type { IconSet, I18nOptions } from '@domternal/core';
 import {
@@ -94,6 +95,7 @@ export class EditorDemoComponent implements OnDestroy {
     Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
     // Lists (auto-include ListItem / TaskItem)
     BulletList, OrderedList, TaskList,
+    ...demoPasteCleanupExtensions,
     // Text styling (TextColor/FontSize/FontFamily auto-include TextStyle)
     TextAlign, TextColor, FontSize, FontFamily, LineHeight,
     // Table (auto-includes TableRow, TableCell, TableHeader)

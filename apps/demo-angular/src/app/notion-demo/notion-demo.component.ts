@@ -1,3 +1,4 @@
+import { demoPasteCleanupExtensions } from '../demo-paste-cleanup.js';
 import { Component, ChangeDetectionStrategy, ElementRef, OnDestroy, computed, input, signal, viewChild } from '@angular/core';
 import {
   DomternalEditorComponent,
@@ -145,6 +146,7 @@ export class NotionDemoComponent implements OnDestroy {
       Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
       Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
       BulletList, OrderedList, TaskList,
+      ...demoPasteCleanupExtensions,
       TextAlign, TextColor, FontSize, FontFamily, LineHeight,
       NotionColorPicker,
       Table,
