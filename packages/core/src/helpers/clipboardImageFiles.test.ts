@@ -402,6 +402,44 @@ describe('the picture an Office application adds of its selection', () => {
     }
   });
 
+  it.each([
+    ['a title attribute', '<meta charset="utf-8"><p title=\'xmlns:w="urn:schemas-microsoft-com:office:word"\'></p>'],
+    ['a data attribute', '<meta charset="utf-8"><p data-note="<meta name=ProgId content=Word.Document>"></p>'],
+    ['a comment', '<meta charset="utf-8"><!-- xmlns:w="urn:schemas-microsoft-com:office:word" --><p></p>'],
+    ['a commented ProgId meta', '<!-- <meta name=ProgId content=Word.Document> --><p></p>'],
+    ['a title element', '<title>xmlns:w=urn:schemas-microsoft-com:office:word</title><p></p>'],
+    ['a text area', '<textarea><html xmlns:w="urn:schemas-microsoft-com:office:word"></textarea><p></p>'],
+    ['the text of a button cleanup removes', '<p><button>xmlns:w="urn:schemas-microsoft-com:office:word"</button></p>'],
+    ['the text of an SVG drawing', '<svg><text>xmlns:x="urn:schemas-microsoft-com:office:excel"</text></svg>'],
+    ['CDATA', '<![CDATA[<html xmlns:w="urn:schemas-microsoft-com:office:word">]]><p></p>'],
+    ['a tag the input ends in', '<p></p><html xmlns:w="urn:schemas-microsoft-com:office:word"'],
+  ])('still pastes the files of HTML that names Word\'s namespace or ProgId only in %s, which no Office document writes', (_name, html) => {
+    expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty), html).toBe(false);
+  });
+
+  it.each([
+    ['a comment', '<!-- <img src="clip_image002.png"> -->'],
+    ['an attribute value', '<p title="<img src=clip_image002.png>"></p>'],
+    ['a title element', '<title><v:imagedata src="clip_image001.png"></title>'],
+  ])('keeps the content of a Word copy that names an image only in %s, whose file is Word\'s picture of it', (_name, extra) => {
+    const html = word(extra + EMPTY);
+    expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty), html).toBe(true);
+  });
+
+  it('reads the Office namespace and ProgId in every way a start tag writes an attribute', () => {
+    for (const html of [
+      '<HTML XMLNS:W=urn:schemas-microsoft-com:office:word><body><p></p></body></HTML>',
+      "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x = 'urn:schemas-microsoft-com:office:excel'><p></p></html>",
+      '<meta content="Word.Document" name="ProgId"><p></p>',
+      '<META NAME=progid CONTENT=excel.sheet><table><tr><td></td></tr></table>',
+    ]) {
+      expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty), html).toBe(true);
+    }
+    // The namespace is read at the start of the HTML, where Word and Excel write it.
+    const late = `<p>${' '.repeat(9000)}</p><div xmlns:w="urn:schemas-microsoft-com:office:word"></div>`;
+    expect(pasteHasOwnText(pasteEvent({ html: late, files: [png()] }), Slice.empty)).toBe(false);
+  });
+
   it('takes text a handler removed, such as Word\'s hidden text, as the content\'s own, so the picture that can show it is not the paste', () => {
     const insert = vi.fn(() => true);
     const ed = mount();

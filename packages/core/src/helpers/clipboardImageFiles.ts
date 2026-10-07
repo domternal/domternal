@@ -109,16 +109,44 @@ function lineFileName(line: string): string {
 // Word and Excel declare their namespaces on the root element and name themselves in a ProgId meta, at the
 // start of the HTML they copy.
 const OFFICE_HEAD = 8_192;
-const OFFICE_NAMESPACE = /\bxmlns:[\w-]{1,32}[\t\n\f\r ]*=[\t\n\f\r ]*["']?urn:schemas-microsoft-com:office:(?:word|excel)\b/i;
-const META = /<meta\b[^<>]{0,512}>/gi;
-const PROG_ID = /\bname[\t\n\f\r ]*=[\t\n\f\r ]*["']?ProgId\b/i;
-const OFFICE_PROG_ID = /\bcontent[\t\n\f\r ]*=[\t\n\f\r ]*["']?(?:Word\.Document|Excel\.Sheet)\b/i;
-// An image the copied content places: an img element, the downlevel copy of a VML shape included, or a VML shape's image data.
-const PLACED_IMAGE = /<(?:img|v:imagedata)\b/i;
+const NAMESPACE_DECLARATION = /^xmlns:[\w-]{1,32}$/;
+const OFFICE_NAMESPACE = /^urn:schemas-microsoft-com:office:(?:word|excel)\b/i;
+const PROG_ID = /^ProgId\b/i;
+const OFFICE_PROG_ID = /^(?:Word\.Document|Excel\.Sheet)\b/i;
+// A conditional comment, whose content is markup Office writes for itself, such as a VML shape.
+const CONDITIONAL = /^\[if[\t\n\f\r ]/i;
+
+/** HTML as the browser parses it, in an inert document, or nothing where it cannot be parsed. */
+function parseHTML(html: string): Document | undefined {
+  try {
+    return new DOMParser().parseFromString(html, 'text/html');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether a document's markup places an image: an img element, the downlevel copy of a VML shape included, or a VML
+ * shape's image data, which Word writes in a conditional comment, read as markup one level deep.
+ */
+function placesImage(parsed: Document, nested = false): boolean {
+  if (parsed.querySelector('img') !== null || parsed.getElementsByTagName('v:imagedata').length > 0) return true;
+  if (nested) return false;
+  const comments = parsed.createTreeWalker(parsed, 128);
+  for (let node = comments.nextNode(); node !== null; node = comments.nextNode()) {
+    const content = CONDITIONAL.test(node.nodeValue ?? '') ? parseHTML(node.nodeValue ?? '') : undefined;
+    if (content !== undefined && placesImage(content, true)) return true;
+  }
+  return false;
+}
 
 /**
  * Whether the clipboard's HTML is a Word or Excel document that places no image. Its clipboard image
  * files are then the application's picture of the selection, as Chrome exposes Word's, not content.
+ * Both are read from the markup as the browser parses it: an element that declares Word's or Excel's
+ * namespace, or a ProgId meta that names one, in the first 8,192 characters, and an image element. A
+ * page whose text, attribute values or comments name the namespace, the ProgId or an image is no such
+ * document.
  */
 function officeSelectionPicture(data: DataTransfer | null | undefined): boolean {
   if (!data || !hasType(data, 'text/html')) return false;
@@ -128,9 +156,12 @@ function officeSelectionPicture(data: DataTransfer | null | undefined): boolean 
   } catch {
     return false;
   }
-  const head = html.slice(0, OFFICE_HEAD);
-  const office = OFFICE_NAMESPACE.test(head) || Array.from(head.matchAll(META)).some(([tag]) => PROG_ID.test(tag) && OFFICE_PROG_ID.test(tag));
-  return office && !PLACED_IMAGE.test(html);
+  const head = parseHTML(html.slice(0, OFFICE_HEAD));
+  const office = head !== undefined && Array.from(head.querySelectorAll('*')).some(element =>
+    (element.localName === 'meta' && PROG_ID.test(element.getAttribute('name') ?? '') && OFFICE_PROG_ID.test(element.getAttribute('content') ?? ''))
+    || Array.from(element.attributes).some(({ name, value }) => NAMESPACE_DECLARATION.test(name) && OFFICE_NAMESPACE.test(value)));
+  const parsed = office ? parseHTML(html) : undefined;
+  return parsed !== undefined && !placesImage(parsed);
 }
 
 /**
