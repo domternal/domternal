@@ -630,7 +630,7 @@ contact those hosts, and their dimensions/content are outside the local raster
 checks. Without explicit image preparation, local files, blob URLs and CID
 references are removed. SVG data images are always removed. The default behavior
 invokes no upload handler or resolver. Explicit resolver mode uses only the
-application adapter supplied in `imageAssets`; it does not call Image's legacy
+application adapter supplied in `imageAssets`; it does not call Image's
 `uploadHandler` or include a storage/network implementation.
 
 PNG, JPEG, GIF and static WebP data images are bounded by declared dimensions,
