@@ -35,9 +35,10 @@ import {
 } from './googleDocs.js';
 import { wordHiddenText } from './hiddenText.js';
 import { recordRemovedText } from './removedText.js';
+import { readClipboardMarkup } from './markup.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
-  PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
+  PasteDiagnosticCode, PasteHTMLLimits,
 } from './types.js';
 
 /** The classes Word writes for its Title style: one paragraph, or the first, middle and last of several. */
@@ -113,13 +114,6 @@ export function retainDiagnostic(diagnostics: PasteDiagnostic[], diagnostic: Pas
   return true;
 }
 
-function detectSource(html: string): PasteSource {
-  if (/\b(?:mso-|MsoNormal|urn:schemas-microsoft-com:office)/i.test(html)) return 'word';
-  if (/\bid=["']?docs-internal-guid-/i.test(html)) return 'google-docs';
-  if (/(?:LibreOffice|OpenOffice)/i.test(html)) return 'libreoffice';
-  return 'html';
-}
-
 function resolveLimits(input: Partial<PasteHTMLLimits> = {}): PasteHTMLLimits {
   const limits = { ...DEFAULT_PASTE_HTML_LIMITS, ...input };
   for (const key of Object.keys(DEFAULT_PASTE_HTML_LIMITS) as (keyof PasteHTMLLimits)[]) {
@@ -178,7 +172,8 @@ export function normalizeClipboardHTML(
   if (html.length > limits.maxInputLength) {
     result.status = 'rejected'; report('input-limit', undefined, 'error'); return { result, preserveOrderedListStart };
   }
-  result.source = detectSource(html);
+  // From the markup only, before parsing, so a rejected paste reports its source too.
+  result.source = readClipboardMarkup(html).source;
   try {
     assertTagWork(html);
     let tree = parseBoundedHTML(html, limits);
