@@ -253,7 +253,8 @@ alt text cleanup leaves in place of the images it removes do not count as text, 
 image (an `<img>` next to its file), a meta element, blank paragraphs or a `blob:` image with a
 file paste the file instead of nothing or the alt text. Core's `pasteHasOwnText` decides, as it
 does for the Image extension and the Link paste. Without `imageAssets`, the Image extension
-inserts the files; one file keeps the alt text of the one image the content held. Such an
+inserts the files; one file keeps the alt text of the one image the content held when it is
+not empty, and an empty `alt` leaves the file without one. Such an
 operation reports `untracked` without findings in `onPasteResult` and the notice, since nothing
 of the cleaned content reached the document, while `onResult` still reports the cleanup as it
 ran. A drop's image files win over its content, even content cleanup rejected, such as HTML over
@@ -722,7 +723,8 @@ lost without a finding.
 alongside `Image.configure({ allowBase64: true })` to prepare image-only clipboard
 files as embedded raster images. A paste is image-only when its cleaned content has no text of
 its own, by the rule above, so a copied web image, blank paragraphs or a meta element next to a
-file prepare the file too, with the one copied image's alt text; the cleaned operation then
+file prepare the file too, with the one copied image's alt text when it is not empty; the
+cleaned operation then
 reports `untracked` without findings and the prepared files report as their own `applied`
 operation. A local `file:` or `blob:` image reference is not such a stand-in: it follows the
 bindings below, so `unresolved: 'reject'` rejects it and `'omit'` leaves its alt text, file or

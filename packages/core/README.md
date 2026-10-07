@@ -267,7 +267,9 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   manager copies files. Without text of its own, `pasteClipboardImageFiles(view, event, slice)`
   hands every image file, in clipboard order, to the latest destination's `insertFiles` (the
   optional third argument of `registerClipboardImageDestination`), with the alt text of the one
-  image the content held when there is one image and one file, and returns whether it took them.
+  image the content held when there is one image and one file and that alt text is not empty, and
+  returns whether it took them. An empty `alt`, which marks a decorative image, leaves the file
+  without alt text.
   `dropClipboardImageFiles(view, event, slice)` does the same for a drop at its position, where
   the files win over whatever else the drop carries.
   A paste whose content has text of its own keeps that content, because Office applications put
