@@ -165,6 +165,20 @@ describe('the markup each application writes still names it', () => {
     expect(result).toMatchObject({ status: 'rejected', source: 'word' });
   });
 
+  // A fragment parse drops the rows after a leading col, as Excel's fragment between StartFragment and EndFragment
+  // starts; the rows are read from the parse that reads them as a table's content.
+  it('reads Word from the rows and cells after a leading column', () => {
+    const list = "<col style='width:48pt'><tr><td><p class=MsoListParagraph style='mso-list:l0 level1 lfo1'>"
+      + "<span style='mso-list:Ignore'>1.<span>&nbsp; </span></span>first</p></td></tr>";
+    expect(clean(list)).toMatchObject({
+      source: 'word',
+      html: '<table><colgroup><col style="width:48pt"></colgroup><tbody><tr><td><ol style="list-style-type:decimal" start="1"><li><p>first</p></li></ol></td></tr></tbody></table>',
+    });
+    const cells = "<col width=64 style='width:48pt'><tr height=20 style='height:15.0pt'><td height=20 width=64 style='height:15.0pt;width:48pt'>"
+      + "<p style='line-height:1.15;mso-pagination:none'>1.50</p></td></tr>";
+    expect(clean(cells)).toMatchObject({ source: 'word', html: expect.stringContaining('<td style="height:15.0pt;width:48pt"><p>1.50</p></td>') });
+  });
+
   it('ignores a tag the input ends in, which a browser never builds', () => {
     expect(clean('<p>x</p><p class="MsoNormal"').source).toBe('html');
     expect(clean('<p>x</p><p class="MsoNormal">').source).toBe('word');

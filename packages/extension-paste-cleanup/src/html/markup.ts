@@ -58,7 +58,8 @@ const LIBRE_GENERATOR = /libreoffice|openoffice/i;
 export function clipboardMarkup(): { observer: MarkupObserver; settle(parse: (html: string) => void): ClipboardMarkup } {
   const found = { word: false, docs: false, libre: false, lists: false };
   const styles = new Map<object, string>();
-  const conditional: string[] = [];
+  // Each once, though the parse of bare table parts as a table's content hands them over again.
+  const conditional = new Set<string>();
   let nested = false;
   const settleStyles = (): void => {
     for (const css of styles.values()) {
@@ -88,7 +89,7 @@ export function clipboardMarkup(): { observer: MarkupObserver; settle(parse: (ht
         if (tagName === 'meta') found.libre ||= GENERATOR.test(name) && LIBRE_GENERATOR.test(content);
       },
       comment(data) {
-        if (!nested && CONDITIONAL.test(data) && CANDIDATE.test(data)) conditional.push(data);
+        if (!nested && CONDITIONAL.test(data) && CANDIDATE.test(data)) conditional.add(data);
       },
       style(element, text) {
         styles.set(element, (styles.get(element) ?? '') + text);

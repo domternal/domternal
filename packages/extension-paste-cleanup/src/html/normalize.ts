@@ -180,15 +180,16 @@ export function normalizeClipboardHTML(
     let tree: Root;
     try {
       tree = parseBoundedHTML(html, limits, undefined, markup.observer);
+      // Before the table bounds, so the cells of bare rows count as the cells of a table. A
+      // destination without tables keeps their texts, as its paste without cleanup does. Its
+      // markup is read too: the parse above drops the rows after a leading column.
+      if (startsWithTablePart(tree) && destination?.(['table']).includes('table') !== true) {
+        tree = wrapTableContent(parseBoundedHTML(html, limits, 'table', markup.observer));
+      }
     } finally {
       // Office's conditional comments are read again with one allowance between them, so they at most double the parse.
       const comments = { allocations: 0 };
       ({ source: result.source, officeLists } = markup.settle(data => { parseBoundedHTML(data, limits, undefined, markup.observer, comments); }));
-    }
-    // Before the table bounds, so the cells of bare rows count as the cells of a table. A
-    // destination without tables keeps their texts, as its paste without cleanup does.
-    if (startsWithTablePart(tree) && destination?.(['table']).includes('table') !== true) {
-      tree = wrapTableContent(parseBoundedHTML(html, limits, 'table'));
     }
     assertTableBounds(tree, limits.maxTableCells);
     restoreConvertedSpaces(tree);
