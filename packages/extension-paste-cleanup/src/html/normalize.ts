@@ -173,7 +173,8 @@ export function normalizeClipboardHTML(
     result.status = 'rejected'; report('input-limit', undefined, 'error'); return { result, preserveOrderedListStart };
   }
   // From the markup only, before parsing, so a rejected paste reports its source too.
-  result.source = readClipboardMarkup(html).source;
+  const markup = readClipboardMarkup(html);
+  result.source = markup.source;
   try {
     assertTagWork(html);
     let tree = parseBoundedHTML(html, limits);
@@ -212,7 +213,8 @@ export function normalizeClipboardHTML(
       // The break a browser ends a copy of a page with, as Chrome ends a Google Docs copy, marks where the selection ended, no line of the content.
       dropInterchangeNewline(tree);
       const hidden = result.source === 'word' ? wordHiddenText(tree) : undefined;
-      if (/\bmso-list\s*:/i.test(html)) {
+      // Only where the markup declares an Office list: the text of a page that names the property opens no list pass.
+      if (markup.officeLists) {
         // A list item Word hides is not pasted, so an item cleanup cannot rebuild is no finding when it is hidden.
         const lists = reconstructOfficeLists(tree, { ...limits, ...capabilities?.() }, (code, node) => {
           if (hidden?.conceals(node) !== true) report(code, node);

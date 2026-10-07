@@ -271,7 +271,8 @@ describe('private inline image preparation', () => {
       input.sourceAllowDataImages = false;
       return { orderedLists: true, bulletLists: true, nestedLists: true };
     });
-    const result = prepared(prepareClipboardHTML(`<!--mso-list:--><img src="${DATA}">`, LIMITS, {}, callback, input));
+    // An Office list marker run, whose markup runs the list pass that asks the destination's list capabilities.
+    const result = prepared(prepareClipboardHTML(`<span style="mso-list:Ignore"></span><img src="${DATA}">`, LIMITS, {}, callback, input));
     expect(callback).toHaveBeenCalledOnce();
     expect(result.inlineAssets.readBytes).toBe(PNG.length);
     discardPreparedClipboardHTML(result.handle);

@@ -19,12 +19,18 @@ import type { PasteSource } from './types.js';
 export interface ClipboardMarkup {
   /** The application whose markup the HTML holds, or plain HTML. */
   readonly source: PasteSource;
+  /**
+   * Whether the markup declares an Office list (`mso-list:`) in a style attribute, a stylesheet rule or a conditional
+   * comment, which Office list reconstruction reads. Text that names the property does not.
+   */
+  readonly officeLists: boolean;
 }
 
 // Necessary conditions: HTML without any of these words holds no such markup and is not scanned.
 const WORD_CANDIDATE = /mso-|msonormal|urn:schemas-microsoft-com:office/i;
 const DOCS_CANDIDATE = /docs-internal-guid-/i;
 const LIBRE_CANDIDATE = /libreoffice|openoffice/i;
+const LIST_CANDIDATE = /mso-list[\t\n\f\r ]*:/i;
 
 const OFFICE_NAMESPACE = /urn:schemas-microsoft-com:office/i;
 // A class token as Word writes its Normal style's paragraphs and tables: MsoNormal, MsoNormalTable.
@@ -33,6 +39,9 @@ const WORD_CLASS = /(?:^|[\t\n\f\r ])msonormal/i;
 const OFFICE_DECLARATION = /(?:^|[\t\n\f\r ;])mso-[\w-]*[\t\n\f\r ]*:/i;
 // Word's stylesheet: a rule that declares an Office property, styles a MsoNormal class, or the Office namespace.
 const WORD_STYLESHEET = /(?:^|[\t\n\f\r ;{])mso-[\w-]*[\t\n\f\r ]*:|\.msonormal|urn:schemas-microsoft-com:office/i;
+// An Office list declaration in a style attribute, and in a stylesheet rule.
+const LIST_DECLARATION = /(?:^|[\t\n\f\r ;])mso-list[\t\n\f\r ]*:/i;
+const LIST_RULE = /(?:^|[\t\n\f\r ;{])mso-list[\t\n\f\r ]*:/i;
 const XML_NAMESPACE = /^<\?xml:namespace[\t\n\f\r ]/i;
 const DOCS_ID = /^docs-internal-guid-/i;
 const GENERATOR = /^generator$/i;
@@ -209,15 +218,17 @@ function scan(html: string, visitor: MarkupVisitor, nested = false): boolean {
 
 const READ = new Set(['class', 'style', 'id', 'name', 'content', 'xmlns']);
 
-/** The application whose markup the clipboard HTML holds, read from its markup only. */
+/** The application whose markup the clipboard HTML holds, and whether it declares Office lists, read from its markup only. */
 export function readClipboardMarkup(html: string): ClipboardMarkup {
   const wordCandidate = WORD_CANDIDATE.test(html);
   const docsCandidate = DOCS_CANDIDATE.test(html);
   const libreCandidate = LIBRE_CANDIDATE.test(html);
-  if (!wordCandidate && !docsCandidate && !libreCandidate) return { source: 'html' };
-  const found = { word: false, docs: false, libre: false };
-  // Word outranks the others, so the answer is settled once Word is found, or once nothing above what was found can be.
-  const settled = (): boolean => found.word || (!wordCandidate && (found.docs || (!docsCandidate && found.libre)));
+  const listCandidate = LIST_CANDIDATE.test(html);
+  if (!wordCandidate && !docsCandidate && !libreCandidate && !listCandidate) return { source: 'html', officeLists: false };
+  const found = { word: false, docs: false, libre: false, lists: false };
+  // Word outranks the others, so the source is settled once Word is found, or once nothing above what was found can be.
+  const settled = (): boolean => (found.word || (!wordCandidate && (found.docs || (!docsCandidate && found.libre))))
+    && (found.lists || !listCandidate);
   scan(html, {
     reads: name => READ.has(name) || name.startsWith('xmlns:'),
     tag(tag, attributes) {
@@ -225,7 +236,10 @@ export function readClipboardMarkup(html: string): ClipboardMarkup {
       let metaContent = '';
       for (const [name, value] of attributes) {
         if (name === 'class') found.word ||= wordCandidate && WORD_CLASS.test(value);
-        else if (name === 'style') found.word ||= wordCandidate && OFFICE_DECLARATION.test(value);
+        else if (name === 'style') {
+          found.word ||= wordCandidate && OFFICE_DECLARATION.test(value);
+          found.lists ||= listCandidate && LIST_DECLARATION.test(value);
+        }
         else if (name === 'id') found.docs ||= docsCandidate && DOCS_ID.test(value);
         else if (name === 'name') metaName = value;
         else if (name === 'content') metaContent = value;
@@ -235,7 +249,9 @@ export function readClipboardMarkup(html: string): ClipboardMarkup {
       return settled();
     },
     stylesheet(text) {
-      found.word ||= wordCandidate && WORD_STYLESHEET.test(withoutComments(text));
+      const rules = withoutComments(text);
+      found.word ||= wordCandidate && WORD_STYLESHEET.test(rules);
+      found.lists ||= listCandidate && LIST_RULE.test(rules);
       return settled();
     },
     instruction(text) {
@@ -243,5 +259,5 @@ export function readClipboardMarkup(html: string): ClipboardMarkup {
       return settled();
     },
   });
-  return { source: found.word ? 'word' : found.docs ? 'google-docs' : found.libre ? 'libreoffice' : 'html' };
+  return { source: found.word ? 'word' : found.docs ? 'google-docs' : found.libre ? 'libreoffice' : 'html', officeLists: found.lists };
 }
