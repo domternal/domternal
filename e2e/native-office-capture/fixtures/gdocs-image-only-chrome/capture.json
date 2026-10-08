@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "harnessVersion": "native-office-capture-v1",
+  "capturedAt": "2026-10-07T21:05:17.164Z",
+  "status": "complete",
+  "qualification": false,
+  "scope": "allowlisted-formats-and-exposed-files",
+  "provenance": {
+    "eventKind": "synthetic-event",
+    "nativeClipboardCaptured": false,
+    "sourceApplicationVerified": false
+  },
+  "operator": {
+    "os": "Authored variant of macOS 26.5.2 (25F84)",
+    "application": "Authored variant of Google Docs web, 2026-10-05, personal account, Pages format",
+    "browser": "Authored variant of Google Chrome 153.0.8010.47 (Official Build) (arm64)",
+    "scenario": "gdocs-image-only",
+    "fixtureId": "gdocs-image-only-chrome",
+    "fixtureSha256": "0cbf5fc50e0a8738e25317084d758c7ccad57e9d05b470d065e16d25cc7d6838",
+    "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
+    "syntheticSourceConfirmed": true
+  },
+  "limits": {
+    "maxItems": 64,
+    "maxFormats": 32,
+    "maxMetadataLength": 512,
+    "maxFormatBytes": 2097152,
+    "maxTextBytes": 4194304,
+    "maxFileBytes": 5242880,
+    "maxTotalFileBytes": 10485760,
+    "maxClipboardBytes": 12582912,
+    "maxJSONBytes": 25165824,
+    "maxDurationMs": 15000
+  },
+  "diagnostics": [],
+  "payload": {
+    "availableFormats": [
+      "text/html",
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-image-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "omittedFormats": [
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-image-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "text": {
+      "text/html": "<meta charset='utf-8'><meta charset=\"utf-8\"><b style=\"font-weight:normal;\" id=\"docs-internal-guid-534ccdc5-7fff-60e7-0535-d5029c756a08\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"><img alt=\"GI03 Blue rectangle\" src=\"data:image/png;base64,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\" width=\"320\" height=\"200\" style=\"border:none;\" /></span></b>"
+    },
+    "items": [
+      {
+        "itemIndex": 0,
+        "kind": "string",
+        "type": "text/html",
+        "file": null
+      },
+      {
+        "itemIndex": 1,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-document-slice-clip+wrapped",
+        "file": null
+      },
+      {
+        "itemIndex": 2,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-image-clip+wrapped",
+        "file": null
+      },
+      {
+        "itemIndex": 3,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-internal-clip-id",
+        "file": null
+      }
+    ],
+    "files": [],
+    "totals": {
+      "textBytes": 3365,
+      "fileBytes": 0
+    }
+  }
+}

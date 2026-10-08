@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "synthetic-office-evidence-v1",
+  "origin": "synthetic",
+  "license": "MIT; independently authored synthetic HTML and four-byte binary evidence fixture",
+  "source": {
+    "path": "source.html",
+    "sha256": "0736925be842df0271719849ff24af157ce2e5070449f8dfc0ff6712f77d7295"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "5403045310a7eb6e71fbf5ccd62e5c4a073d9183143404d8d530f789e3d7d18c"
+  },
+  "expected": {
+    "preserve": {
+      "status": "cleaned",
+      "html": "<p><span><strong>Alpha</strong></span> <span><em>Beta</em></span> diagram</p>",
+      "source": "word",
+      "diagnostics": [
+        "image-removed"
+      ],
+      "diagnosticsTruncated": false
+    },
+    "adapt": {
+      "status": "cleaned",
+      "html": "<p><span><strong>Alpha</strong></span> <span><em>Beta</em></span> diagram</p>",
+      "source": "word",
+      "diagnostics": [
+        "image-removed"
+      ],
+      "diagnosticsTruncated": false
+    }
+  }
+}

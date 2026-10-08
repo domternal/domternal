@@ -13,8 +13,9 @@ import type {
   EditorPreset,
   I18nOptions,
   JSONContent,
-  TransactionEventProps,
   FocusEventProps,
+  ContentErrorProps,
+  ContentDiagnosticProps,
 } from '@domternal/core';
 import { assertBrowser } from '../shared/isBrowser.js';
 
@@ -67,6 +68,20 @@ export interface DomternalEditorOptions {
   onBlur?: (ctx: { editor: Editor; event: FocusEvent }) => void;
   /** Called before the underlying Editor is destroyed. */
   onDestroy?: () => void;
+  /**
+   * Called when the initial content does not match the schema, so the editor
+   * starts empty. Delivered once the editor is ready, before `onCreate`.
+   */
+  onContentError?: (ctx: Omit<ContentErrorProps, 'editor'> & { editor: Editor }) => void;
+  /**
+   * Called when content loaded with replaced values, such as an unknown list
+   * marker that became the default marker or a heading level the
+   * configuration lacks that became the nearest configured level. The report
+   * for the initial content is delivered once the editor is ready, before
+   * `onCreate`; later reports come from setContent, insertContent and
+   * normalizeContentAttributes.
+   */
+  onContentDiagnostic?: (ctx: Omit<ContentDiagnosticProps, 'editor'> & { editor: Editor }) => void;
 }
 
 /**
@@ -114,6 +129,14 @@ export interface DomternalEditorOptions {
  * - `focus` - `{ editor: Editor; event: FocusEvent }`
  * - `blur` - `{ editor: Editor; event: FocusEvent }`
  * - `destroy` - `null` - emitted just before destroy completes
+ * - `contenterror` (the `onContentError` context): the initial content does
+ *   not match the schema
+ * - `contentdiagnostic` (the `onContentDiagnostic` context): content loaded
+ *   with replaced values
+ *
+ * Reports about the initial content arrive while the constructor runs, before
+ * a listener can be added: pass `onContentError` and `onContentDiagnostic` to
+ * receive them.
  */
 export class DomternalEditor extends EventTarget {
   /** The underlying ProseMirror-backed `Editor` instance. */
@@ -128,8 +151,11 @@ export class DomternalEditor extends EventTarget {
   #onFocus: DomternalEditorOptions['onFocus'];
   #onBlur: DomternalEditorOptions['onBlur'];
   #onDestroy: DomternalEditorOptions['onDestroy'];
+  #onContentError: DomternalEditorOptions['onContentError'];
+  #onContentDiagnostic: DomternalEditorOptions['onContentDiagnostic'];
 
-  #transactionHandler: ((props: TransactionEventProps) => void) | null = null;
+  #updateHandler: (() => void) | null = null;
+  #selectionHandler: (() => void) | null = null;
   #focusHandler: ((props: FocusEventProps) => void) | null = null;
   #blurHandler: ((props: FocusEventProps) => void) | null = null;
 
@@ -151,10 +177,21 @@ export class DomternalEditor extends EventTarget {
     this.#onFocus = options.onFocus;
     this.#onBlur = options.onBlur;
     this.#onDestroy = options.onDestroy;
+    this.#onContentError = options.onContentError;
+    this.#onContentDiagnostic = options.onContentDiagnostic;
 
     const defaults = (options.history ?? true)
       ? DEFAULT_EXTENSIONS
       : DEFAULT_EXTENSIONS.filter((extension) => extension.name !== 'history');
+
+    // Reports the editor makes while it is constructed wait until it is
+    // announced, just before onCreate: its view does not exist yet.
+    let constructionReports: (() => void)[] | null = [];
+    const report = (deliver: () => void): void => {
+      if (constructionReports) constructionReports.push(deliver);
+      else deliver();
+    };
+
     this.editor = new Editor({
       element: host,
       extensions: [...defaults, ...(options.extensions ?? [])],
@@ -163,9 +200,14 @@ export class DomternalEditor extends EventTarget {
       autofocus: options.autofocus ?? false,
       ...(options.preset ? { preset: options.preset } : {}),
       ...(options.i18n !== undefined ? { i18n: options.i18n } : {}),
+      onContentError: (props) => { report(() => { this.#reportContentError(props); }); },
+      onContentDiagnostic: (props) => { report(() => { this.#reportContentDiagnostic(props); }); },
     });
 
     this.#wireEditorEvents();
+    const reports = constructionReports;
+    constructionReports = null;
+    reports.forEach((deliver) => { deliver(); });
 
     this.#onCreate?.(this.editor);
     this.dispatchEvent(
@@ -251,22 +293,35 @@ export class DomternalEditor extends EventTarget {
 
   // === Internal ===
 
+  #reportContentError(props: ContentErrorProps): void {
+    const detail = { ...props, editor: this.editor };
+    this.#onContentError?.(detail);
+    this.dispatchEvent(new CustomEvent('contenterror', { detail }));
+  }
+
+  #reportContentDiagnostic(props: ContentDiagnosticProps): void {
+    const detail = { ...props, editor: this.editor };
+    // Advisory, as in core: a throwing callback never interrupts the editor.
+    try {
+      this.#onContentDiagnostic?.(detail);
+    } catch { /* advisory */ }
+    this.dispatchEvent(new CustomEvent('contentdiagnostic', { detail }));
+  }
+
   #wireEditorEvents(): void {
-    this.#transactionHandler = ({ transaction }: TransactionEventProps): void => {
-      // skipUpdate marks programmatic content writes (setContent(content, false))
-      // that must not emit update to consumers.
-      if (transaction.docChanged && !transaction.getMeta('skipUpdate')) {
-        this.#onUpdate?.({ editor: this.editor });
-        this.dispatchEvent(
-          new CustomEvent('update', { detail: { editor: this.editor } }),
-        );
-      }
-      if (!transaction.docChanged && transaction.selectionSet) {
-        this.#onSelectionChange?.({ editor: this.editor });
-        this.dispatchEvent(
-          new CustomEvent('selectionchange', { detail: { editor: this.editor } }),
-        );
-      }
+    // Follow core's events, which count changes that appended transactions make
+    // and skip programmatic writes (setContent(content, false)) that set skipUpdate.
+    this.#updateHandler = (): void => {
+      this.#onUpdate?.({ editor: this.editor });
+      this.dispatchEvent(
+        new CustomEvent('update', { detail: { editor: this.editor } }),
+      );
+    };
+    this.#selectionHandler = (): void => {
+      this.#onSelectionChange?.({ editor: this.editor });
+      this.dispatchEvent(
+        new CustomEvent('selectionchange', { detail: { editor: this.editor } }),
+      );
     };
 
     this.#focusHandler = ({ event }: FocusEventProps): void => {
@@ -283,15 +338,20 @@ export class DomternalEditor extends EventTarget {
       );
     };
 
-    this.editor.on('transaction', this.#transactionHandler);
+    this.editor.on('update', this.#updateHandler);
+    this.editor.on('selectionUpdate', this.#selectionHandler);
     this.editor.on('focus', this.#focusHandler);
     this.editor.on('blur', this.#blurHandler);
   }
 
   #unwireEditorEvents(): void {
-    if (this.#transactionHandler) {
-      this.editor.off('transaction', this.#transactionHandler);
-      this.#transactionHandler = null;
+    if (this.#updateHandler) {
+      this.editor.off('update', this.#updateHandler);
+      this.#updateHandler = null;
+    }
+    if (this.#selectionHandler) {
+      this.editor.off('selectionUpdate', this.#selectionHandler);
+      this.#selectionHandler = null;
     }
     if (this.#focusHandler) {
       this.editor.off('focus', this.#focusHandler);

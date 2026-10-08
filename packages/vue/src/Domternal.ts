@@ -50,6 +50,8 @@ export const Domternal = defineComponent({
     onFocus: { type: Function as PropType<UseEditorOptions['onFocus']>, default: undefined },
     onBlur: { type: Function as PropType<UseEditorOptions['onBlur']>, default: undefined },
     onDestroy: { type: Function as PropType<UseEditorOptions['onDestroy']>, default: undefined },
+    onContentError: { type: Function as PropType<UseEditorOptions['onContentError']>, default: undefined },
+    onContentDiagnostic: { type: Function as PropType<UseEditorOptions['onContentDiagnostic']>, default: undefined },
   },
   setup(props, { slots }) {
     const { editor } = useEditor({
@@ -67,6 +69,8 @@ export const Domternal = defineComponent({
       ...(props.onFocus && { onFocus: props.onFocus }),
       ...(props.onBlur && { onBlur: props.onBlur }),
       ...(props.onDestroy && { onDestroy: props.onDestroy }),
+      ...(props.onContentError && { onContentError: props.onContentError }),
+      ...(props.onContentDiagnostic && { onContentDiagnostic: props.onContentDiagnostic }),
     });
 
     provideEditor(editor);

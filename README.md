@@ -22,11 +22,11 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
 - **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents, from `@domternal/extension-block-controls` and `@domternal/extension-toc`, with `preset: 'notion'` for the layout and preset-aware behavior
 - **Print to paper or PDF** - `printDocument()` leaves your app's chrome off the page, and the theme's paper layer applies to the reader's own Ctrl/Cmd+P with no code involved
-- **70+ extensions across core and 10 extension packages** - nodes, marks, and behavior extensions
+- **70+ extensions across core and 11 extension packages** - nodes, marks, and behavior extensions
 - **130+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar
 - **Tree-shakeable JavaScript** - import only the JavaScript exports you use; the optional `@domternal/theme` deliberately ships one complete stylesheet
-- **~59 KiB minified and gzipped** (own code), [**~140 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies - see Packages for the full bundle breakdown
+- **~77 KiB minified and gzipped** (own code), [**~158 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies - see Packages for the full bundle breakdown
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
 - **17,000+ automated test executions** - unit coverage and a Playwright matrix across four demo apps
 - **Light and dark theme** - 150+ CSS custom properties for full visual control
@@ -112,13 +112,16 @@ See [CHANGELOG.md](CHANGELOG.md) for the release contents.
 | [`@domternal/extension-table`](https://www.npmjs.com/package/@domternal/extension-table)                             | Tables with 18 commands: merge, split, resize, cell styling, row/column controls                                                                                             |
 | [`@domternal/extension-math`](https://www.npmjs.com/package/@domternal/extension-math)                               | LaTeX math: inline and block equations with a pluggable renderer (KaTeX)                                                                                                     |
 | [`@domternal/extension-markdown`](https://www.npmjs.com/package/@domternal/extension-markdown)                       | GitHub-flavored Markdown import and export: markdown paste, `insertMarkdown`/`setMarkdownContent`, headless parser and serializer with fidelity warnings                     |
+| [`@domternal/extension-paste-cleanup`](packages/extension-paste-cleanup)                                            | In development: opt-in HTML paste normalization, formatting modes, and bounded diagnostics through the extension or standalone `/html` entry                               |
 | [`@domternal/extension-image`](https://www.npmjs.com/package/@domternal/extension-image)                             | Image with paste/drop upload, URL input, XSS protection, bubble menu                                                                                                         |
 | [`@domternal/extension-emoji`](https://www.npmjs.com/package/@domternal/extension-emoji)                             | Emoji picker panel and `:shortcode:` autocomplete                                                                                                                            |
 | [`@domternal/extension-mention`](https://www.npmjs.com/package/@domternal/extension-mention)                         | `@mention` autocomplete with multi-trigger and async support                                                                                                                 |
 | [`@domternal/extension-details`](https://www.npmjs.com/package/@domternal/extension-details)                         | Collapsible details/accordion blocks                                                                                                                                         |
 | [`@domternal/extension-code-block-lowlight`](https://www.npmjs.com/package/@domternal/extension-code-block-lowlight) | Syntax-highlighted code blocks powered by lowlight                                                                                                                           |
 
-The table above lists all 17 current MIT packages. npm search may still show `@domternal/extension-block-menu` as a historical, deprecated 0.x entry. It is not an eighteenth current package. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
+The table above lists all 18 current MIT packages in this workspace, including the unreleased `@domternal/extension-paste-cleanup` package. npm search may still show `@domternal/extension-block-menu` as a historical, deprecated 0.x entry. It is not an additional current package. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
+
+Paste cleanup is unreleased. It normalizes pasted HTML, rebuilds lists from explicit inline Office list metadata, and keeps a bounded set of inherited inline formatting. This behavior is verified with synthetic clipboard input and with reviewed native captures, for Word 16.113.3 for Mac copied in Safari 26.5.2, Chrome 154 and Firefox 155 and for Google Docs web copied in Chrome 153; Google Docs in Safari and Firefox is not yet captured, and Word for Windows, Word on the web and LibreOffice are unqualified. Pro DOCX file import is also unreleased.
 
 See [Packages & Bundle Size](https://domternal.dev/v1/packages) for a full breakdown of what each package includes and how tree-shaking works.
 

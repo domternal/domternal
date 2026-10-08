@@ -1,0 +1,812 @@
+/** Offline evidence integrity checks. No saved JSON can authenticate a native paste. */
+import { createHash } from 'node:crypto';
+import { constants } from 'node:fs';
+import { open, realpath } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { crc32, inflateRawSync, inflateSync } from 'node:zlib';
+import { HARD_LIMITS, TEXT_FORMATS } from './capture.mjs';
+import { blocksFromHTML, compareBlocks } from './semantics.mjs';
+
+const MAX_SOURCE_BYTES = 16 * 1024 * 1024;
+const MAX_MANIFEST_BYTES = 128 * 1024;
+const MAX_EXPECTED_UNITS = 32 * 1024;
+const HASH = /^[a-f0-9]{64}$/u;
+// A redaction replaces a span by this token, padded with hyphens to the span's length. The token is reserved:
+// a capture of a version 2 manifest may hold it only inside a declared replacement.
+export const REDACTION_TOKEN = 'redacted';
+// Operator fields a capture redaction can withhold: the source hash, when the source it names held personal data.
+const WITHHOLDABLE = Object.freeze(['fixtureSha256']);
+const PACKAGE_LIMITS = Object.freeze({ entries: 256, partBytes: 16 * 1024 * 1024, totalBytes: 64 * 1024 * 1024, nameLength: 256 });
+const PART_ELEMENT = /^[A-Za-z][A-Za-z0-9]{0,31}:[A-Za-z][A-Za-z0-9]{0,63}$/u;
+const SEMANTIC_BLOCK_TYPES = new Set(['heading', 'paragraph', 'listItem', 'literalItem', 'tableCell', 'empty', 'alphabet', 'image', 'imageRun', 'textOnly']);
+const NOTICES = new Set(['quiet', 'visible']);
+// The fixture editor's schema an editor oracle holds for: the default one, or every capability, for content that needs it.
+const EDITOR_SCHEMAS = new Set(['default', 'capability-full']);
+// Whether a copy holds the hidden text a block authors: copied (cleanup then leaves it out with hidden-text-removed)
+// or omitted by the browser. Hidden text pastes in neither.
+const HIDDEN_TEXT = new Set(['copied', 'omitted']);
+const HIDDEN_TEXT_REMOVED = 'hidden-text-removed';
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_LIMITS = Object.freeze({ chunks: 4096, profileBytes: 4 * 1024 * 1024, profileTags: 1024 });
+// Clipboard files a manifest may declare a redaction of, at most this many.
+const MAX_FILE_REDACTIONS = 8;
+/**
+ * The fields of Apple's make and model tag ('mmod') in an ICC display profile that name the display unit rather than
+ * its model, by their offset in the tag: the serial number and the manufacture date. macOS embeds the profile of the
+ * display a picture was taken on, so a screenshot or Chrome's picture of a Word selection carries them.
+ */
+export const DEVICE_FIELDS = Object.freeze({ serialNumber: 16, manufactureDate: 20 });
+const stored = new WeakMap();
+const cleanupRequire = createRequire(new URL('../../packages/extension-paste-cleanup/package.json', import.meta.url));
+const normalize = value => value.toLowerCase();
+const digest = value => createHash('sha256').update(value).digest('hex');
+const freeze = value => {
+  if (value && typeof value === 'object') {
+    for (const child of Object.values(value)) freeze(child);
+    Object.freeze(value);
+  }
+  return value;
+};
+export class CaptureEvidenceError extends Error {
+  constructor(code) { super(code); this.name = 'CaptureEvidenceError'; this.code = code; }
+}
+const fail = code => { throw new CaptureEvidenceError(code); };
+function shape(value, fields) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) fail('evidence-schema');
+  const keys = Object.keys(value);
+  if (keys.length !== fields.length || keys.some(key => !fields.includes(key))) fail('evidence-schema');
+  return value;
+}
+function text(value, maximum = HARD_LIMITS.maxMetadataLength, empty = false) {
+  if (typeof value !== 'string' || value.length > maximum || (!empty && !value.trim())) fail('evidence-schema');
+  return value;
+}
+function integer(value, maximum, minimum = 0) {
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) fail('evidence-limit');
+  return value;
+}
+function list(value, maximum) {
+  if (!Array.isArray(value)) fail('evidence-schema');
+  integer(value.length, maximum); return value;
+}
+function hash(value) { if (typeof value !== 'string' || !HASH.test(value)) fail('evidence-schema'); return value; }
+function bytes(value, maximum) {
+  if (!(value instanceof Uint8Array) || value.buffer instanceof SharedArrayBuffer) fail('evidence-input');
+  integer(value.byteLength, maximum); return value;
+}
+function utf8Size(value, maximum) {
+  // Length is checked before encoding. Buffer.byteLength does not allocate a second payload.
+  if (value.length > maximum) fail('evidence-limit');
+  const size = Buffer.byteLength(value, 'utf8'); integer(size, maximum); return size;
+}
+function parseJSON(input, maximum) {
+  bytes(input, maximum);
+  let source;
+  try { source = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(input); }
+  catch { fail('evidence-json'); }
+  // A lexical resource guard precedes JSON.parse. JSON.parse still establishes validity.
+  const stack = []; let tokens = 0;
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index];
+    if (char === '{' || char === '[') {
+      if (++tokens > 8192 || stack.length >= 12) fail('evidence-limit');
+      stack.push({ object: char === '{', keys: new Set() });
+    } else if (char === '}' || char === ']') stack.pop();
+    else if (char === '"') {
+      if (++tokens > 8192) fail('evidence-limit');
+      const start = index++;
+      for (; index < source.length; index++) {
+        if (source[index] === '\\') index++;
+        else if (source[index] === '"') break;
+      }
+      let next = index + 1;
+      while (next < source.length && /[\t\n\r ]/u.test(source[next])) next++;
+      if (source[next] === ':') {
+        if (index - start > 256) fail('evidence-schema');
+        let key;
+        try { key = JSON.parse(source.slice(start, index + 1)); } catch { fail('evidence-json'); }
+        const frame = stack.at(-1);
+        if (!frame?.object) fail('evidence-json');
+        if (frame.keys.has(key)) fail('evidence-duplicate-key');
+        frame.keys.add(key);
+      }
+    } else if (!/[\t\n\r ,:]/u.test(char)) {
+      if (++tokens > 8192) fail('evidence-limit');
+      while (index + 1 < source.length && !'\t\n\r ,:[]{}"'.includes(source[index + 1])) index++;
+    }
+  }
+  try { return JSON.parse(source); } catch { fail('evidence-json'); }
+}
+function limitSnapshot(value) {
+  shape(value, Object.keys(HARD_LIMITS));
+  const result = {};
+  for (const [name, maximum] of Object.entries(HARD_LIMITS)) result[name] = integer(value[name], maximum, 1);
+  return result;
+}
+function canonicalBase64(value, size) {
+  if (typeof value !== 'string' || value.length !== 4 * Math.ceil(size / 3)) fail('evidence-file');
+  const padding = size % 3 === 0 ? 0 : 3 - size % 3;
+  for (let index = 0; index < value.length; index++) {
+    const char = value.charCodeAt(index);
+    const allowed = index >= value.length - padding ? char === 61
+      : (char >= 65 && char <= 90) || (char >= 97 && char <= 122) || (char >= 48 && char <= 57) || char === 43 || char === 47;
+    if (!allowed) fail('evidence-file');
+  }
+  const decoded = Buffer.from(value, 'base64');
+  try {
+    if (decoded.byteLength !== size || decoded.toString('base64') !== value) fail('evidence-file');
+    return digest(decoded);
+  } finally { decoded.fill(0); }
+}
+
+/** Validate hashes supplied by an independently reviewed manifest, never a native identity signature. */
+export function validateCaptureBytes(input, evidence) {
+  try {
+    shape(evidence, ['captureSha256', 'fixtureSha256', 'fixtureId', 'origin']);
+    // A null source hash: the capture withholds the hash it recorded, by a declared redaction.
+    hash(evidence.captureSha256); if (evidence.fixtureSha256 !== null) hash(evidence.fixtureSha256); text(evidence.fixtureId);
+    if (!['synthetic', 'claimed-native'].includes(evidence.origin)) fail('evidence-provenance');
+    bytes(input, HARD_LIMITS.maxJSONBytes);
+    if (digest(input) !== evidence.captureSha256) fail('evidence-checksum');
+    const bundle = parseJSON(input, HARD_LIMITS.maxJSONBytes);
+    shape(bundle, ['schemaVersion', 'harnessVersion', 'capturedAt', 'status', 'qualification', 'scope', 'provenance', 'operator', 'limits', 'diagnostics', 'payload']);
+    if (bundle.schemaVersion !== 1 || bundle.harnessVersion !== 'native-office-capture-v1'
+      || bundle.scope !== 'allowlisted-formats-and-exposed-files') fail('evidence-schema');
+    if (bundle.qualification !== false) fail('evidence-provenance');
+    if (bundle.status !== 'complete' || !Array.isArray(bundle.diagnostics) || bundle.diagnostics.length !== 0) fail('evidence-incomplete');
+    if (typeof bundle.capturedAt !== 'string' || bundle.capturedAt.length !== 24
+      || new Date(bundle.capturedAt).toISOString() !== bundle.capturedAt) fail('evidence-schema');
+    const limits = limitSnapshot(bundle.limits);
+    integer(input.byteLength, limits.maxJSONBytes);
+    shape(bundle.provenance, ['eventKind', 'nativeClipboardCaptured', 'sourceApplicationVerified']);
+    if (bundle.provenance.sourceApplicationVerified !== false) fail('evidence-provenance');
+    if (evidence.origin === 'synthetic'
+      ? bundle.provenance.eventKind !== 'synthetic-event' || bundle.provenance.nativeClipboardCaptured !== false
+      : bundle.provenance.eventKind !== 'native-event' || bundle.provenance.nativeClipboardCaptured !== true) fail('evidence-provenance');
+    shape(bundle.operator, ['os', 'application', 'browser', 'scenario', 'fixtureId', 'fixtureSha256', 'copyMethod', 'syntheticSourceConfirmed']);
+    for (const field of ['os', 'application', 'browser', 'scenario', 'fixtureId', 'fixtureSha256', 'copyMethod']) text(bundle.operator[field], limits.maxMetadataLength);
+    const claim = evidence.fixtureSha256 === null ? WITHHELD_SOURCE_HASH : evidence.fixtureSha256;
+    if (bundle.operator.syntheticSourceConfirmed !== true || bundle.operator.fixtureId !== evidence.fixtureId
+      || normalize(bundle.operator.fixtureSha256) !== claim) fail('evidence-provenance');
+    const payload = shape(bundle.payload, ['availableFormats', 'omittedFormats', 'text', 'items', 'files', 'totals']);
+    const formats = list(payload.availableFormats, limits.maxFormats);
+    const seenFormats = new Set();
+    for (const format of formats) {
+      text(format, limits.maxMetadataLength);
+      if (seenFormats.has(format)) fail('evidence-schema'); seenFormats.add(format);
+    }
+    const omitted = list(payload.omittedFormats, limits.maxFormats);
+    if (JSON.stringify(omitted) !== JSON.stringify(formats.filter(format => !TEXT_FORMATS.includes(format)))) fail('evidence-schema');
+    const allowed = formats.filter(format => TEXT_FORMATS.includes(format));
+    shape(payload.text, allowed);
+    let textBytes = 0; let textUnits = 0;
+    for (const format of allowed) {
+      const value = text(payload.text[format], limits.maxFormatBytes, true);
+      textBytes += utf8Size(value, limits.maxFormatBytes); textUnits += value.length;
+      integer(textBytes, limits.maxTextBytes);
+    }
+    const items = list(payload.items, limits.maxItems); const files = list(payload.files, limits.maxItems);
+    const expectedFiles = new Map(); let fileBytes = 0; let base64Units = 0;
+    for (let index = 0; index < items.length; index++) {
+      const item = shape(items[index], ['itemIndex', 'kind', 'type', 'file']);
+      if (item.itemIndex !== index || !['string', 'file'].includes(item.kind)) fail('evidence-schema');
+      text(item.type, limits.maxMetadataLength, true);
+      if (item.kind === 'string') { if (item.file !== null) fail('evidence-schema'); continue; }
+      shape(item.file, ['name', 'type', 'size', 'lastModified']);
+      text(item.file.name, limits.maxMetadataLength, true); text(item.file.type, limits.maxMetadataLength, true);
+      const size = integer(item.file.size, limits.maxFileBytes);
+      if (!Number.isSafeInteger(item.file.lastModified)) fail('evidence-schema');
+      fileBytes += size; integer(fileBytes, limits.maxTotalFileBytes);
+      base64Units += 4 * Math.ceil(size / 3); expectedFiles.set(index, size);
+    }
+    integer(textBytes + fileBytes, limits.maxClipboardBytes);
+    const reserve = 16_384 + (items.length * 4 + formats.length * 2 + 7) * limits.maxMetadataLength * 6;
+    integer(textUnits * 6 + base64Units + reserve, limits.maxJSONBytes);
+    shape(payload.totals, ['textBytes', 'fileBytes']);
+    if (payload.totals.textBytes !== textBytes || payload.totals.fileBytes !== fileBytes || files.length !== expectedFiles.size) fail('evidence-total');
+    let priorIndex = -1;
+    for (const file of files) {
+      shape(file, ['itemIndex', 'byteLength', 'sha256', 'base64']);
+      const size = expectedFiles.get(file.itemIndex);
+      if (size === undefined || file.itemIndex <= priorIndex || file.byteLength !== size) fail('evidence-file');
+      priorIndex = file.itemIndex; expectedFiles.delete(file.itemIndex);
+      if (canonicalBase64(file.base64, size) !== hash(file.sha256)) fail('evidence-checksum');
+    }
+    const handle = Object.freeze({});
+    const report = freeze({ kind: 'offline-capture-integrity', schemaVersion: 1, qualification: false,
+      sourceApplicationVerified: false, nativeEvidenceAuthenticated: false, origin: evidence.origin,
+      claimedEventKind: bundle.provenance.eventKind, fixtureId: evidence.fixtureId,
+      fixtureSha256: evidence.fixtureSha256, captureSha256: evidence.captureSha256,
+      textBytes, fileBytes, itemCount: items.length, fileCount: files.length });
+    stored.set(handle, { html: payload.text['text/html'], report });
+    return Object.freeze({ handle, report });
+  } catch (error) { if (error instanceof CaptureEvidenceError) throw error; fail('evidence-schema'); }
+}
+export function disposeCaptureEvidence(handle) { stored.delete(handle); }
+
+/** HTML-only replay. It never creates Files, applies editor content or matches image references. */
+export function replayCaptureEvidence(handle, expected) {
+  const state = stored.get(handle);
+  if (!state) fail('evidence-handle');
+  if (typeof state.html !== 'string') fail('evidence-no-html');
+  shape(expected, ['preserve', 'adapt']);
+  const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
+  const outcomes = [];
+  for (const formatting of ['preserve', 'adapt']) {
+    const oracle = shape(expected[formatting], ['status', 'html', 'source', 'diagnostics', 'diagnosticsTruncated']);
+    text(oracle.html, MAX_EXPECTED_UNITS, true); list(oracle.diagnostics, 100);
+    if (!['cleaned', 'rejected'].includes(oracle.status) || !['word', 'google-docs', 'libreoffice', 'html'].includes(oracle.source)
+      || typeof oracle.diagnosticsTruncated !== 'boolean') fail('evidence-schema');
+    for (const code of oracle.diagnostics) text(code, 64);
+    const result = normalizePasteHTML(state.html, { formatting, allowRemoteImages: false, allowDataImages: true });
+    if (result.status !== oracle.status || result.html !== oracle.html || result.source !== oracle.source
+      || result.diagnosticsTruncated !== oracle.diagnosticsTruncated
+      || JSON.stringify(result.diagnostics.map(item => item.code)) !== JSON.stringify(oracle.diagnostics)) fail('evidence-replay-mismatch');
+    outcomes.push({ formatting, status: result.status, source: result.source, htmlSha256: digest(result.html),
+      htmlUnits: result.html.length, diagnostics: result.diagnostics.map(item => item.code), diagnosticsTruncated: result.diagnosticsTruncated });
+  }
+  return freeze({ kind: 'offline-html-replay', qualification: false, nativeEvidenceAuthenticated: false,
+    editorInsertionVerified: false, imageAssociationVerified: false, fixtureId: state.report.fixtureId, outcomes });
+}
+
+/** The distinct codes of the findings that can show the notice, sorted: warnings and errors, never infos. */
+export function noticeCodes(diagnostics) {
+  return [...new Set(diagnostics.filter(item => item.severity !== 'info').map(item => item.code))].sort();
+}
+function sortedCodes(value) {
+  list(value, 32);
+  for (const code of value) text(code, 64);
+  if (JSON.stringify(value) !== JSON.stringify([...new Set(value)].sort())) fail('evidence-schema');
+  return value;
+}
+
+/**
+ * Check a reviewed semantic oracle: the blocks a content specification authors for one selection and,
+ * for each policy, the replay's status, source and notice codes, plus the notice and codes the fixture
+ * editor with the named schema is expected to show, as one outcome or a list with one per schema.
+ * Nothing in it is normalizer output.
+ */
+export function readSemanticExpected(expected) {
+  if (!expected || typeof expected !== 'object' || Array.isArray(expected)) fail('evidence-schema');
+  const required = ['specification', 'scenario', 'blocks', 'preserve', 'adapt'];
+  const keys = Object.keys(expected);
+  if (required.some(key => !keys.includes(key)) || keys.some(key => !required.includes(key) && key !== 'partial' && key !== 'hiddenText')) fail('evidence-schema');
+  text(expected.specification, 64); text(expected.scenario, 128);
+  if (expected.partial !== undefined) {
+    shape(expected.partial, ['first', 'last']); text(expected.partial.first, 256); text(expected.partial.last, 256);
+  }
+  list(expected.blocks, 512);
+  if (expected.blocks.length === 0) fail('evidence-schema');
+  const ids = new Set();
+  for (const block of expected.blocks) {
+    if (!block || typeof block !== 'object' || Array.isArray(block) || typeof block.id !== 'string'
+      || !/^[A-Z][A-Za-z0-9]{0,15}$/u.test(block.id) || ids.has(block.id) || !SEMANTIC_BLOCK_TYPES.has(block.type)) fail('evidence-schema');
+    ids.add(block.id);
+  }
+  // Whether the copy holds a block's hidden text is the browser's, so the oracle says it exactly when a block authors one.
+  const hidden = expected.blocks.some(block => block.hidden !== undefined);
+  if (hidden ? !HIDDEN_TEXT.has(expected.hiddenText) : expected.hiddenText !== undefined) fail('evidence-schema');
+  // Hidden text the copy holds is left out with its own warning, in every policy and schema, and none is reported for a copy without it.
+  const removed = outcome => outcome.warnings.includes(HIDDEN_TEXT_REMOVED) === (expected.hiddenText === 'copied');
+  for (const formatting of ['preserve', 'adapt']) {
+    const oracle = shape(expected[formatting], ['status', 'source', 'warnings', 'editor']);
+    if (!['cleaned', 'rejected'].includes(oracle.status) || !['word', 'google-docs', 'libreoffice', 'html'].includes(oracle.source)) fail('evidence-schema');
+    sortedCodes(oracle.warnings);
+    if (!removed(oracle)) fail('evidence-schema');
+    // One editor outcome, or one per destination schema the fixture is pinned in.
+    const editors = Array.isArray(oracle.editor) ? oracle.editor : [oracle.editor];
+    if (editors.length === 0 || editors.length > EDITOR_SCHEMAS.size) fail('evidence-schema');
+    for (const entry of editors) {
+      const editor = shape(entry, ['schema', 'notice', 'warnings']);
+      if (!NOTICES.has(editor.notice) || !EDITOR_SCHEMAS.has(editor.schema)) fail('evidence-schema');
+      sortedCodes(editor.warnings);
+      if (!removed(editor)) fail('evidence-schema');
+    }
+    if (new Set(editors.map(editor => editor.schema)).size !== editors.length) fail('evidence-schema');
+  }
+  return expected;
+}
+
+/** The editor outcomes of one policy's oracle, one per destination schema. */
+export function editorOutcomes(oracle) {
+  return Array.isArray(oracle.editor) ? oracle.editor : [oracle.editor];
+}
+
+/** The content specification a semantic oracle stands for: its blocks and one scenario that selects them in order. */
+export function semanticSpecification(expected) {
+  return {
+    documents: [{ blocks: expected.blocks }],
+    scenarios: [{ id: expected.scenario, blocks: expected.blocks.map(block => block.id),
+      ...(expected.partial === undefined ? {} : { partial: expected.partial }),
+      ...(expected.hiddenText === undefined ? {} : { hiddenText: expected.hiddenText }), outcome: { notice: 'observe' } }],
+  };
+}
+
+/** HTML-only replay against a reviewed semantic oracle: exact notice codes and the authored blocks, never exact HTML. */
+export function replaySemanticEvidence(handle, expected) {
+  const state = stored.get(handle);
+  if (!state) fail('evidence-handle');
+  if (typeof state.html !== 'string') fail('evidence-no-html');
+  readSemanticExpected(expected);
+  const specification = semanticSpecification(expected);
+  const { normalizePasteHTML } = cleanupRequire('@domternal/extension-paste-cleanup/html');
+  const outcomes = [];
+  for (const formatting of ['preserve', 'adapt']) {
+    const oracle = expected[formatting];
+    const result = normalizePasteHTML(state.html, { formatting, allowRemoteImages: false, allowDataImages: true });
+    const warnings = noticeCodes(result.diagnostics);
+    if (result.status !== oracle.status || result.source !== oracle.source || JSON.stringify(warnings) !== JSON.stringify(oracle.warnings)) fail('evidence-replay-mismatch');
+    let problems;
+    try { problems = compareBlocks(specification, expected.scenario, blocksFromHTML(result.html), { formatting }); } catch { fail('evidence-schema'); }
+    if (problems.length > 0) fail('evidence-replay-mismatch');
+    outcomes.push({ formatting, status: result.status, source: result.source, htmlSha256: digest(result.html), htmlUnits: result.html.length,
+      warnings, diagnostics: result.diagnostics.length, diagnosticsTruncated: result.diagnosticsTruncated });
+  }
+  return freeze({ kind: 'offline-semantic-replay', qualification: false, nativeEvidenceAuthenticated: false,
+    editorInsertionVerified: false, imageAssociationVerified: false, fixtureId: state.report.fixtureId,
+    specification: expected.specification, scenario: expected.scenario, blocks: expected.blocks.length, outcomes });
+}
+
+/**
+ * The parts of a ZIP package, such as a Word document, read within fixed bounds: one disk, no ZIP64,
+ * no encryption, stored or deflated parts only, plain relative names, each part's size and CRC checked.
+ */
+export function readPackageParts(input) {
+  const view = Buffer.from(input.buffer, input.byteOffset, input.byteLength);
+  const u16 = at => { if (at < 0 || at + 2 > view.length) fail('evidence-package'); return view.readUInt16LE(at); };
+  const u32 = at => { if (at < 0 || at + 4 > view.length) fail('evidence-package'); return view.readUInt32LE(at); };
+  let end = -1;
+  for (let at = view.length - 22; at >= 0 && at >= view.length - 22 - 0xffff; at--) {
+    if (u32(at) === 0x06054b50 && at + 22 + u16(at + 20) === view.length) { end = at; break; }
+  }
+  if (end < 0) fail('evidence-package');
+  const count = u16(end + 10);
+  const directory = u32(end + 16);
+  if (u16(end + 4) !== 0 || u16(end + 6) !== 0 || u16(end + 8) !== count || count === 0 || count > PACKAGE_LIMITS.entries
+    || directory + u32(end + 12) !== end) fail('evidence-package');
+  const parts = new Map();
+  let total = 0;
+  let offset = directory;
+  try {
+    for (let index = 0; index < count; index++) {
+      if (u32(offset) !== 0x02014b50) fail('evidence-package');
+      const flags = u16(offset + 8); const method = u16(offset + 10); const crc = u32(offset + 16);
+      const compressed = u32(offset + 20); const size = u32(offset + 24);
+      const nameLength = u16(offset + 28); const extraLength = u16(offset + 30); const commentLength = u16(offset + 32);
+      const local = u32(offset + 42);
+      total += size;
+      if ((flags & 1) !== 0 || (method !== 0 && method !== 8) || nameLength === 0 || nameLength > PACKAGE_LIMITS.nameLength
+        || size > PACKAGE_LIMITS.partBytes || total > PACKAGE_LIMITS.totalBytes) fail('evidence-package');
+      const name = view.subarray(offset + 46, offset + 46 + nameLength).toString('latin1');
+      if (!/^[A-Za-z0-9[\]_.-]+(?:\/[A-Za-z0-9[\]_.-]+)*$/u.test(name) || name.split('/').some(part => part === '.' || part === '..') || parts.has(name)) fail('evidence-package');
+      offset += 46 + nameLength + extraLength + commentLength;
+      if (offset > end || u32(local) !== 0x04034b50) fail('evidence-package');
+      const start = local + 30 + u16(local + 26) + u16(local + 28);
+      if (start + compressed > directory) fail('evidence-package');
+      const data = view.subarray(start, start + compressed);
+      let content;
+      try { content = method === 0 ? Buffer.from(data) : inflateRawSync(data, { maxOutputLength: Math.max(size, 1) }); } catch { fail('evidence-package'); }
+      if (content.length !== size || crc32(content) !== crc) { content.fill(0); fail('evidence-package'); }
+      parts.set(name, content);
+    }
+    if (offset !== end) fail('evidence-package');
+  } catch (error) { for (const content of parts.values()) content.fill(0); throw error; }
+  return parts;
+}
+
+function partText(content) {
+  try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(content); } catch { fail('evidence-package'); }
+}
+const elementPattern = (element, flags) => new RegExp(`(<${element}(?:[\\t\\n\\r ][^<>]*)?>)[^<]*(</${element}>)`, flags);
+
+/** A part's text with the content of each named element removed, the form its redaction leaves. */
+export function maskedPart(content, elements) {
+  let value = partText(content);
+  for (const element of elements) value = value.replace(elementPattern(element, 'gu'), '$1$2');
+  return value;
+}
+/** Whether a part holds each named element, every occurrence of it empty. */
+function clearedPart(content, elements) {
+  const value = partText(content);
+  return elements.every(element => {
+    const opening = new RegExp(`<${element}(?=[\\t\\n\\r />])[^<>]*>`, 'gu');
+    let found = 0;
+    for (const match of value.matchAll(opening)) {
+      found++;
+      if (!match[0].endsWith('/>') && !value.startsWith(`</${element}>`, match.index + match[0].length)) return false;
+    }
+    return found > 0;
+  });
+}
+
+/**
+ * The capture with every declared replacement and withheld operator field masked, and the record of every clipboard
+ * file whose redaction is declared (`files`, by item index): its bytes, hash and size, and the file total. It is equal
+ * for an original and its redaction when nothing else changed, whichever redaction came first.
+ */
+export function maskedCaptureDigest(bundle, replacements, withheld = [], files = []) {
+  const masked = structuredClone(bundle);
+  for (const { flavor, offset, length } of replacements) {
+    const value = masked.payload.text[flavor];
+    masked.payload.text[flavor] = `${value.slice(0, offset)}${'\u0000'.repeat(length)}${value.slice(offset + length)}`;
+  }
+  for (const field of withheld) masked.operator[field] = null;
+  for (const itemIndex of files) {
+    const record = masked.payload.files.find(file => file?.itemIndex === itemIndex);
+    if (record !== undefined) Object.assign(record, { byteLength: null, sha256: null, base64: null });
+    const file = masked.payload.items[itemIndex]?.file;
+    if (file) file.size = null;
+  }
+  if (files.length > 0) masked.payload.totals.fileBytes = null;
+  return digest(JSON.stringify(masked));
+}
+
+/** The chunks of a PNG as [type, data], read within fixed bounds: the signature, every length and CRC, IHDR first and IEND last. */
+export function readPngChunks(input) {
+  const view = Buffer.from(input.buffer, input.byteOffset, input.byteLength);
+  if (view.length < PNG_SIGNATURE.length || !view.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) fail('evidence-file');
+  const chunks = [];
+  let at = PNG_SIGNATURE.length;
+  while (at < view.length) {
+    if (chunks.length >= PNG_LIMITS.chunks || at + 12 > view.length) fail('evidence-file');
+    const length = view.readUInt32BE(at);
+    if (length > view.length - at - 12) fail('evidence-file');
+    const type = view.toString('latin1', at + 4, at + 8);
+    if (!/^[A-Za-z]{4}$/u.test(type) || crc32(view.subarray(at + 4, at + 8 + length)) !== view.readUInt32BE(at + 8 + length)) fail('evidence-file');
+    chunks.push([type, view.subarray(at + 8, at + 8 + length)]);
+    at += 12 + length;
+    if (type === 'IEND') break;
+  }
+  if (at !== view.length || chunks[0]?.[0] !== 'IHDR' || chunks.at(-1)?.[0] !== 'IEND') fail('evidence-file');
+  return chunks;
+}
+
+/**
+ * The display profile a PNG embeds: its one iCCP chunk before the image data, with the chunk's index, the profile's
+ * name and the profile, inflated within bounds. A PNG without one has nothing a profile redaction can name.
+ */
+export function readPngProfile(chunks) {
+  const indexes = chunks.flatMap(([type], index) => (type === 'iCCP' ? [index] : []));
+  const image = chunks.findIndex(([type]) => type === 'IDAT');
+  if (indexes.length !== 1 || image < indexes[0]) fail('evidence-redaction');
+  const [index] = indexes;
+  const data = chunks[index][1];
+  const separator = data.indexOf(0);
+  if (separator < 1 || separator > 79 || data[separator + 1] !== 0) fail('evidence-file');
+  let profile;
+  try { profile = inflateSync(data.subarray(separator + 2), { maxOutputLength: PNG_LIMITS.profileBytes }); } catch { fail('evidence-file'); }
+  return { index, name: Buffer.from(data.subarray(0, separator)), profile };
+}
+
+/**
+ * Whether a clipboard picture names the display it was drawn on: a PNG whose display profile's make and model tag
+ * holds a serial number or a manufacture date. A picture that is no PNG, has no profile or has a profile without
+ * that tag, as an sRGB one, names none and needs no profile redaction. A damaged PNG or profile is refused.
+ */
+export function namesDisplayUnit(picture) {
+  if (picture.length < PNG_SIGNATURE.length || !picture.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) return false;
+  const chunks = readPngChunks(picture);
+  if (!chunks.some(([type]) => type === 'iCCP')) return false;
+  const { profile } = readPngProfile(chunks);
+  let tag;
+  try {
+    tag = deviceTagOffset(profile);
+  } catch (error) {
+    if (error instanceof CaptureEvidenceError && error.code === 'evidence-redaction') return false;
+    throw error;
+  }
+  return Object.values(DEVICE_FIELDS).some(offset => profile.readUInt32BE(tag + offset) !== 0);
+}
+
+/** Where a profile's one Apple make and model tag ('mmod') starts, read within the profile's declared size and tag table. */
+export function deviceTagOffset(profile) {
+  if (profile.length < 132 || profile.readUInt32BE(0) !== profile.length || profile.toString('latin1', 36, 40) !== 'acsp') fail('evidence-file');
+  const count = profile.readUInt32BE(128);
+  if (count > PNG_LIMITS.profileTags || 132 + count * 12 > profile.length) fail('evidence-file');
+  let found;
+  for (let index = 0; index < count; index++) {
+    const at = 132 + index * 12;
+    const offset = profile.readUInt32BE(at + 4);
+    const size = profile.readUInt32BE(at + 8);
+    if (offset < 132 + count * 12 || size > profile.length - offset) fail('evidence-file');
+    if (profile.toString('latin1', at, at + 4) !== 'mmod') continue;
+    if (found !== undefined || size < 24 || profile.toString('latin1', offset, offset + 4) !== 'mmod') fail('evidence-file');
+    found = offset;
+  }
+  if (found === undefined) fail('evidence-redaction');
+  return found;
+}
+
+/** A profile's ID as the ICC specification computes it: the MD5 of the profile with its flags, rendering intent and ID zeroed. */
+export function profileIdentifier(profile) {
+  const copy = Buffer.from(profile);
+  copy.fill(0, 44, 48); copy.fill(0, 64, 68); copy.fill(0, 84, 100);
+  return createHash('md5').update(copy).digest();
+}
+
+/**
+ * The PNG with its display profile inflated, the named device fields zeroed and the profile ID, which hashes them,
+ * zeroed too. It is equal for an original picture and its redaction when nothing else changed, and it holds none of
+ * the cleared values.
+ */
+export function maskedPngDigest(input, fields) {
+  const chunks = readPngChunks(input);
+  const { index, name, profile } = readPngProfile(chunks);
+  const masked = Buffer.from(profile);
+  const tag = deviceTagOffset(masked);
+  for (const field of fields) masked.fill(0, tag + DEVICE_FIELDS[field], tag + DEVICE_FIELDS[field] + 4);
+  masked.fill(0, 84, 100);
+  const hash = createHash('sha256');
+  chunks.forEach(([type, data], at) => {
+    const content = at === index ? Buffer.concat([name, Buffer.from([0, 0]), masked]) : data;
+    const length = Buffer.alloc(4); length.writeUInt32BE(content.length);
+    hash.update(type, 'latin1'); hash.update(length); hash.update(content);
+  });
+  return hash.digest('hex');
+}
+
+/**
+ * The committed picture equals its original outside the declared device fields of its display profile, which are
+ * zero, and the profile's ID, which is zero or computed again.
+ */
+export function verifyFileRedaction(picture, declaration) {
+  if (digest(picture) !== declaration.redactedSha256) fail('evidence-redaction');
+  const { profile } = readPngProfile(readPngChunks(picture));
+  const tag = deviceTagOffset(profile);
+  if (declaration.clearedFields.some(field => profile.readUInt32BE(tag + DEVICE_FIELDS[field]) !== 0)) fail('evidence-redaction');
+  const id = profile.subarray(84, 100);
+  if (id.some(byte => byte !== 0) && !id.equals(profileIdentifier(profile))) fail('evidence-redaction');
+  if (maskedPngDigest(picture, declaration.clearedFields) !== declaration.maskedSha256) fail('evidence-redaction');
+}
+
+/** Every declared clipboard file redaction names a PNG file of the bundle, which its verification holds. */
+export function verifyFileRedactions(bundle, declarations = []) {
+  for (const declaration of declarations) {
+    const item = bundle.payload.items[declaration.itemIndex];
+    const record = bundle.payload.files.find(file => file.itemIndex === declaration.itemIndex);
+    if (item?.kind !== 'file' || item.type !== 'image/png' || item.file?.type !== 'image/png' || record === undefined
+      || record.sha256 !== declaration.redactedSha256) fail('evidence-redaction');
+    const picture = Buffer.from(record.base64, 'base64');
+    try { verifyFileRedaction(picture, declaration); } finally { picture.fill(0); }
+  }
+}
+
+/** The reserved token of a replaced span of the given length. */
+export function redactionToken(length) {
+  return REDACTION_TOKEN.padEnd(length, '-');
+}
+/** What a withheld source hash holds in place of its 64 hexadecimal digits. */
+export const WITHHELD_SOURCE_HASH = REDACTION_TOKEN.padEnd(64, '-');
+
+/**
+ * Declared redactions of a version 2 manifest: at most one for the source document, one for the
+ * capture's text and one for each clipboard file of the capture (`files`, in item order). Each records
+ * the redacted hash, whether the original is retained, whether its fingerprints were taken from the
+ * original or from an already redacted copy, and what changed. None records a hash of the original: an
+ * unsalted hash of text that held a name or an address confirms a guess of it, and one of a picture
+ * whose profile held a serial number confirms a guess of that number. For the same reason a capture
+ * whose source was redacted withholds the source hash its operator recorded.
+ */
+export function readRedactions(value) {
+  list(value, 2 + MAX_FILE_REDACTIONS);
+  const declared = {};
+  const files = new Map();
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) fail('evidence-schema');
+    if (entry.artifact === 'source') {
+      shape(entry, ['artifact', 'format', 'reason', 'redactedSha256', 'originalRetained', 'basis', 'clearedElements', 'parts']);
+      if (entry.format !== 'ooxml-package') fail('evidence-schema');
+      list(entry.clearedElements, 16);
+      if (entry.clearedElements.length === 0) fail('evidence-schema');
+      const named = new Set();
+      for (const cleared of entry.clearedElements) {
+        shape(cleared, ['part', 'elements']); text(cleared.part, PACKAGE_LIMITS.nameLength); list(cleared.elements, 16);
+        if (named.has(cleared.part) || cleared.elements.length === 0 || cleared.elements.some(element => typeof element !== 'string' || !PART_ELEMENT.test(element))) fail('evidence-schema');
+        named.add(cleared.part);
+      }
+      if (!entry.parts || typeof entry.parts !== 'object' || Array.isArray(entry.parts)) fail('evidence-schema');
+      integer(Object.keys(entry.parts).length, PACKAGE_LIMITS.entries, 1);
+      for (const part of Object.values(entry.parts)) hash(part);
+    } else if (entry.artifact === 'capture') {
+      shape(entry, ['artifact', 'format', 'reason', 'redactedSha256', 'originalRetained', 'basis', 'replacements', 'withheld', 'maskedSha256']);
+      if (entry.format !== 'capture-text') fail('evidence-schema');
+      list(entry.replacements, 64); list(entry.withheld, 8);
+      if (entry.replacements.length === 0 && entry.withheld.length === 0) fail('evidence-schema');
+      if (entry.withheld.some((field, index) => !WITHHOLDABLE.includes(field) || entry.withheld.indexOf(field) !== index)) fail('evidence-schema');
+      for (const replacement of entry.replacements) {
+        shape(replacement, ['flavor', 'offset', 'length', 'token']);
+        if (!TEXT_FORMATS.includes(replacement.flavor)) fail('evidence-schema');
+        integer(replacement.offset, HARD_LIMITS.maxFormatBytes); integer(replacement.length, 512, REDACTION_TOKEN.length);
+        if (replacement.token !== redactionToken(replacement.length)) fail('evidence-schema');
+      }
+      hash(entry.maskedSha256);
+    } else if (entry.artifact === 'clipboard-file') {
+      // A PNG clipboard file whose display profile named its display unit.
+      shape(entry, ['artifact', 'format', 'reason', 'redactedSha256', 'originalRetained', 'basis', 'itemIndex', 'clearedFields', 'maskedSha256']);
+      if (entry.format !== 'png-display-profile') fail('evidence-schema');
+      integer(entry.itemIndex, HARD_LIMITS.maxItems - 1);
+      list(entry.clearedFields, Object.keys(DEVICE_FIELDS).length);
+      if (entry.clearedFields.length === 0 || entry.clearedFields.some((field, index) => !Object.hasOwn(DEVICE_FIELDS, field)
+        || entry.clearedFields.indexOf(field) !== index)) fail('evidence-schema');
+      hash(entry.maskedSha256);
+      if (files.has(entry.itemIndex)) fail('evidence-schema');
+      files.set(entry.itemIndex, entry);
+    } else fail('evidence-schema');
+    if (entry.artifact !== 'clipboard-file' && Object.hasOwn(declared, entry.artifact)) fail('evidence-schema');
+    text(entry.reason, 1024); hash(entry.redactedSha256);
+    if (typeof entry.originalRetained !== 'boolean' || !['original', 'redacted-copy'].includes(entry.basis)
+      || (entry.basis === 'redacted-copy' && entry.originalRetained)) fail('evidence-schema');
+    if (entry.artifact !== 'clipboard-file') declared[entry.artifact] = entry;
+  }
+  declared.files = [...files.values()].sort((left, right) => left.itemIndex - right.itemIndex);
+  return declared;
+}
+
+/**
+ * A fixture's redactions agree: a redacted source and a withheld source hash need each other. The capture
+ * names the original document, whose hash is not committed, and an unredacted source's hash holds nothing to withhold.
+ */
+export function checkRedactionPairing(declared) {
+  if ((declared.source !== undefined) !== (declared.capture?.withheld.includes('fixtureSha256') === true)) fail('evidence-provenance');
+  return declared;
+}
+
+/** The committed package equals its original outside the cleared elements, which are empty. */
+export function verifyPackageRedaction(source, declaration) {
+  if (digest(source) !== declaration.redactedSha256) fail('evidence-redaction');
+  const parts = readPackageParts(source);
+  try {
+    const names = Object.keys(declaration.parts);
+    if (names.length !== parts.size || names.some(name => !parts.has(name))) fail('evidence-redaction');
+    const cleared = new Map(declaration.clearedElements.map(entry => [entry.part, entry.elements]));
+    for (const part of cleared.keys()) if (!parts.has(part)) fail('evidence-redaction');
+    for (const [name, content] of parts) {
+      const elements = cleared.get(name);
+      const fingerprint = elements === undefined ? digest(content) : digest(Buffer.from(maskedPart(content, elements), 'utf8'));
+      if (fingerprint !== declaration.parts[name] || (elements !== undefined && !clearedPart(content, elements))) fail('evidence-redaction');
+    }
+  } finally { for (const content of parts.values()) content.fill(0); }
+}
+
+/**
+ * The capture equals its original outside the declared replacements and withheld fields, each of which holds
+ * its token, and outside the records of the clipboard files whose redaction is declared (`files`, by item
+ * index), which their own declarations hold. The reserved token appears nowhere else, in any letter case: a
+ * redaction without a declaration cannot pass as captured text.
+ */
+export function verifyCaptureRedaction(bundle, declaration, files = []) {
+  const flavors = bundle.payload.text;
+  const spans = new Map();
+  if (declaration !== undefined) {
+    let previous;
+    for (const replacement of declaration.replacements) {
+      const value = flavors[replacement.flavor];
+      const order = TEXT_FORMATS.indexOf(replacement.flavor);
+      if (typeof value !== 'string' || replacement.offset + replacement.length > value.length
+        || value.slice(replacement.offset, replacement.offset + replacement.length) !== replacement.token
+        || (previous !== undefined && (order < previous.order || (order === previous.order && replacement.offset < previous.end)))) fail('evidence-redaction');
+      previous = { order, end: replacement.offset + replacement.length };
+      spans.set(replacement.flavor, [...(spans.get(replacement.flavor) ?? []), [replacement.offset, previous.end]]);
+    }
+    for (const field of declaration.withheld) if (bundle.operator[field] !== WITHHELD_SOURCE_HASH) fail('evidence-redaction');
+    if (maskedCaptureDigest(bundle, declaration.replacements, declaration.withheld, files) !== declaration.maskedSha256) fail('evidence-redaction');
+  }
+  // The token in any letter case: an undeclared redaction written in capitals is still a redaction.
+  for (const [flavor, value] of Object.entries(flavors)) {
+    const folded = value.toLowerCase();
+    for (let at = folded.indexOf(REDACTION_TOKEN); at >= 0; at = folded.indexOf(REDACTION_TOKEN, at + 1)) {
+      if (!(spans.get(flavor) ?? []).some(([start, stop]) => at >= start && at + REDACTION_TOKEN.length <= stop)) fail('evidence-redaction');
+    }
+  }
+  const withheld = new Set(declaration?.withheld ?? []);
+  const operator = Object.fromEntries(Object.entries(bundle.operator).filter(([field]) => !withheld.has(field)));
+  if (JSON.stringify({ ...bundle, operator, payload: { ...bundle.payload, text: {} } }).toLowerCase().includes(REDACTION_TOKEN)) fail('evidence-redaction');
+}
+
+function redactionSummary(declaration) {
+  const changes = declaration.artifact === 'source' ? declaration.clearedElements.reduce((sum, entry) => sum + entry.elements.length, 0)
+    : declaration.artifact === 'capture' ? declaration.replacements.length : declaration.clearedFields.length;
+  return { artifact: declaration.artifact, basis: declaration.basis, originalRetained: declaration.originalRetained,
+    redactedSha256: declaration.redactedSha256, originalVerified: false, changes,
+    withheld: declaration.artifact === 'capture' ? [...declaration.withheld] : [],
+    ...(declaration.artifact === 'clipboard-file' ? { itemIndex: declaration.itemIndex } : {}) };
+}
+
+function artifactPath(value) {
+  text(value, 512);
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/u.test(value) || isAbsolute(value)
+    || value.split('/').some(part => !part || part === '.' || part === '..')) fail('evidence-path');
+  return value;
+}
+/** Hash references to the archived baseline, not authentication of a new native capture. */
+function readDerivation(value) {
+  shape(value, ['kind', 'sourceSha256', 'captureSha256', 'manifestSha256']);
+  if (value.kind !== 'english-text-variant') fail('evidence-provenance');
+  for (const field of ['sourceSha256', 'captureSha256', 'manifestSha256']) hash(value[field]);
+  return value;
+}
+async function readContained(root, name, maximum) {
+  const file = await realpath(resolve(root, artifactPath(name)));
+  const inside = relative(root, file);
+  if (inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside)) fail('evidence-path');
+  const stream = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  let buffer; let failure;
+  try {
+    const stat = await stream.stat();
+    if (!stat.isFile()) fail('evidence-path'); integer(stat.size, maximum);
+    buffer = Buffer.alloc(stat.size); let offset = 0;
+    while (offset < buffer.length) {
+      const { bytesRead } = await stream.read(buffer, offset, buffer.length - offset, offset);
+      if (bytesRead === 0) fail('evidence-truncated'); offset += bytesRead;
+    }
+    const extra = await stream.read(Buffer.alloc(1), 0, 1, offset);
+    if (extra.bytesRead !== 0 || (await stream.stat()).size !== stat.size) fail('evidence-limit');
+  } catch (error) { failure = error; }
+  try { await stream.close(); } catch (error) { failure ??= error; }
+  if (failure) { buffer?.fill(0); throw failure; }
+  return buffer;
+}
+/** The directory is explicitly selected by the operator. Payload names and URLs are never file paths. */
+export async function verifyCaptureFixture(directory) {
+  let manifestBytes; let source; let capture; let handle;
+  try {
+    const root = await realpath(directory);
+    manifestBytes = await readContained(root, 'manifest.json', MAX_MANIFEST_BYTES);
+    const manifest = parseJSON(manifestBytes, MAX_MANIFEST_BYTES);
+    if (manifest?.schemaVersion === 2) {
+      // Semantic fixtures retain their distinct provenance; only synthetic variants declare a derivation.
+      const synthetic = manifest.origin === 'synthetic';
+      shape(manifest, ['schemaVersion', 'id', 'origin', 'license', 'source', 'capture', 'redactions', 'expected',
+        ...(synthetic ? ['derivation'] : [])]);
+      if (!synthetic && manifest.origin !== 'claimed-native') fail('evidence-provenance');
+      const derivation = synthetic ? readDerivation(manifest.derivation) : undefined;
+      if (synthetic && (!Array.isArray(manifest.redactions) || manifest.redactions.length !== 0)) fail('evidence-provenance');
+      text(manifest.id); text(manifest.license);
+      shape(manifest.source, ['path', 'sha256']); shape(manifest.capture, ['path', 'sha256']);
+      hash(manifest.source.sha256); hash(manifest.capture.sha256);
+      const redactions = checkRedactionPairing(readRedactions(manifest.redactions));
+      readSemanticExpected(manifest.expected);
+      source = await readContained(root, manifest.source.path, MAX_SOURCE_BYTES);
+      if (digest(source) !== manifest.source.sha256) fail('evidence-checksum');
+      capture = await readContained(root, manifest.capture.path, HARD_LIMITS.maxJSONBytes);
+      if ((redactions.source !== undefined && redactions.source.redactedSha256 !== manifest.source.sha256)
+        || (redactions.capture !== undefined && redactions.capture.redactedSha256 !== manifest.capture.sha256)) fail('evidence-redaction');
+      // The bundle claims the document it was copied from; when the committed one is its redaction, that claim is withheld.
+      const evidence = validateCaptureBytes(capture, { captureSha256: manifest.capture.sha256,
+        fixtureSha256: redactions.source === undefined ? manifest.source.sha256 : null, fixtureId: manifest.id, origin: manifest.origin });
+      handle = evidence.handle;
+      if (redactions.source !== undefined) verifyPackageRedaction(source, redactions.source);
+      const bundle = parseJSON(capture, HARD_LIMITS.maxJSONBytes);
+      verifyCaptureRedaction(bundle, redactions.capture, redactions.files.map(entry => entry.itemIndex));
+      verifyFileRedactions(bundle, redactions.files);
+      const replay = replaySemanticEvidence(handle, manifest.expected);
+      return freeze({ integrity: { ...evidence.report, sourceSha256: manifest.source.sha256,
+        redactions: manifest.redactions.map(redactionSummary), ...(derivation === undefined ? {} : { derivation }) }, replay });
+    }
+    shape(manifest, ['schemaVersion', 'id', 'origin', 'license', 'source', 'capture', 'expected']);
+    if (manifest.schemaVersion !== 1) fail('evidence-schema'); text(manifest.id); text(manifest.license);
+    shape(manifest.source, ['path', 'sha256']); shape(manifest.capture, ['path', 'sha256']);
+    hash(manifest.source.sha256); hash(manifest.capture.sha256);
+    source = await readContained(root, manifest.source.path, MAX_SOURCE_BYTES);
+    if (digest(source) !== manifest.source.sha256) fail('evidence-checksum');
+    capture = await readContained(root, manifest.capture.path, HARD_LIMITS.maxJSONBytes);
+    const evidence = validateCaptureBytes(capture, { captureSha256: manifest.capture.sha256,
+      fixtureSha256: manifest.source.sha256, fixtureId: manifest.id, origin: manifest.origin });
+    handle = evidence.handle;
+    const replay = replayCaptureEvidence(handle, manifest.expected);
+    return freeze({ integrity: evidence.report, replay });
+  } catch (error) { if (error instanceof CaptureEvidenceError) throw error; fail('evidence-read'); }
+  finally { manifestBytes?.fill(0); source?.fill(0); capture?.fill(0); if (handle) disposeCaptureEvidence(handle); }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    if (process.argv.length !== 3) fail('evidence-arguments');
+    const report = await verifyCaptureFixture(resolve(process.argv[2]));
+    process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+  } catch (error) {
+    process.stderr.write((error instanceof CaptureEvidenceError ? error.code : 'evidence-failed') + '\n'); process.exitCode = 1;
+  }
+}

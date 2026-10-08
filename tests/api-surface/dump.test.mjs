@@ -31,6 +31,7 @@ import {
   collectRuntimeTargets,
   collectTypeTargets,
   discoverTargets,
+  experimentalExports,
   exportEntriesOf,
   exportOrigin,
   extractExports,
@@ -507,4 +508,150 @@ test('locale API contracts reject extra, missing, unknown and mismatched public 
     ).errors.join(),
     /surfaces differ/
   );
+});
+
+/** One declaration file published as both halves of a dual entry. */
+function taggedPackage(t, esm, cjs = esm) {
+  const root = fixture(t, {
+    thing: {
+      manifest: { name: '@domternal/thing', exports: { '.': dualEntry() } },
+      files: { 'dist/index.d.ts': esm, 'dist/index.d.cts': cjs },
+    },
+  });
+  const { targets } = discoverTargets(root);
+  return planSnapshots(targets, '/snapshots');
+}
+
+const TAGGED_DECLARATIONS = `import { EditorView } from '@domternal/pm/view';
+/** Stable. */
+declare function stable(view: EditorView): void;
+/**
+ * May still change.
+ * @experimental Registry based.
+ */
+declare function helper(value: unknown): unknown;
+/** @experimental A type. */
+interface Shape { a: string }
+/** @experimental Behind an alias. */
+declare const original: number;
+declare const plain: number;
+/** Mentions the word experimental without the tag. */
+declare const prose: number;
+export { type Shape, helper, original as renamed, plain, prose, stable };
+export { reexported } from './elsewhere';
+/** @experimental Declared inline. */
+export declare class Inline {}
+`;
+
+test('a name whose own declaration carries @experimental is recorded with the tag', (t) => {
+  const { planned, errors } = taggedPackage(t, TAGGED_DECLARATIONS);
+  assert.deepEqual(errors, []);
+  assert.equal([...planned.values()][0]?.out, [
+    'helper @experimental', 'Inline @experimental', 'plain', 'prose', 'reexported', 'renamed @experimental',
+    'Shape @experimental', 'stable',
+  ].join('\n') + '\n');
+});
+
+test('a tag the ESM and CommonJS declarations disagree on fails the entry', (t) => {
+  const { planned, errors } = taggedPackage(t, TAGGED_DECLARATIONS, TAGGED_DECLARATIONS.replace('@experimental Registry based.', 'Registry based.'));
+  assert.equal(planned.size, 0);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /declaration surfaces differ between/);
+});
+
+test('the committed snapshots record the experimental Core clipboard names', () => {
+  const clipboard = readFileSync(join(here, 'snapshots/core__clipboard.txt'), 'utf8').trimEnd().split('\n');
+  assert.ok(clipboard.length > 0);
+  assert.deepEqual(clipboard.filter((line) => !line.endsWith(' @experimental')), []);
+});
+
+test('experimental names are read from the JSDoc block directly above their own declaration', () => {
+  assert.deepEqual([...experimentalExports(TAGGED_DECLARATIONS)].sort(), ['Inline', 'Shape', 'helper', 'renamed']);
+});
+
+test('a tag on another declaration, the file or a re-export never reaches a name', () => {
+  const content = `/** @experimental The whole file. */
+import { a } from './a';
+/** @experimental Only the first. */
+declare function first(): void;
+declare function second(): void;
+export { first, second };
+export { third } from './third';
+export * from './star';
+`;
+  assert.deepEqual([...experimentalExports(content)], ['first']);
+});
+
+test('a default export is judged by the declaration it is bound to', () => {
+  const content = '/** @experimental Default. */\ndeclare class Source {}\nexport { Source as default };\n';
+  assert.deepEqual([...experimentalExports(content)], ['default(Source)']);
+});
+
+test('the rendered snapshot marks tagged names and keeps the name order', () => {
+  assert.equal(renderSnapshot(new Set(['b', 'a', 'c']), new Set(['c', 'a'])), 'a @experimental\nb\nc @experimental\n');
+});
+
+test('the committed Core snapshot marks the attribute registry and surface tone helpers experimental', () => {
+  const core = readFileSync(join(here, 'snapshots/core.txt'), 'utf8').trimEnd().split('\n');
+  assert.deepEqual(core.filter((line) => line.endsWith(' @experimental')), [
+    'AttributeNormalizer @experimental',
+    'isSupportedAttributeValue @experimental',
+    'pastedAttributesPlugin @experimental',
+    'registerAttributeNormalizer @experimental',
+    'resolveAttributeValue @experimental',
+    'surfaceTone @experimental',
+    'SurfaceTone @experimental',
+    'surfaceToneAttributes @experimental',
+    'SurfaceToneAttributes @experimental',
+  ]);
+});
+
+/** The JSDoc block that ends right before `marker` in a built declaration file, or null. */
+function docAbove(text, marker) {
+  const at = text.indexOf(marker);
+  assert.notEqual(at, -1, `${marker} is declared`);
+  const before = text.slice(0, at).trimEnd();
+  if (!before.endsWith('*/')) return null;
+  return before.slice(before.lastIndexOf('/**'));
+}
+
+test('the built Core declarations keep the doc comments an editor shows on hover', () => {
+  for (const file of ['index.d.ts', 'index.d.cts']) {
+    const text = readFileSync(join(repoRoot, 'packages/core/dist', file), 'utf8');
+    assert.match(docAbove(text, 'declare class Editor extends') ?? '', /Main editor class[\s\S]*@example/, `${file}: Editor`);
+    // Both hover targets carry the warning: the standalone export and editor.commands.
+    for (const marker of ['declare const normalizeContentAttributes', '    normalizeContentAttributes: CommandSpec']) {
+      const doc = docAbove(text, marker) ?? '';
+      assert.match(doc, /every client/, `${file}: ${marker}`);
+      assert.match(doc, /heading levels/, `${file}: ${marker}`);
+      assert.match(doc, /Link/, `${file}: ${marker}`);
+    }
+  }
+});
+
+test('the committed PasteCleanup snapshot marks the resolver ownership protocol and the receipts experimental, and its code lists are documented as open', () => {
+  const lines = readFileSync(join(here, 'snapshots/extension-paste-cleanup.txt'), 'utf8').trimEnd().split('\n');
+  const resolver = lines.filter((line) => /^(ClipboardResolver|ClipboardCreatedResource|ClipboardAssetRecoveryReport|ClipboardResolvedImageAssetOptions)/.test(line));
+  assert.ok(resolver.length >= 12);
+  assert.deepEqual(resolver.filter((line) => !line.endsWith(' @experimental')), []);
+  // The receipts are new in the release that first ships the package.
+  for (const name of ['getPasteAffectedReferences', 'PasteAffectedReferences', 'PasteAffectedRange']) {
+    assert.ok(lines.includes(`${name} @experimental`), name);
+  }
+  // The operation result, normalization and the embedded mode stay stable.
+  for (const name of ['PasteOperationResult', 'normalizePasteHTML', 'ClipboardEmbeddedImageAssetOptions']) {
+    assert.ok(lines.includes(name), name);
+  }
+  const html = readFileSync(join(repoRoot, 'packages/extension-paste-cleanup/dist/html/index.d.ts'), 'utf8');
+  assert.match(docAbove(html, 'type PasteSource =') ?? '', /open/);
+  const main = readFileSync(join(repoRoot, 'packages/extension-paste-cleanup/dist/index.d.ts'), 'utf8');
+  assert.match(docAbove(main, 'type ClipboardResolverDiagnosticCode =') ?? '', /open/);
+  assert.match(main, /The list is open[^*]*\*\/\s*readonly reason:/);
+  // The operation result stays stable, but the receipt it carries is experimental.
+  assert.match(main, /@experimental The operation's receipt references[^/]*\/\s*readonly references: PasteAffectedReferences;/);
+});
+
+test('a member added to an exported class after 1.2 says whether it is settled', () => {
+  const text = readFileSync(join(repoRoot, 'packages/extension-markdown/dist/index.d.ts'), 'utf8');
+  assert.match(docAbove(text, 'canAppend(type: NodeType): boolean;') ?? '', /@experimental/);
 });

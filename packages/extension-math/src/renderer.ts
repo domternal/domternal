@@ -31,6 +31,7 @@ export interface KatexLike {
       displayMode?: boolean;
       throwOnError?: boolean;
       output?: 'html' | 'mathml' | 'htmlAndMathml';
+      trust?: boolean;
       [key: string]: unknown;
     },
   ): string;
@@ -78,6 +79,9 @@ export function createKatexRenderer(
         displayMode,
         throwOnError,
         output,
+        // Pinned, so a KaTeX default change can never let stored LaTeX such
+        // as \href or \includegraphics add a link or load an image.
+        trust: false,
       });
     },
   };

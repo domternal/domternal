@@ -292,20 +292,35 @@ export interface ExtensionConfigBase<Options = unknown, Storage = unknown> {
   onCreate?: () => void;
 
   /**
-   * Called when document content changes
+   * Called after the editor's `update` event and `onUpdate` option: an
+   * accepted dispatch in which the root or an appended transaction changed the
+   * document, unless the root has the `skipUpdate` meta.
    */
   onUpdate?: () => void;
 
   /**
-   * Called when selection changes (without content change)
+   * Called after the editor's `selectionUpdate` event and option: an accepted
+   * dispatch whose root set the selection without changing the document, or
+   * whose appended transactions set it when none changed the document.
    */
   onSelectionUpdate?: () => void;
 
   /**
-   * Called on every transaction
-   * Can be used to intercept or modify transactions
+   * Called once for every accepted root transaction, after the editor's
+   * `transaction` event and `onTransaction` option, with the transactions
+   * plugins appended to it. The transactions are already applied; use a
+   * ProseMirror plugin (`filterTransaction`, `appendTransaction`) to veto or
+   * change them. Never called for a transaction a plugin vetoed.
    */
-  onTransaction?: (props: { transaction: Transaction }) => void;
+  onTransaction?: (props: {
+    transaction: Transaction;
+    /**
+     * The accepted transactions plugins appended to the root, in order. The
+     * editor always sets it; it is optional only so that code calling a hook
+     * itself, as 1.2 code did with `{ transaction }`, keeps compiling.
+     */
+    appendedTransactions?: readonly Transaction[];
+  }) => void;
 
   /**
    * Called when editor receives focus

@@ -3,7 +3,8 @@
  */
 import { TextSelection, EditorState } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
-import { wrapRangeInList, liftListItem } from '@domternal/pm/schema-list';
+import { wrapRangeInListWithMarker as wrapRangeInList, liftListItemWithMarker as liftListItem } from '../utils/listMarkerCommands.js';
+import { hasListMarker, listMarker, sameListMarker } from '../utils/listMarker.js';
 import { canJoin } from '@domternal/pm/transform';
 import type { Attrs, NodeType, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
@@ -21,7 +22,7 @@ function joinListBackwards(tr: Transaction, listType: NodeType): void {
       const listPos = $from.before(d);
       if (listPos > 0 && canJoin(tr.doc, listPos)) {
         const nodeBefore = tr.doc.resolve(listPos - 1).parent;
-        if (nodeBefore.type === listType) {
+        if (nodeBefore.type === listType && sameListMarker(nodeBefore, $from.node(d))) {
           tr.join(listPos);
         }
       }
@@ -37,7 +38,7 @@ function joinListForwards(tr: Transaction, listType: NodeType): void {
       const after = $from.after(d);
       if (after < tr.doc.content.size && canJoin(tr.doc, after)) {
         const nodeAfter = tr.doc.nodeAt(after);
-        if (nodeAfter?.type === listType) {
+        if (nodeAfter?.type === listType && sameListMarker($from.node(d), nodeAfter)) {
           tr.join(after);
         }
       }
@@ -71,6 +72,9 @@ export const toggleList: CommandSpec<
     if (!listType || !listItemType) {
       return false;
     }
+    const requestedMarker: unknown = attributes?.['listStyleType'];
+    if (['orderedList', 'bulletList'].includes(listType.name) && requestedMarker !== undefined
+      && requestedMarker !== null && listMarker(listType.name, requestedMarker) === null) return false;
 
     interface ListBlockCtx { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }
 
@@ -151,11 +155,12 @@ export const toggleList: CommandSpec<
           const last = cellBlocks[cellBlocks.length - 1];
           if (!first || !last) continue;
           const narrowSel = TextSelection.create(tr.doc, first.pos + 1, last.pos + 1);
-          const narrowState = EditorState.create({ doc: tr.doc, selection: narrowSel });
+          const narrowState = EditorState.create({ doc: tr.doc, selection: narrowSel, storedMarks: state.storedMarks });
           liftListItem(listItemType)(narrowState, (liftTr) => {
             for (const step of liftTr.steps) {
               tr.step(step);
             }
+            if (liftTr.storedMarksSet) tr.setStoredMarks(liftTr.storedMarks);
           });
         }
       } else {
@@ -271,10 +276,17 @@ export const toggleList: CommandSpec<
       const first = contentBlocks[0];
       const last = contentBlocks[contentBlocks.length - 1];
       if (!first || !last) return false;
-      const narrowSel = TextSelection.create(tr.doc, first.pos + 1, last.pos + 1);
+      const preserveSelection = contentBlocks.some(block => {
+        const $pos = tr.doc.resolve(block.pos);
+        for (let depth = $pos.depth; depth > 0; depth--) if (hasListMarker($pos.node(depth))) return true;
+        return false;
+      });
+      const narrowSel = preserveSelection && tr.selection instanceof TextSelection
+        ? tr.selection : TextSelection.create(tr.doc, first.pos + 1, last.pos + 1);
       const narrowState = EditorState.create({
         doc: tr.doc,
         selection: narrowSel,
+        storedMarks: state.storedMarks,
       });
       return liftListItem(listItemType)(narrowState, dispatch);
     }

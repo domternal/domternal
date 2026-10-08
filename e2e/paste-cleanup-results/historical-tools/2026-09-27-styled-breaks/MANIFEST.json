@@ -1,0 +1,308 @@
+{
+  "kind": "domternal-historical-evidence-tools",
+  "version": 2,
+  "report": "../../2026-09-27-styled-breaks.json",
+  "reportSha256": "74d2c5c66a4ee7ed3d5e2c5f928dec1141396bc386f2d299e22be4586441e05b",
+  "markdown": "../../2026-09-27-styled-breaks.md",
+  "markdownSha256": "fa8ae16bbe007005aa3daf687fc3f3716284c5104b843abbf2c831c53ce7fa02",
+  "markdownWrittenBy": "hand-written; excluded from byte comparison, but check verifies the three digests it quotes",
+  "executedByCI": false,
+  "interpreter": "CPython 3.13.2 (the originals ran under it; the __pycache__ tag cpython-313 in the archive agrees)",
+  "tools": [
+    {
+      "file": "domternal-n10c-free-evidence.py",
+      "originalPath": "/private/tmp/domternal-n10c-free-evidence.py",
+      "bytes": 5080,
+      "sha256": "435e4c78f2a3cc2d3f73b7ccb3029eb015812b81fd8f1ac013746b9a555b7de7",
+      "originalMtime": "2026-09-27T06:47:26.643+02:00",
+      "role": "Snapshot freezer and verifier. It froze the 321-file source and build inventory and rechecked it; the verifier loads it as a module.",
+      "recordedInReport": "/artifacts/12",
+      "reads": [
+        "$HOME/Documents/Domternal/domternal (the selected repository and dist files)"
+      ],
+      "writes": [
+        "/private/tmp/domternal-n10c-free-frozen-inputs.json"
+      ],
+      "pythonReplay": {
+        "ran": true,
+        "result": "Ran as a module of the verifier replay below."
+      }
+    },
+    {
+      "file": "domternal-n10c-free-cases.py",
+      "originalPath": "/private/tmp/domternal-n10c-free-cases.py",
+      "bytes": 8635,
+      "sha256": "14733314e6606d98b3c966a000b8d492fc23f97c663645aa8bac394b3869e690",
+      "originalMtime": "2026-09-27T06:49:20.745+02:00",
+      "role": "Independently authored expected case inventory: 376 cases per browser, 1128 in all. The verifier loads it as a module.",
+      "recordedInReport": "/artifacts/13",
+      "reads": [],
+      "writes": [],
+      "pythonReplay": {
+        "ran": true,
+        "result": "Ran as a module of the verifier replay below."
+      }
+    },
+    {
+      "file": "domternal-n10c-free-verify.py",
+      "originalPath": "/private/tmp/domternal-n10c-free-verify.py",
+      "bytes": 14271,
+      "sha256": "e83f775f49193bcb1946ecade0c9997e3e8eaa60d6f3af905a393d4af2ad0219",
+      "originalMtime": "2026-09-27T06:53:10.910+02:00",
+      "role": "Completed-run verifier. It wrote /private/tmp/domternal-n10c-free-verified-evidence.json, the base of the committed JSON.",
+      "recordedInReport": "/artifacts/14",
+      "reads": [
+        "/private/tmp/domternal-n10c-free-matrix.json",
+        "/private/tmp/domternal-n10c-free-matrix.log",
+        "/private/tmp/domternal-n10c-free-frozen-inputs.json",
+        "the preflight and gate logs recorded at /artifacts/2 to /artifacts/11"
+      ],
+      "writes": [
+        "/private/tmp/domternal-n10c-free-verified-evidence.json"
+      ],
+      "pythonReplay": {
+        "ran": true,
+        "result": "Output byte-identical to the stored /private/tmp/domternal-n10c-free-verified-evidence.json.",
+        "shims": [
+          "repository root relocated to a scratch mirror of the recorded inventory",
+          "verifiedAt fixed to the stored value",
+          "git show against the real repository",
+          "hash substitution for the 22 lost dist files listed under lostInputs"
+        ]
+      }
+    }
+  ],
+  "notes": [
+    "The verifier output is archived as /private/tmp/domternal-n10c-free-verified-evidence.json. The committed JSON is that output plus the 14 changes listed under lost[0].supplementPointers.",
+    "The originals contain absolute paths of the machine that produced the report and read inputs that existed only in its temporary directory."
+  ],
+  "lost": [
+    {
+      "what": "The enrichment step that turned the verifier output into the committed JSON.",
+      "evidence": "Nothing in the three preserved scripts produces the changes listed in supplementPointers. Applying exactly those changes, with the values the committed report holds, to the archived verifier output and writing the result with json.dumps(indent=2) gives the committed bytes; a read-only Node comparison confirmed this on 2026-09-27.",
+      "consequence": "The seven added artifact records, the initial implementation runs, the changed-test lint record, one limitation, one verification check, the list of negative verifier controls and the two reworded texts are recorded only in the committed report. They cannot be regenerated, and they are not reconstructed.",
+      "storedVerifierOutput": {
+        "path": "/private/tmp/domternal-n10c-free-verified-evidence.json",
+        "bytes": 411977,
+        "sha256": "withheld"
+      },
+      "supplementPointers": [
+        "add /qualification/limitations/6",
+        "replace /preflight/finalChecks/e2eLint",
+        "add /preflight/finalChecks/changedTestsLint",
+        "add /preflight/initialImplementation",
+        "add /verification/checks/7",
+        "add /verification/negativeVerifierChecks",
+        "replace /artifacts/11/role",
+        "add /artifacts/12 to /artifacts/18"
+      ]
+    },
+    {
+      "what": "The script behind verification.negativeVerifierChecks, which fed eight synthetic report mutations to the verifier.",
+      "evidence": "The committed JSON lists the eight rejected mutations; no script producing them survives in /private/tmp or in the archive.",
+      "consequence": "The rejection claim is recorded but cannot be rerun here. The maintained Node verifier rejects the same eight mutations in tests/evidence/playwright.test.mjs."
+    },
+    {
+      "what": "How the Markdown report was produced.",
+      "evidence": "The preserved scripts write only JSON.",
+      "consequence": "The Markdown is treated as hand-written and excluded from byte comparison."
+    }
+  ],
+  "lostInputs": [
+    {
+      "path": "packages/angular/dist/types/domternal-angular.d.ts",
+      "bytes": 24051,
+      "sha256": "b2557b8d9629febe69e6bb2fbee143a7d453c415cf2afd86843cba94cf943e39"
+    },
+    {
+      "path": "packages/core/dist/index.cjs",
+      "bytes": 449663,
+      "sha256": "8badacc0619247542cb47ef3e538540fd539b8250fc09cf07860702e0ff045f8"
+    },
+    {
+      "path": "packages/core/dist/index.cjs.map",
+      "bytes": 1199747,
+      "sha256": "2812cd9cfe75f8e75f2bd41d520802d5db787d0445c7315ede89ff08d8929975"
+    },
+    {
+      "path": "packages/core/dist/index.d.cts",
+      "bytes": 257596,
+      "sha256": "15da824ebe3ef5f5bf5d0fab6de567e7760af2915644921087ef1fec589376c7"
+    },
+    {
+      "path": "packages/core/dist/index.d.ts",
+      "bytes": 257596,
+      "sha256": "15da824ebe3ef5f5bf5d0fab6de567e7760af2915644921087ef1fec589376c7"
+    },
+    {
+      "path": "packages/core/dist/index.js",
+      "bytes": 443416,
+      "sha256": "20742b4b471b0a3748b2229eda1b0738fdc82f74e3e416f7982baa2c1d06d8db"
+    },
+    {
+      "path": "packages/core/dist/index.js.map",
+      "bytes": 1199138,
+      "sha256": "ad12e9a118ea530a8af996f9755670813df95c85111d5e399d4f49083201628e"
+    },
+    {
+      "path": "packages/extension-block-controls/dist/index.cjs",
+      "bytes": 133768,
+      "sha256": "3ac3bed97b366e5c20328337a4aeefc7a702a26dddaafb61593763d151779ada"
+    },
+    {
+      "path": "packages/extension-block-controls/dist/index.cjs.map",
+      "bytes": 414632,
+      "sha256": "17cf2a6138a6d924e4860f06beb7b5811444653502d316cac7672882a273dcb6"
+    },
+    {
+      "path": "packages/extension-block-controls/dist/index.d.cts",
+      "bytes": 30390,
+      "sha256": "e584883ed0d376c85e028931c53000d8986527cb472804a31c1c122696be0f5b"
+    },
+    {
+      "path": "packages/extension-block-controls/dist/index.d.ts",
+      "bytes": 30390,
+      "sha256": "e584883ed0d376c85e028931c53000d8986527cb472804a31c1c122696be0f5b"
+    },
+    {
+      "path": "packages/extension-block-controls/dist/index.js",
+      "bytes": 133019,
+      "sha256": "24db1ab17059ce4c5ad20f5e99bd0a697950b02308c26fe68974b3bb8c800975"
+    },
+    {
+      "path": "packages/extension-block-controls/dist/index.js.map",
+      "bytes": 414131,
+      "sha256": "f43fe637061f03c4c47d675db614850cad1bf56b5f1f0cf3df4b17d3bf69ae41"
+    },
+    {
+      "path": "packages/extension-paste-cleanup/dist/html/index.cjs",
+      "bytes": 159565,
+      "sha256": "889c912853e2e3110ec3d725cf91ecd86b663ad8f90cbb1c86f2398287ef6b53"
+    },
+    {
+      "path": "packages/extension-paste-cleanup/dist/html/index.cjs.map",
+      "bytes": 412818,
+      "sha256": "cbc8ddab4777bed8139272d2e278322b40d27d305dfaa4dd139a9343ae25e598"
+    },
+    {
+      "path": "packages/extension-paste-cleanup/dist/html/index.js",
+      "bytes": 159466,
+      "sha256": "d5d0dcfc1411d0183953b655d3338139d425f7e0bd266aceb08f0c326f819a17"
+    },
+    {
+      "path": "packages/extension-paste-cleanup/dist/html/index.js.map",
+      "bytes": 412769,
+      "sha256": "adf6feded6154da8b541f133286dc419b8617d0a9b3cb2c8cd655744fe7200a2"
+    },
+    {
+      "path": "packages/extension-paste-cleanup/dist/index.cjs",
+      "bytes": 318137,
+      "sha256": "a12e8c7084f002bcb4cb1f22d0edf46e8474f197633c48267c51390f46f80fef"
+    },
+    {
+      "path": "packages/extension-paste-cleanup/dist/index.cjs.map",
+      "bytes": 787404,
+      "sha256": "d975f77ca844513d75d2cfbfdbfe8b6f3b2df49bd11a736ff9277d90f4e3792b"
+    },
+    {
+      "path": "packages/extension-paste-cleanup/dist/index.js",
+      "bytes": 317601,
+      "sha256": "54e39732307b832c7d24f1d1b7481588860b75e442273ce57a89840510de173b"
+    },
+    {
+      "path": "packages/extension-paste-cleanup/dist/index.js.map",
+      "bytes": 786966,
+      "sha256": "42c12aea7da5e2353718344a8799f420db9da863c8733df16643ff58541f5c36"
+    },
+    {
+      "path": "packages/vue/dist/index.d.ts",
+      "bytes": 28466,
+      "sha256": "3142ea029575e4ed7f88cee3805269ab6d01eb557c58734ed7e410df83445289"
+    }
+  ],
+  "rawInputArchive": {
+    "name": "2026-09-27.tar.gz",
+    "sha256": "2fc950b612684b548a3a69dc5b0b37da00fc3b5dfb3c3d3196511558a3b176d5",
+    "bytes": 54806555,
+    "location": "Outside Git, on the machine that produced the evidence: $HOME/Documents/Domternal/evidence-archive/2026-09-27.tar.gz, unpacked beside it as 2026-09-27/. It is not in any repository.",
+    "offMachineCopy": "Pending: the owner decides where the off-machine copy is kept.",
+    "layout": "index.json maps each original path to the SHA-256 of its content; blobs/<sha256> holds the bytes. The README next to it explains how to verify it with and without Node.",
+    "entries": 12069,
+    "uniqueBlobs": 4357,
+    "inputsForThisReport": "Every artifact the report records, the stored verifier output and 299 of the 321 frozen source and build files (the other 22 are listed under lostInputs)."
+  },
+  "pythonBaseline": {
+    "date": "2026-09-27",
+    "interpreter": "CPython 3.13.2",
+    "what": "The one-time replay of the preserved originals in a scratch mirror of their recorded inputs, made during the block 3 read-only mapping. It is recorded as the Python baseline; the originals are not executed again.",
+    "outputsArchived": true,
+    "outputs": [
+      {
+        "path": "$SCRATCHPAD/b3map/out/n10c-free-verified-evidence.json",
+        "sha256": "withheld",
+        "result": "identical to the stored original verifier output"
+      }
+    ]
+  },
+  "nodePort": {
+    "ported": false,
+    "reason": "Block 3 scope decision: only the latest Free unit, 2026-09-27-list-markers, is ported to Node. This report is covered by the serialization golden and the digest goldens of node tests/evidence/cli.mjs check (the frozen inventory digest, the case inventory digest over the committed cases and the three digests the Markdown quotes) and by this manifest."
+  },
+  "redactions": [
+    {
+      "id": "2026-10-03-home-paths",
+      "date": "2026-10-03",
+      "reason": "On the owner's request, the absolute home folder and session scratchpad paths of the machine that produced this evidence are replaced by $HOME and $SCRATCHPAD, which name the same places without naming the account. Every digest the change touched is replaced by the digest of the redacted bytes, and every digest of unredacted bytes that a guessed account name could be checked against is withheld.",
+      "rule": [
+        {
+          "replaces": "the producing machine's home folder",
+          "with": "$HOME"
+        },
+        {
+          "replaces": "the session scratchpad directory",
+          "with": "$SCRATCHPAD"
+        }
+      ],
+      "originals": "Removed from the repository history on the owner's request on 2026-10-03. No check reads them: every check of this declaration holds with the redacted bytes alone.",
+      "files": [
+        {
+          "path": "../../2026-09-27-styled-breaks.json",
+          "occurrences": 2,
+          "redactedSha256": "74d2c5c66a4ee7ed3d5e2c5f928dec1141396bc386f2d299e22be4586441e05b",
+          "redactedBytes": 415689
+        },
+        {
+          "path": "../../2026-09-27-styled-breaks.md",
+          "occurrences": 2,
+          "redactedSha256": "fa8ae16bbe007005aa3daf687fc3f3716284c5104b843abbf2c831c53ce7fa02",
+          "redactedBytes": 8764
+        },
+        {
+          "path": "domternal-n10c-free-evidence.py",
+          "occurrences": 1,
+          "redactedSha256": "435e4c78f2a3cc2d3f73b7ccb3029eb015812b81fd8f1ac013746b9a555b7de7",
+          "redactedBytes": 5080
+        },
+        {
+          "path": "domternal-n10c-free-verify.py",
+          "occurrences": 3,
+          "redactedSha256": "e83f775f49193bcb1946ecade0c9997e3e8eaa60d6f3af905a393d4af2ad0219",
+          "redactedBytes": 14271
+        }
+      ],
+      "digestsReplaced": [
+        "MANIFEST.json#/reportSha256",
+        "MANIFEST.json#/markdownSha256",
+        "MANIFEST.json#/tools/0/sha256",
+        "MANIFEST.json#/tools/2/sha256",
+        "../../2026-09-27-styled-breaks.json#/artifacts/12/sha256",
+        "../../2026-09-27-styled-breaks.json#/artifacts/14/sha256",
+        "../../2026-09-27-styled-breaks.md#Durable JSON SHA256"
+      ],
+      "digestsWithheld": [
+        "MANIFEST.json#/lost/0/storedVerifierOutput/sha256",
+        "MANIFEST.json#/pythonBaseline/outputs/0/sha256"
+      ]
+    }
+  ]
+}

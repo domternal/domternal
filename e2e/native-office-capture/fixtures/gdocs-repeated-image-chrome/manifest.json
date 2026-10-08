@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-repeated-image-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "0cbf5fc50e0a8738e25317084d758c7ccad57e9d05b470d065e16d25cc7d6838"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "f0704e767c48204469988121704d072b876367f6445840242a2b732b29d218e6"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-repeated-image",
+    "blocks": [
+      {
+        "id": "GI05",
+        "type": "image",
+        "src": "data",
+        "width": 200,
+        "height": 200,
+        "file": "gdocs-v1-green-200x200.png",
+        "alt": "GI05 Green square",
+        "docs": "Image in a paragraph of its own, alt text as given",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI06",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GI06 Between two pictures of the same size.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI07",
+        "type": "image",
+        "src": "data",
+        "width": 200,
+        "height": 200,
+        "file": "gdocs-v1-orange-200x200.png",
+        "alt": "GI07 Orange square",
+        "docs": "Image in a paragraph of its own, same size as GI05, alt text as given",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI08",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GI08 The same picture again.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI09",
+        "type": "image",
+        "src": "data",
+        "width": 200,
+        "height": 200,
+        "file": "gdocs-v1-green-200x200.png",
+        "alt": "GI09 Green square again",
+        "docs": "Upload the same green file again in a paragraph of its own, with its own alt text",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "f985698b856bb867bba20c96603f9d59cb131b1f9c7472425f468cd3070a6b73",
+    "captureSha256": "0262d1357d60793ce7a788728a9ba60fb9f20b61b1aa4cedd0e33e0e4e5b798f",
+    "manifestSha256": "2da600f636a30ae21ece380fafd13f2a498f5110b90173ca5c598e4f73325de0"
+  }
+}

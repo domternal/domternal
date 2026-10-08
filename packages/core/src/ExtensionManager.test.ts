@@ -687,8 +687,12 @@ describe('ExtensionManager', () => {
         { extensions: [DocumentNode, ParagraphNode, TextNode, Ext] },
         mockEditor,
       );
-      manager.callOnTransaction({ transaction: {} as any });
-      expect(spy).toHaveBeenCalled();
+      const transaction = {} as any;
+      manager.callOnTransaction({ transaction });
+      expect(spy).toHaveBeenCalledWith({ transaction, appendedTransactions: [] });
+      const appended = [{} as any];
+      manager.callOnTransaction({ transaction, appendedTransactions: appended });
+      expect(spy).toHaveBeenLastCalledWith({ transaction, appendedTransactions: appended });
     });
 
     it('callOnFocus invokes onFocus on all extensions', () => {

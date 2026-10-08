@@ -1,0 +1,40 @@
+{
+  "kind": "authored-English-regression-summary",
+  "fixtureId": "word-list-partial-selection-firefox",
+  "qualification": false,
+  "reviewed": true,
+  "baselineSourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+  "baselineCaptureSha256": "595d7bd9f9ae4b1cb7d0c799a8fb59f7ac02bdf1c79fdc79c90dafab86e3a4d9",
+  "operator": {
+    "os": "Authored variant of macOS 26.5.2 (25F84)",
+    "application": "Authored variant of Microsoft Word 16.113.3 (16.113.26092714)",
+    "browser": "Authored variant of Mozilla Firefox 155.0.1 (BuildID 20260903215306; bundle build 15526.9.3)",
+    "scenario": "word-list-partial-selection",
+    "fixtureId": "word-list-partial-selection-firefox",
+    "fixtureSha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207",
+    "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
+    "syntheticSourceConfirmed": true
+  },
+  "capturedAt": "2026-10-07T21:05:17.164Z",
+  "claimedEventKind": "synthetic-event",
+  "availableFormats": [
+    "text/html",
+    "text/rtf",
+    "text/plain"
+  ],
+  "formatUnits": {
+    "text/html": 45505,
+    "text/plain": 49,
+    "text/rtf": 43725
+  },
+  "textBytes": 89280,
+  "fileBytes": 0,
+  "itemCount": 3,
+  "fileCount": 0,
+  "redactions": [],
+  "reviewNotes": [
+    "Ordinary prose was edited in the retained clipboard structure. This fixture is synthetic and makes no new native capture or support claim.",
+    "Original artifact bytes are preserved privately and identified by manifest.derivation. Previous native findings apply to that archived baseline.",
+    "Every Word image/png raster alternative is an explicit synthetic control. It is still present as a file and must not be inserted or bound to HTML text."
+  ]
+}

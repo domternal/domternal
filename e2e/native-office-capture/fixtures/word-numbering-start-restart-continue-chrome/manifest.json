@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 2,
+  "id": "word-numbering-start-restart-continue-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "483ee83cc9230793cd57677cf7f69550d4278aec73b42100f1676a967187de8c"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-numbering-start-restart-continue",
+    "blocks": [
+      {
+        "id": "L07",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1."
+        },
+        "word": "Home > Numbering (default 1.)",
+        "text": "L07 First number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L08",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 1,
+          "wordLabel": "a."
+        },
+        "word": "Tab: Word shows a.",
+        "text": "L08 Letter a",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L09",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 1,
+          "wordLabel": "i."
+        },
+        "word": "Tab: Word shows i.",
+        "text": "L09 Roman i",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L10",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-roman",
+          "depth": 3,
+          "ordinal": 2,
+          "wordLabel": "ii."
+        },
+        "word": "Enter",
+        "text": "L10 Roman ii",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L11",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 2,
+          "wordLabel": "b."
+        },
+        "word": "Shift+Tab",
+        "text": "L11 Letter b",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L12",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "2."
+        },
+        "word": "Shift+Tab",
+        "text": "L12 Second number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L13",
+        "type": "paragraph",
+        "word": "Style: Normal, numbering off",
+        "text": "L13 List interruption.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L14",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 3,
+          "wordLabel": "3."
+        },
+        "word": "Numbering, then right-click > Continue Numbering",
+        "text": "L14 Numbering continues",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L15",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1."
+        },
+        "word": "Enter, then right-click > Restart at 1",
+        "text": "L15 Restart at one",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L16",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 5,
+          "wordLabel": "5."
+        },
+        "word": "Enter, then Format > Bullets and Numbering or right-click > Set Numbering Value: start a new list at 5",
+        "text": "L16 Start at five",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L17",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 6,
+          "wordLabel": "6."
+        },
+        "word": "Enter",
+        "text": "L17 Six",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+    "captureSha256": "02a0f8398c31e434d11c1355433bdbb24eef3cef2970347dcad25f9432fce353",
+    "manifestSha256": "7eb9a73f1dac02ecb37050b9311b9063dc1dc7f8b2de43175967a4ef227c9210"
+  }
+}

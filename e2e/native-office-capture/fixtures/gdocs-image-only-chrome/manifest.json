@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-image-only-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "0cbf5fc50e0a8738e25317084d758c7ccad57e9d05b470d065e16d25cc7d6838"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "c52e3a9665dabed1fc4f9a8465936d1f847c962332d73b471374baeb1568ef05"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-image-only",
+    "blocks": [
+      {
+        "id": "GI03",
+        "type": "image",
+        "src": "data",
+        "width": 320,
+        "height": 200,
+        "file": "gdocs-v1-blue-320x200.png",
+        "alt": "GI03 Blue rectangle",
+        "docs": "Enter, then Insert > Image > Upload from computer, In line wrapping, in a paragraph of its own; alt text (Cmd+Option+Y) as given",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "f985698b856bb867bba20c96603f9d59cb131b1f9c7472425f468cd3070a6b73",
+    "captureSha256": "34c9fc48dd45381680f862f18ffb932c33ee7237897b21de74a8c9711a202938",
+    "manifestSha256": "f93947819e91bb5d8597a939e184f2770508ca565c979af57c1a124ab44c80a3"
+  }
+}

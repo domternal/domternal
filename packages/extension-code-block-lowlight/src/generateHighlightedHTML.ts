@@ -2,6 +2,7 @@ import type { AnyExtension, JSONContent, GenerateHTMLOptions } from '@domternal/
 import { generateHTML } from '@domternal/core';
 import type { Lowlight } from './lowlightPlugin.js';
 import { toHtml } from 'hast-util-to-html';
+import { decodeText, highlightCodeBlocks } from './highlightCodeBlocks.js';
 
 export interface GenerateHighlightedHTMLOptions {
   /** Default language for code blocks without a language. */
@@ -17,6 +18,8 @@ export interface GenerateHighlightedHTMLOptions {
  *
  * Unlike generateHTML(), this applies lowlight highlighting to code blocks,
  * producing `<span class="hljs-keyword">` etc. inside `<code>` elements.
+ * Only real code blocks are highlighted: the HTML is read as markup, so text
+ * inside an attribute, such as an image title, is never rewritten.
  *
  * @example
  * ```ts
@@ -40,33 +43,14 @@ export function generateHighlightedHTML(
 
   const html = generateHTML(content, extensions, htmlOptions);
 
-  return html.replace(
-    /<pre([^>]*)><code(?:\s+class="language-([^"]*)")?>([\s\S]*?)<\/code><\/pre>/g,
-    (_match, preAttrs: string, language: string | undefined, code: string) => {
-      // Unescape HTML entities in code content
-      const decoded = code
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
+  /** The highlighted content of one code block, or null to keep it as serialized. */
+  const highlight = (code: string, language: string | undefined): string | null => {
+    const decoded = decodeText(code);
+    const lang = language ?? options.defaultLanguage ?? null;
+    if (lang && lowlight.registered(lang)) return toHtml(lowlight.highlight(lang, decoded));
+    if (options.autoDetect && decoded.length > 0) return toHtml(lowlight.highlightAuto(decoded));
+    return null;
+  };
 
-      const lang = language ?? options.defaultLanguage ?? null;
-      let highlighted: string;
-
-      if (lang && lowlight.registered(lang)) {
-        const result = lowlight.highlight(lang, decoded);
-        highlighted = toHtml(result);
-      } else if (options.autoDetect && decoded.length > 0) {
-        const result = lowlight.highlightAuto(decoded);
-        highlighted = toHtml(result);
-      } else {
-        const codeClass = language ? ` class="language-${language}"` : '';
-        return `<pre${preAttrs}><code${codeClass}>${code}</code></pre>`;
-      }
-
-      const codeClass = language ? ` class="language-${language}"` : '';
-      return `<pre${preAttrs}><code${codeClass}>${highlighted}</code></pre>`;
-    },
-  );
+  return highlightCodeBlocks(html, highlight);
 }

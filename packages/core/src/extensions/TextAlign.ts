@@ -8,6 +8,7 @@ import { localizedGroup } from '../messages/presentation.js';
  * Uses addGlobalAttributes to inject textAlign attribute into nodes.
  */
 import { Extension } from '../Extension.js';
+import { isSafeCssValue } from '../helpers/isSafeCssValue.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
@@ -63,7 +64,10 @@ export const TextAlign = Extension.create<TextAlignOptions>({
               if (textAlign === this.options.defaultAlignment) {
                 return null;
               }
-              return { style: `text-align: ${textAlign}` };
+              // A stored value that could add a declaration or load a
+              // resource is not written; the document keeps it. Any other,
+              // such as the -webkit-center Chrome writes, renders as stored.
+              return isSafeCssValue(textAlign) ? { style: `text-align: ${textAlign}` } : null;
             },
           },
         },
@@ -76,7 +80,7 @@ export const TextAlign = Extension.create<TextAlignOptions>({
       setTextAlign:
         (alignment: string) =>
         ({ commands }) => {
-          if (!this.options.alignments.includes(alignment)) {
+          if (!this.options.alignments.includes(alignment) || !isSafeCssValue(alignment)) {
             return false;
           }
 

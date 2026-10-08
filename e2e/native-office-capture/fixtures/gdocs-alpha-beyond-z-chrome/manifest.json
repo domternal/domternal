@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-alpha-beyond-z-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "8aa9316ddb793cefa05f2f9964049825e826c585523a4f47c0da639b53c1c712"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "877390c87cda6505974693f277465a38699b0a73e03f7b22a73f5fe46316f362"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-alpha-beyond-z",
+    "blocks": [
+      {
+        "id": "GL32",
+        "type": "alphabet",
+        "count": 28,
+        "marker": "upper-alpha",
+        "literalAfter": null,
+        "docs": "Paste the 28 lines GL32 Item 1 to GL59 Item 28 with Cmd+Shift+V, select them and apply the numbered preset whose first level shows A. (restart at A if Google Docs continues the earlier list). Google Docs shows A. to Z., then two more labels; record them.",
+        "textPattern": "GL{32+n} Item {1+n}",
+        "expectation": "Google Docs writes semantic list items, so all 28 items stay one upper-alpha list with ordinals 1 to 28 and no office-list-unsupported. The editor labels the items after Z. as CSS upper-alpha does, AA. and AB.; what Google Docs shows there is the owner's to record.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "fcb049b8b7778cadf688e68df3ffafe5219c577b6e757f75e53da2ecc0e70d85",
+    "captureSha256": "498c0ea33e570d5a5583b7e9cfd1da4d1de84e04e9b1db706d9c75abb7b4f932",
+    "manifestSha256": "f42a571e6b0cff1bf2c3c71774775ba31581fdd2bb5b0cfebdcf07e504e09b3d"
+  }
+}

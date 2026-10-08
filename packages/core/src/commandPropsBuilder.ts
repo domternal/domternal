@@ -130,6 +130,8 @@ export function createAccumulatingDispatch(sharedTr: Transaction): (tr: Transact
           // Positions may be invalid if documents diverged - skip
         }
       }
+      // Explicit typing marks include an empty array, which must not become inferred marks.
+      if (transaction.storedMarksSet) sharedTr.setStoredMarks(transaction.storedMarks);
     }
   };
 }

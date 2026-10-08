@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-partial-formatted-text-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "ba4af9a2cbb8b9709679565dde7b635c8c2c8c0b1c326d94845430d94c64169a"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-partial-formatted-text",
+    "partial": {
+      "first": "č ć đ š ž, uppercase Č Ć Đ Š Ž.",
+      "last": "GB09 bold ita"
+    },
+    "blocks": [
+      {
+        "id": "GB06",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GB06 Lowercase č ć đ š ž, uppercase Č Ć Đ Š Ž.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GB07",
+        "type": "paragraph",
+        "docs": "Normal text. Smart quotes must be off so the straight quotes stay straight.",
+        "text": "GB07 Quotation marks „double“, ‚single‘, »reversed«, \"straight\" and 'straight', the apostrophe in don’t, an en dash – and an ellipsis…",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GB08",
+        "type": "heading",
+        "level": 2,
+        "docs": "Heading 2",
+        "text": "GB08 Inline formatting",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "16pt"
+        }
+      },
+      {
+        "id": "GB09",
+        "type": "paragraph",
+        "docs": "Normal text. Apply each format to the named words only.",
+        "text": "GB09 bold italic underlined all three",
+        "marks": [
+          {
+            "text": "bold",
+            "marks": [
+              "bold"
+            ],
+            "docs": "Bold (Cmd+B)"
+          },
+          {
+            "text": "italic",
+            "marks": [
+              "italic"
+            ],
+            "docs": "Italic (Cmd+I)"
+          },
+          {
+            "text": "underlined",
+            "marks": [
+              "underline"
+            ],
+            "docs": "Underline (Cmd+U)"
+          },
+          {
+            "text": "all three",
+            "marks": [
+              "bold",
+              "italic",
+              "underline"
+            ],
+            "docs": "Bold, italic and underline together"
+          }
+        ],
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "ab26ab2302a8b9e157961df5a60f84d81836a031891d84fc1ce4523cf194f651",
+    "captureSha256": "727a64dd7f5c9537653f1997575f12534ccb7ec10e57957708c8d8f417031826",
+    "manifestSha256": "7ef25659d1e2844d81c08236b8b822a5d660f398bd12d228ff30c3068ea2c4c5"
+  }
+}

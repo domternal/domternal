@@ -92,6 +92,21 @@ The matching mount points:
 `onCreate`, `onUpdate`, `onSelectionChange`, `onFocus`, `onBlur`, and `onDestroy` callbacks are
 accepted alongside them, and the same moments are dispatched on the instance as `create`,
 `update`, `selectionchange`, `focus`, `blur`, and `destroy` `CustomEvent`s.
+`onUpdate` and the `update` event follow the core `update` event: it runs after every accepted change to the document,
+including a change a plugin appended to a selection move, and never for a transaction a plugin
+vetoed or a programmatic write that skips updates. `onSelectionChange` and `selectionchange` follow the core
+`selectionUpdate` event: they run when the selection moved without the move itself changing the document, before
+`onUpdate` when a plugin answered the move with a change, such as a click that TrailingNode answers with a paragraph.
+
+`onContentError` and `onContentDiagnostic` report what loading content changed, and are
+dispatched as `contenterror` and `contentdiagnostic` events. `onContentError` receives
+`{ editor, error, content }` when the initial content does not match the schema, so the editor
+starts empty. `onContentDiagnostic` receives `{ editor, source, diagnostics, total }` when content
+loaded with replaced values, such as an unknown list marker that became the default marker or a
+heading level the configuration lacks that became the nearest configured level. The report for
+the initial content arrives while the constructor runs, once the editor is ready and before
+`onCreate`, so only the callbacks receive it. Later reports come from `setContent`,
+`insertContent`, and `normalizeContentAttributes`.
 
 Toolbar, bubble-menu, and floating-menu `icons` options accept raw SVG through `IconSet`.
 Use only trusted, developer-authored constants. Never build an `IconSet` from user input,

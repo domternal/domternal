@@ -23,6 +23,7 @@
  * to core's `.d.cts` identity, which one call per package settles.
  */
 import core = require('@domternal/core');
+import clipboard = require('@domternal/core/clipboard');
 import blockControls = require('@domternal/extension-block-controls');
 import lowlight = require('@domternal/extension-code-block-lowlight');
 import details = require('@domternal/extension-details');
@@ -31,10 +32,139 @@ import image = require('@domternal/extension-image');
 import markdown = require('@domternal/extension-markdown');
 import math = require('@domternal/extension-math');
 import mention = require('@domternal/extension-mention');
+import pasteCleanup = require('@domternal/extension-paste-cleanup');
+import pasteHTML = require('@domternal/extension-paste-cleanup/html');
 import table = require('@domternal/extension-table');
 import toc = require('@domternal/extension-toc');
 
 declare const editor: core.Editor;
+declare const clipboardEvent: ClipboardEvent;
+
+// Clipboard coordination resolves through the subpath's own CommonJS declarations.
+const disposeHTMLPreparation: () => void = clipboard.registerClipboardHTMLPreparation(editor.view, (html, context: clipboard.ClipboardHTMLPreparationContext) => {
+  const origin: 'native' | 'programmatic' = context.origin;
+  const activeEvent: ClipboardEvent | undefined = clipboard.getClipboardPasteAttemptEvent(editor.view);
+  return { onDeferred(replay: clipboard.ClipboardHTMLReplay) {
+    queueMicrotask(() => { const handled: boolean = replay(html, new ClipboardEvent('paste')); });
+  } };
+}, context => {
+  const currentEvent: ClipboardEvent | undefined = context.event;
+  const origin: 'native' | 'programmatic' = context.origin;
+});
+// @ts-expect-error CommonJS preparation requires a callable gate.
+clipboard.registerClipboardHTMLPreparation(editor.view, false);
+// @ts-expect-error CommonJS attempt observers must be callable.
+clipboard.registerClipboardHTMLPreparation(editor.view, () => undefined, false);
+
+const imagePolicy: clipboard.ClipboardImageDestinationPolicy = {
+  nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
+  allowedMimeTypes: ['image/png'], maxFileBytes: 1024, policyVersion: 'application:1',
+};
+const disposeImagePolicy: () => void = clipboard.registerClipboardImageDestination(editor.view, () => imagePolicy);
+const liveImagePolicy: clipboard.ClipboardImageDestinationPolicy | undefined = clipboard.getClipboardImageDestination(editor.view);
+clipboard.setClipboardPasteBehavior(editor.view, clipboardEvent, { preserveOrderedListStart: true, assetsAlreadyHandled: true });
+// @ts-expect-error CommonJS image policies retain their immutable declaration.
+imagePolicy.allowedMimeTypes.push('image/svg+xml');
+// @ts-expect-error CommonJS asset ownership retains its boolean type.
+clipboard.setClipboardPasteBehavior(editor.view, clipboardEvent, { assetsAlreadyHandled: 'trusted' });
+const pasteBehavior: Readonly<clipboard.ClipboardPasteBehavior> | undefined = clipboard.getClipboardPasteBehavior(editor.view, clipboardEvent);
+const disarmPaste: () => void = clipboard.armClipboardPasteTransaction(editor.view, new core.PluginKey('consumerPaste'), { operationId: 'consumer' });
+const disposeCopyAnnotation: () => void = clipboard.registerClipboardCopyAnnotation(editor.view, (fragment: DocumentFragment) => {
+  fragment.firstElementChild?.setAttribute('data-consumer-copy', '');
+});
+const deferral: clipboard.ClipboardHTMLDeferral = { onDeferred() { /* Resumed by the application. */ } };
+const copied: Promise<boolean> = core.writeToClipboard('consumer');
+// @ts-expect-error The CommonJS main entry does not declare clipboard coordination.
+core.registerClipboardHTMLPreparation(editor.view, () => undefined);
+// @ts-expect-error The CommonJS main entry does not declare clipboard coordination.
+core.setClipboardPasteBehavior(editor.view, clipboardEvent, {});
+// @ts-expect-error The CommonJS main entry does not declare clipboard coordination types.
+type MainClipboardHTMLReplay = core.ClipboardHTMLReplay;
+// @ts-expect-error The gate type stays internal to the CommonJS subpath declarations.
+type SubpathClipboardHTMLPreparationGate = clipboard.ClipboardHTMLPreparationGate;
+// @ts-expect-error writeToClipboard stays on the CommonJS main entry.
+clipboard.writeToClipboard('consumer');
+
+// The standalone HTML entry must also resolve through its CommonJS declarations.
+pasteCleanup.PasteCleanup.configure({ formatting: 'adapt' });
+const assetLimits: Readonly<pasteCleanup.ClipboardAssetLimits> = pasteCleanup.DEFAULT_CLIPBOARD_ASSET_LIMITS;
+const maximumAssetBytes: number = pasteCleanup.MAX_CLIPBOARD_ASSET_LIMITS.maxTotalFileBytes;
+pasteCleanup.PasteCleanup.configure({ imageAssets: {
+  mode: 'embedded', limits: { maxFileBytes: 1024 }, unresolved: 'reject',
+  match(context: pasteCleanup.ClipboardImageMatchContext): readonly pasteCleanup.ClipboardImageBinding[] {
+    const operationId: string = context.operationId;
+    // @ts-expect-error CommonJS matchers receive no live File objects.
+    context.items[0]?.file.arrayBuffer();
+    // @ts-expect-error CommonJS item metadata retains its immutable shape.
+    context.items.push({});
+    return [];
+  },
+}, onPasteProgress(progress: pasteCleanup.PastePreparationProgress) {
+  const phase: 'preparing' = progress.phase;
+  progress.cancel();
+} });
+pasteCleanup.PasteCleanup.configure({ imageAssets: false });
+// @ts-expect-error CommonJS asset mode retains its finite contract.
+pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'upload' } });
+// @ts-expect-error CommonJS image association remains synchronous.
+pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'embedded', match: async () => [] } });
+const assetResolver: pasteCleanup.ClipboardResolverAdapter = {
+  idempotency: 'operation-asset-key',
+  async resolve(request) {
+    const blob: Blob = request.blob;
+    const signal: AbortSignal = request.signal;
+    const resource: pasteCleanup.ClipboardCreatedResource | undefined = request.registerCreated('application-resource');
+    // @ts-expect-error CommonJS resolver requests retain the immutable Blob boundary.
+    request.blob.name;
+    if (resource === undefined) return { status: 'failed', creation: 'unknown', recoveryToken: 'application-recovery' };
+    return { status: 'resolved', src: 'https://images.example/test.png', ownership: 'created', resource };
+  },
+  async releaseUncommitted(request) {
+    const operationId: string = request.operationId;
+    const handle: string = request.handle;
+    return { status: 'released' };
+  },
+};
+const assetRecovery = (report: pasteCleanup.ClipboardAssetRecoveryReport): void => {
+  const revision: number = report.revision;
+  const settled: boolean = report.settled;
+  // @ts-expect-error CommonJS recovery reports never expose source URLs.
+  report.src;
+  // @ts-expect-error CommonJS recovery snapshots remain immutable.
+  report.recovery.push({});
+};
+pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'resolver', resolver: assetResolver, sourcePolicy: { allowedOrigins: ['https://images.example'] }, onRecovery: assetRecovery } });
+// @ts-expect-error CommonJS resolver mode also requires recovery observation.
+pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'resolver', resolver: assetResolver, sourcePolicy: { allowedOrigins: ['https://images.example'] } } });
+// @ts-expect-error CommonJS created ownership cannot forge a registered capability.
+const forgedCreatedResource: pasteCleanup.ClipboardCreatedResource = {};
+pasteCleanup.PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
+  const status: 'applied' | 'rejected' | 'untracked' | 'noop' = result.status;
+  const references = pasteCleanup.getPasteAffectedReferences(editor.view, result.operationId);
+  const precision: 'operation' | undefined = references?.precision;
+  // @ts-expect-error CommonJS operation snapshots remain immutable.
+  result.diagnostics.push({ code: 'parse-failed', severity: 'error' });
+  // @ts-expect-error CommonJS affected ranges remain immutable.
+  references?.ranges.push({ from: 1, to: 2 });
+} });
+editor.i18n.t(pasteCleanup.pasteCleanupMessages.applied);
+// @ts-expect-error CommonJS feedback ownership is a finite option.
+pasteCleanup.PasteCleanup.configure({ feedback: 'none' });
+const pasteLimits: Partial<pasteHTML.PasteHTMLLimits> = { maxInputLength: 20_000, maxDiagnostics: 10 };
+const cleanedPaste: pasteHTML.NormalizePasteHTMLResult = pasteHTML.normalizePasteHTML('<p>Clipboard content</p>', {
+  formatting: 'preserve',
+  allowRemoteImages: false,
+  allowDataImages: true,
+  sourceURL: 'https://example.com/document',
+  limits: pasteLimits,
+});
+const cleanedFromMain: pasteCleanup.NormalizePasteHTMLResult = pasteCleanup.normalizePasteHTML('<p>Clipboard content</p>');
+const pasteStatus: 'cleaned' | 'rejected' = cleanedPaste.status;
+const pasteDiagnosticsTruncated: boolean = cleanedFromMain.diagnosticsTruncated;
+// @ts-expect-error CommonJS consumers keep the finite formatting mode contract.
+pasteHTML.normalizePasteHTML('<p>Clipboard content</p>', { formatting: 'word' });
+// @ts-expect-error CommonJS resource limits must not become permissive declarations.
+pasteCleanup.normalizePasteHTML('<p>Clipboard content</p>', { limits: { maxDepth: 'unlimited' } });
 
 declare module '@domternal/core' {
   interface MessageParameters {
@@ -104,8 +234,8 @@ editor.i18n.set({ messages: { 'core.toolbar.bodl': 'Fett' } });
 
 /*
  * One command per package that augments `RawCommands`, which is every package
- * above except extension-block-controls: its augmentation carries extension
- * points rather than commands, and is exercised further down.
+ * above except extension-block-controls and extension-paste-cleanup. Their
+ * public extension and helper contracts are exercised separately.
  */
 editor.commands.toggleBold();
 editor.commands.toggleDetails();
@@ -131,6 +261,7 @@ extensions.push(
   markdown.Markdown,
   math.MathInline,
   mention.Mention,
+  pasteCleanup.PasteCleanup,
   table.Table,
   toc.TableOfContents
 );

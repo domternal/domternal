@@ -34,11 +34,13 @@
  * notice file becomes the only copy of that license the customer will ever
  * receive.
  *
- * No package here declares `noExternal` today, so this half currently guards
- * nothing, and that is exactly the point. The failure it exists for is a green
- * build: somebody adds one entry to one tsup config, the tarball starts
- * carrying somebody else's MIT or Apache code with the header stripped, and a
- * hardcoded list of three packages goes on printing OK release after release.
+ * One package declares `noExternal` today: extension-paste-cleanup inlines
+ * three hast utilities and the dependencies they pull in, and its notice names
+ * each of them. That is the case this half exists for. The failure it guards
+ * against is a green build: somebody adds one entry to one tsup config, the
+ * tarball starts carrying somebody else's MIT or Apache code with the header
+ * stripped, and a hardcoded list of three packages goes on printing OK release
+ * after release.
  * The sibling Pro repository supplied the near miss this half is ported from,
  * where a notice named a bundled dependency while claiming it was not bundled.
  *
@@ -94,6 +96,18 @@ export const REQUIRED = [
     source: 'src/icons.ts',
     markers: ['Phosphor Icons', 'Copyright (c) 2023 Phosphor Icons'],
     reason: 'src/icons.ts inlines Phosphor and Phosphor-derived glyphs',
+  },
+  {
+    package: 'packages/extension-table',
+    source: 'src/helpers/guardedTableEditing.ts',
+    markers: ['prosemirror-tables', 'Marijn Haverbeke'],
+    reason: 'src/helpers/guardedTableEditing.ts walks changed nodes after prosemirror-tables',
+  },
+  {
+    package: 'packages/extension-table',
+    source: 'src/helpers/pasteCells.ts',
+    markers: ['prosemirror-tables', 'Marijn Haverbeke'],
+    reason: 'src/helpers/pasteCells.ts adapts the prosemirror-tables cell paste helpers',
   },
   {
     package: 'packages/theme',
@@ -285,12 +299,15 @@ function configLiteralStart(text) {
 }
 
 /**
- * True only for a spread inside the `entry` object of a literal config.
+ * True only for a spread inside the `entry` object of a literal config, or
+ * inside the `entry` object of its `dts` options.
  *
- * An entry value cannot add a sibling `noExternal` option. The accepted shapes
- * are `defineConfig({ entry: { ...value } })` and the same object directly
- * inside a root config array. A spread on either config object, or on the root
- * array itself, remains unreadable because it can add `noExternal`.
+ * An entry value cannot add a sibling `noExternal` option, and neither can a
+ * declaration entry, which only names the sources declarations are built from.
+ * The accepted shapes are `defineConfig({ entry: { ...value } })`,
+ * `defineConfig({ dts: { entry: { ...value } } })` and the same objects inside
+ * a root config array. A spread on either config object, on `dts` itself, or on
+ * the root array remains unreadable because it can add `noExternal`.
  */
 export function isNestedEntrySpread(text, spreadFrom) {
   const root = configLiteralStart(text);
@@ -320,9 +337,11 @@ export function isNestedEntrySpread(text, spreadFrom) {
   }
 
   const shape = stack.map(({ char }) => char).join('');
-  if (shape !== '{{' && shape !== '[{{') return false;
+  const keyed = (frame, key) => new RegExp(`\\b${key}\\s*:\\s*$`).test(text.slice(root, frame.from));
   const entryObject = stack.at(-1);
-  return entryObject?.char === '{' && /\bentry\s*:\s*$/.test(text.slice(root, entryObject.from));
+  if (entryObject?.char !== '{' || !keyed(entryObject, 'entry')) return false;
+  if (shape === '{{' || shape === '[{{') return true;
+  return (shape === '{{{' || shape === '[{{{') && keyed(stack.at(-2), 'dts');
 }
 
 /**

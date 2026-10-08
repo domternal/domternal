@@ -2,7 +2,7 @@
  * Markdown parse state: token stream in, ProseMirror nodes out. Same shape as
  * prosemirror-markdown's parse state, built on `@domternal/pm` types.
  */
-import { Mark } from '@domternal/pm/model';
+import { Fragment, Mark } from '@domternal/pm/model';
 import type { Attrs, MarkType, Node as PMNode, NodeType, Schema } from '@domternal/pm/model';
 
 interface StackFrame {
@@ -43,6 +43,16 @@ export class MarkdownParseState {
   /** The node type currently being built (for split decisions). */
   topType(): NodeType {
     return this.top().type;
+  }
+
+  /**
+   * @experimental Whether the node being built can take a child of this type next, for a
+   * token handler that places a block only where the schema allows it.
+   */
+  canAppend(type: NodeType): boolean {
+    const { type: parent, content } = this.top();
+    const next = parent.contentMatch.matchFragment(Fragment.from(content))?.matchType(type);
+    return next !== undefined && next !== null;
   }
 
   push(node: PMNode): void {

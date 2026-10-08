@@ -14,10 +14,19 @@ import { EventEmitter } from './EventEmitter.js';
 import { ExtensionManager } from './ExtensionManager.js';
 import { CommandManager } from './CommandManager.js';
 import { createDocument, isDocumentEmpty } from './helpers/index.js';
+import { buildDocument } from './helpers/createDocument.js';
+import { contentDiagnosticsOf, contentReport, type ContentDiagnosticRecord } from './helpers/normalizeContent.js';
 import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js';
+import { serializeChildren } from './utils/serializeChildren.js';
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
+import { resolveAttributeValue } from './utils/normalizedAttributes.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
+import {
+  ClipboardEditorView, claimClipboardPasteTransaction, clearPendingClipboardPasteTransaction, recordNativeClipboardEvent,
+} from './helpers/clipboardPasteTransaction.js';
+import { beginNativeClipboardPasteAttempt } from './helpers/clipboardHTMLPreparation.js';
+import { repairSliceContext } from './utils/sliceContext.js';
 import { I18nService } from './i18n/index.js';
 import { coreMessages } from './messages/core.js';
 import {
@@ -30,6 +39,7 @@ import type {
   EditorOptions,
   EditorPreset,
   EditorEvents,
+  TransactionEventProps,
   Content,
   JSONContent,
   FocusPosition,
@@ -48,6 +58,16 @@ interface EditorDomContext {
   root: Node;
   connected: boolean;
 }
+
+/**
+ * A start tag as HTML serialization writes it: every attribute value in
+ * double quotes, which never hold a `"`, and no `<` in text, so only real
+ * tags match. No name holds a `<`, so a failed match ends at the next one.
+ */
+const START_TAG = /<[a-z][^\s/<>]*(?:\s+[^\s"'<>/=]+(?:="[^"]*")?)*\s*\/?>/gi;
+/** The style attribute of a start tag, not one whose name only ends in style. */
+const STYLE_ATTRIBUTE = /(\sstyle=")([^"]*)"/;
+const RGB_COLOR = /rgba?\(\s*\d+[\s,]+\d+[\s,]+\d+[^)]*\)/g;
 
 /**
  * Main editor class
@@ -464,7 +484,7 @@ export class Editor extends EventEmitter<EditorEvents> {
         selection as { node?: { type: typeof nodeType; attrs: Record<string, unknown> } }
       ).node;
       if (selNode?.type === nodeType) {
-        return attrs ? this.matchAttributes(selNode.attrs, attrs) : true;
+        return attrs ? this.matchNodeAttributes(nodeType.name, selNode.attrs, attrs) : true;
       }
 
       // Check both $from and $to paths - the node must be an ancestor
@@ -485,11 +505,11 @@ export class Editor extends EventEmitter<EditorEvents> {
             if (inListGroup) {
               // First (innermost) list ancestor - only match if it's the target type
               if (node.type !== nodeType) return false;
-              return attrs ? this.matchAttributes(node.attrs, attrs) : true;
+              return attrs ? this.matchNodeAttributes(nodeType.name, node.attrs, attrs) : true;
             }
           } else {
             if (node.type === nodeType) {
-              return attrs ? this.matchAttributes(node.attrs, attrs) : true;
+              return attrs ? this.matchNodeAttributes(nodeType.name, node.attrs, attrs) : true;
             }
           }
         }
@@ -534,13 +554,28 @@ export class Editor extends EventEmitter<EditorEvents> {
       for (let depth = $from.depth; depth >= 0; depth--) {
         const node = $from.node(depth);
         if (node.type === nodeType) {
-          return { ...node.attrs };
+          return Object.fromEntries(Object.entries(node.attrs)
+            .map(([key, value]) => [key, resolveAttributeValue(schema, nodeType.name, key, value)]));
         }
       }
       return {};
     }
 
     return {};
+  }
+
+  /**
+   * Whether a node's attributes, read as they render, hold every key/value
+   * pair from source: a heading level the configuration lacks reads as the
+   * level it renders at. See `resolveAttributeValue`.
+   */
+  private matchNodeAttributes(
+    typeName: string,
+    target: Record<string, unknown>,
+    source: Record<string, unknown>
+  ): boolean {
+    const { schema } = this.state;
+    return Object.entries(source).every(([key, value]) => resolveAttributeValue(schema, typeName, key, target[key]) === value);
   }
 
   /**
@@ -583,15 +618,18 @@ export class Editor extends EventEmitter<EditorEvents> {
     const div = document.createElement('div');
     div.appendChild(fragment);
 
-    // Browser DOM normalizes hex colors to rgb() - convert back to hex within style attrs
-    const html = div.innerHTML.replace(
-      /style="([^"]*)"/g,
-      (_match, style: string) =>
-        'style="' +
-        style.replace(/rgba?\(\s*\d+[\s,]+\d+[\s,]+\d+[^)]*\)/g, (colorStr) =>
-          normalizeColor(colorStr)
-        ) +
-        '"'
+    // ProseMirror writes a style through the CSSOM, which spells a hex color as
+    // rgb(), so a color in a style attribute is written as hex again: only in
+    // start tags, never in text that reads like one. Attribute values are
+    // escaped as the HTML standard writes them, also in a headless editor on
+    // linkedom.
+    // Output that holds no rgb() at all has nothing to rewrite, so the tag scan is skipped,
+    // and so is the style lookup of a tag that holds none.
+    const serialized = serializeChildren(div);
+    const html = !serialized.includes('rgb') ? serialized : serialized.replace(START_TAG, (tag) =>
+      !tag.includes('rgb') ? tag : tag.replace(STYLE_ATTRIBUTE, (_match, name: string, style: string) =>
+        `${name}${style.replace(RGB_COLOR, (color) => normalizeColor(color))}"`
+      )
     );
 
     if (options?.styled) {
@@ -855,8 +893,10 @@ export class Editor extends EventEmitter<EditorEvents> {
 
     // 3. Create initial document from content (with graceful error handling)
     let doc;
+    const report = contentReport();
     try {
-      doc = createDocument(this.options.content ?? null, this._extensionManager.schema);
+      doc = buildDocument(this.options.content ?? null, this._extensionManager.schema, undefined, report);
+      if (report.total > 0) this.reportContentDiagnostics({ source: 'content', ...report });
     } catch (error) {
       // Emit content error event for invalid content
       const contentError = error instanceof Error ? error : new Error(String(error));
@@ -890,8 +930,9 @@ export class Editor extends EventEmitter<EditorEvents> {
     // 7. Create EditorView
     const nodeViews = this._extensionManager.nodeViews;
     this._isViewConstructing = true;
-    this.view = new EditorView(element, {
+    this.view = Editor.constructView(state.plugins.length, (constructionGuard) => new ClipboardEditorView(element, {
       state,
+      plugins: [constructionGuard],
       dispatchTransaction: Editor.buildViewDispatch(this),
       editable: () => this.options.editable ?? true,
       attributes: () => ({
@@ -908,8 +949,21 @@ export class Editor extends EventEmitter<EditorEvents> {
             this._extensionManager.schema
           )
         : {}),
-      // Handle focus/blur events
+      // Direct props run before extension plugins, so every plugin sees a slice
+      // whose clipboard context wrappers can hold their content.
+      transformPasted: (slice) => repairSliceContext(slice),
+      // Direct DOM handlers run before extension plugin handlers.
       handleDOMEvents: {
+        paste: (view, event) => {
+          clearPendingClipboardPasteTransaction(view);
+          recordNativeClipboardEvent(view, event);
+          beginNativeClipboardPasteAttempt(view, event);
+          return false;
+        },
+        drop: (view, event) => {
+          recordNativeClipboardEvent(view, event);
+          return false;
+        },
         focus: (_view, event) => {
           this.emit('focus', { editor: this, event: event });
           this.options.onFocus?.({ editor: this, event: event });
@@ -923,7 +977,7 @@ export class Editor extends EventEmitter<EditorEvents> {
           return false;
         },
       },
-    });
+    }));
     this._isViewConstructing = false;
     // Register after ProseMirror so its composition handler flushes pending input first.
     this.view.dom.addEventListener('compositionend', this.queueLocalizedViewRepaint);
@@ -972,6 +1026,44 @@ export class Editor extends EventEmitter<EditorEvents> {
   }
 
   /**
+   * Creates the view through `create`, which passes the guard plugin to EditorView as a
+   * direct plugin. A plugin view that throws, such as an extension refusing its setup
+   * with an ExtensionConfigurationError, aborts EditorView's constructor after it has
+   * mounted its DOM, attached its input handlers and created the plugin views before it.
+   * ProseMirror creates direct plugin views first, so the guard sees the view before any
+   * extension plugin view runs, and a failed `new Editor` destroys it instead of leaving
+   * an editable view with live plugin views in the element. The construction error is
+   * the one reported. A plugin view whose destroy throws does not stop the teardown:
+   * ProseMirror removes each plugin view before destroying it, so every further attempt
+   * makes progress, and the attempts are bounded by the number of plugins.
+   */
+  private static constructView(
+    pluginCount: number,
+    create: (constructionGuard: Plugin) => ClipboardEditorView
+  ): ClipboardEditorView {
+    const construction: { view?: EditorView } = {};
+    const constructionGuard = new Plugin({
+      view: (view) => {
+        construction.view = view;
+        return {};
+      },
+    });
+    try {
+      return create(constructionGuard);
+    } catch (error) {
+      const view = construction.view;
+      for (let attempt = 0; view !== undefined && !view.isDestroyed && attempt <= pluginCount + 1; attempt++) {
+        try {
+          view.destroy();
+        } catch {
+          // Keep tearing down; the construction error is rethrown below.
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Builds the dispatchTransaction prop. Plugin views can dispatch synchronously
    * inside EditorView's constructor, before `editor.view` is assigned; ProseMirror
    * binds the prop to the view, so the instance is captured early (plugin code
@@ -993,41 +1085,71 @@ export class Editor extends EventEmitter<EditorEvents> {
   }
 
   /**
-   * Handles ProseMirror transactions
+   * Handles ProseMirror transactions. The callback contract is described on
+   * `EditorEvents`: nothing runs for a vetoed root; an accepted root runs one
+   * sequence (transaction, contentDiagnostic, selectionUpdate, update) that
+   * reflects every accepted transaction, and a listener that destroys the
+   * editor ends it.
    */
   private dispatchTransaction(transaction: Transaction): void {
     if (this._isDestroyed) {
       return;
     }
 
-    // 1. Apply transaction to state
-    const newState = this.view.state.apply(transaction);
+    claimClipboardPasteTransaction(this.view, transaction);
 
-    // 2. Update view
+    // 1. Apply the root and accepted append transactions. A plugin veto is not an update.
+    const { state: newState, transactions } = this.view.state.applyTransaction(transaction);
+    if (transactions.length === 0) return;
+
+    // 2. Update view: plugin views update here, before any editor callback.
     this.view.updateState(newState);
     if (!this.view.composing) this._localeRepaintPending = false;
 
-    // 3. Emit transaction event (fires for EVERY transaction)
-    this.emit('transaction', { editor: this, transaction });
-    this.options.onTransaction?.({ editor: this, transaction });
-    this._extensionManager.callOnTransaction({ transaction });
-
-    // 4. Check if we should skip update event
-    const skipUpdate = transaction.getMeta('skipUpdate') as boolean | undefined;
-
-    // 5. Emit selectionUpdate if selection changed (without doc change)
-    if (!transaction.docChanged && transaction.selectionSet) {
-      this.emit('selectionUpdate', { editor: this, transaction });
-      this.options.onSelectionUpdate?.({ editor: this, transaction });
-      this._extensionManager.callOnSelectionUpdate();
+    // 3. One callback sequence for the accepted root, derived from every accepted transaction.
+    const appendedTransactions: readonly Transaction[] = Object.freeze(transactions.slice(1));
+    const props = (): TransactionEventProps => ({ editor: this, transaction, appendedTransactions });
+    const docChanged = transactions.some(accepted => accepted.docChanged);
+    // A root that only moved the selection stays a selection move when a plugin answers it
+    // with a document change, such as TrailingNode adding a paragraph on a click.
+    const selectionSet = (transaction.selectionSet && !transaction.docChanged)
+      || (!docChanged && transactions.some(accepted => accepted.selectionSet));
+    const skipUpdate = Boolean(transaction.getMeta('skipUpdate'));
+    const steps: (() => void)[] = [
+      () => this.emit('transaction', props()),
+      () => this.options.onTransaction?.(props()),
+      () => { this._extensionManager.callOnTransaction({ transaction, appendedTransactions }); },
+      () => {
+        const diagnostics = contentDiagnosticsOf(transaction);
+        if (diagnostics) this.reportContentDiagnostics(diagnostics);
+      },
+    ];
+    if (selectionSet) {
+      steps.push(
+        () => this.emit('selectionUpdate', props()),
+        () => this.options.onSelectionUpdate?.(props()),
+        () => { this._extensionManager.callOnSelectionUpdate(); },
+      );
     }
-
-    // 6. Emit update if document changed
-    if (transaction.docChanged && !skipUpdate) {
-      this.emit('update', { editor: this, transaction });
-      this.options.onUpdate?.({ editor: this, transaction });
-      this._extensionManager.callOnUpdate();
+    if (docChanged && !skipUpdate) {
+      steps.push(
+        () => this.emit('update', props()),
+        () => this.options.onUpdate?.(props()),
+        () => { this._extensionManager.callOnUpdate(); },
+      );
     }
+    for (const step of steps) {
+      // A listener that destroyed the editor ends the sequence.
+      if (this.isDestroyed) return;
+      step();
+    }
+  }
+
+  private reportContentDiagnostics(record: ContentDiagnosticRecord): void {
+    // Diagnostics are advisory: a throwing listener never interrupts loading content.
+    const props = { editor: this, ...record };
+    try { this.emit('contentDiagnostic', props); } catch { /* advisory */ }
+    try { this.options.onContentDiagnostic?.(props); } catch { /* advisory */ }
   }
 
   /**

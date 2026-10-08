@@ -74,11 +74,33 @@ export function collectImports(text) {
   return found;
 }
 
-/** The `entry` array of a tsup config. */
+/**
+ * Every literal source path a tsup config names as an entry, in order and
+ * deduped.
+ *
+ * Both shapes tsup accepts are read: an array, and a map from output name to
+ * source, which is how every locale owning package declares its entries. The
+ * `dts.entry` map is read as well, because a package whose declarations are
+ * built from a different file than its code publishes both graphs. Spread
+ * values (the generated locale entries) are not literal and are skipped.
+ *
+ * Reading arrays only was a silent gap: the map configs returned nothing, so
+ * their graphs were never walked and the gate still printed OK.
+ */
 export function parseEntries(configText) {
-  const match = /entry:\s*\[([\s\S]*?)\]/.exec(configText);
-  if (!match) return [];
-  return [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  const text = stripComments(configText);
+  const entries = [];
+  for (const match of text.matchAll(/\bentry:\s*([[{])/g)) {
+    const start = match.index + match[0].length;
+    const end = text.indexOf(match[1] === '[' ? ']' : '}', start);
+    if (end === -1) continue;
+    const body = text.slice(start, end);
+    const values = match[1] === '['
+      ? body.matchAll(/(['"])([^'"]+)\1/g)
+      : body.matchAll(/:\s*(['"])([^'"]+)\1/g);
+    for (const value of values) entries.push(value[2]);
+  }
+  return [...new Set(entries)];
 }
 
 /** The `external` array of a tsup config; empty when it declares none. */
@@ -208,8 +230,13 @@ function main() {
       ...parseExternals(config),
     ]);
 
-    const { value, typeOnly, unresolved } = walkEntryGraph(pkgDir, parseEntries(config));
+    const entries = parseEntries(config);
+    const { value, typeOnly, unresolved } = walkEntryGraph(pkgDir, entries);
     checked += 1;
+
+    if (entries.length === 0) {
+      problems.push({ pkg: name, kind: 'unwalked', specifier: 'no literal entry in tsup.config.ts' });
+    }
 
     for (const { from, specifier } of unresolved) {
       problems.push({ pkg: name, kind: 'unwalked', specifier: `${specifier} in ${relative(repoRoot, from)}` });

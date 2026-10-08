@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-alignment-spacing-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "9951c10a87dbf3ef983251ff9eee46bcb6411ac07a3effefe393304ffe8757ea"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-alignment-spacing",
+    "blocks": [
+      {
+        "id": "GB15",
+        "type": "heading",
+        "level": 3,
+        "docs": "Heading 3",
+        "text": "GB15 Alignment and spacing",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "14pt",
+          "color": "#434343"
+        }
+      },
+      {
+        "id": "GB16",
+        "type": "paragraph",
+        "align": "center",
+        "docs": "Normal text, Center align (Cmd+Shift+E)",
+        "text": "GB16 Centered paragraph.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GB17",
+        "type": "paragraph",
+        "align": "right",
+        "docs": "Normal text, Right align (Cmd+Shift+R)",
+        "text": "GB17 Right-aligned paragraph.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GB18",
+        "type": "paragraph",
+        "align": "justify",
+        "docs": "Normal text, Justify (Cmd+Shift+J)",
+        "text": "GB18 This justified paragraph contains enough words to wrap onto at least two lines at the normal page width, so that the alignment is visible.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GB19",
+        "type": "paragraph",
+        "lineHeight": "1.5",
+        "docs": "Normal text, Format > Line & paragraph spacing > 1.5",
+        "text": "GB19 Paragraph with 1.5 line spacing.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "ab26ab2302a8b9e157961df5a60f84d81836a031891d84fc1ce4523cf194f651",
+    "captureSha256": "e9487aac04aee2b5771ee9d1ede8b6a2c9ebc5b38ac388463ad42f6387464e60",
+    "manifestSha256": "01adf8483aa21037e04382a06a01792d975a7ed0a53c0f0003e0177d9fac4d5f"
+  }
+}

@@ -38,6 +38,7 @@ describe('Link', () => {
         autolink: true,
         linkOnPaste: true,
         defaultProtocol: 'https',
+        allowRelative: true,
         enableClickSelection: false,
       });
     });
@@ -300,13 +301,11 @@ describe('Link', () => {
       expect(result).toBe(false);
     });
 
-    it('renderHTML strips invalid href but keeps other attributes', () => {
+    it('renderHTML renders a refused href as a span without the link attributes', () => {
       const spec = Link.createMarkSpec();
-      const mockMark = { attrs: { href: 'javascript:alert(1)', target: '_blank', rel: null } };
+      const mockMark = { attrs: { href: 'javascript:alert(1)', target: '_blank', rel: 'nofollow', title: 't', class: 'c' } };
       const result = spec.toDOM?.(mockMark as never, true) as [string, Record<string, unknown>, number];
-      expect(result[0]).toBe('a');
-      expect(result[1]).not.toHaveProperty('href');
-      expect(result[1]).toHaveProperty('target', '_blank');
+      expect(result).toEqual(['span', {}, 0]);
     });
 
     it('does not inherit link mark on split (keepOnSplit plugin)', () => {

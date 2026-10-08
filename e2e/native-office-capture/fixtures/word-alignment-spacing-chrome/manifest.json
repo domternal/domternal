@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 2,
+  "id": "word-alignment-spacing-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "7b78acd7eeadbb8bd3c18fb992f24d2440415d9596e93023475ace4f944eb191"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-alignment-spacing",
+    "blocks": [
+      {
+        "id": "B08",
+        "type": "heading",
+        "level": 3,
+        "word": "Style: Heading 3",
+        "text": "B08 Alignment and spacing",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "14pt",
+          "color": "#0F4761"
+        }
+      },
+      {
+        "id": "B09",
+        "type": "paragraph",
+        "align": "center",
+        "word": "Style: Normal, Center",
+        "text": "B09 Centered paragraph.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "B10",
+        "type": "paragraph",
+        "align": "right",
+        "word": "Style: Normal, Align Right",
+        "text": "B10 Right-aligned paragraph.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "B11",
+        "type": "paragraph",
+        "align": "justify",
+        "word": "Style: Normal, Justify",
+        "text": "B11 This justified paragraph contains enough words to wrap onto at least two lines at the normal page width, so that the alignment is visible.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "B12",
+        "type": "paragraph",
+        "lineHeight": "1.5",
+        "word": "Style: Normal, Line Spacing 1.5",
+        "text": "B12 Paragraph with 1.5 line spacing.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
+    "captureSha256": "9a9c431607a3724d6119322ec8edcb9e48b8e72189aea47a51727590ef90053b",
+    "manifestSha256": "51c127fd9c9802d58f8d22f8b4ed728adda4ca62eb605fabbcdf56b9a2c5c423"
+  }
+}

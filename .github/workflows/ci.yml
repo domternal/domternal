@@ -79,8 +79,27 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: pnpm test:ci-wiring
 
+      - name: No personal data in tracked files
+        # E-mail addresses, home, drive and network paths, file URLs and author
+        # data in every tracked file, read the way the native capture scanner
+        # reads them. A runner's own login and host name identify nobody, so
+        # the names to look for come from the PRIVACY_NAMES secret; unset, the
+        # rest still runs. It needs nothing built, so it fails early.
+        env:
+          PRIVACY_NAMES: ${{ secrets.PRIVACY_NAMES }}
+        run: pnpm test:privacy
+
       - name: Check committed locale output before builds
         run: node tests/i18n/generate-locales.mjs --check
+
+      - name: Build
+        # Before Lint and the e2e type check, which both read the built
+        # packages. e2e/tsconfig.json resolves @domternal/* to packages/*/dist,
+        # and the ESLint pass that ends `pnpm lint` type-checks e2e/ through
+        # it. Nx builds only what its own lint and typecheck targets depend on,
+        # and none of them depends on every package e2e/ imports, so a clean
+        # checkout fails both without this step. tests/ci-wiring holds the order.
+        run: pnpm build
 
       - name: Lint
         run: pnpm lint
@@ -98,9 +117,6 @@ jobs:
         # cannot reach it. It was the largest body of TypeScript here that
         # nothing checked, and every new cross-framework spec is added to it.
         run: pnpm typecheck:e2e
-
-      - name: Build
-        run: pnpm build
 
       - name: Consumer type-surface test
         # Type-checks against the built dist (no @domternal/source
@@ -149,12 +165,18 @@ jobs:
         # of any of them is a runtime crash rather than extra bytes.
         run: pnpm test:single-prosemirror
 
-      - name: Cross-repository policy unit suites
-        # The full checks need the sibling Pro checkout and remain local-only.
-        # Their parsers and contract fixtures are deterministic and belong in CI.
-        run: |
-          pnpm test:dedupe-reachable:unit
-          pnpm test:pm-ranges:unit
+      - name: ProseMirror ranges still agree
+        # Compares @domternal/pm with every installed package that takes
+        # ProseMirror as a peer. The y-prosemirror that @domternal/core installs
+        # for its collaboration tests is one, so a hosted install gives the full
+        # check real work; without any such peer it would print SKIPPED.
+        run: pnpm test:pm-ranges
+
+      - name: Dedupe reachability unit suite
+        # The full check reads the only resolve.dedupe list, which lives in the
+        # nested domternal.dev checkout a hosted runner does not have, so it
+        # stays local-only. Its parser and fixtures are deterministic.
+        run: pnpm test:dedupe-reachable:unit
 
       - name: Frozen single-copy contract
         # Every caller registering a module must pass the SAME export, or two
@@ -174,6 +196,21 @@ jobs:
         # Next.js, Remix, Nuxt and Astro consumer before their first render.
         run: pnpm test:ssr-import
 
+      - name: Subpath re-exports share Core state
+        # @domternal/core/clipboard must stay a re-export of the main bundle.
+        # Built as its own entry it would carry a second copy of every clipboard
+        # registry, and a registration made through it would never reach the
+        # Editor. Only built files show that, in ESM and CommonJS separately.
+        run: pnpm test:subpath-reexports
+
+      - name: Mixed-version collaboration
+        # Documents saved by the published 1.2.0 packages, and 1.2.0 clients
+        # editing one Yjs document with clients built here. Installs 1.2.0 from
+        # the registry into its own project, so no workspace package replaces it.
+        # A current client must never rewrite what an older one stored, lose its
+        # text or break its tables; only normalizeContentAttributes migrates.
+        run: pnpm test:mixed-version
+
       - name: Package manifest policy
         # Releases are hand-edited across eighteen manifests. A version bumped
         # without its `>=MAJOR.MINOR.0 <NEXT_MAJOR.0.0` ranges publishes a package a consumer
@@ -187,6 +224,22 @@ jobs:
         # all: npm carries LICENSE by itself but never THIRD-PARTY-LICENSES.md,
         # and nothing looked inside a tarball.
         run: pnpm test:package-artifacts
+
+      - name: Release readiness guard
+        # Correctness and readiness are separate questions. Every package above,
+        # the unreleased ones included, is built, packed and checked; the ones
+        # listed in scripts/release-readiness.json are still refused by the
+        # publish path. This proves the transform refuses exactly those, before
+        # their manifest is rewritten, while build, pack and install still work.
+        run: pnpm test:release-readiness
+
+      - name: Committed evidence integrity
+        # The preserved historical tools must keep the bytes their reports
+        # record, every committed evidence report must still round-trip through
+        # the maintained tool, and nothing may execute the historical tools.
+        # A declared redaction is held with the redacted bytes alone. Needs no
+        # build: it reads committed files and git ls-files only.
+        run: pnpm test:evidence
 
       - name: Type check demo apps
         # Two steps, and only the second one decides what is read. The demo
@@ -217,6 +270,7 @@ jobs:
           # Upload only inert coverage data. Never pass a repository-created
           # archive into the OIDC job or extract one into its filesystem.
           path: |
+            packages/angular/coverage/lcov.info
             packages/core/coverage/lcov.info
             packages/extension-block-controls/coverage/lcov.info
             packages/extension-code-block-lowlight/coverage/lcov.info
@@ -226,6 +280,7 @@ jobs:
             packages/extension-markdown/coverage/lcov.info
             packages/extension-math/coverage/lcov.info
             packages/extension-mention/coverage/lcov.info
+            packages/extension-paste-cleanup/coverage/lcov.info
             packages/extension-table/coverage/lcov.info
             packages/extension-toc/coverage/lcov.info
             packages/react/coverage/lcov.info
@@ -242,7 +297,7 @@ jobs:
           # fflate 0.8.x Gunzip fires its callback multiple times (last chunk
           # empty), which makes attw 0.14.0+ crash with
           # "Cannot read properties of undefined (reading 'filename')".
-          for pkg in packages/angular packages/core packages/extension-block-controls packages/extension-code-block-lowlight packages/extension-details packages/extension-emoji packages/extension-image packages/extension-markdown packages/extension-math packages/extension-mention packages/extension-table packages/extension-toc packages/pm packages/react packages/theme packages/vanilla packages/vue; do
+          for pkg in packages/angular packages/core packages/extension-block-controls packages/extension-code-block-lowlight packages/extension-details packages/extension-emoji packages/extension-image packages/extension-markdown packages/extension-math packages/extension-mention packages/extension-paste-cleanup packages/extension-table packages/extension-toc packages/pm packages/react packages/theme packages/vanilla packages/vue; do
             echo "--- Validating $pkg ---"
             cd "$pkg"
             pnpm exec publint --strict
@@ -289,6 +344,7 @@ jobs:
         run: |
           set -euo pipefail
           for report in \
+            "$GITHUB_WORKSPACE/packages/angular/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/core/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-block-controls/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-code-block-lowlight/coverage/lcov.info" \
@@ -298,6 +354,7 @@ jobs:
             "$GITHUB_WORKSPACE/packages/extension-markdown/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-math/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-mention/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-paste-cleanup/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-table/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-toc/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/react/coverage/lcov.info" \
@@ -318,4 +375,4 @@ jobs:
           version: v11.3.1
           fail_ci_if_error: true
           disable_search: true
-          files: ${{ github.workspace }}/packages/core/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-controls/coverage/lcov.info,${{ github.workspace }}/packages/extension-code-block-lowlight/coverage/lcov.info,${{ github.workspace }}/packages/extension-details/coverage/lcov.info,${{ github.workspace }}/packages/extension-emoji/coverage/lcov.info,${{ github.workspace }}/packages/extension-image/coverage/lcov.info,${{ github.workspace }}/packages/extension-markdown/coverage/lcov.info,${{ github.workspace }}/packages/extension-math/coverage/lcov.info,${{ github.workspace }}/packages/extension-mention/coverage/lcov.info,${{ github.workspace }}/packages/extension-table/coverage/lcov.info,${{ github.workspace }}/packages/extension-toc/coverage/lcov.info,${{ github.workspace }}/packages/react/coverage/lcov.info,${{ github.workspace }}/packages/vanilla/coverage/lcov.info,${{ github.workspace }}/packages/vue/coverage/lcov.info
+          files: ${{ github.workspace }}/packages/angular/coverage/lcov.info,${{ github.workspace }}/packages/core/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-controls/coverage/lcov.info,${{ github.workspace }}/packages/extension-code-block-lowlight/coverage/lcov.info,${{ github.workspace }}/packages/extension-details/coverage/lcov.info,${{ github.workspace }}/packages/extension-emoji/coverage/lcov.info,${{ github.workspace }}/packages/extension-image/coverage/lcov.info,${{ github.workspace }}/packages/extension-markdown/coverage/lcov.info,${{ github.workspace }}/packages/extension-math/coverage/lcov.info,${{ github.workspace }}/packages/extension-mention/coverage/lcov.info,${{ github.workspace }}/packages/extension-paste-cleanup/coverage/lcov.info,${{ github.workspace }}/packages/extension-table/coverage/lcov.info,${{ github.workspace }}/packages/extension-toc/coverage/lcov.info,${{ github.workspace }}/packages/react/coverage/lcov.info,${{ github.workspace }}/packages/vanilla/coverage/lcov.info,${{ github.workspace }}/packages/vue/coverage/lcov.info

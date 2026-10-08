@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "harnessVersion": "native-office-capture-v1",
+  "capturedAt": "2026-10-07T21:05:17.164Z",
+  "status": "complete",
+  "qualification": false,
+  "scope": "allowlisted-formats-and-exposed-files",
+  "provenance": {
+    "eventKind": "synthetic-event",
+    "nativeClipboardCaptured": false,
+    "sourceApplicationVerified": false
+  },
+  "operator": {
+    "os": "Authored variant of macOS 26.5.2 (25F84)",
+    "application": "Authored variant of Google Docs web, 2026-10-05, personal account, Pages format",
+    "browser": "Authored variant of Google Chrome 153.0.8010.47 (Official Build) (arm64)",
+    "scenario": "gdocs-inline-formatting",
+    "fixtureId": "gdocs-inline-formatting-chrome",
+    "fixtureSha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47",
+    "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
+    "syntheticSourceConfirmed": true
+  },
+  "limits": {
+    "maxItems": 64,
+    "maxFormats": 32,
+    "maxMetadataLength": 512,
+    "maxFormatBytes": 2097152,
+    "maxTextBytes": 4194304,
+    "maxFileBytes": 5242880,
+    "maxTotalFileBytes": 10485760,
+    "maxClipboardBytes": 12582912,
+    "maxJSONBytes": 25165824,
+    "maxDurationMs": 15000
+  },
+  "diagnostics": [],
+  "payload": {
+    "availableFormats": [
+      "text/plain",
+      "text/html",
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "omittedFormats": [
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "text": {
+      "text/html": "<meta charset='utf-8'><meta charset=\"utf-8\"><b style=\"font-weight:normal;\" id=\"docs-internal-guid-ef6580ee-7fff-6ae8-cc0f-0defa92b72e8\"><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GB10 </span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:line-through;-webkit-text-decoration-skip:none;text-decoration-skip-ink:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">strikethrough</span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"> H</span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"><span style=\"font-size:0.6em;vertical-align:sub;\">2</span></span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">O x</span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"><span style=\"font-size:0.6em;vertical-align:super;\">2</span></span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"> </span><span style=\"font-size:13.999999999999998pt;font-family:Georgia,serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">Georgia</span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"> </span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#ff0000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">red</span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"> </span><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:#ffff00;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">highlighted</span></p></b><br class=\"Apple-interchange-newline\">",
+      "text/plain": "GB10 strikethrough H2O x2 Georgia red highlighted\n"
+    },
+    "items": [
+      {
+        "itemIndex": 0,
+        "kind": "string",
+        "type": "text/plain",
+        "file": null
+      },
+      {
+        "itemIndex": 1,
+        "kind": "string",
+        "type": "text/html",
+        "file": null
+      },
+      {
+        "itemIndex": 2,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-document-slice-clip+wrapped",
+        "file": null
+      },
+      {
+        "itemIndex": 3,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-internal-clip-id",
+        "file": null
+      }
+    ],
+    "files": [],
+    "totals": {
+      "textBytes": 3490,
+      "fileBytes": 0
+    }
+  }
+}

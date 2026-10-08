@@ -2,6 +2,7 @@
 // A gate nobody runs is not a gate. Every check in this repository is a root
 // script plus a step in ci.yml, and the two are joined by nothing but memory.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
@@ -193,6 +194,7 @@ const EXPECTED_ACTIONLINT_STEP = {
   ].join('\n'),
 };
 
+// No gate reads Git history, so the default single-commit checkout suffices.
 const EXPECTED_BUILD_CHECKOUT_STEP = {
   name: 'Checkout',
   uses: CHECKOUT_ACTION,
@@ -327,26 +329,73 @@ export const NOT_GATES = new Set([
   'test:e2e:matrix',
 ]);
 
+// The manual focused browser workflow is checked against its complete reviewed
+// definition, separately from the mandatory automatic root gates.
+export const FOCUSED_BROWSER_SCRIPTS = new Map([
+  ['test:e2e:paste-cleanup', 'paste-cleanup-e2e.yml'],
+]);
+
+const EXPECTED_PASTE_CLEANUP_WORKFLOW = {
+  name: 'Paste cleanup browser tests',
+  on: {
+    workflow_dispatch: {},
+  },
+  concurrency: { group: '${{ github.workflow }}-${{ github.ref }}', 'cancel-in-progress': true },
+  permissions: { contents: 'read' },
+  jobs: {
+    'paste-cleanup-e2e': {
+      'runs-on': 'ubuntu-24.04',
+      'timeout-minutes': 45,
+      env: { CI: 'true', FORCE_COLOR: '0' },
+      steps: [
+        { name: 'Checkout', uses: CHECKOUT_ACTION, with: { 'persist-credentials': false } },
+        { name: 'Setup pnpm', uses: PNPM_SETUP_ACTION, with: { version: '10.34.4' } },
+        { name: 'Setup Node.js', uses: SETUP_NODE_ACTION,
+          with: { 'node-version-file': '.nvmrc', cache: 'pnpm', 'cache-dependency-path': 'pnpm-lock.yaml' } },
+        { name: 'Install dependencies', run: 'pnpm install --frozen-lockfile' },
+        { name: 'Check committed locale output before builds', run: 'node tests/i18n/generate-locales.mjs --check' },
+        { name: 'Build the public packages before starting browsers', run: 'pnpm build' },
+        { name: 'Install the locked Playwright browsers and system dependencies',
+          run: 'pnpm exec playwright install --with-deps chromium firefox webkit' },
+        {
+          name: 'Run paste cleanup browser coverage',
+          shell: 'bash',
+          // This digest pins the complete reviewed background runner, including
+          // its real root-script invocation, wait status, retries and reports.
+          // Comments or unreachable shell text cannot stand in for execution.
+          run: 'sha256:d5124919636b73d3f7bccc9f3e4868e14aeab3c989b1ed3b06d356431acc2dc5',
+        },
+        {
+          name: 'Preserve paste cleanup logs, reports and failure traces',
+          if: '${{ always() }}',
+          uses: UPLOAD_ARTIFACT_ACTION,
+          with: { name: 'paste-cleanup-browser-results', path: 'test-results/paste-cleanup/',
+            'if-no-files-found': 'warn', 'retention-days': 7 },
+        },
+      ],
+    },
+  },
+};
+
 // Checks that are not `test:`-prefixed and would otherwise be held down by
 // nothing. Deleting the e2e typecheck step, or the lint step, used to leave
 // this gate perfectly green.
 export const REQUIRED_SCRIPTS = ['build', 'lint', 'typecheck', 'typecheck:e2e'];
 
-// Useful cross-repository diagnostics whose required sibling checkout is not
-// present on GitHub-hosted CI. They remain available locally, but invoking one
-// in ci.yml would create a green step that enforced nothing.
-export const LOCAL_ONLY_SCRIPTS = new Set(['test:dedupe-reachable', 'test:pm-ranges']);
+// Useful cross-repository diagnostics whose input lives in a nested checkout
+// that GitHub-hosted CI does not have. They remain available locally, but
+// invoking one in ci.yml would create a green step that enforced nothing.
+// test:pm-ranges left this list once @domternal/core installed y-prosemirror
+// for its own tests: every full install now holds a ProseMirror peer for it to
+// compare, so it is an ordinary gate that CI runs in full.
+export const LOCAL_ONLY_SCRIPTS = new Set(['test:dedupe-reachable']);
 
 const LOCAL_ONLY_CONTRACTS = {
   'test:dedupe-reachable': {
     full: 'node --test tests/dedupe-reachable/check.test.mjs && node tests/dedupe-reachable/check.mjs',
     unitName: 'test:dedupe-reachable:unit',
     unit: 'node --test tests/dedupe-reachable/check.test.mjs',
-  },
-  'test:pm-ranges': {
-    full: 'node --test tests/pm-ranges/check.test.mjs && node tests/pm-ranges/check.mjs',
-    unitName: 'test:pm-ranges:unit',
-    unit: 'node --test tests/pm-ranges/check.test.mjs',
+    entry: 'tests/dedupe-reachable/check.mjs',
   },
 };
 
@@ -527,6 +576,21 @@ function isExactCiWiringStep(step) {
   return exactStructureProblems(step, EXPECTED_CI_WIRING_STEP, 'ci.yml wiring step').length === 0;
 }
 
+// The privacy gate's one reviewed environment: names a CI secret lists, since
+// a runner's own login and host name identify nobody. Any other variable, or
+// another value, could change what the gate runs, so the step stops counting.
+const EXPECTED_PRIVACY_STEP = {
+  name: 'No personal data in tracked files',
+  env: { PRIVACY_NAMES: '${{ secrets.PRIVACY_NAMES }}' },
+  run: 'pnpm test:privacy',
+};
+
+function isExactPrivacyStep(step) {
+  return exactStructureProblems(step, EXPECTED_PRIVACY_STEP, 'ci.yml privacy step').length === 0;
+}
+
+const isReviewedOverride = (step) => isExactCiWiringStep(step) || isExactPrivacyStep(step);
+
 function stepHasExecutionOverrides(step) {
   return ['env', 'shell', 'working-directory'].some((key) =>
     Object.prototype.hasOwnProperty.call(step, key)
@@ -552,7 +616,7 @@ export function scriptInvocations(workflow) {
     for (const step of Array.isArray(job.steps) ? job.steps : []) {
       if (!isRecord(step) || typeof step.run !== 'string') continue;
       if (Object.prototype.hasOwnProperty.call(step, 'if') || failureCanBeIgnored(step)) continue;
-      if (stepHasExecutionOverrides(step) && !isExactCiWiringStep(step)) continue;
+      if (stepHasExecutionOverrides(step) && !isReviewedOverride(step)) continue;
       for (const name of standaloneRootScripts(step.run)) found.add(name);
     }
   }
@@ -588,7 +652,7 @@ export function gateExecutionProblems(workflow, gateNames = []) {
       if (jobId !== 'build') {
         problems.push(`root gate ${names.join(', ')} must execute in the unconditional build job`);
       }
-      if (stepHasExecutionOverrides(step) && !isExactCiWiringStep(step)) {
+      if (stepHasExecutionOverrides(step) && !isReviewedOverride(step)) {
         problems.push(
           `root gate ${names.join(', ')} must not override env, shell or working-directory`
         );
@@ -612,10 +676,83 @@ export function gateExecutionProblems(workflow, gateNames = []) {
 export function gateScripts(manifest) {
   const declared = Object.keys(manifest.scripts ?? {});
   const tests = declared.filter(
-    (name) => name.startsWith('test:') && !NOT_GATES.has(name) && !LOCAL_ONLY_SCRIPTS.has(name)
+    (name) => name.startsWith('test:') && !NOT_GATES.has(name)
+      && !LOCAL_ONLY_SCRIPTS.has(name) && !FOCUSED_BROWSER_SCRIPTS.has(name)
   );
   const required = REQUIRED_SCRIPTS.filter((name) => declared.includes(name));
   return [...new Set([...tests, ...required])].sort();
+}
+
+/** The focused browser exception must remain available only through a manual workflow. */
+export function focusedBrowserWorkflowProblems(manifest, workflow) {
+  const problems = [];
+  if (manifest.scripts?.['test:e2e:paste-cleanup'] !== 'playwright test --config e2e/paste-cleanup.config.ts') {
+    problems.push('package.json must keep the reviewed test:e2e:paste-cleanup command');
+  }
+  if (workflow === undefined) {
+    return [...problems, 'paste-cleanup-e2e.yml is missing, so its focused browser script cannot be dispatched manually'];
+  }
+  const parsed = structuredClone(parseWorkflow(workflow));
+  const job = parsed.jobs['paste-cleanup-e2e'];
+  for (const step of isRecord(job) && Array.isArray(job.steps) ? job.steps : []) {
+    if (isRecord(step) && step.name === 'Run paste cleanup browser coverage' && typeof step.run === 'string') {
+      step.run = `sha256:${createHash('sha256').update(step.run).digest('hex')}`;
+    }
+  }
+  return [...problems, ...exactStructureProblems(parsed, EXPECTED_PASTE_CLEANUP_WORKFLOW, 'paste-cleanup-e2e.yml')];
+}
+
+// Gates that must exist, with the reviewed command each runs. The generic
+// wiring checks only hold what package.json declares: deleting a gate and its
+// step together would leave them green. test:privacy keeps personal data
+// (addresses, home folders, this machine's names) out of every tracked file;
+// test:evidence holds every declared redaction of committed evidence with the
+// redacted bytes alone, since the originals were removed from the history.
+export const MANDATORY_GATES = new Map([
+  ['test:privacy', 'node --test tests/privacy/check.test.mjs && node tests/privacy/check.mjs'],
+  ['test:evidence', 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check'],
+]);
+
+/** Each mandatory gate is declared with its reviewed command and invoked by ci.yml. */
+export function mandatoryGateProblems(manifest, workflow, gates = MANDATORY_GATES) {
+  const problems = [];
+  const invoked = scriptInvocations(workflow);
+  for (const [name, command] of gates) {
+    if (manifest.scripts?.[name] !== command) {
+      problems.push(`package.json must declare the mandatory gate "${name}" as "${command}"`);
+    }
+    if (!invoked.has(name)) problems.push(`ci.yml must run the mandatory gate "pnpm ${name}"`);
+  }
+  return problems;
+}
+
+/** Local-only checks stay runnable locally, keep a CI unit suite, and stay out of CI. */
+export function localOnlyProblems(manifest, workflow) {
+  const problems = [];
+  // Every live run line counts here, not just wired invocations: a wrapped or
+  // conditional full run is no gate, yet its SKIPPED line still reads as a pass.
+  const runs = workflowSteps(workflow)
+    .filter((step) => typeof step.run === 'string')
+    .map((step) => liveShell(step.run));
+  for (const name of LOCAL_ONLY_SCRIPTS) {
+    const contract = LOCAL_ONLY_CONTRACTS[name];
+    if (manifest.scripts?.[name] !== contract.full) {
+      problems.push(`package.json must keep the reviewed full local-only script "${name}"`);
+      continue;
+    }
+    if (manifest.scripts?.[contract.unitName] !== contract.unit) {
+      problems.push(
+        `package.json must keep the deterministic CI script "${contract.unitName}" for "${name}"`
+      );
+    }
+    const byName = new RegExp(`(^|[^\\w:-])${name}(?![\\w:-])`, 'm');
+    if (runs.some((run) => byName.test(run) || run.includes(contract.entry))) {
+      problems.push(
+        `ci.yml runs local-only "${name}", which self-skips without its nested repository checkout`
+      );
+    }
+  }
+  return problems;
 }
 
 /** The gate scripts the workflow never invokes. */
@@ -846,6 +983,36 @@ export function pnpmSetupProblems(
   return problems;
 }
 
+// Root gates that read packages/*/dist without Nx knowing it. e2e/tsconfig.json
+// maps @domternal/* to the built declarations, and the ESLint pass that ends
+// `pnpm lint` type-checks e2e/ through that config. Nx builds only the
+// dependencies of projects that own a lint or typecheck target, and none of
+// them depends on every package e2e/ imports, so a clean checkout fails both
+// unless the explicit build runs first. test:mixed-version imports the built
+// packages from plain Node, which no Nx target knows about at all.
+export const BUILT_OUTPUT_GATES = ['lint', 'typecheck:e2e', 'test:mixed-version'];
+
+/** A gate that reads the built packages runs after the explicit build, in the same job. */
+export function buildOrderProblems(workflow) {
+  const build = parseWorkflow(workflow).jobs.build;
+  const steps = isRecord(build) && Array.isArray(build.steps) ? build.steps : [];
+  const invocations = steps.flatMap((step) =>
+    isRecord(step) ? standaloneRootScripts(step.run) : []
+  );
+  const built = invocations.indexOf('build');
+  if (built === -1) {
+    return [
+      `ci.yml build job never runs "pnpm build", so nothing builds the packages that ` +
+        `${BUILT_OUTPUT_GATES.join(' and ')} read`,
+    ];
+  }
+  return BUILT_OUTPUT_GATES.filter((name) => invocations.slice(0, built).includes(name)).map(
+    (name) =>
+      `ci.yml runs "pnpm ${name}" before "pnpm build", but it reads packages/*/dist, ` +
+      'which a clean checkout has only after the build'
+  );
+}
+
 /** A nested Corepack pin must not select a different pnpm than the root/CI. */
 export function packageManagerConsistencyProblems(rootManifest, nestedManifests) {
   const expected = rootManifest.packageManager;
@@ -1044,29 +1211,13 @@ function main() {
     failures.push(`ci.yml carries conditional ${skipped}, so it is not an unconditional gate`);
   }
   // Local-only checks must remain executable locally and absent from hosted CI.
-  const invoked = scriptInvocations(workflow);
-  for (const name of LOCAL_ONLY_SCRIPTS) {
-    const contract = LOCAL_ONLY_CONTRACTS[name];
-    if (manifest.scripts?.[name] !== contract.full) {
-      failures.push(`package.json must keep the reviewed full local-only script "${name}"`);
-      continue;
-    }
-    if (manifest.scripts?.[contract.unitName] !== contract.unit) {
-      failures.push(
-        `package.json must keep the deterministic CI script "${contract.unitName}" for "${name}"`
-      );
-    }
-    if (invoked.has(name)) {
-      failures.push(
-        `ci.yml runs local-only "${name}", which self-skips without a sibling repository checkout`
-      );
-    }
-  }
+  for (const problem of localOnlyProblems(manifest, workflow)) failures.push(problem);
+  for (const problem of mandatoryGateProblems(manifest, workflow)) failures.push(problem);
 
   // The other direction: a step invoking a script that no longer exists would
   // fail the build with a confusing pnpm error rather than a useful one.
   const declared = new Set(Object.keys(manifest.scripts ?? {}));
-  for (const name of invoked) {
+  for (const name of scriptInvocations(workflow)) {
     if (name.startsWith('test:') && !declared.has(name)) {
       failures.push(`ci.yml runs "pnpm ${name}", which package.json does not declare`);
     }
@@ -1078,6 +1229,13 @@ function main() {
   const workflowNames = readdirSync(workflowsRoot)
     .filter((name) => /\.ya?ml$/.test(name))
     .sort();
+  const focusedWorkflowPath = join(workflowsRoot, 'paste-cleanup-e2e.yml');
+  try {
+    const focusedWorkflow = existsSync(focusedWorkflowPath) ? readFileSync(focusedWorkflowPath, 'utf8') : undefined;
+    failures.push(...focusedBrowserWorkflowProblems(manifest, focusedWorkflow));
+  } catch (error) {
+    failures.push(`paste-cleanup-e2e.yml is not valid: ${error instanceof Error ? error.message : String(error)}`);
+  }
   if (!workflowNames.includes(CODEQL_WORKFLOW)) {
     failures.push(`${CODEQL_WORKFLOW} is missing, so CodeQL never scans the repository`);
   }
@@ -1151,6 +1309,7 @@ function main() {
 
   for (const problem of actionlintProblems(workflow)) failures.push(problem);
   for (const problem of pnpmSetupProblems(manifest, workflow)) failures.push(problem);
+  for (const problem of buildOrderProblems(workflow)) failures.push(problem);
   for (const problem of packageManagerConsistencyProblems(manifest, nestedPackageManifests())) {
     failures.push(problem);
   }

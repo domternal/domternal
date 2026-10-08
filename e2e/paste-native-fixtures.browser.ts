@@ -1,0 +1,387 @@
+/**
+ * Every committed semantic Office fixture, replayed into the real fixture editor in each engine and
+ * policy: one paste event whose DataTransfer holds every stored item in order, its text flavors and files,
+ * each file rebuilt from its fixture bytes with its name, type and modification time. A Word Chrome fixture
+ * includes a raster alternative next to the HTML, replaced by a synthetic image in an English variant.
+ * The editor result is checked against the fixture's reviewed semantic oracle, which is authored from the content
+ * specification: blocks, list structure and markers, marks, the notice and its codes. Pasted text must stay
+ * readable against what it lands on, which white automatic color text was not: text without a color of its own
+ * reaches 4.5:1 in the light theme and, after a switch, in the dark one; a color the source authored keeps 3:1
+ * in the light theme, and where the dark theme takes it below 3:1 the run is annotated (owner question Q1).
+ *
+ * The event is synthetic, so this is not a native paste: no engine computes styles in the receiving page, and
+ * a capture's blob: URLs are dead here. Authored English variants reference archived captures and make no new
+ * native capture claim. Each fixture also runs in other receiving engines: the replay checks engine-independent
+ * handling of the stored items, not what an Office application or browser would copy now.
+ */
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { expect, type Page } from '@playwright/test';
+import type { Editor, JSONContent } from '@domternal/core';
+import type { PasteOperationResult } from '@domternal/extension-paste-cleanup';
+import { installContrastTools, type ContrastTools } from './contrast-tools.js';
+import { test } from './fixtures.js';
+import type { EditorOutcome, PolicyOracle, SemanticExpected } from './native-office-capture/offline.mjs';
+import type * as Offline from './native-office-capture/offline.mjs';
+import type * as Semantics from './native-office-capture/semantics.mjs';
+
+// The evidence modules are ES modules; a dynamic import loads them as such from this spec.
+const evidence = async (): Promise<[typeof Semantics, typeof Offline]> =>
+  Promise.all([import('./native-office-capture/semantics.mjs'), import('./native-office-capture/offline.mjs')]);
+
+interface ProbeWindow {
+  __pasteCleanup: { ready: boolean; editor: Editor; operations: PasteOperationResult[]; clearObservations: () => void;
+    assetReads: number; assetUploads: number; assetMatchRequests: unknown[] };
+  __contrastTools: ContrastTools;
+}
+/** A stored fixture item: a text flavor with its value, or a file with its recorded bytes. */
+type Item = { kind: 'string'; type: string; value: string } | { kind: 'file'; type: string; name: string; fileType: string; lastModified: number; base64: string };
+interface Fixture { id: string; directory: string; origin: 'claimed-native' | 'synthetic'; expected: SemanticExpected | undefined; items: Item[]; files: number; html: string }
+interface Run { text: string; ratio: number; authored: boolean }
+interface Replay {
+  operations: PasteOperationResult[];
+  doc: JSONContent;
+  notice: { visible: boolean; status: string | null; details: (string | null)[] };
+  /** Each text run's contrast against what it lands on, in the light theme and after a switch to the dark one. */
+  contrast: { light: Run[]; dark: Run[] };
+  /** What the live editor schema holds: its mark types and the attributes of its textStyle mark. */
+  destination: { marks: string[]; textStyle: string[] };
+  /** What the dispatched DataTransfer held: its types and its files. */
+  transfer: { types: string[]; files: number };
+  /** Stored line heights the view does not draw, as `stored on block`: a value the document keeps without its spacing. */
+  unrenderedLineHeights: string[];
+  /** Image nodes in the document, and what image preparation did with the clipboard's files. */
+  images: number;
+  assets: { reads: number; uploads: number; matches: number };
+}
+
+const FIXTURES = join(__dirname, 'native-office-capture', 'fixtures');
+const policies = ['preserve', 'adapt'] as const;
+
+/** Version 2 semantic fixtures with native or explicitly synthetic provenance, checked by the offline verifier. */
+function semanticFixtures(): Fixture[] {
+  const fixtures: Fixture[] = [];
+  for (const entry of readdirSync(FIXTURES, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const directory = join(FIXTURES, entry.name);
+    const manifest = JSON.parse(readFileSync(join(directory, 'manifest.json'), 'utf8')) as { schemaVersion: number; id: string; origin: string; capture: { path: string }; expected: unknown };
+    if (manifest.schemaVersion !== 2) continue;
+    if (manifest.origin !== 'claimed-native' && manifest.origin !== 'synthetic') throw new Error(`${manifest.id}: unsupported semantic fixture provenance`);
+    const bundle = JSON.parse(readFileSync(join(directory, manifest.capture.path), 'utf8')) as { payload: {
+      text: Record<string, string>;
+      items: { itemIndex: number; kind: string; type: string; file: { name: string; type: string; lastModified: number } | null }[];
+      files: { itemIndex: number; base64: string }[];
+    } };
+    // Every stored item in order: a text flavor the fixture holds, or a file with its bytes.
+    const items = bundle.payload.items.flatMap((item): Item[] => {
+      if (item.kind === 'string') {
+        const value = bundle.payload.text[item.type];
+        return typeof value === 'string' ? [{ kind: 'string', type: item.type, value }] : [];
+      }
+      const bytes = bundle.payload.files.find(file => file.itemIndex === item.itemIndex);
+      if (item.kind !== 'file' || item.file === null || bytes === undefined) throw new Error(`${manifest.id}: item ${String(item.itemIndex)} has no captured file`);
+      return [{ kind: 'file', type: item.type, name: item.file.name, fileType: item.file.type, lastModified: item.file.lastModified, base64: bytes.base64 }];
+    });
+    // A fixture whose outcomes are not authored yet fails its tests below instead of stopping the whole file;
+    // the offline verifier checks the oracle's full shape.
+    const expected = manifest.expected as Partial<SemanticExpected> | null;
+    const authored = expected?.preserve?.editor !== undefined && expected.adapt?.editor !== undefined ? expected as SemanticExpected : undefined;
+    fixtures.push({ id: manifest.id, directory, origin: manifest.origin, expected: authored, items, files: items.filter(item => item.kind === 'file').length,
+      html: bundle.payload.text['text/html'] ?? '' });
+  }
+  return fixtures.sort((left, right) => left.id.localeCompare(right.id));
+}
+
+/** Image preparation: none, embedded assets, or embedded assets whose byte limits no captured file fits. */
+type Assets = 'none' | 'embedded' | 'small-limits';
+/** The destination's images: Image as configured, an Image that refuses data URLs, or no Image at all. */
+type ImagePolicy = 'default' | 'no-base64' | 'missing';
+
+async function replay(page: Page, formatting: 'preserve' | 'adapt', schema: 'default' | 'capability-full', items: Item[], assets: Assets = 'none',
+  imagePolicy: ImagePolicy = 'default', taskLists = true): Promise<Replay> {
+  const query = new URLSearchParams({ framework: 'vanilla', formatting, 'list-markers': '1', ...(schema === 'default' ? {} : { schema }),
+    ...(assets === 'none' ? {} : { assets: 'embedded' }), ...(assets === 'small-limits' ? { 'asset-limits': 'small' } : {}),
+    ...(imagePolicy === 'default' ? {} : { 'image-policy': imagePolicy }), ...(taskLists ? {} : { 'task-list': 'off' }) });
+  await page.goto(`http://127.0.0.1:5895/?${query.toString()}`);
+  await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
+  await page.evaluate(() => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    probe.editor.setContent('<p></p>', false);
+    probe.editor.commands.focus('end');
+    probe.clearObservations();
+  });
+  const transfer = await page.evaluate(entries => {
+    const data = new DataTransfer();
+    for (const entry of entries) {
+      if (entry.kind === 'string') data.setData(entry.type, entry.value);
+      else data.items.add(new File([Uint8Array.from(atob(entry.base64), character => character.charCodeAt(0))], entry.name,
+        { type: entry.fileType, lastModified: entry.lastModified }));
+    }
+    const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+    if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+    (window as unknown as ProbeWindow).__pasteCleanup.editor.view.dom.dispatchEvent(event);
+    return { types: [...data.types], files: data.files.length };
+  }, items);
+  await page.waitForFunction(() => (window as unknown as ProbeWindow).__pasteCleanup.operations.length > 0);
+  await page.evaluate(() => new Promise(resolve => { requestAnimationFrame(() => { requestAnimationFrame(resolve); }); }));
+  await page.evaluate(installContrastTools);
+  const measure = (): Promise<Run[]> => page.evaluate(() => {
+    const root = (window as unknown as ProbeWindow).__pasteCleanup.editor.view.dom;
+    // WCAG contrast of each text run against every background behind it, translucent layers composited down to
+    // the page, and its text color composited over that (contrast-tools.ts).
+    const tools = (window as unknown as ProbeWindow).__contrastTools;
+    // A run whose color the source authored: an inline color or a color token on it or an element around it in the document.
+    const authored = (element: Element): boolean => {
+      for (let node: Element | null = element; node !== null && node !== root; node = node.parentElement) {
+        if (node instanceof HTMLElement && node.style.color !== '') return true;
+        if (node.hasAttribute('data-text-color')) return true;
+      }
+      return false;
+    };
+    const runs: Run[] = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      if (!/\S/u.test(node.textContent ?? '') || node.parentElement === null) continue;
+      runs.push({ text: (node.textContent ?? '').slice(0, 24), ratio: tools.text(node.parentElement).ratio, authored: authored(node.parentElement) });
+    }
+    return runs;
+  });
+  const light = await measure();
+  // The same document after a runtime switch to the dark theme, as an application toggles it.
+  await page.evaluate(() => new Promise(resolve => { document.body.classList.add('dm-theme-dark'); requestAnimationFrame(() => { requestAnimationFrame(resolve); }); }));
+  const dark = await measure();
+  await page.evaluate(() => { document.body.classList.remove('dm-theme-dark'); });
+  return page.evaluate(({ light, dark, transfer }) => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    const notice = document.querySelector<HTMLElement>('.dm-paste-feedback');
+    const textStyle = probe.editor.schema.marks['textStyle'];
+    // A line height the document stores is drawn on its block, or the block shows the editor's default spacing.
+    const unrenderedLineHeights: string[] = [];
+    let images = 0;
+    probe.editor.state.doc.descendants((node, position) => {
+      if (node.type.name === 'image') images++;
+      const raw: unknown = node.attrs['lineHeight'];
+      if (raw === null || raw === undefined || raw === '') return;
+      // LineHeight stores the string it parses, or a number a caller set.
+      const stored = typeof raw === 'number' ? String(raw) : typeof raw === 'string' ? raw : JSON.stringify(raw);
+      const element = probe.editor.view.nodeDOM(position);
+      if (!(element instanceof HTMLElement) || element.style.lineHeight !== stored) unrenderedLineHeights.push(`${stored} on ${node.textContent.slice(0, 24)}`);
+    });
+    return {
+      operations: probe.operations, doc: probe.editor.getJSON(), contrast: { light, dark }, transfer, unrenderedLineHeights, images,
+      assets: { reads: probe.assetReads, uploads: probe.assetUploads, matches: probe.assetMatchRequests.length },
+      destination: { marks: Object.keys(probe.editor.schema.marks), textStyle: Object.keys(textStyle?.spec.attrs ?? {}) },
+      notice: { visible: notice !== null && !notice.hidden && notice.getBoundingClientRect().height > 0,
+        status: notice?.querySelector('.dm-paste-feedback__status')?.textContent ?? null,
+        details: [...(notice?.querySelectorAll('li') ?? [])].map(item => item.textContent) },
+    };
+  }, { light, dark, transfer });
+}
+
+/** Text without a color of its own reaches 4.5:1 in both themes; an authored color keeps 3:1 in the light theme and is annotated below 3:1 in the dark one. */
+function checkContrast(contrast: Replay['contrast']): void {
+  const failing = (runs: Run[], floor: number): string[] => runs.filter(run => run.ratio < floor).map(run => `${run.text}: ${run.ratio.toFixed(2)}`);
+  expect(failing(contrast.light.filter(run => !run.authored), 4.5)).toEqual([]);
+  expect(failing(contrast.dark.filter(run => !run.authored), 4.5)).toEqual([]);
+  expect(failing(contrast.light.filter(run => run.authored), 3)).toEqual([]);
+  for (const finding of failing(contrast.dark.filter(run => run.authored), 3)) {
+    test.info().annotations.push({ type: 'authored color below 3:1 in the dark theme', description: finding });
+  }
+}
+
+/** The text of a node, for naming it in a finding. */
+function textOf(node: JSONContent): string {
+  return (node.text ?? '') + (node.content ?? []).map(textOf).join('');
+}
+
+/** The cells that store the top alignment the table draws every cell with: a stored top only marks a cell as aligned. */
+function topAlignedCells(doc: JSONContent): string[] {
+  const found: string[] = [];
+  const visit = (node: JSONContent): void => {
+    if ((node.type === 'tableCell' || node.type === 'tableHeader') && node.attrs?.['verticalAlign'] === 'top') found.push(textOf(node).slice(0, 24));
+    for (const child of node.content ?? []) visit(child);
+  };
+  visit(doc);
+  return found;
+}
+
+/** The runs that carry a text style storing no value, as a span whose only style the mark does not read made of each Google Docs run. */
+function emptyTextStyles(doc: JSONContent): string[] {
+  const found: string[] = [];
+  const visit = (node: JSONContent): void => {
+    if (node.marks?.some(mark => mark.type === 'textStyle' && Object.values(mark.attrs ?? {}).every(value => value === null)) === true) {
+      found.push((node.text ?? node.type).slice(0, 24));
+    }
+    for (const child of node.content ?? []) visit(child);
+  };
+  visit(doc);
+  return found;
+}
+
+const fixtures = semanticFixtures();
+
+// A paragraph about Office HTML that names each application's markup in its text: Word's list property, Normal class
+// and namespace, Google Docs' copy wrapper and LibreOffice. The control spells each one otherwise, with the same length.
+const MENTION = 'Word writes mso-list: l0 level1 lfo1, class=MsoNormal and xmlns:w="urn:schemas-microsoft-com:office:word", '
+  + 'Google Docs id="docs-internal-guid-0", LibreOffice its own.';
+const CONTROL = MENTION.replace('mso-list', 'msx-list').replace('MsoNormal', 'MsxNormal').replace('schemas-microsoft-com:office', 'schemas-microsoft-com:offize')
+  .replace('docs-internal-guid', 'docs-internxl-guid').replace('LibreOffice', 'LibreOffize');
+// The first block or run the copy holds, before which the paragraph goes: past Word's head and stylesheet, inside Docs' wrapper.
+const FIRST_BLOCK = /<(?:p|h[1-6]|ul|ol|table|div|span)\b/i;
+/** A copy's items with the paragraph before its first block; every other flavor and file as captured. */
+const withParagraph = (items: readonly Item[], text: string): Item[] =>
+  items.map(item => (item.kind === 'string' && item.type === 'text/html' ? { ...item, value: item.value.replace(FIRST_BLOCK, `<p>${text}</p>$&`) } : item));
+/** A document's JSON without the random ids UniqueID gives its blocks. */
+const withoutIds = (doc: JSONContent): string => JSON.stringify(doc).replace(/"id":"[^"]*"/gu, '"id":null');
+
+/** A policy oracle's editor outcomes, one per schema, as offline.mjs editorOutcomes reads them; synchronous for test titles. */
+function editorOutcomesOf(oracle: PolicyOracle): readonly EditorOutcome[] {
+  return Array.isArray(oracle.editor) ? oracle.editor as readonly EditorOutcome[] : [oracle.editor as EditorOutcome];
+}
+
+test('the Office fixture directory holds semantic fixtures to replay', () => {
+  expect(fixtures.length).toBeGreaterThan(0);
+});
+
+for (const fixture of fixtures) {
+  test.describe(fixture.id, () => {
+    test('passes the offline evidence verifier', async ({ browserName }) => {
+      test.skip(browserName !== 'chromium', 'The offline verifier runs in Node; one engine runs it.');
+      const [, { verifyCaptureFixture }] = await evidence();
+      const report = await verifyCaptureFixture(fixture.directory);
+      expect(report.integrity.qualification).toBe(false);
+      expect(report.integrity.nativeEvidenceAuthenticated).toBe(false);
+      expect(report.integrity.origin).toBe(fixture.origin);
+      expect(report.integrity.claimedEventKind).toBe(fixture.origin === 'synthetic' ? 'synthetic-event' : 'native-event');
+      if (fixture.origin === 'synthetic') expect(report.integrity.derivation?.kind).toBe('english-text-variant');
+      else expect(report.integrity.derivation).toBeUndefined();
+      expect(report.replay.kind).toBe('offline-semantic-replay');
+    });
+
+    for (const formatting of policies) {
+      // One test per destination schema the oracle pins the fixture in; a single schema keeps the plain title.
+      const outcomes = fixture.expected === undefined ? [undefined] : editorOutcomesOf(fixture.expected[formatting]);
+      for (const outcome of outcomes) {
+        const schemaTitle = outcomes.length > 1 && outcome !== undefined ? ` in the ${outcome.schema} schema` : '';
+        test(`${formatting}${schemaTitle}: pastes the reviewed blocks, notice and codes, readable`, async ({ page }) => {
+          const expected = fixture.expected;
+          if (expected === undefined || outcome === undefined) throw new Error(`${fixture.id} has no reviewed outcomes: author expected.preserve and expected.adapt`);
+          const oracle = expected[formatting];
+          const [{ blocksFromEditorJSON, compareBlocks }, { noticeCodes, semanticSpecification }] = await evidence();
+          const result = await replay(page, formatting, outcome.schema, fixture.items);
+          // The paste carries every stored item: each text flavor and file, including the Word Chrome raster alternative.
+          expect(result.transfer.files).toBe(fixture.files);
+          for (const item of fixture.items) if (item.kind === 'string') expect(result.transfer.types).toContain(item.type);
+          const operation = result.operations.at(-1);
+          expect(operation?.status).toBe(oracle.status === 'cleaned' ? 'applied' : 'rejected');
+          expect(operation?.source).toBe(oracle.source);
+          expect(noticeCodes(operation?.diagnostics ?? [])).toEqual(outcome.warnings);
+          expect(result.notice.visible).toBe(outcome.notice === 'visible');
+          if (outcome.notice === 'visible') expect(result.notice.status).toBe('Review the pasted content.');
+          // Hidden Word text the copy held is named in the notice, not as formatting.
+          if (outcome.warnings.includes('hidden-text-removed')) expect(result.notice.details).toContain('Hidden text from Word was not pasted.');
+          // The oracle reads what the destination holds from the live schema: a mark it lacks is expected absent.
+          expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc),
+            { formatting, destination: result.destination })).toEqual([]);
+          // A line height the document stores is one the view draws, never a value kept without its spacing.
+          expect(result.unrenderedLineHeights).toEqual([]);
+          // A cell keeps no vertical alignment the table draws by default, as Google Docs aligns every cell to the top.
+          expect(topAlignedCells(result.doc)).toEqual([]);
+          // No run carries a text style that stores no value, as each Google Docs run did for the white space it writes.
+          expect(emptyTextStyles(result.doc)).toEqual([]);
+          // An image the content places is one the scenario authors: a file next to the copy, such as Chrome's picture of a Word selection, is none.
+          expect(result.images).toBe(expected.blocks.filter(block => block.type === 'image').length);
+          // Text without a color of its own needs 4.5:1 (WCAG 1.4.3) against what it lands on, in either theme.
+          checkContrast(result.contrast);
+        });
+      }
+
+      // Image preparation refuses a paste whose image it cannot bind, so neither a marker picture the HTML holds nor a
+      // file the clipboard holds may be one it is offered: Word's picture of the selection is never read, bound or inserted.
+      // An image the content places as a data URL, as Google Docs writes every image, is kept as it is, with no file read.
+      const placesImages = fixture.expected?.blocks.some(block => block.type === 'image') === true;
+      if (fixture.files > 0 || /<img\b/iu.test(fixture.html)) {
+        const title = placesImages ? 'keeps its data images with image preparation, which reads, uploads and matches no file'
+          : 'pastes the same with image preparation, which no marker picture or picture of the selection reaches';
+        test(`${formatting}: ${title}`, async ({ page }) => {
+          const expected = fixture.expected;
+          if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
+          const [outcome] = editorOutcomesOf(expected[formatting]);
+          if (outcome === undefined) throw new Error(`${fixture.id} has no editor outcome`);
+          const [{ blocksFromEditorJSON, compareBlocks }, { noticeCodes, semanticSpecification }] = await evidence();
+          // Embedded assets, and assets whose byte limits no captured file fits, which would refuse a paste whose file a binding needed.
+          for (const assets of ['embedded', 'small-limits'] as const) {
+            const result = await replay(page, formatting, outcome.schema, fixture.items, assets);
+            expect(result.transfer.files).toBe(fixture.files);
+            expect(result.operations.at(-1)?.status).toBe('applied');
+            expect(noticeCodes(result.operations.at(-1)?.diagnostics ?? [])).toEqual(outcome.warnings);
+            expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc),
+              { formatting, destination: result.destination })).toEqual([]);
+            expect(result.images).toBe(expected.blocks.filter(block => block.type === 'image').length);
+            expect(result.assets).toEqual({ reads: 0, uploads: 0, matches: 0 });
+          }
+        });
+      }
+
+      // A destination that cannot hold a data image, as an Image with allowBase64 false or an editor without Image, removes
+      // each image with its alt text in its place and reports it, where it kept a broken picture or lost the image silently.
+      if (placesImages) {
+        test(`${formatting}: removes each image with its alt text in its place, reported, where the destination refuses data images or has no Image`, async ({ page }) => {
+          const expected = fixture.expected;
+          if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
+          const outcome = editorOutcomesOf(expected[formatting]).find(entry => entry.schema === 'default');
+          if (outcome === undefined) throw new Error(`${fixture.id} has no default schema outcome`);
+          const [{ blocksFromEditorJSON, compareBlocks }, { noticeCodes, semanticSpecification }] = await evidence();
+          for (const imagePolicy of ['no-base64', 'missing'] as const) {
+            const result = await replay(page, formatting, 'default', fixture.items, 'none', imagePolicy);
+            expect(result.operations.at(-1)?.status).toBe('applied');
+            expect(result.images).toBe(0);
+            expect(noticeCodes(result.operations.at(-1)?.diagnostics ?? [])).toEqual([...new Set([...outcome.warnings, 'image-removed'])].sort());
+            expect(result.notice.visible).toBe(true);
+            // Every block of the scenario in its place, each image as its alt text where the image stood: a paragraph, or its cell's text.
+            expect(compareBlocks(semanticSpecification(expected), expected.scenario, blocksFromEditorJSON(result.doc),
+              { formatting, destination: result.destination, imagesRemoved: true })).toEqual([]);
+          }
+        });
+      }
+
+      // A destination without task lists parses a checklist as a bullet list, which loses each item's checked state: the
+      // paste reports it, where it lost the state without a finding.
+      const tasks = fixture.expected?.blocks.filter(block => (block['list'] as { kind?: unknown } | undefined)?.kind === 'task') ?? [];
+      if (tasks.length > 0) {
+        test(`${formatting}: pastes its checklist as bullets, reported, where the destination has no task lists`, async ({ page }) => {
+          const expected = fixture.expected;
+          if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
+          const outcome = editorOutcomesOf(expected[formatting]).find(entry => entry.schema === 'default');
+          if (outcome === undefined) throw new Error(`${fixture.id} has no default schema outcome`);
+          const [{ blocksFromEditorJSON }, { noticeCodes }] = await evidence();
+          const result = await replay(page, formatting, 'default', fixture.items, 'none', 'default', false);
+          expect(result.operations.at(-1)?.status).toBe('applied');
+          expect(noticeCodes(result.operations.at(-1)?.diagnostics ?? [])).toEqual([...new Set([...outcome.warnings, 'destination-formatting-unconfirmed'])].sort());
+          expect(result.notice.visible).toBe(true);
+          const blocks = blocksFromEditorJSON(result.doc);
+          for (const task of tasks) {
+            const found = blocks.find(block => block.text.trim() === task['text']);
+            expect((found?.['list'] as { kind?: unknown } | undefined)?.kind, String(task['text'])).toBe('bullet');
+          }
+        });
+      }
+    }
+
+    // The source is read from markup, never from text: the capture with a paragraph whose text names Word, Google Docs and
+    // LibreOffice markup pastes as the same capture with that paragraph spelled otherwise, from the source its oracle names.
+    // A Google Docs copy whose text named a Word property was cleaned as Word, with Docs' spacing and black kept on every block.
+    test('preserve: pastes the same when its text names another application\'s markup', async ({ page }) => {
+      const expected = fixture.expected;
+      if (expected === undefined) throw new Error(`${fixture.id} has no reviewed outcomes`);
+      expect(fixture.html).toMatch(FIRST_BLOCK);
+      const mentioned = await replay(page, 'preserve', 'default', withParagraph(fixture.items, MENTION));
+      const control = await replay(page, 'preserve', 'default', withParagraph(fixture.items, CONTROL));
+      expect(mentioned.operations.at(-1)?.source).toBe(expected.preserve.source);
+      expect(control.operations.at(-1)?.source).toBe(expected.preserve.source);
+      expect(mentioned.operations.at(-1)?.diagnostics).toEqual(control.operations.at(-1)?.diagnostics);
+      expect(withoutIds(mentioned.doc).replace(JSON.stringify(MENTION).slice(1, -1), JSON.stringify(CONTROL).slice(1, -1))).toBe(withoutIds(control.doc));
+      expect(mentioned.images).toBe(control.images);
+    });
+  });
+}

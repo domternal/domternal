@@ -1636,11 +1636,22 @@ test.describe('Slash command - typing-event activation', () => {
   test('typing `/` mid-text (between existing words) DOES open the menu', async ({ page }) => {
     // Real typing event qualifies even though there's surrounding text.
     await setContent(page, '<p>hello world</p>');
-    await page.click(editorSelector);
-    // Move cursor to the start of "world" (after the space). One Home + 6 Right.
-    await page.keyboard.press('Home');
-    for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowRight');
+    // Set and verify the exact insertion position before the real typing event.
+    const caret = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            commands: { focus: (position: number) => boolean };
+            state: { selection: { from: number; to: number } };
+            view: { hasFocus: () => boolean };
+          }
+        | undefined;
+      if (!ed) throw new Error('The demo editor is unavailable');
+      const accepted = ed.commands.focus(7);
+      return { accepted, from: ed.state.selection.from, to: ed.state.selection.to, focused: ed.view.hasFocus() };
+    });
+    expect(caret).toEqual({ accepted: true, from: 7, to: 7, focused: true });
     await page.keyboard.type('/');
+    expect((await getBlocks(page))[0]?.text).toBe('hello /world');
     await expect(page.locator(slashMenuSelector)).toBeVisible();
   });
 

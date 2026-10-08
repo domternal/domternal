@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "id": "word-mixed-nesting-safari",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "3ac9c0ead4b493eba134b6a26f1b070be507c89643d74011488d35af36a42e3e"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-mixed-nesting",
+    "blocks": [
+      {
+        "id": "L19",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1."
+        },
+        "word": "Numbering, restart at 1",
+        "text": "L19 Number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L20",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "circle",
+          "depth": 2,
+          "wordLabel": "o"
+        },
+        "word": "Enter, Tab, then Home > Bullets; make Word show the o bullet at the second level",
+        "text": "L20 Bullet below a number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L21",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "2."
+        },
+        "word": "Enter, Shift+Tab, then Home > Numbering so Word continues with 2.",
+        "text": "L21 Second number",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L21a",
+        "type": "empty",
+        "word": "Style: Normal, an empty paragraph before L22",
+        "correction": "L22 follows an empty Normal paragraph, as its instruction says, so a selection from L21 to L22 holds it; it was missing from the blocks."
+      },
+      {
+        "id": "L22",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1,
+          "wordLabel": "•"
+        },
+        "word": "After an empty Normal paragraph: Home > Bullets",
+        "text": "L22 Bullet",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L23",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 2,
+          "ordinal": 1,
+          "wordLabel": "a."
+        },
+        "word": "Enter, Tab, then Home > Numbering; make Word show a. at the second level",
+        "text": "L23 Number below a bullet",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+    "captureSha256": "0dde2ea19c744f5d1a2f4bf90aaf65d974a915b3a0ff6b451083d3d11eaef349",
+    "manifestSha256": "31364954b0f68aa9672d57df6203abbe7d78d560b49a8906eb6ef20ef47d3fec"
+  }
+}

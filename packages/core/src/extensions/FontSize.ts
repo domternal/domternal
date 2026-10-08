@@ -29,6 +29,7 @@ import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarButton, ToolbarItem } from '../types/Toolbar.js';
 import { TextStyle } from '../marks/TextStyle.js';
+import { isBlankStyleValue, isSafeCssValue } from '../helpers/isSafeCssValue.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -76,7 +77,9 @@ export const FontSize = Extension.create<FontSizeOptions>({
             },
             renderHTML: (attributes: Record<string, unknown>) => {
               const fontSize = attributes['fontSize'] as string | null;
-              if (!fontSize) return null;
+              // A stored value that could add a declaration or load a
+              // resource is not written; the document keeps it.
+              if (!fontSize || !isSafeCssValue(fontSize)) return null;
 
               return { style: `font-size: ${fontSize}` };
             },
@@ -91,6 +94,9 @@ export const FontSize = Extension.create<FontSizeOptions>({
       setFontSize:
         (fontSize: string) =>
         ({ commands }) => {
+          // An empty value, such as a "Default" option, clears the size.
+          if (isBlankStyleValue(fontSize)) return commands.unsetFontSize();
+          if (!isSafeCssValue(fontSize)) return false;
           return commands.setMark('textStyle', { fontSize });
         },
 

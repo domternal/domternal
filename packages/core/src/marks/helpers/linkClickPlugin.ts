@@ -1,12 +1,16 @@
 /**
  * Link Click Plugin
  *
- * Handles click on links to open them.
- * When editable: opens on click.
- * When read-only: browser handles link clicks natively.
+ * Handles clicks on links in an editable editor. A read-only editor leaves
+ * clicks to the browser, which follows the rendered anchor: Link renders one
+ * only for an address the URL policy allows. A fragment link scrolls in place
+ * in either, so the location never changes.
  */
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
-import type { MarkType } from '@domternal/pm/model';
+import type { MarkType, Node as PMNode } from '@domternal/pm/model';
+import type { EditorView } from '@domternal/pm/view';
+import { checkUrl } from '../../helpers/checkUrl.js';
+import { getExactMarkRange } from '../../helpers/getMarkRange.js';
 
 /**
  * Options for the link click plugin
@@ -18,10 +22,11 @@ export interface LinkClickPluginOptions {
   type: MarkType;
 
   /**
-   * When to open links on click
+   * When to open links on click while the editor is editable. A read-only
+   * editor leaves clicks to the browser, which follows the rendered link.
    * - true: Open on click
    * - false: Never open
-   * - 'whenNotEditable': Only open when editor is read-only (browser handles natively)
+   * - 'whenNotEditable': Never open while editable
    * @default true
    */
   openOnClick?: boolean | 'whenNotEditable';
@@ -31,6 +36,28 @@ export interface LinkClickPluginOptions {
    * @default false
    */
   enableClickSelection?: boolean;
+
+  /**
+   * The schemes a link may open with, as for the Link `protocols` option. The
+   * URL policy refuses script and data addresses, credentials in web, mail
+   * and phone addresses and hidden characters whatever this lists.
+   * @default ['http:', 'https:', 'mailto:', 'tel:']
+   */
+  protocols?: readonly string[];
+
+  /**
+   * Allows relative references, as for the Link `allowRelative` option. A
+   * fragment, such as `#intro`, scrolls to its target in place.
+   * @default true
+   */
+  allowRelative?: boolean;
+
+  /**
+   * Opens a new tab without a referrer as well as without an opener. Without
+   * it, only a link whose `rel` holds `noreferrer` hides the referrer.
+   * @default true
+   */
+  noreferrer?: boolean;
 }
 
 /**
@@ -38,95 +65,154 @@ export interface LinkClickPluginOptions {
  */
 export const linkClickPluginKey = new PluginKey('linkClick');
 
+const DEFAULT_PROTOCOLS: readonly string[] = ['http:', 'https:', 'mailto:', 'tel:'];
+/** Targets that name a browsing context of the page instead of a new one. */
+const CONTEXT_TARGETS = new Set(['_self', '_parent', '_top']);
+const hasToken = (value: string | null, token: string): boolean =>
+  (value ?? '').split(/[\t\n\f\r ]+/).some(candidate => candidate.toLowerCase() === token);
+
+/** The anchor a click landed on inside the editor, or null. */
+function clickedAnchor(view: EditorView, event: Event): Element | null {
+  const target = event.target as Element | null;
+  const anchor = typeof target?.closest === 'function' ? target.closest('a') : null;
+  return anchor && view.dom.contains(anchor) ? anchor : null;
+}
+
+/** The first inline node inside the anchor, whose marks are the anchor's own. */
+function anchorNode(view: EditorView, anchor: Element): { node: PMNode; pos: number } | null {
+  try {
+    const pos = view.posAtDOM(anchor, 0);
+    const node = view.state.doc.nodeAt(pos);
+    return node ? { node, pos } : null;
+  } catch {
+    // The anchor lies outside the editable content, such as inside a node view's own DOM.
+    return null;
+  }
+}
+
+/**
+ * Scrolls to the element a fragment names, in the editor first and then in
+ * the page, and reports whether it found one. The location never changes, so
+ * no history entry is added and a hash router is not triggered. The id is
+ * compared as a value, never built into a selector.
+ */
+function scrollToFragment(view: EditorView, fragment: string): boolean {
+  let id = fragment.slice(1);
+  try {
+    id = decodeURIComponent(id);
+  } catch {
+    // A malformed escape names the raw id, as browsers fall back to it.
+  }
+  if (id === '') return false;
+  const target = Array.from(view.dom.querySelectorAll('[id]')).find(element => element.id === id)
+    ?? view.dom.ownerDocument.getElementById(id);
+  if (!target) return false;
+  // Some environments, such as test DOMs, do not lay out or scroll.
+  if (typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'start' });
+  return true;
+}
+
 /**
  * Creates a plugin that handles clicking on links to open them.
+ *
+ * Only the clicked anchor's own link mark counts, and only an address the URL
+ * policy allows opens. A new tab opens without `window.opener`, so the opened
+ * page cannot navigate the editor's tab. `_self`, `_parent` and `_top` targets
+ * navigate that browsing context; every other target opens a new tab.
  *
  * @param options - Plugin options
  * @returns ProseMirror Plugin
  */
 export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
-  const { type, openOnClick = true, enableClickSelection = false } = options;
+  const {
+    type,
+    openOnClick = true,
+    enableClickSelection = false,
+    protocols = DEFAULT_PROTOCOLS,
+    allowRelative = true,
+    noreferrer = true,
+  } = options;
 
   return new Plugin({
     key: linkClickPluginKey,
 
     props: {
-      handleClick(view, _pos, event) {
-        // Only left clicks
-        if (event.button !== 0) {
-          return false;
-        }
-
-        // When not editable, let browser handle natively (links navigate normally)
-        if (!view.editable) {
-          return false;
-        }
-
-        // Find the <a> element from the click target
-        let link: HTMLAnchorElement | null;
-
-        if (event.target instanceof HTMLAnchorElement) {
-          link = event.target;
-        } else {
-          const target = event.target as HTMLElement | null;
-          if (!target) {
+      handleDOMEvents: {
+        // A read-only editor leaves clicks to the browser, except on a
+        // fragment link: following it would change the location, add a
+        // history entry and trigger a hash router, so it scrolls in place as
+        // it does while editable. A click that asks for a new tab or window,
+        // and every other link, stays the browser's.
+        click(view, event) {
+          if (view.editable || event.defaultPrevented || event.button !== 0
+            || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
             return false;
           }
-          link = target.closest<HTMLAnchorElement>('a');
-          if (link && !view.dom.contains(link)) {
-            link = null;
-          }
-        }
+          const anchor = clickedAnchor(view, event);
+          const mark = anchor ? anchorNode(view, anchor)?.node.marks.find(candidate => candidate.type === type) : undefined;
+          if (!mark) return false;
+          const check = checkUrl(mark.attrs['href'], { protocols, allowRelative });
+          if (check.status !== 'allowed' || !check.url.startsWith('#')) return false;
+          event.preventDefault();
+          scrollToFragment(view, check.url);
+          return true;
+        },
+      },
 
-        if (!link) {
+      handleClick(view, _pos, event) {
+        // Only left clicks, and only while editable: a read-only editor leaves
+        // the click to the browser, which follows only an allowed rendered href.
+        if (event.button !== 0 || !view.editable) {
           return false;
         }
 
-        // Select full link range on click
+        const anchor = clickedAnchor(view, event);
+        if (!anchor) {
+          return false;
+        }
+
+        // The mark of the anchor's own first node. The position before the
+        // anchor would report the marks of the node before it, such as an
+        // adjacent link, so it is never used. An anchor without a link mark,
+        // such as one a node view renders, is not a link of this plugin.
+        const found = anchorNode(view, anchor);
+        const mark = found?.node.marks.find(candidate => candidate.type === type);
+        if (!found || !mark) {
+          return false;
+        }
+
         if (enableClickSelection) {
-          const pos = view.posAtDOM(link, 0);
-          const $pos = view.state.doc.resolve(pos);
-
-          if ($pos.marks().some((m) => m.type === type)) {
-            // Find contiguous mark range within the parent text block
-            const parent = $pos.parent;
-            const blockStart = pos - $pos.parentOffset;
-            let rangeStart = pos;
-            let rangeEnd = pos;
-
-            parent.forEach((child, childOffset) => {
-              const childStart = blockStart + childOffset;
-              const childEnd = childStart + child.nodeSize;
-              if (type.isInSet(child.marks) && childStart <= rangeEnd && childEnd >= rangeStart) {
-                rangeStart = Math.min(rangeStart, childStart);
-                rangeEnd = Math.max(rangeEnd, childEnd);
-              }
-            });
-
-            const tr = view.state.tr.setSelection(
-              TextSelection.create(view.state.doc, rangeStart, rangeEnd)
-            );
-            view.dispatch(tr);
-            return true;
-          }
+          const { from, to } = getExactMarkRange(view.state.doc, found.pos, mark);
+          view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
+          return true;
         }
 
-        if (openOnClick) {
-          // Get href/target from ProseMirror mark (validated by renderHTML), fallback to DOM
-          const pos = view.posAtDOM(link, 0);
-          const $pos = view.state.doc.resolve(pos);
-          const linkMark = $pos.marks().find((m) => m.type === type);
-
-          const href = (linkMark?.attrs['href'] as string | undefined) ?? link.href;
-          const linkTarget = (linkMark?.attrs['target'] as string | undefined) ?? link.target;
-
-          if (href) {
-            window.open(href, linkTarget || '_blank');
-            return true;
-          }
+        // 'whenNotEditable' never opens while editable.
+        if (openOnClick !== true) {
+          return false;
         }
 
-        return false;
+        const check = checkUrl(mark.attrs['href'], { protocols, allowRelative });
+        if (check.status !== 'allowed') {
+          return false;
+        }
+
+        // A link within the page scrolls there instead of opening a tab.
+        if (check.url.startsWith('#')) {
+          return scrollToFragment(view, check.url);
+        }
+
+        // The rendered target and rel, as a native click on the anchor would
+        // read them: the Link renders only keyword targets, from the mark or
+        // its HTMLAttributes option.
+        const keyword = (anchor.getAttribute('target') ?? '').toLowerCase();
+        if (CONTEXT_TARGETS.has(keyword)) {
+          window.open(check.url, keyword);
+          return true;
+        }
+        const hidesReferrer = noreferrer || hasToken(anchor.getAttribute('rel'), 'noreferrer');
+        window.open(check.url, '_blank', hidesReferrer ? 'noopener,noreferrer' : 'noopener');
+        return true;
       },
     },
   });

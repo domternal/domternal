@@ -20,7 +20,7 @@ export const test = base.extend({
             }
           }
         }
-      }).observe(document.documentElement, { childList: true, subtree: true });
+      }).observe(document, { childList: true, subtree: true });
     });
     await use(page);
   },

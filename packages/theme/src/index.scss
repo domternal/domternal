@@ -49,6 +49,7 @@
 // to win over the block-level [data-bg-color] padding rule.
 @use 'inline-colors';
 @use 'toc';
+@use 'paste-feedback';
 
 // 8.
 @use 'notion-mode';
@@ -56,6 +57,9 @@
 // 9.
 @use 'themes/light';
 @use 'themes/dark';
+
+// 9b. Text on kept backgrounds: after both palettes, which its islands re-emit.
+@use 'surface-tone';
 
 // 10. Paper. Last, so it can override anything above it: `@media print` adds
 // no specificity of its own, only source order.

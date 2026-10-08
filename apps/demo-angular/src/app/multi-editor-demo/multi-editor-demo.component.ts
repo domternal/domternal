@@ -1,3 +1,4 @@
+import { demoPasteCleanupExtensions } from '../demo-paste-cleanup.js';
 import { Component, ChangeDetectionStrategy, OnDestroy, signal, effect, input } from '@angular/core';
 import {
   DomternalEditorComponent,
@@ -40,6 +41,7 @@ export class MultiEditorDemoComponent implements OnDestroy {
     Bold, Italic, Underline, Strike, Code, Link,
     Heading, Blockquote, HardBreak, HorizontalRule,
     BulletList, OrderedList, TaskList, ListIndent,
+    ...demoPasteCleanupExtensions,
     SelectionDecoration, ClearFormatting, Dropcursor,
   ];
 

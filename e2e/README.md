@@ -1,4 +1,43 @@
-# Tutorial regression coverage
+# E2E suites
+
+## Matrix discovery
+
+The root matrix (`e2e/playwright.config.ts`, and the cross-browser and tutorial
+configurations built on it) collects only `*.spec.ts` files. Name new matrix
+specs accordingly: other file names are still type-checked and linted, but the
+matrix never runs them. Focused suites use `.browser.ts` files with their own
+configurations. The standalone tooling tests under `native-office-capture/` and
+`paste-performance/` run through `node --test`, `native-office-capture/browser.config.mjs`
+and `paste-performance/runner.mjs`, and `content-performance/runner.mjs` compares content
+loading and HTML output with the published 1.2.0, as described in their READMEs.
+
+## Local release checks
+
+CI runs the unit suites and gates of `ci.yml` and the automatic browser workflows:
+`i18n-e2e.yml` runs the `i18n*` specs and the ownership fixture, and
+`link-security-e2e.yml` runs the `link-security*` specs and the link security fixture.
+`paste-cleanup-e2e.yml` is available only through manual `workflow_dispatch` and
+runs `pnpm test:e2e:paste-cleanup` when requested. It does not run on pushes, pull
+requests, merge groups or a schedule; the same command remains available locally.
+The suites below have no CI job, and no gate checks that anyone ran them. They stay local
+release checks: run each one on a build of the release commit before a release,
+keep its raw output in a log as the repository instructions describe, and record
+the result with the release verification.
+
+| Suite | Command |
+| --- | --- |
+| Root matrix: every `*.spec.ts` against the four demo applications and the tutorial fixtures, in Chromium | `pnpm test:e2e:matrix` |
+| The same specs in Chromium, Firefox and WebKit, of which CI runs only the `i18n*` and `link-security*` ones | `pnpm exec playwright test --config e2e/playwright.cross-browser.config.ts` |
+| List editing regressions of the four demo applications in three engines | `pnpm exec playwright test --config e2e/list-editing.config.ts` |
+| Legacy per-application suites under `apps/demo-*/e2e` | `pnpm test:e2e` |
+| Native Office capture tooling, as [its README](native-office-capture/README.md) describes | `node --test e2e/native-office-capture/capture.test.mjs e2e/native-office-capture/offline.test.mjs e2e/native-office-capture/redaction.test.mjs e2e/native-office-capture/preparation.test.mjs` and `pnpm exec playwright test --config e2e/native-office-capture/browser.config.mjs` |
+| Paste performance harness, as [its README](paste-performance/README.md) describes | `node --test e2e/paste-performance/fixtures.test.mjs e2e/paste-performance/large.test.mjs e2e/paste-performance/sampler.test.mjs` and `node e2e/paste-performance/runner.mjs --smoke --out <directory>` |
+| Content performance and output equivalence against the published 1.2.0, as [its README](content-performance/README.md) describes | `node --test e2e/content-performance/provenance.test.mjs` and `node e2e/content-performance/runner.mjs --out <directory> --rounds 1 --browsers chromium` |
+
+The performance runners measure one machine; their full runs are evidence for a
+report, not a pass or fail check.
+
+## Tutorial regression coverage
 
 The tutorial fixtures use the public Free ESM builds. Build the packages before
 running them. The fixture server resolves a single React, Vue and ProseMirror

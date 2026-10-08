@@ -176,7 +176,9 @@ describe('serializeMarkdown - inline marks', () => {
     expect(md('<p><a href="https://x.com/" title=\'a\\"b\'>t</a></p>')).toBe(
       '[t](https://x.com/ "a\\\\\\"b")'
     );
-    expect(md('<p><a href="https://x.com/a\\b">t</a></p>')).toBe('[t](https://x.com/a\\\\b)');
+    // A backslash before the query reads as a slash in browsers, so the Link refuses it there.
+    expect(md('<p><a href="https://x.com/?a\\b">t</a></p>')).toBe('[t](https://x.com/?a\\\\b)');
+    expect(md('<p><a href="https://x.com/a\\b">t</a></p>')).toBe('t');
   });
 
   it('closes marks before a trailing hard break', () => {
@@ -242,6 +244,30 @@ describe('serializeMarkdown - fidelity warnings', () => {
     const result = serializeMarkdown(docFrom('<p style="text-align: center">c</p>'));
     expect(result.markdown).toBe('c');
     expect(result.warnings.some((w) => w.code === 'lossy-attribute')).toBe(true);
+  });
+
+  it('warns once per list type about an explicit list marker, which Markdown cannot carry', () => {
+    const result = serializeMarkdown(docFrom(
+      '<ol style="list-style-type: upper-roman"><li><p>a</p></li></ol><p>between</p>'
+      + '<ol type="a"><li><p>b</p></li></ol><p>between</p>'
+      + '<ul style="list-style-type: square"><li><p>c</p></li></ul>'
+    ));
+    expect(result.markdown).toBe('1. a\n\nbetween\n\n1. b\n\nbetween\n\n- c');
+    expect(result.warnings.filter((w) => w.code === 'lossy-attribute')).toEqual([
+      { code: 'lossy-attribute', message: 'List marker style is not representable in Markdown', nodeType: 'orderedList' },
+      { code: 'lossy-attribute', message: 'List marker style is not representable in Markdown', nodeType: 'bulletList' },
+    ]);
+  });
+
+  it('writes lists without an explicit marker, or with one the configuration does not render, without a warning', () => {
+    const doc = docFrom('<ol><li><p>a</p></li></ol><ul><li><p>b</p></li></ul>');
+    expect(serializeMarkdown(doc).warnings).toEqual([]);
+    // A value another client stored, which this configuration renders as the default marker.
+    const { schema } = doc.type;
+    const node = (name: string): NonNullable<(typeof schema.nodes)[string]> => schema.nodes[name]!;
+    const unknown = node('doc').create(null, node('bulletList').create({ listStyleType: 'decimal' },
+      node('listItem').create(null, node('paragraph').create(null, schema.text('x')))));
+    expect(serializeMarkdown(unknown)).toEqual({ markdown: '- x', warnings: [] });
   });
 
   it('reports no warnings for fully representable content', () => {

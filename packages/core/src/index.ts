@@ -21,6 +21,7 @@ export type {
   JSONContent,
   Content,
   Range,
+  ContentDiagnostic,
   // Editor options
   AnyExtension,
   FocusPosition,
@@ -32,6 +33,7 @@ export type {
   FocusEventProps,
   CreateEventProps,
   ContentErrorProps,
+  ContentDiagnosticProps,
   MountEventProps,
   AdoptEventProps,
   EditorEvents,
@@ -119,7 +121,18 @@ export {
 } from './utils/inlineStyles.js';
 
 // === Clipboard ===
+// Paste and copy coordination is published on the experimental @domternal/core/clipboard
+// subpath (see clipboard.ts), not here.
 export { writeToClipboard } from './utils/clipboard.js';
+
+// === Content normalization: whether loading JSON content keeps a value ===
+export {
+  isSupportedAttributeValue,
+  resolveAttributeValue,
+  registerAttributeNormalizer,
+  type AttributeNormalizer,
+} from './utils/normalizedAttributes.js';
+export { pastedAttributesPlugin } from './utils/pastedAttributes.js';
 
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';
@@ -195,6 +208,7 @@ export {
 // === Helpers ===
 export {
   createDocument,
+  normalizeContent,
   isNodeEmpty,
   isDocumentEmpty,
   callOrReturn,
@@ -205,10 +219,17 @@ export {
   textInputRule,
   nodeInputRule,
   isValidUrl,
+  checkUrl,
+  isSafeCssValue,
+  surfaceTone,
+  surfaceToneAttributes,
+  type SurfaceTone,
+  type SurfaceToneAttributes,
   generateHTML,
   generateJSON,
   generateText,
   type CreateDocumentOptions,
+  type NormalizeContentOptions,
   type IsNodeEmptyOptions,
   type MarkInputRuleOptions,
   type WrappingInputRuleOptions,
@@ -216,6 +237,8 @@ export {
   type TextInputRuleOptions,
   type NodeInputRuleOptions,
   type IsValidUrlOptions,
+  type UrlCheck,
+  type UrlPolicyOptions,
   type GenerateHTMLOptions,
   type GenerateJSONOptions,
   type GenerateTextOptions,
@@ -313,6 +336,8 @@ export {
   lift,
   // List commands
   toggleList,
+  normalizeContentAttributes,
+  type NormalizeContentAttributesOptions,
   // Insert commands
   insertContent,
   // Selection commands
@@ -365,6 +390,7 @@ export {
   Link,
   type LinkOptions,
   type LinkAttributes,
+  type LinkProtocolOptions,
   Subscript,
   type SubscriptOptions,
   Superscript,

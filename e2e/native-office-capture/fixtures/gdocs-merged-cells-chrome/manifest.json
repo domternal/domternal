@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-merged-cells-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "ee404c94e849755f39159363ff310f43997b466dd5eeda2a42db1920aa2eb790"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "8cabe0a644d4881ee5b0a4a58e35de0673c82518e8d5b6e74f6be6732a2305d3"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-merged-cells",
+    "blocks": [
+      {
+        "id": "GT10",
+        "type": "paragraph",
+        "docs": "Normal text below the first table",
+        "text": "GT10 Between tables.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT10a",
+        "type": "empty",
+        "docs": "The empty paragraph Google Docs keeps before the second table",
+        "correction": "As GT01a."
+      },
+      {
+        "id": "GT11",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 1,
+          "column": 1,
+          "rowspan": 2
+        },
+        "docs": "Insert > Table > 2 x 2; select both cells of the first column, right-click > Merge cells",
+        "text": "GT11 Vertically merged cells",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT12",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 1,
+          "column": 2
+        },
+        "text": "GT12 Top right cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT13",
+        "type": "tableCell",
+        "cell": {
+          "table": 2,
+          "row": 2,
+          "column": 2
+        },
+        "text": "GT13 Bottom right cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT14",
+        "type": "paragraph",
+        "docs": "Normal text below the second table",
+        "text": "GT14 Below the merged table.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "27acad3cd5048ef34f905049ede0089ea735e7bdacbd12da702b25bfa1ee75f7",
+    "captureSha256": "f0609139eb5ad2c298919759b4e7f23b6a3f34f8eb320742ac23924e40f00549",
+    "manifestSha256": "76a3d3d4e2c99010339f303dd51ea73d68573bafb5787d9a43649bd30a96b869"
+  }
+}

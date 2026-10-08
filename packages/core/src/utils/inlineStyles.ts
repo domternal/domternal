@@ -12,6 +12,10 @@
  * are already inline from renderHTML, and default text color is browser default.
  */
 
+import { isSafeCssValue } from '../helpers/isSafeCssValue.js';
+import { parseListMarker } from './listMarker.js';
+import { serializeChildren } from './serializeChildren.js';
+
 // ---------------------------------------------------------------------------
 // Override keys - users can override any of these
 // ---------------------------------------------------------------------------
@@ -183,6 +187,20 @@ function listMarkerDepth(el: Element, container: HTMLElement): number {
 }
 
 /**
+ * The declarations of a table cell's alignment attributes. The HTML may come
+ * from anywhere, so a value is written only when it is a safe CSS value, one
+ * that cannot add a declaration or load a resource.
+ */
+function cellAlignment(el: Element): string {
+  let styles = '';
+  const textAlign = el.getAttribute('data-text-align');
+  if (textAlign && isSafeCssValue(textAlign)) styles += ` text-align: ${textAlign};`;
+  const verticalAlign = el.getAttribute('data-vertical-align');
+  if (verticalAlign && isSafeCssValue(verticalAlign)) styles += ` vertical-align: ${verticalAlign};`;
+  return styles;
+}
+
+/**
  * Applies inline styles to all elements in a container.
  * Exported for use in clipboardSerializer (operates on DOM directly).
  */
@@ -219,23 +237,13 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         styles = `border-collapse: collapse; width: 100%; margin: 0.75em 0;`;
         break;
 
-      case 'TD': {
-        styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; overflow-wrap: break-word; word-wrap: break-word; box-sizing: border-box;`;
-        const tdTextAlign = el.getAttribute('data-text-align');
-        if (tdTextAlign) styles += ` text-align: ${tdTextAlign};`;
-        const tdVerticalAlign = el.getAttribute('data-vertical-align');
-        if (tdVerticalAlign) styles += ` vertical-align: ${tdVerticalAlign};`;
+      case 'TD':
+        styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; overflow-wrap: break-word; word-wrap: break-word; box-sizing: border-box;${cellAlignment(el)}`;
         break;
-      }
 
-      case 'TH': {
-        styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; overflow-wrap: break-word; word-wrap: break-word; box-sizing: border-box; font-weight: 600; background: ${v.tableHeaderBg}; text-align: left;`;
-        const thTextAlign = el.getAttribute('data-text-align');
-        if (thTextAlign) styles += ` text-align: ${thTextAlign};`;
-        const thVerticalAlign = el.getAttribute('data-vertical-align');
-        if (thVerticalAlign) styles += ` vertical-align: ${thVerticalAlign};`;
+      case 'TH':
+        styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; overflow-wrap: break-word; word-wrap: break-word; box-sizing: border-box; font-weight: 600; background: ${v.tableHeaderBg}; text-align: left;${cellAlignment(el)}`;
         break;
-      }
 
       case 'PRE':
         styles = `background: ${v.codeBlockBg}; font-family: ${v.codeBlockFont}; font-size: 0.875em; padding: 1em; border-radius: 0.375rem; overflow-x: auto; margin: 0.75em 0;`;
@@ -284,12 +292,11 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         styles = 'font-size: 0.9em; font-weight: 700; line-height: 1.25; margin: 1.5em 0 0.5em;';
         break;
 
-      // `type` is not a schema attribute on either list node, so no document
-      // this editor produced carries one.
+      // Persisted explicit markers take precedence over the depth-dependent theme.
       case 'UL':
         if (el.getAttribute('data-type') === 'taskList') {
           styles = 'list-style: none; padding-left: 0; margin: 0.75em 0;';
-        } else if (el.hasAttribute('type')) {
+        } else if (parseListMarker('bulletList', el) !== null || el.hasAttribute('type')) {
           styles = 'margin: 0.75em 0; padding-left: 1.5em;';
         } else {
           const bullet = BULLET_MARKERS[listMarkerDepth(el, container) % 3] ?? 'disc';
@@ -298,7 +305,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         break;
 
       case 'OL': {
-        if (el.hasAttribute('type')) {
+        if (parseListMarker('orderedList', el) !== null || el.hasAttribute('type')) {
           styles = 'margin: 0.75em 0; padding-left: 1.5em;';
           break;
         }
@@ -450,5 +457,6 @@ export function inlineStyles(html: string, overrides?: InlineStyleOverrides): st
   const div = document.createElement('div');
   div.innerHTML = html;
   applyInlineStyles(div, overrides);
-  return div.innerHTML;
+  // Attribute values escaped as the HTML standard writes them, also under linkedom.
+  return serializeChildren(div);
 }

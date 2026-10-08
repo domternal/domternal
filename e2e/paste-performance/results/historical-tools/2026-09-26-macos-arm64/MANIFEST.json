@@ -1,0 +1,130 @@
+{
+  "kind": "domternal-historical-evidence-tools",
+  "version": 2,
+  "report": "../../2026-09-26-macos-arm64.json",
+  "reportSha256": "f2235bf6df03012662b11ad0301ea05ac13977f4be45722e96b7e7f6fbebf39a",
+  "markdown": "../../2026-09-26-macos-arm64.md",
+  "markdownSha256": "edab0a06222453d504338b8d0e5a8b0425049f5caa81350abf65a0134ff6d6b1",
+  "markdownWrittenBy": "hand-written; excluded from byte comparison",
+  "executedByCI": false,
+  "tools": [],
+  "notes": [
+    "No original tool survives for this report, so this directory holds only this manifest and its README.",
+    "The raw report was written by the committed runner, e2e/paste-performance/runner.mjs, with JSON.stringify(report, null, 2) and a newline."
+  ],
+  "projection": {
+    "source": {
+      "path": "/private/tmp/domternal-paste-perf-reference-20260926a/report.json",
+      "bytes": 175287,
+      "sha256": "d15c4a360699951af437997da71f85ef042c326be01bc285c045d14bf5b37df8"
+    },
+    "samples": {
+      "path": "/private/tmp/domternal-paste-perf-reference-20260926a/samples.jsonl",
+      "bytes": 24341032,
+      "sha256": "94b93ad34c8fe6021ae11799fa6e08ebb49ac7873bdb479d8a7c34d17b114193"
+    },
+    "dropped": [
+      "rawSamples",
+      "cases[].rounds"
+    ],
+    "added": {
+      "artifactHashes": "computed: size and SHA-256 of report.json and samples.jsonl",
+      "conditions": "authored: four sentences about the machine state during the run"
+    },
+    "keyOrder": {
+      "report": [
+        "kind",
+        "protocol",
+        "mode",
+        "performanceClaim",
+        "nativeClipboardCaptured",
+        "sourceFixtures",
+        "referenceId",
+        "configuration",
+        "startedAt",
+        "headless",
+        "timing",
+        "machine",
+        "repository",
+        "browsers",
+        "fixtures",
+        "sourceHashes",
+        "bundleSha256",
+        "htmlSha256",
+        "completed",
+        "expected",
+        "elapsedSeconds",
+        "complete",
+        "failures",
+        "cleanupFailures",
+        "artifactHashes",
+        "conditions",
+        "cases"
+      ],
+      "case": [
+        "browser",
+        "fixture",
+        "formatting",
+        "complete",
+        "observedPairedP95Under50ms",
+        "summary"
+      ]
+    },
+    "writer": "JSON.stringify(value, null, 2) plus a newline; json.dumps(indent=2) writes the same bytes for this content",
+    "check": {
+      "date": "2026-09-27",
+      "node": "v24.13.0",
+      "result": "byte-identical to the committed JSON",
+      "method": "A read-only comparison while writing this manifest: the archived raw report with rawSamples and cases[].rounds removed, keys in the order above, artifactHashes recomputed from the archived raw files and conditions copied from the committed report. This verifies the claim; it is not a preserved or reconstructed projector."
+    }
+  },
+  "lost": [
+    {
+      "what": "The projector that turned the raw runner report into the committed summary JSON.",
+      "evidence": "The committed JSON is an exact projection of the archived raw report.json (see projection); no projector script exists in /private/tmp, in the archive or in Git.",
+      "consequence": "The projection cannot be rerun from a preserved tool, and it is not reconstructed. The raw report and samples it summarizes are archived, and their digests are recorded in the report."
+    },
+    {
+      "what": "How the Markdown report was produced.",
+      "evidence": "No script for it exists.",
+      "consequence": "The Markdown is treated as hand-written and excluded from byte comparison."
+    }
+  ],
+  "lostInputs": [],
+  "rawInputArchive": {
+    "name": "2026-09-27.tar.gz",
+    "sha256": "2fc950b612684b548a3a69dc5b0b37da00fc3b5dfb3c3d3196511558a3b176d5",
+    "bytes": 54806555,
+    "location": "Outside Git, on the machine that produced the evidence: $HOME/Documents/Domternal/evidence-archive/2026-09-27.tar.gz, unpacked beside it as 2026-09-27/. It is not in any repository.",
+    "offMachineCopy": "Pending: the owner decides where the off-machine copy is kept.",
+    "layout": "index.json maps each original path to the SHA-256 of its content; blobs/<sha256> holds the bytes. The README next to it explains how to verify it with and without Node.",
+    "entries": 12069,
+    "uniqueBlobs": 4357,
+    "inputsForThisReport": "The raw report.json and samples.jsonl the summary records under artifactHashes, and the runner scratch files beside them."
+  },
+  "nodePort": {
+    "ported": false,
+    "reason": "Block 3 scope decision: no Node port, because no original exists to port and lost steps are recorded, never reconstructed. The report is covered by the serialization golden of node tests/evidence/cli.mjs check and by this manifest."
+  },
+  "redactions": [
+    {
+      "id": "2026-10-03-home-paths",
+      "date": "2026-10-03",
+      "reason": "On the owner's request, the home folder in the archive location this manifest records is replaced by $HOME. No digest recorded anywhere covers this manifest, so none changed.",
+      "rule": [
+        {
+          "replaces": "the producing machine's home folder",
+          "with": "$HOME"
+        },
+        {
+          "replaces": "the session scratchpad directory",
+          "with": "$SCRATCHPAD"
+        }
+      ],
+      "originals": "Removed from the repository history on the owner's request on 2026-10-03. No check reads them: every check of this declaration holds with the redacted bytes alone.",
+      "files": [],
+      "digestsReplaced": [],
+      "digestsWithheld": []
+    }
+  ]
+}

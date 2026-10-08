@@ -116,6 +116,12 @@ forwarded to `generateHTML` for environments that supply their own DOM implement
 `autoDetect` defaults to `false` (the opposite of the editor extension's `true`), so pass
 `{ autoDetect: true }` if you want detection during server rendering.
 
+`generateHighlightedHTML` reads the generated HTML as markup and highlights only real code blocks
+(`<pre><code>`): text inside an attribute, such as an image title that holds `<pre><code>`, is never
+rewritten. The code text is decoded once before highlighting, so code that contains `&lt;b&gt;`
+shows exactly that. Code blocks that are not highlighted are written byte for byte as
+`generateHTML` wrote them.
+
 ## License
 
 MIT

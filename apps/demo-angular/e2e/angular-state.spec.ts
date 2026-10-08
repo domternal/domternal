@@ -116,9 +116,9 @@ test.describe('htmlContent signal - reactive HTML output', () => {
     await page.keyboard.press(`${modifier}+a`);
     await page.keyboard.press('Backspace');
 
-    const output = await page.locator(htmlOutput).textContent();
-    // After deleting everything, ProseMirror leaves an empty paragraph
-    expect(output?.trim()).toBe('<p></p>');
+    // After deleting everything, ProseMirror leaves an empty paragraph. The signal
+    // renders on Angular's next change detection, so wait for it.
+    await expect(page.locator(htmlOutput)).toHaveText('<p></p>');
   });
 
   test('HTML output updates after setContent via editor API', async ({ page }) => {

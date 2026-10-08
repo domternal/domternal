@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { Editor, JSONContent } from '@domternal/core';
+import type { Editor, JSONContent, TransactionEventProps } from '@domternal/core';
 
 /**
  * Full editor state returned when no selector is provided.
@@ -64,9 +64,11 @@ function useEditorStateFull(editor: Editor | null): EditorState {
     // Set initial state
     setState(getFullState(editor));
 
-    const onTransaction = ({ transaction }: { transaction: { docChanged: boolean } }): void => {
+    const onTransaction = ({ transaction, appendedTransactions = [] }: TransactionEventProps): void => {
+      // A change an appended transaction made counts too, as it does for core's update event.
+      const docChanged = transaction.docChanged || appendedTransactions.some(appended => appended.docChanged);
       setState(prev => {
-        if (!transaction.docChanged) {
+        if (!docChanged) {
           const editable = editor.isEditable;
           if (prev.isEditable === editable) return prev;
           return { ...prev, isEditable: editable };

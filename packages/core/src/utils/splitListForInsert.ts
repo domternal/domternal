@@ -19,7 +19,8 @@
  *     stray empty paragraph above the inserted block when the doc would
  *     otherwise become empty)
  */
-import { liftListItem } from '@domternal/pm/schema-list';
+import { hasListMarkerAncestor } from './listMarker.js';
+import { liftListItemWithMarker as liftListItem } from './listMarkerCommands.js';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import {
   findListItemAncestorDepth,
@@ -50,6 +51,8 @@ export function splitListForInsert(
   if (tr.steps.length !== 0) return null;
 
   const { $from } = tr.selection;
+  const storedMarks = tr.storedMarks;
+  const preserveMarks = hasListMarkerAncestor($from);
   const listItemDepth = findListItemAncestorDepth($from);
   if (listItemDepth === -1) return null;
   if ($from.index(listItemDepth) !== 0) return null;
@@ -79,6 +82,7 @@ export function splitListForInsert(
       const liftOk = liftListItem(listItemType)(stepState, (liftTr) => {
         for (const step of liftTr.steps) tr.step(step);
         if (liftTr.selectionSet) tr.setSelection(liftTr.selection);
+        if (liftTr.storedMarksSet) tr.setStoredMarks(liftTr.storedMarks);
       });
       if (!liftOk) break;
       if (!isInsideListItem(tr.selection.$from)) break;
@@ -86,6 +90,7 @@ export function splitListForInsert(
 
     const $afterLift = tr.selection.$from;
     if (isInsideListItem($afterLift)) return null;
+    if (preserveMarks && storedMarks !== null) tr.setStoredMarks(storedMarks);
     return { from: $afterLift.before(), to: $afterLift.after() };
   }
 
@@ -105,6 +110,7 @@ export function splitListForInsert(
   // is `splitPos + 1`.
   const splitPos = $from.after(listItemDepth);
   tr.split(splitPos, 1);
+  if (preserveMarks && storedMarks !== null) tr.setStoredMarks(storedMarks);
   const pos = splitPos + 1;
   return { from: pos, to: pos };
 }

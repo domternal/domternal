@@ -5,13 +5,14 @@
   "excludeFiles": ["CHANGELOG.md", "CODE_OF_CONDUCT.md", "CONTRIBUTING.md", "SECURITY.md"],
   "rules": [
     "The @domternal/core package is framework-agnostic and headless. Framework wrappers are @domternal/angular, @domternal/react, @domternal/vue, and @domternal/vanilla.",
-    "Import editor primitives and built-in extensions from @domternal/core. Optional features are separate @domternal/extension-* packages: table, image, math, emoji, mention, markdown, block-controls, toc, details, code-block-lowlight.",
+    "Import editor primitives and built-in extensions from @domternal/core. Optional features are separate @domternal/extension-* packages: table, image, math, emoji, mention, markdown, paste-cleanup, block-controls, toc, details, code-block-lowlight.",
     "Use StarterKit for a batteries-included schema; wire Document/Text/Paragraph and marks by hand only for a minimal headless setup.",
     "Commands are chainable: editor.chain().focus().toggleBold().run().",
     "Notion-style block UX (slash menu, drag-to-reorder, block context menu, smart paste) comes from @domternal/extension-block-controls.",
     "Styling is opt-in via @domternal/theme (CSS custom properties) and is separate from the headless core.",
     "JavaScript extension exports are tree-shakeable: import and register only what you use. The optional @domternal/theme package ships one complete CSS stylesheet.",
-    "Domternal Free is the current set of 17 MIT-licensed @domternal packages. Domternal Pro is a separate commercially licensed suite distributed through public npm with a private source repository.",
+    "Domternal Free is the current set of 18 MIT-licensed @domternal workspace packages, including the unreleased extension-paste-cleanup package. Domternal Pro is a separate commercially licensed suite distributed through public npm with a private source repository.",
+    "The in-development @domternal/extension-paste-cleanup package provides opt-in HTML paste normalization and a standalone /html helper. Four paths are verified against reviewed native captures: Word 16.113.3 for Mac copied in Safari 26.5.2, Chrome 154 and Firefox 155, and Google Docs web copied in Chrome 153 on macOS, each capture replayed into the editor through a synthetic paste event; Google Docs in Safari and Firefox, other Word versions and platforms, complete Word fidelity and Pro DOCX file import remain planned work.",
     "Domternal Pro runs in customer-chosen infrastructure and requires no Domternal-operated editor cloud. Current product, pricing, and licensing facts live at https://domternal.dev/pro/, https://domternal.dev/free-vs-pro/, and https://domternal.dev/license-explained/.",
     "Full guides, per-extension API, and the changelog live at https://domternal.dev/v1."
   ],

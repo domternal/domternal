@@ -36,12 +36,15 @@
     "@angular/forms": "^21.2.20",
     "@angular/platform-browser": "^21.2.20",
     "@domternal/core": "workspace:*",
+    "@domternal/pm": "workspace:*",
     "ng-packagr": "^21.0.0",
     "typescript": "~5.9.3"
   },
   "scripts": {
     "build": "ng-packagr -p ng-package.json",
     "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "pnpm build && node ../../scripts/prepare-publish-manifest.mjs",
     "postpublish": "git checkout package.json"
   },

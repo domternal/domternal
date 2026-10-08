@@ -40,6 +40,9 @@
       "@domternal/extension-mention": [
         "../packages/extension-mention/src/index.ts"
       ],
+      "@domternal/extension-paste-cleanup": [
+        "../packages/extension-paste-cleanup/src/index.ts"
+      ],
       "@domternal/extension-toc": [
         "../packages/extension-toc/src/index.ts"
       ]

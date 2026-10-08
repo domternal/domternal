@@ -1,0 +1,6 @@
+{
+  "$comment": "Packages that are developed and checked like every other package but must not be published yet. The publish path (prepublishOnly, through scripts/prepare-publish-manifest.mjs) refuses each one before its manifest is rewritten; building, packing and installing its tarball keep working. Only a release pull request removes or changes an entry, and the release pull request that removes one also updates the README and context7.json wording that still describes that package as unreleased. A release empties \"unreleased\" and never deletes this file: a missing or malformed file refuses every publish. pnpm test:release-readiness checks this list.",
+  "unreleased": {
+    "@domternal/extension-paste-cleanup": "its first release waits for a coordinated release of the Core clipboard APIs it imports (Word for Mac in Safari, Chrome and Firefox and Google Docs on macOS in Chrome are qualified by reviewed native fixtures; Google Docs in Safari and Firefox is a later release; Word for Windows, Word on the web, LibreOffice and Collabora stay unqualified)."
+  }
+}

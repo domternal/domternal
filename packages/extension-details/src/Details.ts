@@ -11,8 +11,10 @@ import type { ViewMutationRecord } from '@domternal/pm/view';
 import { isNodeVisible } from './helpers/isNodeVisible.js';
 import { findClosestVisibleNode } from './helpers/findClosestVisibleNode.js';
 import { setGapCursor } from './helpers/setGapCursor.js';
+import { unwrapCopiedBody } from './helpers/unwrapCopiedBody.js';
 import { DetailsSummary } from './DetailsSummary.js';
 import { DetailsContent } from './DetailsContent.js';
+import { DetailsPaste } from './DetailsPaste.js';
 import { detailsMessages } from './messages.js';
 
 // Monotonic source of unique ids so each toggle button can point aria-controls
@@ -247,7 +249,8 @@ export const Details = Node.create<DetailsOptions>({
   },
 
   addExtensions() {
-    return [DetailsSummary, DetailsContent];
+    // Blocks pasted into the summary go into the content, as Enter in the summary does.
+    return [DetailsSummary, DetailsContent, DetailsPaste.configure({ persist: this.options.persist, openClassName: this.options.openClassName })];
   },
 
   addCommands() {
@@ -629,6 +632,16 @@ export const Details = Node.create<DetailsOptions>({
     const nodeType = this.nodeType;
 
     return [
+      // Blocks copied from inside a details body paste as blocks, not in a collapsed details
+      // with an empty summary that the paste rebuilt from the copy's context.
+      new Plugin({
+        props: {
+          transformPasted: (slice, view) => {
+            const summary = view.state.schema.nodes['detailsSummary'];
+            return nodeType && summary ? unwrapCopiedBody(slice, nodeType, summary) : slice;
+          },
+        },
+      }),
       // Prevent text selections within hidden content
       new Plugin({
         key: detailsSelectionPluginKey,

@@ -1,0 +1,87 @@
+.dm-paste-feedback {
+  box-sizing: border-box;
+  max-inline-size: 100%;
+  margin-block: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-inline-start: 3px solid var(--dm-accent, #2563eb);
+  border-radius: 0.375rem;
+  background: var(--dm-surface, #f8f9fa);
+  color: var(--dm-text, #1a1a1a);
+  font-family: var(--dm-editor-font-family, sans-serif);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+
+  &[hidden] { display: none; }
+
+  &__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  &__status { margin: 0; font-weight: 600; }
+  &__recovery { margin: 0.375rem 0 0; }
+  &__details { margin-block-start: 0.375rem; }
+  &__details ul { margin-block: 0.375rem; padding-inline-start: 1.25rem; }
+  &__details p { margin-block: 0.375rem 0; }
+  &__details summary { width: fit-content; cursor: pointer; }
+
+  &__dismiss {
+    flex-shrink: 0;
+    padding: 0.125rem 0.375rem;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover { background: var(--dm-hover, rgba(0, 0, 0, 0.04)); }
+  }
+
+  &__dismiss:focus-visible,
+  &__details summary:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 2px;
+  }
+}
+
+// The notice follows the whole document, so in a long one it would sit far below a paste
+// near the top. On a screen tall enough to spare the room, sticky keeps it at the bottom of
+// the visible part of the editor, in the page or an outer scroller, and it settles after the
+// last line when the end of the document is in view. Its place in the DOM, the focus order
+// and the live region stay as they are. While stuck it covers the lines behind it, and
+// PasteCleanup moves a selection line that the keyboard or typing brings there above it. In
+// a shorter viewport, such as a zoomed or reflowed page, the notice would cover most of the
+// view, so it stays after the document there.
+@media screen and (min-height: 30rem) {
+  .dm-paste-feedback {
+    position: sticky;
+    inset-block-end: 0.5rem;
+    // Above content and table controls, below the block handle and floating menus.
+    z-index: 20;
+  }
+
+  // The view's mount wrapper clips with `overflow: hidden`, which also makes it a scroll
+  // container, and a sticky notice would stick inside it rather than in the page. While a
+  // notice shows, the wrapper clips with `clip`, which is no scroll container. The selector
+  // has the specificity of the theme's own wrapper rule, so an application rule that
+  // overrides that one, such as a wrapper made to scroll, overrides this one too. Engines
+  // without `clip` keep `hidden` and the notice after the document.
+  .dm-editor > div:has(> .ProseMirror):where(:has(> .dm-paste-feedback:not([hidden]))) {
+    overflow: clip;
+  }
+
+  // `flow-root` keeps the formatting context `hidden` gave the wrapper, so floats and
+  // margins lay out as before. Without specificity, any display the application sets wins.
+  :where(.dm-editor > div:has(> .ProseMirror):has(> .dm-paste-feedback:not([hidden]))) {
+    display: flow-root;
+  }
+}
+
+@media print {
+  .dm-paste-feedback { display: none; }
+}

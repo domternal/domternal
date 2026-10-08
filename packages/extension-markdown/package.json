@@ -53,6 +53,7 @@
     "@domternal/extension-mention": "workspace:*",
     "@domternal/extension-table": "workspace:*",
     "@domternal/pm": "workspace:*",
+    "@domternal/tests-clipboard-slices": "workspace:*",
     "@types/markdown-it": "^14.1.2",
     "jsdom": "^28.1.0",
     "tsup": "^8.5.1",

@@ -31,13 +31,16 @@
  * Nothing is hardcoded here, so the day one of them gains a `require`
  * condition this check asks for it without anyone remembering to.
  *
- * ## Why subpath exports are out of scope
+ * ## Why subpath exports do not expand the root coverage obligation
  *
- * `@domternal/pm` is the only package that publishes subpaths and no root
- * entry, and its `.d.cts` files arrive in this pass anyway: core and
+ * `@domternal/pm` publishes subpaths and no root entry. Its `.d.cts` files
+ * arrive in this pass anyway: core and
  * extension-table import them from their own `.d.cts` files, and with
- * `skipLibCheck` off tsc checks everything it loads. Listing the subpaths
- * would add names to the fixture that the compiler already reads.
+ * `skipLibCheck` off tsc checks everything it loads. Official locale subpaths
+ * have their own isolated consumer checks. Helpers such as paste-cleanup/html
+ * can also be exercised explicitly in this fixture. The stale-import check
+ * recognizes every concrete published require subpath without requiring all
+ * those separate declaration checks to be duplicated here.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -63,12 +66,23 @@ export function typesTarget(entry) {
  * and the development-time one carries source conditions a consumer never sees.
  */
 export function rootRequireEntry(manifest) {
+  return publishedRequireEntries(manifest).find((entry) => entry.specifier === manifest.name) ?? null;
+}
+
+/** Every concrete published require specifier, including helpers and locales. */
+export function publishedRequireEntries(manifest) {
   const exportsMap = manifest.publishConfig?.exports ?? manifest.exports;
-  if (exportsMap === null || typeof exportsMap !== 'object') return null;
-  const root = exportsMap['.'];
-  if (root === null || typeof root !== 'object') return null;
-  if (!('require' in root)) return null;
-  return { specifier: manifest.name, types: typesTarget(root.require) };
+  if (exportsMap === null || typeof exportsMap !== 'object') return [];
+  const entries = [];
+  for (const [subpath, entry] of Object.entries(exportsMap)) {
+    if (subpath !== '.' && (!subpath.startsWith('./') || subpath.includes('*'))) continue;
+    if (entry === null || typeof entry !== 'object' || !('require' in entry)) continue;
+    entries.push({
+      specifier: manifest.name + (subpath === '.' ? '' : subpath.slice(1)),
+      types: typesTarget(entry.require),
+    });
+  }
+  return entries;
 }
 
 /**
@@ -101,7 +115,7 @@ export function collectRequiredSpecifiers(source) {
  * a line in `tests/consumer-types/package.json`, which is not this file's to
  * write, so the check names it and says what to add.
  */
-export function audit({ shipping, dependencies, required }) {
+export function audit({ shipping, dependencies, required, published = shipping }) {
   const missing = [];
   const unreachable = [];
   for (const { specifier } of shipping) {
@@ -111,18 +125,20 @@ export function audit({ shipping, dependencies, required }) {
     }
     if (!required.has(specifier)) missing.push(specifier);
   }
-  const shippingNames = new Set(shipping.map((entry) => entry.specifier));
-  const stale = [...required].filter((specifier) => !shippingNames.has(specifier));
+  const publishedNames = new Set(published.map((entry) => entry.specifier));
+  const stale = [...required].filter((specifier) => !publishedNames.has(specifier));
   return { missing: missing.sort(), unreachable: unreachable.sort(), stale: stale.sort() };
 }
 
 function main() {
   const packagesDir = join(repoRoot, 'packages');
   const shipping = [];
+  const published = [];
   for (const name of readdirSync(packagesDir).sort()) {
     const manifestPath = join(packagesDir, name, 'package.json');
     if (!existsSync(manifestPath)) continue;
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    published.push(...publishedRequireEntries(manifest));
     const entry = rootRequireEntry(manifest);
     if (entry === null) continue;
     /* Loud, like coverage-check.mjs: a declaration target that is not there
@@ -146,7 +162,7 @@ function main() {
     readFileSync(join(here, 'consumer-cjs.cts'), 'utf8')
   );
 
-  const { missing, unreachable, stale } = audit({ shipping, dependencies, required });
+  const { missing, unreachable, stale } = audit({ shipping, dependencies, required, published });
 
   if (missing.length > 0) {
     console.error('[cjs-coverage] FAILED: packages ship a CommonJS entry that nothing type-checks:');

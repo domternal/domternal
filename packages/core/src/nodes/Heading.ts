@@ -12,6 +12,11 @@ import { Node } from '../Node.js';
 import { textblockTypeInputRule } from '../helpers/textblockTypeInputRule.js';
 import { keymap } from '@domternal/pm/keymap';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
+import {
+  configuredHeadingLevels, headingCannotStand, headingLevelAttribute, resolveHeadingLevel, unconfiguredTagPriority,
+} from '../utils/headingLevel.js';
+import { pastedAttributesPlugin } from '../utils/pastedAttributes.js';
+import { extensionSchema } from '../utils/extensionSchema.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
@@ -24,6 +29,11 @@ declare module '@domternal/core' {
 }
 
 export interface HeadingOptions {
+  /**
+   * The heading levels this editor offers: a non-empty list of whole numbers
+   * from 1 to 6. The first one is the default level. A repeated level counts
+   * once, at its first position.
+   */
   levels: number[];
   HTMLAttributes: Record<string, unknown>;
 }
@@ -42,12 +52,15 @@ export const Heading = Node.create<HeadingOptions>({
   },
 
   addAttributes() {
+    // Checked while the schema is built, so a misconfiguration fails the editor or SSR helper.
+    const levels = configuredHeadingLevels(this.options.levels);
     return {
       level: {
-        default: 1,
+        ...headingLevelAttribute(levels),
+        // Every heading tag parses at the level it renders at, as JSON content loads it.
         parseHTML: (element: HTMLElement) => {
-          const match = /^H(\d)$/i.exec(element.tagName);
-          return match?.[1] ? parseInt(match[1], 10) : 1;
+          const match = /^H([1-6])$/i.exec(element.tagName);
+          return match?.[1] ? resolveHeadingLevel(parseInt(match[1], 10), levels) : levels[0];
         },
         renderHTML: () => {
           // Level is used in the tag name, not as an attribute
@@ -59,17 +72,40 @@ export const Heading = Node.create<HeadingOptions>({
 
   parseHTML() {
     // `this` is properly typed via ThisType<NodeContext<HeadingOptions>>
-    return this.options.levels.map((level) => ({
-      tag: `h${String(level)}`,
-      attrs: { level },
-    }));
+    // Every heading tag parses as a heading at the nearest configured level, as
+    // JSON content loads it, instead of as a paragraph. A tag the levels lack
+    // ranks below every rule at priority 1 or above, so an application node that
+    // parses it wins, and among nodes built from Heading the one whose levels
+    // hold the nearest level wins. Where a heading cannot stand, every heading
+    // tag, a configured one too, parses as that block's text instead of moving
+    // out of its list item, summary or preformatted block, which would split the
+    // list or empty the summary.
+    const levels = configuredHeadingLevels(this.options.levels);
+    const unconfigured = [1, 2, 3, 4, 5, 6].filter((level) => !levels.includes(level));
+    // The schema is read at parse time: whether a list item, summary or code block can hold the
+    // heading depends on the nodes it holds.
+    const extension = this as object;
+    const name = this.name;
+    const standing = (element: HTMLElement): Record<string, never> | null => {
+      const schema = extensionSchema(extension);
+      const heading = schema?.nodes[name];
+      return headingCannotStand(element, schema && heading ? { schema, heading } : undefined) ? null : {};
+    };
+    return [
+      ...levels.map((level) => ({ tag: `h${String(level)}`, getAttrs: standing })),
+      ...unconfigured.map((level) => ({
+        tag: `h${String(level)}`,
+        priority: unconfiguredTagPriority(level, levels),
+        getAttrs: standing,
+      })),
+    ];
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const level = node.attrs['level'] as number;
-    // Ensure level is within allowed range
-    const validLevel = this.options.levels.includes(level) ? level : (this.options.levels[0] ?? 1);
-    return [`h${String(validLevel)}`, { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
+    // A stored level the configuration lacks, for example from a client with
+    // more levels, renders at the nearest configured level; the document keeps it.
+    const level = resolveHeadingLevel(node.attrs['level'], configuredHeadingLevels(this.options.levels));
+    return [`h${String(level)}`, { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
   addCommands() {
@@ -78,8 +114,9 @@ export const Heading = Node.create<HeadingOptions>({
       setHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
-          const level = attributes?.level ?? options.levels[0] ?? 1;
-          if (!options.levels.includes(level)) {
+          const levels = configuredHeadingLevels(options.levels);
+          const level = attributes?.level ?? levels[0] ?? 1;
+          if (!levels.includes(level)) {
             return false;
           }
           return commands.setBlockType(name, { level });
@@ -87,8 +124,9 @@ export const Heading = Node.create<HeadingOptions>({
       toggleHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
-          const level = attributes?.level ?? options.levels[0] ?? 1;
-          if (!options.levels.includes(level)) {
+          const levels = configuredHeadingLevels(options.levels);
+          const level = attributes?.level ?? levels[0] ?? 1;
+          if (!levels.includes(level)) {
             return false;
           }
           return commands.toggleBlockType(name, 'paragraph', { level });
@@ -100,7 +138,7 @@ export const Heading = Node.create<HeadingOptions>({
     const shortcuts: Record<string, () => boolean> = {};
     const { options, editor } = this;
 
-    options.levels.forEach((level) => {
+    configuredHeadingLevels(options.levels).forEach((level) => {
       shortcuts[`Mod-Alt-${String(level)}`] = () => {
         return editor?.commands['toggleHeading']?.({ level }) ?? false;
       };
@@ -177,7 +215,7 @@ export const Heading = Node.create<HeadingOptions>({
       4: 'textHFour',
     };
 
-    const headingItems: ToolbarButton[] = this.options.levels
+    const headingItems: ToolbarButton[] = configuredHeadingLevels(this.options.levels)
       .filter((level) => level <= 4)
       .map((level) => ({
         type: 'button' as const,
@@ -227,7 +265,7 @@ export const Heading = Node.create<HeadingOptions>({
       3: localizedDescription(this.editor?.i18n, coreMessages.headingSmallDescription),
     };
     // Only levels 1-3 in the quick-insert menu; deeper levels stay toolbar-only.
-    return this.options.levels
+    return configuredHeadingLevels(this.options.levels)
       .filter((level) => level <= 3)
       .map((level): FloatingMenuItem => ({
         name: `heading-${String(level)}`,
@@ -253,13 +291,15 @@ export const Heading = Node.create<HeadingOptions>({
     // where Alt produces special characters on macOS, preventing the
     // regular keymap from matching.
     const codeToLevel: Record<string, number> = {};
-    for (const level of options.levels) {
+    for (const level of configuredHeadingLevels(options.levels)) {
       codeToLevel[`Digit${String(level)}`] = level;
     }
     // Also handle Mod-Alt-0 for setParagraph
     codeToLevel['Digit0'] = 0;
 
     return [
+      // Keeps levels that are not heading levels out of pasted slice context.
+      pastedAttributesPlugin('unsupported-heading-level'),
       new Plugin({
         key: new PluginKey('headingKeydownFix'),
         props: {
@@ -313,7 +353,8 @@ export const Heading = Node.create<HeadingOptions>({
       return [];
     }
 
-    const maxLevel = Math.max(...options.levels);
+    const levels = configuredHeadingLevels(options.levels);
+    const maxLevel = Math.max(...levels);
     return [
       textblockTypeInputRule({
         find: new RegExp(`^(#{1,${String(maxLevel)}})\\s$`),
@@ -325,7 +366,7 @@ export const Heading = Node.create<HeadingOptions>({
           }
           const level = hashes.length;
           // Only convert if this level is enabled
-          if (!options.levels.includes(level)) {
+          if (!levels.includes(level)) {
             return null;
           }
           return { level };

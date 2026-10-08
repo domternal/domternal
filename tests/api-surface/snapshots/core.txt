@@ -4,6 +4,7 @@ AnyExtension
 AnyExtensionConfig
 applyInlineStyles
 assertSingleProseMirrorCopy
+AttributeNormalizer @experimental
 AttributeSpec
 AttributeSpecs
 autolinkPlugin
@@ -46,6 +47,7 @@ CharacterCount
 CharacterCountOptions
 characterCountPluginKey
 CharacterCountStorage
+checkUrl
 clearContent
 ClearContentOptions
 ClearFormatting
@@ -64,6 +66,8 @@ CommandPropsEditor
 CommandSpec
 CompleteMessages
 Content
+ContentDiagnostic
+ContentDiagnosticProps
 ContentErrorProps
 copyThemeClass
 coreMessages
@@ -187,6 +191,8 @@ isInsideListItem
 isInsideTableCell
 isNodeEmpty
 IsNodeEmptyOptions
+isSafeCssValue
+isSupportedAttributeValue @experimental
 isValidUrl
 IsValidUrlOptions
 Italic
@@ -214,6 +220,7 @@ linkPastePluginKey
 LinkPastePluginOptions
 LinkPopover
 LinkPopoverOptions
+LinkProtocolOptions
 LIST_ITEM_TYPE_NAMES
 ListIndent
 ListItem
@@ -246,6 +253,10 @@ NodeInputRuleOptions
 NodeParseRule
 NodeRenderHTMLProps
 NodeViewContext
+normalizeContent
+normalizeContentAttributes
+NormalizeContentAttributesOptions
+NormalizeContentOptions
 NotionColorPicker
 NotionColorPickerOptions
 NotionColorPickerStorage
@@ -255,6 +266,7 @@ OrderedListOptions
 outdentBlockFromListItem
 Paragraph
 ParagraphOptions
+pastedAttributesPlugin @experimental
 PickerLabel
 Placeholder
 PlaceholderOptions
@@ -270,8 +282,10 @@ ProseMirrorCopyConflict
 Range
 RawCommands
 refocusEditorAfterCommand
+registerAttributeNormalizer @experimental
 registerProseMirrorCopy
 resetAttributes
+resolveAttributeValue @experimental
 resolveBubbleMenuItems
 ResolveBubbleMenuItemsOptions
 resolveBubbleNames
@@ -310,6 +324,10 @@ Subscript
 SubscriptOptions
 Superscript
 SuperscriptOptions
+surfaceTone @experimental
+SurfaceTone @experimental
+surfaceToneAttributes @experimental
+SurfaceToneAttributes @experimental
 TaskItem
 TaskItemOptions
 TaskList
@@ -351,6 +369,8 @@ uniqueIDPluginKey
 unsetAllMarks
 unsetMark
 updateAttributes
+UrlCheck
+UrlPolicyOptions
 VERSION
 warnOnDuplicateProseMirrorCopy
 wrapIn

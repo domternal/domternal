@@ -3,10 +3,13 @@
  *
  * Handles pasting URLs:
  * - If text is selected: wraps selection in a link
+ * - If the selection holds nothing a link marks, such as a selected image: replaces it with the URL
  * - If no selection: inserts URL as clickable link text
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
-import type { MarkType } from '@domternal/pm/model';
+import type { Mark, MarkType, Node as PMNode } from '@domternal/pm/model';
+import { checkUrl } from '../../helpers/checkUrl.js';
+import { pasteClipboardImageFiles } from '../../helpers/clipboardImageFiles.js';
 
 /**
  * Options for the link paste plugin
@@ -18,16 +21,28 @@ export interface LinkPastePluginOptions {
   type: MarkType;
 
   /**
-   * Allowed URL protocols
+   * Allowed URL protocols. The URL policy also refuses credentials in web,
+   * mail and phone addresses and hidden characters, whatever this lists.
    * @default ['http:', 'https:']
    */
-  protocols?: string[];
+  protocols?: readonly string[];
 
   /**
-   * Custom URL validation function
+   * Custom URL validation function, called only for an address the URL policy allows.
    * Return false to prevent linking specific URLs
    */
   validate?: (url: string) => boolean;
+}
+
+/** Whether the range holds inline content that the link marks or can mark. */
+function marksSomething(doc: PMNode, from: number, to: number, link: Mark): boolean {
+  let found = false;
+  doc.nodesBetween(from, to, (node, _pos, parent) => {
+    if (!found && node.isInline && parent?.type.allowsMarkType(link.type) === true
+      && (link.isInSet(node.marks) || link.addToSet(node.marks) !== node.marks)) found = true;
+    return !found;
+  });
+  return found;
 }
 
 /**
@@ -52,23 +67,23 @@ export function linkPastePlugin(options: LinkPastePluginOptions): Plugin {
     key: linkPastePluginKey,
 
     props: {
-      handlePaste(view, event) {
-        // Get pasted text
-        const text = event.clipboardData?.getData('text/plain').trim();
-        if (!text) return false;
+      handlePaste(view, event, slice) {
+        // Get pasted text: one line only, since a browser would remove the
+        // line breaks inside an address and link something else than it shows.
+        const pasted = event.clipboardData?.getData('text/plain').trim();
+        if (!pasted || /[\t\n\r]/.test(pasted)) return false;
 
-        // Check if pasted text is a URL
-        let url: URL;
-        try {
-          url = new URL(text);
-        } catch {
-          return false; // Not a URL, let default paste handling continue
-        }
-
-        // Validate protocol
-        if (!protocols.includes(url.protocol)) {
+        // Only an absolute address the URL policy allows is a link paste;
+        // anything else continues as a default paste.
+        const check = checkUrl(pasted, { protocols });
+        if (check.status !== 'allowed') {
           return false;
         }
+        const text = check.url;
+
+        // An image-only paste whose text is the image's address, as a browser's
+        // Copy image writes it, inserts the image file instead of a link.
+        if (pasteClipboardImageFiles(view, event, slice)) return true;
 
         // Custom validation
         if (validate && !validate(text)) {
@@ -84,11 +99,16 @@ export function linkPastePlugin(options: LinkPastePluginOptions): Plugin {
           tr.insertText(text, from, to);
           tr.addMark(from, from + text.length, type.create({ href: text }));
         } else {
-          // Has selection - wrap selection in link
-          tr.addMark(from, to, type.create({ href: text }));
+          // A selection gets the link, and text the link already marks keeps its words.
+          // A selection nothing in which takes the link, such as a selected image or text in a code
+          // block, gets the address in its place, as a pasted text replaces it. A place that takes no
+          // link, such as a code block, gets it as plain text.
+          const link = type.create({ href: text });
+          if (marksSomething(state.doc, from, to, link)) tr.addMark(from, to, link);
+          else tr.replaceSelectionWith(type.schema.text(text, [link]), false);
         }
 
-        dispatch(tr);
+        dispatch(tr.setMeta('paste', true).setMeta('uiEvent', 'paste'));
         return true;
       },
     },

@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-image-partial-selection-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "0cbf5fc50e0a8738e25317084d758c7ccad57e9d05b470d065e16d25cc7d6838"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "fb2d7f49756464506c25cccbcf907e25f15b4f78e0fcf69c996628cff60b20f6"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-image-partial-selection",
+    "partial": {
+      "first": "after the picture.",
+      "last": "GI08 The same picture"
+    },
+    "blocks": [
+      {
+        "id": "GI04",
+        "type": "paragraph",
+        "docs": "Enter after the image, Normal text",
+        "text": "GI04 Text after the picture.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI05",
+        "type": "image",
+        "src": "data",
+        "width": 200,
+        "height": 200,
+        "file": "gdocs-v1-green-200x200.png",
+        "alt": "GI05 Green square",
+        "docs": "Image in a paragraph of its own, alt text as given",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI06",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GI06 Between two pictures of the same size.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI07",
+        "type": "image",
+        "src": "data",
+        "width": 200,
+        "height": 200,
+        "file": "gdocs-v1-orange-200x200.png",
+        "alt": "GI07 Orange square",
+        "docs": "Image in a paragraph of its own, same size as GI05, alt text as given",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI08",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GI08 The same picture again.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "f985698b856bb867bba20c96603f9d59cb131b1f9c7472425f468cd3070a6b73",
+    "captureSha256": "197e2f39fc34766d1b178e9ddbb80ddd79ac339e457ac5963938c727f7e38c51",
+    "manifestSha256": "0f5d9aad09a4d9a94f68e526db1f747110951607c3f21ac19478aa9d91cdea63"
+  }
+}

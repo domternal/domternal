@@ -10,7 +10,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { audit, collectRequiredSpecifiers, rootRequireEntry, typesTarget } from './cjs-coverage-check.mjs';
+import { audit, collectRequiredSpecifiers, publishedRequireEntries, rootRequireEntry, typesTarget } from './cjs-coverage-check.mjs';
 
 test('the types target of a condition is read directly', () => {
   assert.equal(typesTarget({ types: './dist/index.d.cts', default: './dist/index.cjs' }), './dist/index.d.cts');
@@ -81,6 +81,40 @@ test('publishConfig.exports wins over the development-time map', () => {
     },
   });
   assert.deepEqual(entry, { specifier: '@domternal/core', types: './dist/index.d.cts' });
+});
+
+test('published require discovery includes helper and official locale subpaths', () => {
+  const manifest = {
+    name: '@domternal/example',
+    exports: {
+      '.': { require: { types: './dist/index.d.cts' } },
+      './html': { require: { types: './dist/html/index.d.cts' } },
+      './locales/de': { require: { types: './dist/locales/de.d.cts' } },
+      './esm-only': { import: { types: './dist/esm-only.d.ts' } },
+    },
+  };
+  assert.deepEqual(publishedRequireEntries(manifest), [
+    { specifier: '@domternal/example', types: './dist/index.d.cts' },
+    { specifier: '@domternal/example/html', types: './dist/html/index.d.cts' },
+    { specifier: '@domternal/example/locales/de', types: './dist/locales/de.d.cts' },
+  ]);
+});
+
+test('published subpath discovery follows publishConfig and handles subpath-only packages', () => {
+  assert.deepEqual(publishedRequireEntries({
+    name: '@domternal/pm',
+    exports: { './development-only': { require: { types: './src/development.d.cts' } } },
+    publishConfig: {
+      exports: { './model': { require: { types: './src/model.d.cts' } } },
+    },
+  }), [{ specifier: '@domternal/pm/model', types: './src/model.d.cts' }]);
+});
+
+test('blocked subpaths and wildcard patterns are not concrete require entries', () => {
+  assert.deepEqual(publishedRequireEntries({
+    name: '@domternal/example',
+    exports: { './private': null, './*': { require: { types: './dist/*.d.cts' } } },
+  }), []);
 });
 
 test('the require form in the fixture is collected', () => {
@@ -156,6 +190,44 @@ test('a fully imported set is clean', () => {
     shipping: [{ specifier: '@domternal/core' }],
     dependencies: new Set(['@domternal/core']),
     required: new Set(['@domternal/core']),
+  });
+  assert.deepEqual(result, { missing: [], unreachable: [], stale: [] });
+});
+
+test('published helper and locale subpaths are not stale imports', () => {
+  const result = audit({
+    shipping: [{ specifier: '@domternal/example' }],
+    published: [
+      { specifier: '@domternal/example' },
+      { specifier: '@domternal/example/html' },
+      { specifier: '@domternal/example/locales/de' },
+    ],
+    dependencies: new Set(['@domternal/example']),
+    required: new Set([
+      '@domternal/example', '@domternal/example/html', '@domternal/example/locales/de',
+    ]),
+  });
+  assert.deepEqual(result, { missing: [], unreachable: [], stale: [] });
+});
+
+test('a published subpath does not replace the required root import', () => {
+  const result = audit({
+    shipping: [{ specifier: '@domternal/example' }],
+    published: [{ specifier: '@domternal/example' }, { specifier: '@domternal/example/html' }],
+    dependencies: new Set(['@domternal/example']),
+    required: new Set(['@domternal/example/html', '@domternal/example/missing']),
+  });
+  assert.deepEqual(result, {
+    missing: ['@domternal/example'], unreachable: [], stale: ['@domternal/example/missing'],
+  });
+});
+
+test('unimported subpaths remain outside the root coverage obligation', () => {
+  const result = audit({
+    shipping: [{ specifier: '@domternal/example' }],
+    published: [{ specifier: '@domternal/example' }, { specifier: '@domternal/example/locales/de' }],
+    dependencies: new Set(['@domternal/example']),
+    required: new Set(['@domternal/example']),
   });
   assert.deepEqual(result, { missing: [], unreachable: [], stale: [] });
 });

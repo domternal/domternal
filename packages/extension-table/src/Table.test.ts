@@ -289,6 +289,22 @@ describe('TableCell', () => {
       const value = attrs?.['colspan']?.parseHTML?.(el);
       expect(value).toBe(1);
     });
+
+    it.each([
+      ['3', 3], [' 2 ', 2], ['+4', 4], ['3.5', 3], ['2px', 2], ['1e3', 1], ['1000', 1000], ['1001', 1000],
+      ['100000000', 1000], ['9'.repeat(400), 1000], ['0', 1], ['-3', 1], ['abc', 1], ['', 1],
+    ])('reads a span of %j as a browser does, up to 1,000 cells: %j', (written, expected) => {
+      const attrs = TableCell.config.addAttributes?.call(TableCell);
+      const el = document.createElement('td');
+      el.setAttribute('colspan', written);
+      el.setAttribute('rowspan', written);
+      expect(attrs?.['colspan']?.parseHTML?.(el)).toBe(expected);
+      expect(attrs?.['rowspan']?.parseHTML?.(el)).toBe(expected);
+      const headerAttrs = TableHeader.config.addAttributes?.call(TableHeader);
+      const th = document.createElement('th');
+      th.setAttribute('colspan', written);
+      expect(headerAttrs?.['colspan']?.parseHTML?.(th)).toBe(expected);
+    });
   });
 
   describe('renderHTML attributes', () => {
@@ -500,6 +516,17 @@ describe('Editor Integration', () => {
       ?.content?.[0]?.content?.[0];
     expect(cell?.attrs?.colspan).toBe(2);
     expect(cell?.attrs?.rowspan).toBe(3);
+  });
+
+  it('loads a table whose written span is huge at a span of 1,000, without building a cell per written column', () => {
+    const started = performance.now();
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td colspan="100000000" rowspan="100000000"><p>Wide</p></td></tr><tr><td><p>Next</p></td></tr></table>',
+    });
+    const cell = (editor.getJSON() as AnyJson).content?.find((n: AnyJson) => n.type === 'table')?.content?.[0]?.content?.[0];
+    expect(cell?.attrs?.colspan).toBe(1000);
+    expect(performance.now() - started).toBeLessThan(10000);
   });
 
   it('parses colwidth from data-colwidth', () => {

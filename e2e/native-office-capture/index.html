@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Native Office clipboard evidence capture</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main>
+    <h1>Native Office clipboard evidence capture</h1>
+    <p>This local tool captures copied content, including source HTML, RTF, file names and file bytes. Use only a synthetic test document containing no personal or customer information.</p>
+    <p>No data is uploaded. The page renders metadata only. A complete capture does not qualify an Office source profile or prove the source application.</p>
+    <form id="metadata">
+      <label>OS version and build <input name="os" required maxlength="512" autocomplete="off"></label>
+      <label>Source application version and build <input name="application" required maxlength="512" autocomplete="off"></label>
+      <label>Browser version and build <input name="browser" required maxlength="512" autocomplete="off"></label>
+      <label>Fixture identifier <input name="fixtureId" required maxlength="512" autocomplete="off"></label>
+      <label>Source fixture SHA-256 <input name="fixtureSha256" required pattern="[a-fA-F0-9]{64}" maxlength="64" autocomplete="off"></label>
+      <label>Scenario
+        <select name="scenario" required>
+          <option value="">Choose a scenario</option>
+          <optgroup label="Images">
+            <option>mixed-one-image</option><option>mixed-two-images</option>
+            <option>repeated-image</option><option>same-name-different-images</option>
+            <option>table-images</option><option>image-only</option>
+            <option>chart-or-shape</option><option>partial-selection</option>
+            <option>missing-or-unavailable-image</option><option>google-docs-image-limit</option>
+          </optgroup>
+          <optgroup label="Word for Mac text, lists and tables (content/word-mac-v1.json)">
+            <option>word-routine-envelope</option><option>word-alignment-spacing</option>
+            <option>word-inline-formatting</option><option>word-headings-styles</option>
+            <option>word-headings-styles-b06</option><option>word-headings-styles-b08</option>
+            <option>word-indentation-loss</option><option>word-hidden-text</option>
+            <option>word-empty-paragraphs</option><option>word-default-bullets</option>
+            <option>word-default-numbering</option><option>word-numbering-start-restart-continue</option>
+            <option>word-mixed-nesting</option><option>word-list-punctuation-case</option>
+            <option>word-alpha-beyond-z</option><option>word-unsupported-list-profiles</option>
+            <option>word-list-partial-selection</option><option>word-single-list-item</option>
+            <option>word-table-text</option><option>word-large-document</option>
+            <option>domternal-own-copy</option>
+          </optgroup>
+          <optgroup label="Google Docs on macOS (content/google-docs-v1.json)">
+            <option>gdocs-headings-plain</option><option>gdocs-plain-paragraph</option>
+            <option>gdocs-croatian-text</option><option>gdocs-bold-italic-underline</option>
+            <option>gdocs-inline-formatting</option><option>gdocs-links</option>
+            <option>gdocs-alignment-spacing</option><option>gdocs-indentation-loss</option>
+            <option>gdocs-empty-paragraphs</option><option>gdocs-partial-formatted-text</option>
+            <option>gdocs-default-bullets</option><option>gdocs-default-numbering</option>
+            <option>gdocs-numbering-start-restart-continue</option><option>gdocs-mixed-nesting</option>
+            <option>gdocs-list-presets</option><option>gdocs-alpha-beyond-z</option>
+            <option>gdocs-other-list-profiles</option><option>gdocs-list-partial-selection</option>
+            <option>gdocs-single-list-item</option><option>gdocs-table-text</option>
+            <option>gdocs-merged-cells</option><option>gdocs-partial-table</option>
+            <option>gdocs-mixed-one-image</option><option>gdocs-two-images-same-size</option>
+            <option>gdocs-repeated-image</option><option>gdocs-table-images</option>
+            <option>gdocs-image-only</option><option>gdocs-image-partial-selection</option>
+            <option>gdocs-large-image</option><option>gdocs-slow-copy</option>
+            <option>gdocs-image-limit-50</option><option>gdocs-image-limit-51</option>
+            <option>gdocs-mixed-document</option><option>gdocs-large-document</option>
+          </optgroup>
+        </select>
+      </label>
+      <label>Exact copy method and selected range <textarea name="copyMethod" required maxlength="512" rows="2"></textarea></label>
+      <label class="check"><input type="checkbox" name="syntheticSourceConfirmed" required> I am copying a synthetic test document and understand that the download contains copied content.</label>
+      <button type="submit">Enable capture area</button>
+    </form>
+    <label for="capture">Paste once here using the operating system paste command</label>
+    <textarea id="capture" rows="3" disabled placeholder="Complete the metadata first. Copied content will not be inserted here."></textarea>
+    <div class="actions">
+      <button id="cancel" type="button" disabled>Cancel extraction</button>
+      <button id="download" type="button" disabled>Download capture JSON</button>
+      <button id="clear" type="button">Clear captured evidence</button>
+    </div>
+    <p id="status" role="status" aria-live="polite">No capture.</p>
+    <pre id="preview" aria-label="Capture metadata summary"></pre>
+    <p>Binary extraction has a 15 second deadline. Cancelled native reads can continue inside the browser; retries are bounded. See README.md for the exact limits and qualification procedure.</p>
+  </main>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

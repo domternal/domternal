@@ -7,10 +7,14 @@ $border: var(--dm-border-color, rgba(0, 0, 0, 0.18));
 $hover: var(--dm-hover, rgba(0, 0, 0, 0.04));
 $accent: var(--dm-accent, #2563eb);
 $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10px -2px rgba(0, 0, 0, 0.12));
+// Red mixed with the text color: darker on a light popover, lighter on a dark one, so the
+// reason keeps at least 4.5:1 contrast in both themes without a token of its own.
+$error: color-mix(in srgb, #dc2626 60%, #{$text});
 
 .dm-link-popover {
   position: fixed;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem;
@@ -45,6 +49,24 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
   &:focus {
     border-color: $accent;
   }
+
+  // A refused address keeps a visible error state after the reason has been read.
+  &[aria-invalid='true'],
+  &[aria-invalid='true']:focus {
+    border-color: $error;
+  }
+}
+
+// The refusal reason, on its own line below the field. `contain: inline-size` keeps a long
+// translation from widening the popover; the text wraps to the field's row instead.
+.dm-link-popover-error {
+  flex-basis: 100%;
+  contain: inline-size;
+  margin: 0;
+  padding: 0 0.25rem 0.125rem;
+  color: $error;
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 
 .dm-link-popover-btn {

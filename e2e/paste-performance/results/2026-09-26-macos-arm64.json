@@ -1,0 +1,2736 @@
+{
+  "kind": "domternal-paste-performance",
+  "protocol": "domternal-paste-overhead-v1",
+  "mode": "reference-machine",
+  "performanceClaim": false,
+  "nativeClipboardCaptured": false,
+  "sourceFixtures": "synthetic",
+  "referenceId": "local-macos-arm64",
+  "configuration": {
+    "id": "domternal-paste-overhead-v1",
+    "browsers": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
+    "formatting": [
+      "preserve",
+      "adapt"
+    ],
+    "rounds": 3,
+    "warmupBlocks": 20,
+    "measuredBlocks": 100,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "deviceScaleFactor": 1,
+    "blockTimeoutMs": 60000,
+    "runTimeoutMs": 2700000
+  },
+  "startedAt": "2026-09-26T17:30:17.162Z",
+  "headless": true,
+  "timing": {
+    "primary": "individual ABBA on-raw minus off-raw synchronous dispatch latency (syncMs)",
+    "control": "individual ACCA on-raw minus off-normalized synchronous dispatch latency (syncMs)",
+    "secondary": "both comparisons repeated for settledMs: dispatch through one fixed microtask continuation",
+    "includes": "syncMs includes dispatch only; settledMs additionally includes receipt and default feedback DOM updates",
+    "theme": "existing public domternal-theme.css, with layout or paint excluded unless dispatch itself forces them",
+    "separation": "one animation frame opportunity outside timing before every operation",
+    "excludes": "OS clipboard, editor construction/reset, validation, hashing, startup, next paint, asynchronous assets"
+  },
+  "machine": {
+    "os": "darwin",
+    "release": "25.5.0",
+    "arch": "arm64",
+    "cpu": "Apple M1 Max",
+    "logicalCPUs": 10,
+    "totalMemoryBytes": 68719476736,
+    "initialLoadAverage": [
+      10.984375,
+      18.01123046875,
+      27.30908203125
+    ],
+    "node": "v22.23.2",
+    "playwright": "1.58.2"
+  },
+  "repository": {
+    "commit": "f9bbee0d036f0fa52c0956b1f630db557b404a31",
+    "dirty": false,
+    "lockSha256": "46fefb3efddfb893a81f76d57887078d97fe42651885aebd3bd153ce6e27b9a7"
+  },
+  "browsers": [
+    {
+      "name": "chromium",
+      "version": "145.0.7632.6"
+    },
+    {
+      "name": "firefox",
+      "version": "146.0.1"
+    },
+    {
+      "name": "webkit",
+      "version": "26.0"
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "rich-20k",
+      "utf8Bytes": 20628,
+      "utf16Units": 20628,
+      "groups": 54,
+      "sha256": "bad91f74279fd2716f8d781d6d8b310a5eb0a30f811a9e420fefd91e460f9686",
+      "expected": {
+        "counts": {
+          "heading": 54,
+          "paragraph": 216,
+          "blockquote": 54,
+          "table": 54,
+          "tableRow": 54,
+          "tableCell": 108
+        }
+      }
+    },
+    {
+      "id": "word-20k",
+      "utf8Bytes": 20608,
+      "utf16Units": 20608,
+      "groups": 64,
+      "sha256": "a4ca1ebe8dc27871e9d6898fe755b7a9b4605e0b20ed15076d7ca3a6a2551f84",
+      "expected": {
+        "counts": {
+          "paragraph": 64
+        }
+      }
+    },
+    {
+      "id": "office-lists-20k",
+      "utf8Bytes": 20929,
+      "utf16Units": 20859,
+      "groups": 35,
+      "sha256": "bb1e0503fcd7dde5af99677efc2886a5c133f9b999eb70284f1dc0fc8821fe2f",
+      "expected": {
+        "counts": {
+          "paragraph": 140,
+          "orderedList": 70,
+          "bulletList": 35,
+          "listItem": 140
+        }
+      }
+    }
+  ],
+  "sourceHashes": {
+    "e2e/paste-performance/entry.mjs": "4c3de8a57f228e6d26e6809fb52e8f6b0fff14b3fc6d53abd8650b962ec8ce99",
+    "e2e/paste-performance/fixtures.mjs": "4d2633e24d025d69a397c745426c4ab2e15ad3e6883d4d416c2dd534e6ef9e8f",
+    "e2e/paste-performance/sampler.mjs": "dfadbf7722a7bdfaead6814c0f41c41509a465fe49bfbcf2fd9986c8f5d16c01",
+    "node_modules/.pnpm/@floating-ui+core@1.7.4/node_modules/@floating-ui/core/dist/floating-ui.core.mjs": "d94d2ed31b3a42e4fe50647aa1c7697ff416f7f5face8ff5575f06fac9e55aa8",
+    "node_modules/.pnpm/@floating-ui+dom@1.7.5/node_modules/@floating-ui/dom/dist/floating-ui.dom.mjs": "e4c64845dde188836675d7abe1a16cc9953a9231fbceece854cbebe565070457",
+    "node_modules/.pnpm/@floating-ui+utils@0.2.10/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs": "6a91556ea29f5b3c3a5ea66e59d7b258d1887704e7b1250b9d01a0c1413a9738",
+    "node_modules/.pnpm/@floating-ui+utils@0.2.10/node_modules/@floating-ui/utils/dist/floating-ui.utils.mjs": "da29fb657914a8502c54de945c22da3f3cf06fb50652b4e8f9533deddefdac69",
+    "node_modules/.pnpm/@floating-ui+utils@0.2.12/node_modules/@floating-ui/utils/dist/floating-ui.utils.mjs": "f53b3ea1eec15af77ca9def295b8f40f6d65706acfc5aaac4801ca3ca21ef7bd",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/decode-codepoint.js": "5d8ee93923d609724c69c8c356147176af5226585d4f343c87a5eec6590ebca9",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/decode.js": "8af227bae5682a686bf9e9a6547af8c388274f41cb857ff39592fe74fc848d25",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/escape.js": "50528d67b2fb87687f0658cfab58eb640ebbcd7e3bcfe8e5e2863e8293ae65b7",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/generated/decode-data-html.js": "b035b71d6969983297e39df1a06d760f2a8000a0f98444c4fe845fe1155da451",
+    "node_modules/.pnpm/entities@6.0.1/node_modules/entities/dist/esm/generated/decode-data-xml.js": "e28599f48fddd869435e44e6ae8644e70a610450d97562e33c869c056e3b129f",
+    "node_modules/.pnpm/linkifyjs@4.3.2/node_modules/linkifyjs/dist/linkify.mjs": "82cffad69cad85abcb2eaeeadd059e0681dced380f3ac48e8006fd1bde0a3cb0",
+    "node_modules/.pnpm/orderedmap@2.1.1/node_modules/orderedmap/dist/index.js": "c7cbbd34481992a8cf81dfa8951567ad5a586ab3f69511c92bedbe2241fb8969",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/doctype.js": "855d8cd764782cdc73003a9847d03ed261c5158f6a6901e563ccd4d3b92c8b16",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/error-codes.js": "b38ae5ac4f2a31ce2e1cfeca35cf7b89cc66736cd5be068cc433a3ccaca78be2",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/foreign-content.js": "129a84a9d04b6050b6896de45a70e1ee468434e19bdd6486e3aef3405d137cac",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/html.js": "e6cf93f387be70ddcd4f2bec67fbeb53161094f6306d834de461ec888a9dab76",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/token.js": "52dac9efba3a637771818d633a5cf1df30c7913d05ff23235150c88319ea035a",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/common/unicode.js": "69a0a52be895d2bcf88850beead4a098c5305c0b5669d1e8a0fe26f621ea25c6",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/index.js": "b825162aced2e79be8d68d45efb1f89ec34ed4189467195a071a0d7b694a19d4",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/parser/formatting-element-list.js": "a6e04b000b228a0bf7eba4e5462b343ec1e13dbfbe40bce913ade646bbde4461",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/parser/index.js": "23eb8e0f6b45abc36132c08f067899e0e615acbe9069762ba7780a66db78e65d",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/parser/open-element-stack.js": "fe4b609a572c9aa06fbd45ac53632b3ad565168903f4126a6f98d5a9d1f42999",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/serializer/index.js": "bb11a62d05d463bf756814d89227ea889733d3808fe7ebe27cb4f607ed85a4c7",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/tokenizer/index.js": "738969a05c4e7d3c0ce566225e742d730d248db82972a84e517828cd97bc3bb4",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/tokenizer/preprocessor.js": "12199175a31eb461dcecefa10ce2536c69ab92cdd2a1f67da3ea20b214599ac1",
+    "node_modules/.pnpm/parse5@7.3.0/node_modules/parse5/dist/tree-adapters/default.js": "14b6408b0abb1c041e645644f977db34da280239be8a59a2eb3c9e282e89b7c4",
+    "node_modules/.pnpm/prosemirror-commands@1.7.2/node_modules/prosemirror-commands/dist/index.js": "ca2ed0b9cf4a9223696f8164c75097170bfc6b4ea5d976a9118e23bf42ca9442",
+    "node_modules/.pnpm/prosemirror-dropcursor@1.8.3/node_modules/prosemirror-dropcursor/dist/index.js": "7888c7c3c8a5faba07579d41fe02ff015cb9cb37bd64921e62e41b9f88ab113c",
+    "node_modules/.pnpm/prosemirror-gapcursor@1.4.1/node_modules/prosemirror-gapcursor/dist/index.js": "83b7d6b40d61ba222126a6500bd9e388218d00ea6138624987394437ca738096",
+    "node_modules/.pnpm/prosemirror-history@1.5.0/node_modules/prosemirror-history/dist/index.js": "73059476d431736eb4addbf964ce5333306a79eef2d8528ff42a9dde7478eb09",
+    "node_modules/.pnpm/prosemirror-inputrules@1.5.1/node_modules/prosemirror-inputrules/dist/index.js": "7a139d0fc8af39393d4ace29c2f60da7f22b1f707250cdb08ba757c9909b41a6",
+    "node_modules/.pnpm/prosemirror-keymap@1.2.3/node_modules/prosemirror-keymap/dist/index.js": "1ee13745be8bedc70790226aaf0b97cb24db71770f42d9dca9bf3583fde9d031",
+    "node_modules/.pnpm/prosemirror-model@1.25.11/node_modules/prosemirror-model/dist/index.js": "17e3009cbc68bbd99a2f7cbce18ba638e6a16eca82cacd62ada13c3f99de86c8",
+    "node_modules/.pnpm/prosemirror-schema-list@1.5.1/node_modules/prosemirror-schema-list/dist/index.js": "7ccc0e35842ac1b15db66861d68bbef724b27f46c0c50d99354d5cec4f8b54fc",
+    "node_modules/.pnpm/prosemirror-state@1.4.4/node_modules/prosemirror-state/dist/index.js": "d4bd4e98520abd0bb0150436d84a3832d856aa59636ea23a59409d35929730a3",
+    "node_modules/.pnpm/prosemirror-tables@1.8.5/node_modules/prosemirror-tables/dist/index.js": "86226413762b2b8d88356f83e691a770d7b1d1c3b8de7e2de6bf25d785593cdf",
+    "node_modules/.pnpm/prosemirror-transform@1.12.0/node_modules/prosemirror-transform/dist/index.js": "aa514b22a523f5aa9730a6bcd345b9da8b55daa0ec28f5faed2a41be1d98be3b",
+    "node_modules/.pnpm/prosemirror-view@1.42.2/node_modules/prosemirror-view/dist/index.js": "9ba1587d5a67b7d7e82d26cafbfd79761abaacf8b0e01ad72c26ab743ece01e7",
+    "node_modules/.pnpm/rope-sequence@1.3.4/node_modules/rope-sequence/dist/index.js": "ffe69b2d14402b9048f5df072d1bc95515d4c7f0fdfc9b99749cf6734f2360a2",
+    "node_modules/.pnpm/w3c-keyname@2.2.8/node_modules/w3c-keyname/index.js": "b649dec4f01c7c5eb05be4641b5b698c6938231ee50b38e17a2f0f822ca3df2e",
+    "packages/core/dist/index.js": "20742b4b471b0a3748b2229eda1b0738fdc82f74e3e416f7982baa2c1d06d8db",
+    "packages/extension-block-controls/dist/index.js": "24db1ab17059ce4c5ad20f5e99bd0a697950b02308c26fe68974b3bb8c800975",
+    "packages/extension-paste-cleanup/dist/html/index.js": "2192d709ff5d3d2a65ba5a5bda04e3bdbf514719c944af4f4fbdbacbb5d9dbda",
+    "packages/extension-paste-cleanup/dist/index.js": "430a72961313973a8ed991a2fbf6abec1e6014fcae0137690d6bd226925cb3d6",
+    "packages/extension-table/dist/index.js": "185c6e30772e8f4639c2f0a632b6eb2d6f55825720eed56219d05299108edb35",
+    "packages/pm/src/commands.js": "61a03f64adcb31f88db8ab9dceb0ce4fa239e8e725edd308d6f2ca94e1de82cc",
+    "packages/pm/src/dropcursor.js": "1a464ef3384b22874e7b65018fe0fc05ee3f8adbd1c0199396c172694552e7d2",
+    "packages/pm/src/gapcursor.js": "093150714823146fe085332a615c3ed54e290f21c0f0d70b2d4df7b3476775dc",
+    "packages/pm/src/history.js": "b3ac1bcb6dae1e6307e77ab6eb70412606cbba296c86f51b856f8a4275a5433e",
+    "packages/pm/src/inputrules.js": "f41d91b2db1112fcc673a6862fe68cadcbdd0a66ed16b47ac74a0a6da8932bb4",
+    "packages/pm/src/keymap.js": "8218396f3bd9e5724bc2fb6592a1da7d2254fd1d4459f0117ef8d27084e15fd4",
+    "packages/pm/src/model.js": "478e59ac0830a0f6360236632d0d589fb0211183aa1ab82292fbca529c0cce35",
+    "packages/pm/src/schema-list.js": "1e174cdac977fd33e44469939c0a0dc32e49bae37f68e7fd6c11fdef8c3b02b0",
+    "packages/pm/src/state.js": "e689cc8cd8a102d31c9d3a7b0db0028594202093c4aca25982b425e8ae744556",
+    "packages/pm/src/tables.js": "cedbe9237d7fd9bf04a39837057c73f8645cf3ad70ff81666175cdc5862b6e2d",
+    "packages/pm/src/transform.js": "3e94295f73335c9122308a858445d2348949842579ac2bacd30728ab46fe75a7",
+    "packages/pm/src/view.js": "1b4ed9deaba72d4bc8495bf46db690dbf91040da0cb2401db10bad162732c0e2",
+    "packages/vanilla/dist/index.js": "65ea049f0d2a3e627bdbb8fc836b41d60f7c69e339e96e847ac3b3e4e13bfb7a",
+    "e2e/paste-performance/runner.mjs": "ec0610675f1d7eb4c8d80a7a17d4ac870bfbcf6b322df25019eee7f9aed9e4d8",
+    "e2e/paste-performance/README.md": "6e1c6c2a2b60564bf43d3b1e4ae9dcfb57d3693076d7a378b9f08a177d7fa602",
+    "e2e/paste-performance/fixtures.test.mjs": "297b788b37190f675fc5878676111c96656a7dee8119971863ef831ac50ac352",
+    "e2e/paste-performance/sampler.test.mjs": "39b2ce99aeb971c16af096149de66d744868ad5b80e0917d73c802d64a52b740",
+    "packages/theme/dist/domternal-theme.css": "c6fcabad273142dd9fea95403f67d264d53108de95201bb29457fe0fce437c4a"
+  },
+  "bundleSha256": "61bf8f076e2968e024b391ce3000349da7bdb06503f9b82b190ff15d1365ac6f",
+  "htmlSha256": "a4e626ab120afb02d2bfe953604564fa8ab8ca28d0fbdf2fe2490f8db7cf1c16",
+  "completed": 6534,
+  "expected": 6534,
+  "elapsedSeconds": 1408.822,
+  "complete": true,
+  "failures": [],
+  "cleanupFailures": [],
+  "artifactHashes": {
+    "report.json": {
+      "sha256": "d15c4a360699951af437997da71f85ef042c326be01bc285c045d14bf5b37df8",
+      "bytes": 175287
+    },
+    "samples.jsonl": {
+      "sha256": "94b93ad34c8fe6021ae11799fa6e08ebb49ac7873bdb479d8a7c34d17b114193",
+      "bytes": 24341032
+    }
+  },
+  "conditions": [
+    "No other agent-owned builds, tests or browser suites ran during measurement.",
+    "Lightweight source review and edits in the separate Pro repository continued.",
+    "Initial system load averages are recorded; machine idleness and thermal conditions were not independently certified.",
+    "All negative differences and outliers remain in the full local raw artifact."
+  ],
+  "cases": [
+    {
+      "browser": "chromium",
+      "fixture": "rich-20k",
+      "formatting": "preserve",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -40.5,
+              "p50": 7.000000059604645,
+              "p95": 9.699999988079071,
+              "max": 16.400000035762787
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -16.94999998807907,
+              "p50": 7.300000011920929,
+              "p95": 8.450000047683716,
+              "max": 12.000000059604645
+            },
+            "onMs": {
+              "count": 600,
+              "min": 15.900000035762787,
+              "p50": 18.599999964237213,
+              "p95": 21.30000001192093,
+              "max": 28.700000047683716
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.600000023841858,
+              "p50": 11.5,
+              "p95": 13.099999964237213,
+              "max": 59.39999997615814
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -40.39999997615814,
+              "p50": 7.099999964237213,
+              "p95": 9.699999988079071,
+              "max": 16.500000059604645
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -16.899999976158142,
+              "p50": 7.3499999940395355,
+              "p95": 8.5,
+              "max": 12.050000041723251
+            },
+            "onMs": {
+              "count": 600,
+              "min": 15.900000035762787,
+              "p50": 18.600000023841858,
+              "p95": 21.400000035762787,
+              "max": 28.80000001192093
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.600000023841858,
+              "p50": 11.599999964237213,
+              "p95": 13.100000023841858,
+              "max": 59.39999997615814
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -20,
+              "p50": 6.5,
+              "p95": 9,
+              "max": 15.699999988079071
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -6.75,
+              "p50": 6.6500000059604645,
+              "p95": 7.550000011920929,
+              "max": 11.449999958276749
+            },
+            "onMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 18.5,
+              "p95": 21.399999976158142,
+              "max": 27.799999952316284
+            },
+            "offMs": {
+              "count": 600,
+              "min": 11.100000023841858,
+              "p50": 12.199999988079071,
+              "p95": 13.699999988079071,
+              "max": 38
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -19.900000035762787,
+              "p50": 6.5,
+              "p95": 9,
+              "max": 15.800000011920929
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -6.650000035762787,
+              "p50": 6.699999988079071,
+              "p95": 7.600000023841858,
+              "max": 11.449999988079071
+            },
+            "onMs": {
+              "count": 600,
+              "min": 16,
+              "p50": 18.599999964237213,
+              "p95": 21.399999976158142,
+              "max": 27.899999976158142
+            },
+            "offMs": {
+              "count": 600,
+              "min": 11.200000047683716,
+              "p50": 12.199999988079071,
+              "p95": 13.699999988079071,
+              "max": 38
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3.699999988079071,
+          "p50": 5.800000011920929,
+          "p95": 6.5,
+          "max": 9.5
+        }
+      }
+    },
+    {
+      "browser": "chromium",
+      "fixture": "rich-20k",
+      "formatting": "adapt",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -2.300000011920929,
+              "p50": 6.600000023841858,
+              "p95": 8.800000011920929,
+              "max": 16.30000001192093
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1.2999999821186066,
+              "p50": 6.6500000059604645,
+              "p95": 7.9000000059604645,
+              "max": 14.850000023841858
+            },
+            "onMs": {
+              "count": 600,
+              "min": 14.699999988079071,
+              "p50": 18.100000023841858,
+              "p95": 20.80000001192093,
+              "max": 29
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.699999988079071,
+              "p50": 11.5,
+              "p95": 12.899999976158142,
+              "max": 21.600000023841858
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -2.300000011920929,
+              "p50": 6.600000023841858,
+              "p95": 8.800000011920929,
+              "max": 16.30000001192093
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1.2999999821186066,
+              "p50": 6.699999988079071,
+              "p95": 7.949999988079071,
+              "max": 14.900000005960464
+            },
+            "onMs": {
+              "count": 600,
+              "min": 14.800000011920929,
+              "p50": 18.19999998807907,
+              "p95": 20.899999976158142,
+              "max": 29.100000023841858
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.699999988079071,
+              "p50": 11.5,
+              "p95": 12.900000035762787,
+              "max": 21.600000023841858
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -2.199999988079071,
+              "p50": 6.799999952316284,
+              "p95": 9.100000023841858,
+              "max": 18.400000035762787
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.050000011920929,
+              "p50": 6.849999964237213,
+              "p95": 8.349999994039536,
+              "max": 13.800000011920929
+            },
+            "onMs": {
+              "count": 600,
+              "min": 15.100000023841858,
+              "p50": 18,
+              "p95": 21.099999964237213,
+              "max": 31.5
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.5,
+              "p50": 11.399999976158142,
+              "p95": 12.699999988079071,
+              "max": 19
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -2.299999952316284,
+              "p50": 6.800000011920929,
+              "p95": 9.199999988079071,
+              "max": 18.5
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.0000000298023224,
+              "p50": 6.850000023841858,
+              "p95": 8.35000005364418,
+              "max": 13.849999964237213
+            },
+            "onMs": {
+              "count": 600,
+              "min": 15.199999988079071,
+              "p50": 18.099999964237213,
+              "p95": 21.099999964237213,
+              "max": 31.599999964237213
+            },
+            "offMs": {
+              "count": 600,
+              "min": 10.5,
+              "p50": 11.399999976158142,
+              "p95": 12.799999952316284,
+              "max": 19.099999964237213
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 4.199999988079071,
+          "p50": 6.299999952316284,
+          "p95": 8.100000023841858,
+          "max": 9.699999988079071
+        }
+      }
+    },
+    {
+      "browser": "chromium",
+      "fixture": "word-20k",
+      "formatting": "preserve",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -2.199999988079071,
+              "p50": 5.300000011920929,
+              "p95": 7.899999976158142,
+              "max": 17
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.0999999940395355,
+              "p50": 5.3499999940395355,
+              "p95": 7.1500000059604645,
+              "max": 12.550000011920929
+            },
+            "onMs": {
+              "count": 600,
+              "min": 7.599999964237213,
+              "p50": 8.299999952316284,
+              "p95": 11,
+              "max": 21.19999998807907
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.599999964237213,
+              "p50": 2.900000035762787,
+              "p95": 3.300000011920929,
+              "max": 11.800000011920929
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -2.199999988079071,
+              "p50": 5.300000071525574,
+              "p95": 8,
+              "max": 17.100000023841858
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.1500000059604645,
+              "p50": 5.399999976158142,
+              "p95": 7.200000017881393,
+              "max": 12.650000035762787
+            },
+            "onMs": {
+              "count": 600,
+              "min": 7.699999988079071,
+              "p50": 8.300000011920929,
+              "p95": 11.099999964237213,
+              "max": 21.30000001192093
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.599999964237213,
+              "p50": 2.900000035762787,
+              "p95": 3.300000011920929,
+              "max": 11.800000011920929
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -1.5,
+              "p50": 3.800000011920929,
+              "p95": 5.999999940395355,
+              "max": 8.700000047683716
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1.7500000298023224,
+              "p50": 3.850000023841858,
+              "p95": 5.399999976158142,
+              "max": 6.550000011920929
+            },
+            "onMs": {
+              "count": 600,
+              "min": 7.599999964237213,
+              "p50": 8.300000011920929,
+              "p95": 10.599999964237213,
+              "max": 12.900000035762787
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 4.5,
+              "p95": 5.900000035762787,
+              "max": 10.5
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -1.399999976158142,
+              "p50": 3.8000000715255737,
+              "p95": 5.999999940395355,
+              "max": 8.700000047683716
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1.8000000417232513,
+              "p50": 3.9000000059604645,
+              "p95": 5.399999976158142,
+              "max": 6.600000023841858
+            },
+            "onMs": {
+              "count": 600,
+              "min": 7.599999964237213,
+              "p50": 8.300000011920929,
+              "p95": 10.600000023841858,
+              "max": 12.900000035762787
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 4.5,
+              "p95": 5.900000035762787,
+              "max": 10.5
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.799999952316284,
+          "p50": 4.099999964237213,
+          "p95": 6.600000023841858,
+          "max": 7.199999988079071
+        }
+      }
+    },
+    {
+      "browser": "chromium",
+      "fixture": "word-20k",
+      "formatting": "adapt",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 0.6000000834465027,
+              "p50": 3.5000000596046448,
+              "p95": 5.799999952316284,
+              "max": 12.199999988079071
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.0000000298023224,
+              "p50": 3.550000011920929,
+              "p95": 5.300000011920929,
+              "max": 9
+            },
+            "onMs": {
+              "count": 600,
+              "min": 5.899999976158142,
+              "p50": 6.600000023841858,
+              "p95": 8.900000035762787,
+              "max": 16.80000001192093
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.699999988079071,
+              "p50": 3,
+              "p95": 3.5,
+              "max": 8.100000023841858
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 0.6000000834465027,
+              "p50": 3.599999964237213,
+              "p95": 5.700000047683716,
+              "max": 12.200000047683716
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.0500000417232513,
+              "p50": 3.5999999940395355,
+              "p95": 5.3499999940395355,
+              "max": 9.000000029802322
+            },
+            "onMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 6.699999988079071,
+              "p95": 9,
+              "max": 16.900000035762787
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.699999988079071,
+              "p50": 3,
+              "p95": 3.5,
+              "max": 8.100000023841858
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.300000011920929,
+              "p50": 3.5,
+              "p95": 5.499999940395355,
+              "max": 7.099999964237213
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.7499999701976776,
+              "p50": 3.5,
+              "p95": 5.199999958276749,
+              "max": 5.750000059604645
+            },
+            "onMs": {
+              "count": 600,
+              "min": 5.899999976158142,
+              "p50": 6.600000023841858,
+              "p95": 8.600000023841858,
+              "max": 11
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.699999988079071,
+              "p50": 3.099999964237213,
+              "p95": 3.5,
+              "max": 6.5
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.300000011920929,
+              "p50": 3.599999964237213,
+              "p95": 5.5,
+              "max": 7.099999964237213
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.7499999701976776,
+              "p50": 3.5499999821186066,
+              "p95": 5.199999958276749,
+              "max": 5.800000041723251
+            },
+            "onMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 6.699999988079071,
+              "p95": 8.699999988079071,
+              "max": 11.100000023841858
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.699999988079071,
+              "p50": 3.099999964237213,
+              "p95": 3.5,
+              "max": 6.5
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.799999952316284,
+          "p50": 3.800000011920929,
+          "p95": 5.699999988079071,
+          "max": 6.399999976158142
+        }
+      }
+    },
+    {
+      "browser": "chromium",
+      "fixture": "office-lists-20k",
+      "formatting": "preserve",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.800000011920929,
+              "p50": 3.5,
+              "p95": 5.100000023841858,
+              "max": 7.600000023841858
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.4000000059604645,
+              "p50": 3.5,
+              "p95": 4.649999976158142,
+              "max": 5.5999999940395355
+            },
+            "onMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 6.700000047683716,
+              "p95": 8.300000011920929,
+              "max": 10.900000035762787
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.799999952316284,
+              "p50": 3.200000047683716,
+              "p95": 3.599999964237213,
+              "max": 5
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.800000011920929,
+              "p50": 3.5,
+              "p95": 5.100000023841858,
+              "max": 7.600000023841858
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.4999999701976776,
+              "p50": 3.549999952316284,
+              "p95": 4.6500000059604645,
+              "max": 5.6500000059604645
+            },
+            "onMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 6.799999952316284,
+              "p95": 8.300000011920929,
+              "max": 10.900000035762787
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.799999952316284,
+              "p50": 3.200000047683716,
+              "p95": 3.599999964237213,
+              "max": 5
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.4000000357627869,
+              "p50": 3.199999988079071,
+              "p95": 4.100000023841858,
+              "max": 5.5
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.5499999821186066,
+              "p50": 3.2499999701976776,
+              "p95": 3.9500000178813934,
+              "max": 5.3499999940395355
+            },
+            "onMs": {
+              "count": 600,
+              "min": 5.899999976158142,
+              "p50": 6.700000047683716,
+              "p95": 7.700000047683716,
+              "max": 10.300000011920929
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.099999964237213,
+              "p50": 3.5,
+              "p95": 3.899999976158142,
+              "max": 6
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.4000000357627869,
+              "p50": 3.200000047683716,
+              "p95": 4.199999988079071,
+              "max": 5.5
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.5499999821186066,
+              "p50": 3.2499999701976776,
+              "p95": 4,
+              "max": 5.3499999940395355
+            },
+            "onMs": {
+              "count": 600,
+              "min": 5.899999976158142,
+              "p50": 6.799999952316284,
+              "p95": 7.799999952316284,
+              "max": 10.300000011920929
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3.099999964237213,
+              "p50": 3.5,
+              "p95": 3.900000035762787,
+              "max": 6
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.399999976158142,
+          "p50": 3.199999988079071,
+          "p95": 4.699999988079071,
+          "max": 7.100000023841858
+        }
+      }
+    },
+    {
+      "browser": "chromium",
+      "fixture": "office-lists-20k",
+      "formatting": "adapt",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.2000000476837158,
+              "p50": 3.199999988079071,
+              "p95": 4.599999964237213,
+              "max": 7.599999964237213
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.6499999463558197,
+              "p50": 3.199999988079071,
+              "p95": 4.449999958276749,
+              "max": 5.199999988079071
+            },
+            "onMs": {
+              "count": 600,
+              "min": 5.699999988079071,
+              "p50": 6.400000035762787,
+              "p95": 8,
+              "max": 11
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.899999976158142,
+              "p50": 3.199999988079071,
+              "p95": 3.599999964237213,
+              "max": 5.099999964237213
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.2000000476837158,
+              "p50": 3.200000047683716,
+              "p95": 4.599999964237213,
+              "max": 7.699999928474426
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.599999964237213,
+              "p50": 3.200000047683716,
+              "p95": 4.449999958276749,
+              "max": 5.249999970197678
+            },
+            "onMs": {
+              "count": 600,
+              "min": 5.699999988079071,
+              "p50": 6.400000035762787,
+              "p95": 8,
+              "max": 11.099999964237213
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.899999976158142,
+              "p50": 3.199999988079071,
+              "p95": 3.599999964237213,
+              "max": 5.099999964237213
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.600000023841858,
+              "p50": 3.100000023841858,
+              "p95": 4.500000059604645,
+              "max": 6
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.5499999821186066,
+              "p50": 3.149999976158142,
+              "p95": 4.250000029802322,
+              "max": 5.699999988079071
+            },
+            "onMs": {
+              "count": 600,
+              "min": 5.800000011920929,
+              "p50": 6.399999976158142,
+              "p95": 8.100000023841858,
+              "max": 10
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.899999976158142,
+              "p50": 3.299999952316284,
+              "p95": 3.700000047683716,
+              "max": 4.899999976158142
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1.600000023841858,
+              "p50": 3.1000000834465027,
+              "p95": 4.599999964237213,
+              "max": 6
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.550000011920929,
+              "p50": 3.1500000059604645,
+              "p95": 4.299999982118607,
+              "max": 5.75
+            },
+            "onMs": {
+              "count": 600,
+              "min": 5.800000011920929,
+              "p50": 6.400000035762787,
+              "p95": 8.100000023841858,
+              "max": 10.100000023841858
+            },
+            "offMs": {
+              "count": 600,
+              "min": 2.899999976158142,
+              "p50": 3.299999952316284,
+              "p95": 3.700000047683716,
+              "max": 4.899999976158142
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.300000011920929,
+          "p50": 3.300000011920929,
+          "p95": 4.399999976158142,
+          "max": 5.400000035762787
+        }
+      }
+    },
+    {
+      "browser": "firefox",
+      "fixture": "rich-20k",
+      "formatting": "preserve",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -6,
+              "p50": 11,
+              "p95": 20,
+              "max": 730
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1,
+              "p50": 11,
+              "p95": 18.5,
+              "max": 370
+            },
+            "onMs": {
+              "count": 600,
+              "min": 26,
+              "p50": 32,
+              "p95": 43,
+              "max": 749
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 20,
+              "p95": 28,
+              "max": 36
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -6,
+              "p50": 11,
+              "p95": 19,
+              "max": 730
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1,
+              "p50": 11,
+              "p95": 18.5,
+              "max": 370
+            },
+            "onMs": {
+              "count": 600,
+              "min": 26,
+              "p50": 32,
+              "p95": 43,
+              "max": 749
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 20,
+              "p95": 28,
+              "max": 37
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -11,
+              "p50": 10,
+              "p95": 20,
+              "max": 778
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -2,
+              "p50": 10.5,
+              "p95": 17,
+              "max": 393.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 26,
+              "p50": 32,
+              "p95": 42,
+              "max": 799
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 21,
+              "p95": 29,
+              "max": 43
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -11,
+              "p50": 10,
+              "p95": 20,
+              "max": 778
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -2,
+              "p50": 10.5,
+              "p95": 17,
+              "max": 393.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 26,
+              "p50": 32,
+              "p95": 42,
+              "max": 799
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 21,
+              "p95": 30,
+              "max": 43
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 5,
+          "p50": 7,
+          "p95": 15,
+          "max": 29
+        }
+      }
+    },
+    {
+      "browser": "firefox",
+      "fixture": "rich-20k",
+      "formatting": "adapt",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -267,
+              "p50": 9,
+              "p95": 22,
+              "max": 394
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -127.5,
+              "p50": 8.5,
+              "p95": 21,
+              "max": 200
+            },
+            "onMs": {
+              "count": 600,
+              "min": 24,
+              "p50": 30,
+              "p95": 46,
+              "max": 419
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 21,
+              "p95": 32,
+              "max": 303
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -267,
+              "p50": 9,
+              "p95": 22,
+              "max": 394
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -127.5,
+              "p50": 8.5,
+              "p95": 21.5,
+              "max": 200
+            },
+            "onMs": {
+              "count": 600,
+              "min": 24,
+              "p50": 30,
+              "p95": 46,
+              "max": 419
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 21,
+              "p95": 32,
+              "max": 303
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -21,
+              "p50": 10,
+              "p95": 22,
+              "max": 223
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -6,
+              "p50": 10,
+              "p95": 19.5,
+              "max": 110.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 24,
+              "p50": 31,
+              "p95": 43,
+              "max": 248
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 20,
+              "p95": 29,
+              "max": 55
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -21,
+              "p50": 10,
+              "p95": 22,
+              "max": 223
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -6,
+              "p50": 10,
+              "p95": 20,
+              "max": 110.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 24,
+              "p50": 31,
+              "p95": 44,
+              "max": 248
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 20,
+              "p95": 29,
+              "max": 55
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 5,
+          "p50": 7,
+          "p95": 15,
+          "max": 31
+        }
+      }
+    },
+    {
+      "browser": "firefox",
+      "fixture": "word-20k",
+      "formatting": "preserve",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -9,
+              "p50": 11,
+              "p95": 20,
+              "max": 51
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -0.5,
+              "p50": 11.5,
+              "p95": 16.5,
+              "max": 34.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13,
+              "p50": 17,
+              "p95": 26,
+              "max": 55
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 6,
+              "p95": 12,
+              "max": 24
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -9,
+              "p50": 11,
+              "p95": 20,
+              "max": 52
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -0.5,
+              "p50": 11.5,
+              "p95": 17,
+              "max": 34.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13,
+              "p50": 17,
+              "p95": 26,
+              "max": 56
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 6,
+              "p95": 12,
+              "max": 25
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -22,
+              "p50": 8,
+              "p95": 18,
+              "max": 64
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -9.5,
+              "p50": 9,
+              "p95": 15.5,
+              "max": 40
+            },
+            "onMs": {
+              "count": 600,
+              "min": 12,
+              "p50": 17,
+              "p95": 28,
+              "max": 77
+            },
+            "offMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 8,
+              "p95": 15,
+              "max": 39
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -21,
+              "p50": 8,
+              "p95": 18,
+              "max": 64
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -8.5,
+              "p50": 9,
+              "p95": 15.5,
+              "max": 40
+            },
+            "onMs": {
+              "count": 600,
+              "min": 13,
+              "p50": 17,
+              "p95": 28,
+              "max": 77
+            },
+            "offMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 8,
+              "p95": 15,
+              "max": 39
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 4,
+          "p50": 6,
+          "p95": 14,
+          "max": 60
+        }
+      }
+    },
+    {
+      "browser": "firefox",
+      "fixture": "word-20k",
+      "formatting": "adapt",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -16,
+              "p50": 6,
+              "p95": 14,
+              "max": 164
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -10,
+              "p50": 6.5,
+              "p95": 12.5,
+              "max": 87.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 12,
+              "p95": 20,
+              "max": 169
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 6,
+              "p95": 12,
+              "max": 26
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -16,
+              "p50": 6,
+              "p95": 14,
+              "max": 164
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -10,
+              "p50": 7,
+              "p95": 12.5,
+              "max": 87.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 12,
+              "p95": 20,
+              "max": 169
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 6,
+              "p95": 12,
+              "max": 26
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -30,
+              "p50": 7,
+              "p95": 14,
+              "max": 38
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -19,
+              "p50": 7.5,
+              "p95": 12.5,
+              "max": 23
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 12,
+              "p95": 20,
+              "max": 44
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 10,
+              "max": 42
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -30,
+              "p50": 7,
+              "p95": 15,
+              "max": 38
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -19,
+              "p50": 7.5,
+              "p95": 12.5,
+              "max": 23
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 12,
+              "p95": 20,
+              "max": 44
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 10,
+              "max": 42
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 4,
+          "p50": 6,
+          "p95": 13,
+          "max": 30
+        }
+      }
+    },
+    {
+      "browser": "firefox",
+      "fixture": "office-lists-20k",
+      "formatting": "preserve",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -8,
+              "p50": 8,
+              "p95": 16,
+              "max": 39
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0,
+              "p50": 8.5,
+              "p95": 14,
+              "max": 23.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 10,
+              "p50": 13,
+              "p95": 22,
+              "max": 45
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 10,
+              "max": 26
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -8,
+              "p50": 8,
+              "p95": 17,
+              "max": 39
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0,
+              "p50": 8.5,
+              "p95": 14.5,
+              "max": 23.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 10,
+              "p50": 13,
+              "p95": 22,
+              "max": 46
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 10,
+              "max": 26
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -8,
+              "p50": 6,
+              "p95": 14,
+              "max": 43
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -2,
+              "p50": 6,
+              "p95": 12,
+              "max": 33
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 12,
+              "p95": 22,
+              "max": 52
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 7,
+              "p95": 12,
+              "max": 24
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -8,
+              "p50": 6,
+              "p95": 15,
+              "max": 43
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -2,
+              "p50": 6,
+              "p95": 12,
+              "max": 33
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 13,
+              "p95": 22,
+              "max": 52
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 7,
+              "p95": 12,
+              "max": 24
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3,
+          "p50": 5,
+          "p95": 12,
+          "max": 32
+        }
+      }
+    },
+    {
+      "browser": "firefox",
+      "fixture": "office-lists-20k",
+      "formatting": "adapt",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -6,
+              "p50": 8,
+              "p95": 20,
+              "max": 103
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0.5,
+              "p50": 8,
+              "p95": 17.5,
+              "max": 57.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 14,
+              "p95": 29,
+              "max": 111
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 14,
+              "max": 39
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -6,
+              "p50": 8,
+              "p95": 20,
+              "max": 103
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0.5,
+              "p50": 8,
+              "p95": 18,
+              "max": 58
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 14,
+              "p95": 29,
+              "max": 111
+            },
+            "offMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 6,
+              "p95": 14,
+              "max": 39
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -30,
+              "p50": 6,
+              "p95": 21,
+              "max": 74
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -10,
+              "p50": 7,
+              "p95": 18,
+              "max": 38
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 13,
+              "p95": 30,
+              "max": 106
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 6,
+              "p95": 16,
+              "max": 51
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -29,
+              "p50": 7,
+              "p95": 22,
+              "max": 75
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -9.5,
+              "p50": 7,
+              "p95": 18,
+              "max": 38.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 10,
+              "p50": 14,
+              "p95": 30,
+              "max": 107
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 6,
+              "p95": 16,
+              "max": 51
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3,
+          "p50": 5,
+          "p95": 16,
+          "max": 50
+        }
+      }
+    },
+    {
+      "browser": "webkit",
+      "fixture": "rich-20k",
+      "formatting": "preserve",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -7,
+              "p50": 6,
+              "p95": 9.000000000003638,
+              "max": 29.000000000003638
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0.5,
+              "p50": 6,
+              "p95": 8.500000000001819,
+              "max": 17.50000000000182
+            },
+            "onMs": {
+              "count": 600,
+              "min": 23,
+              "p50": 26.999999999996362,
+              "p95": 30,
+              "max": 52.00000000000364
+            },
+            "offMs": {
+              "count": 600,
+              "min": 16.999999999992724,
+              "p50": 20.999999999992724,
+              "p95": 23,
+              "max": 33
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -7,
+              "p50": 6,
+              "p95": 9.000000000003638,
+              "max": 29.000000000003638
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0.5,
+              "p50": 6.000000000001819,
+              "p95": 8.500000000001819,
+              "max": 17.50000000000182
+            },
+            "onMs": {
+              "count": 600,
+              "min": 23,
+              "p50": 26.99999999999818,
+              "p95": 30,
+              "max": 52.00000000000364
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 20.999999999996362,
+              "p95": 23,
+              "max": 33
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -3,
+              "p50": 5,
+              "p95": 8,
+              "max": 15
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0.999999999996362,
+              "p50": 4.9999999999990905,
+              "p95": 7.0000000000009095,
+              "max": 10.500000000003638
+            },
+            "onMs": {
+              "count": 600,
+              "min": 22.999999999992724,
+              "p50": 26.000000000003638,
+              "p95": 30,
+              "max": 36
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 21.999999999996362,
+              "p95": 24.000000000003638,
+              "max": 32.999999999992724
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -3,
+              "p50": 5,
+              "p95": 8,
+              "max": 16
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1,
+              "p50": 5,
+              "p95": 7.0000000000009095,
+              "max": 11
+            },
+            "onMs": {
+              "count": 600,
+              "min": 22.999999999992724,
+              "p50": 26.999999999992724,
+              "p95": 30,
+              "max": 37
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 21.99999999999818,
+              "p95": 24.000000000007276,
+              "max": 32.999999999992724
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3,
+          "p50": 4,
+          "p95": 5,
+          "max": 5.000000000007276
+        }
+      }
+    },
+    {
+      "browser": "webkit",
+      "fixture": "rich-20k",
+      "formatting": "adapt",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -5,
+              "p50": 4,
+              "p95": 6.000000000014552,
+              "max": 11
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -1.000000000003638,
+              "p50": 3.999999999998181,
+              "p95": 5.5,
+              "max": 8.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 21.999999999992724,
+              "p50": 24,
+              "p95": 26.000000000007276,
+              "max": 31
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 20,
+              "p95": 22,
+              "max": 28.000000000007276
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -5,
+              "p50": 4,
+              "p95": 6.000000000014552,
+              "max": 11
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -1.000000000003638,
+              "p50": 3.9999999999990905,
+              "p95": 5.5,
+              "max": 8.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 21.999999999992724,
+              "p50": 24,
+              "p95": 26.999999999992724,
+              "max": 31
+            },
+            "offMs": {
+              "count": 600,
+              "min": 18,
+              "p50": 20,
+              "p95": 22,
+              "max": 28.000000000007276
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -3,
+              "p50": 4.000000000003638,
+              "p95": 7,
+              "max": 11.000000000001819
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0.500000000003638,
+              "p50": 4.499999999998181,
+              "p95": 6.000000000001819,
+              "max": 8.50000000000091
+            },
+            "onMs": {
+              "count": 600,
+              "min": 21,
+              "p50": 24,
+              "p95": 26.000000000003638,
+              "max": 30
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 19,
+              "p95": 22,
+              "max": 26
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -3,
+              "p50": 4.000000000007276,
+              "p95": 7,
+              "max": 11.000000000001819
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 0.500000000003638,
+              "p50": 4.5,
+              "p95": 6.499999999998181,
+              "max": 8.50000000000091
+            },
+            "onMs": {
+              "count": 600,
+              "min": 21,
+              "p50": 24,
+              "p95": 27,
+              "max": 30
+            },
+            "offMs": {
+              "count": 600,
+              "min": 17,
+              "p50": 19.00000000000182,
+              "p95": 22,
+              "max": 26
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 3,
+          "p50": 4,
+          "p95": 5,
+          "max": 7.999999999996362
+        }
+      }
+    },
+    {
+      "browser": "webkit",
+      "fixture": "word-20k",
+      "formatting": "preserve",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -2,
+              "p50": 7,
+              "p95": 9,
+              "max": 18
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2,
+              "p50": 6.9999999999972715,
+              "p95": 9,
+              "max": 12.500000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 10.999999999996362,
+              "p50": 12,
+              "p95": 15,
+              "max": 22
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 5.000000000003638,
+              "p95": 7,
+              "max": 14.999999999996362
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -2,
+              "p50": 7,
+              "p95": 9,
+              "max": 18
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2,
+              "p50": 6.9999999999990905,
+              "p95": 9,
+              "max": 12.500000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 10.999999999996362,
+              "p50": 12,
+              "p95": 15,
+              "max": 22
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 5.000000000003638,
+              "p95": 7,
+              "max": 14.999999999996362
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -8,
+              "p50": 4.999999999998181,
+              "p95": 6.999999999996362,
+              "max": 17.999999999996362
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -3.5,
+              "p50": 4.5,
+              "p95": 6.000000000001819,
+              "max": 10.999999999996362
+            },
+            "onMs": {
+              "count": 600,
+              "min": 10.999999999996362,
+              "p50": 12,
+              "p95": 15,
+              "max": 25.999999999996362
+            },
+            "offMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 8,
+              "p95": 9.000000000003638,
+              "max": 22
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -8,
+              "p50": 5,
+              "p95": 6.999999999998181,
+              "max": 17.999999999996362
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": -3.5,
+              "p50": 4.500000000000455,
+              "p95": 6.5,
+              "max": 10.999999999996362
+            },
+            "onMs": {
+              "count": 600,
+              "min": 10.999999999996362,
+              "p50": 12,
+              "p95": 15,
+              "max": 25.999999999996362
+            },
+            "offMs": {
+              "count": 600,
+              "min": 6,
+              "p50": 8,
+              "p95": 9.000000000003638,
+              "max": 22
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.999999999996362,
+          "p50": 4,
+          "p95": 5,
+          "max": 7
+        }
+      }
+    },
+    {
+      "browser": "webkit",
+      "fixture": "word-20k",
+      "formatting": "adapt",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1,
+              "p50": 5,
+              "p95": 6,
+              "max": 8
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3,
+              "p50": 4.500000000001819,
+              "p95": 5.5,
+              "max": 6
+            },
+            "onMs": {
+              "count": 600,
+              "min": 8.999999999996362,
+              "p50": 10,
+              "p95": 11,
+              "max": 13
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4,
+              "p50": 5,
+              "p95": 6,
+              "max": 10.000000000003638
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1,
+              "p50": 5,
+              "p95": 6,
+              "max": 9
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.499999999998181,
+              "p50": 4.999999999998181,
+              "p95": 5.5,
+              "max": 6.999999999998181
+            },
+            "onMs": {
+              "count": 600,
+              "min": 8.999999999996362,
+              "p50": 10,
+              "p95": 11,
+              "max": 14
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.000000000007276,
+              "p50": 5,
+              "p95": 6,
+              "max": 10.000000000003638
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2.999999999996362,
+              "p50": 4,
+              "p95": 5.000000000003638,
+              "max": 11
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3,
+              "p50": 4.4999999999990905,
+              "p95": 5.000000000001819,
+              "max": 7.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 8.999999999996362,
+              "p50": 10,
+              "p95": 11,
+              "max": 17
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999992724,
+              "p50": 6,
+              "p95": 6.0000000000009095,
+              "max": 7
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2.999999999996362,
+              "p50": 4.000000000001819,
+              "p95": 6,
+              "max": 11
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3,
+              "p50": 4.5,
+              "p95": 5.499999999999545,
+              "max": 7.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 8.999999999996362,
+              "p50": 10,
+              "p95": 11,
+              "max": 17
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999992724,
+              "p50": 6,
+              "p95": 6.0000000000009095,
+              "max": 7
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.999999999996362,
+          "p50": 4,
+          "p95": 5,
+          "max": 5.999999999996362
+        }
+      }
+    },
+    {
+      "browser": "webkit",
+      "fixture": "office-lists-20k",
+      "formatting": "preserve",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 2.999999999996362,
+              "p50": 5,
+              "p95": 6.0000000000009095,
+              "max": 7.000000000001819
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.999999999998181,
+              "p50": 5,
+              "p95": 5.500000000001819,
+              "max": 6.000000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 11,
+              "p95": 11.000000000003638,
+              "max": 13
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999992724,
+              "p50": 6,
+              "p95": 6.000000000001819,
+              "max": 7.000000000003638
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 6.000000000001819,
+              "max": 7.000000000001819
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.999999999998181,
+              "p50": 5,
+              "p95": 5.500000000003638,
+              "max": 6.000000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9,
+              "p50": 11,
+              "p95": 11.000000000003638,
+              "max": 13
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999992724,
+              "p50": 6,
+              "p95": 6.000000000001819,
+              "max": 7.000000000003638
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1,
+              "p50": 4,
+              "p95": 5,
+              "max": 6.000000000001819
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.5,
+              "p50": 4,
+              "p95": 4.999999999998181,
+              "max": 5.000000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.999999999996362,
+              "p50": 11,
+              "p95": 11.000000000003638,
+              "max": 13
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5.999999999996362,
+              "p50": 7,
+              "p95": 7.000000000003638,
+              "max": 10.000000000003638
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 1,
+              "p50": 4,
+              "p95": 5.000000000001819,
+              "max": 6.000000000001819
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 2.5,
+              "p50": 4,
+              "p95": 4.999999999999545,
+              "max": 5.000000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 9.999999999996362,
+              "p50": 11,
+              "p95": 11.000000000003638,
+              "max": 13
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5.999999999996362,
+              "p50": 7,
+              "p95": 7.000000000003638,
+              "max": 10.000000000003638
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.999999999996362,
+          "p50": 3,
+          "p95": 4.000000000001819,
+          "max": 5
+        }
+      }
+    },
+    {
+      "browser": "webkit",
+      "fixture": "office-lists-20k",
+      "formatting": "adapt",
+      "complete": true,
+      "observedPairedP95Under50ms": true,
+      "summary": {
+        "raw": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 6,
+              "max": 7
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.500000000001819,
+              "p50": 4.500000000001819,
+              "p95": 5.5,
+              "max": 6.000000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 8.999999999996362,
+              "p50": 10,
+              "p95": 11,
+              "max": 12
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999996362,
+              "p50": 5.000000000003638,
+              "p95": 6,
+              "max": 7
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": 3,
+              "p50": 5,
+              "p95": 6,
+              "max": 7.000000000003638
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 3.5,
+              "p50": 4.500000000001819,
+              "p95": 5.500000000000455,
+              "max": 6.000000000001819
+            },
+            "onMs": {
+              "count": 600,
+              "min": 8.999999999996362,
+              "p50": 10,
+              "p95": 11,
+              "max": 12.000000000003638
+            },
+            "offMs": {
+              "count": 600,
+              "min": 4.999999999996362,
+              "p50": 5.000000000003638,
+              "p95": 6,
+              "max": 7
+            }
+          }
+        },
+        "normalized": {
+          "syncMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -1,
+              "p50": 4,
+              "p95": 5,
+              "max": 6
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1.5,
+              "p50": 4,
+              "p95": 4.500000000001819,
+              "max": 5.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 8.999999999996362,
+              "p50": 10,
+              "p95": 11,
+              "max": 12
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 6,
+              "p95": 7,
+              "max": 11
+            }
+          },
+          "settledMs": {
+            "pairedOverheadMs": {
+              "count": 600,
+              "min": -1,
+              "p50": 4,
+              "p95": 5,
+              "max": 6
+            },
+            "blockMeanOverheadMs": {
+              "count": 300,
+              "min": 1.5,
+              "p50": 4,
+              "p95": 4.500000000001819,
+              "max": 5.5
+            },
+            "onMs": {
+              "count": 600,
+              "min": 8.999999999996362,
+              "p50": 10,
+              "p95": 11,
+              "max": 12
+            },
+            "offMs": {
+              "count": 600,
+              "min": 5,
+              "p50": 6,
+              "p95": 7,
+              "max": 11
+            }
+          }
+        },
+        "standaloneNormalizeMs": {
+          "count": 300,
+          "min": 2.999999999996362,
+          "p50": 3,
+          "p95": 4,
+          "max": 5
+        }
+      }
+    }
+  ]
+}

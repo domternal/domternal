@@ -94,6 +94,71 @@ Cells carry `colspan`, `rowspan`, `colwidth`, `background`, `textAlign`, and
 `setCellAttribute('background', '#ffe0e0')` or `setCellAttribute('textAlign', 'center')`
 sets them from code.
 
+Parsing HTML reads `colspan` and `rowspan` as a browser does, as a whole number
+that may be followed by other text, and a missing, invalid or zero span as 1.
+A span above 1,000 reads as 1,000: prosemirror-tables builds its table map one
+entry per spanned cell, so a span such as `colspan="100000000"` in pasted or
+loaded HTML would otherwise exhaust memory. Paste Cleanup refuses a pasted span
+above the same bound.
+
+Stored spans follow the same rule. Validation accepts any whole number from 1, so
+`schema.nodeFromJSON`, `Node.check` and `Step.fromJSON` reject `0`, `-1`, `1.5`, `"2"` or `null`
+and accept `5000`. The JSON entry points of `@domternal/core` (initial content, `setContent`,
+`insertContent`, `createDocument`, the SSR helpers and `normalizeContent`) load an invalid span or
+one above 1,000 as the span a browser draws for it and report an `unsupported-table-span`
+diagnostic: a number is rounded down into 1 to 1,000, a string is read as an HTML span attribute
+(`"2"` is 2, `"abc"` is 1), and anything else is 1. A document that still holds such a span, such
+as a collaborative document an older client wrote, renders the replacement, draws at most 1,000
+columns and keeps the stored value until `normalizeContentAttributes()` replaces it;
+`normalizeContentAttributes({ codes: ['unsupported-table-span'] })` does only that, the same way
+on every version. `setCellAttribute('colspan' | 'rowspan', value)` returns `false` for a span
+loading would replace, and a pasted slice gets the replacement of a span validation rejects.
+
+After every change, prosemirror-tables' `fixTables` repairs the structure of the tables that
+changed. It reads spans as stored, so on such a span it would delete cells (`-1`), multiply
+columns (`"2"`), let collaborating clients disagree (`1.5`) or build a table map of millions of
+entries (`1e6`). A table that holds such a span is therefore left to text editing until
+`normalizeContentAttributes` replaces the span; the next change then repairs it as usual. No
+table map is built for it: the table commands that need one (adding, deleting and merging rows,
+columns and cells, header toggles, `setCellSelection`) return `false` there, a mouse drag, a
+triple click, `Shift` with an arrow key and the row, column and cell handles make no cell
+selection in it, a text selection dragged across its cells stays within one cell, so typing or
+pasting over it deletes no cell, its columns show no resize handle, and cells pasted into it
+arrive as their content at the caret instead of replacing cells. Typing, moving to the next cell with `Tab` and
+`deleteTable` keep working. A cell paste that fails anyway reports its error through the editor's
+`error` event (`onError`, context `Table.paste`) and pastes the cells' content at the selection
+instead of throwing to the page.
+
+Pasting cells into a table places them at the caret or over a cell selection, grows the table
+where they reach past its edges and selects exactly the pasted cells, as prosemirror-tables does.
+The package handles these pastes itself, with the prosemirror-tables helpers adapted in
+`src/helpers/pasteCells.ts`, because the upstream handler throws `No cell with offset` and pastes
+nothing when a pasted cell spans rows up to the table's right edge, such as a merged 2x2 cell
+pasted into the last column. A cell clipped at the bottom of a cell selection keeps the rows it
+still covers, and one undo step restores the table. The cell paste is a paste transaction, with the
+`paste` and `uiEvent: 'paste'` metadata every other paste carries, so paste receipts and transaction
+observers see it, and it scrolls the pasted cells into view. A pasted cell spans at most the rows the copied
+table holds, empty ones included, as an internal copy and spreadsheets write them: a `rowspan`
+past them ends with them, as a browser draws it, so a one-row copy of `<td rowspan="1000">` adds no
+rows to the target table. A paste whose image files are the paste, one
+without text of its own as `pasteHasOwnText` from `@domternal/core/clipboard` decides, goes to the
+image node first, so a screenshot pasted over a cell selection lands in the first selected cell
+whether Table or Image is listed first, instead of clearing the cells and inserting nothing.
+
+A cell background is written into the cell's `style` only when it is a safe CSS value
+(`isSafeCssValue` from `@domternal/core`): a value that could add a declaration, such as
+`red;position:fixed`, or load a resource through `url()` is left out of the editor DOM,
+`getHTML()` and `generateHTML()`, and kept in the document. `setCellAttribute('background', value)`
+returns `false` for such a value. Parsing HTML reads `data-background` only when it is safe, and
+otherwise the cell's `background-color`.
+
+`textAlign` and `verticalAlign` render as `data-text-align` and `data-vertical-align`, which
+inline styles (`getHTML({ styled: true })`, `inlineStyles` and a `clipboardHTMLTransform` built on
+it) turn into `text-align` and `vertical-align` declarations. So they follow the same rule: an
+unsafe value is not rendered, not parsed from HTML and refused by `setCellAttribute`, and
+`inlineStyles` writes a declaration only for a safe value, whatever HTML it is given. An empty
+value clears any of the three, as `null` does.
+
 The package also exports the `TableView` node view, the `createTable` and
 `deleteTableWhenAllCellsSelected` helpers, and re-exports `CellSelection` and
 `TableMap` (which originate in `prosemirror-tables`) from `@domternal/pm/tables`,

@@ -1,19 +1,23 @@
 /**
  * Block (default) or inline image element.
  *
- * XSS protection (blocklist): javascript:, vbscript:, file: are blocked;
- * data: URLs require `allowBase64` AND data:image/. Validated in parseHTML,
- * renderHTML, the `setImage` command, and the input rule (defense in depth).
+ * Sources go through the core URL policy, which reads an address the way
+ * browsers do: javascript:, vbscript:, file:, credentials in a web address
+ * and hidden characters are refused, and data: URLs need `allowBase64` and an image
+ * media type. Checked in parseHTML, renderHTML, the node view, the
+ * `setImage` command and the input rule (defense in depth).
  */
 
-import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages } from '@domternal/core';
+import { Node, PluginKey, checkUrl, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages } from '@domternal/core';
+import { dropClipboardImageFiles, getClipboardPasteBehavior, pasteClipboardImageFiles, registerClipboardImageDestination } from '@domternal/core/clipboard';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
+import type { EditorState, Transaction } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
 import type { Node as PmNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { imageMessages } from './messages.js';
-import { imageUploadPlugin } from './imageUploadPlugin.js';
+import { imageFileInsertion } from './imageUploadPlugin.js';
 
 /** Float values for image text wrapping. */
 export type ImageFloat = 'none' | 'left' | 'right' | 'center';
@@ -43,6 +47,10 @@ export type ImagePlacement = 'float' | 'align';
  */
 export interface SetImageOptions {
   src: string;
+  /**
+   * Alternative text. An empty string marks a decorative image and renders as `alt=""`;
+   * leave it out for an image that has no description yet.
+   */
   alt?: string;
   title?: string;
   width?: string | number;
@@ -63,25 +71,63 @@ declare module '@domternal/core' {
 }
 
 /**
- * Validates image src URL for XSS protection.
- * Blocks: javascript:, vbscript:, file:, and data: (unless allowBase64 AND data:image/).
- * Allows everything else: http(s), relative paths, protocol-relative URLs, etc.
+ * The spelling of an image source to store, render and load, as the core URL
+ * policy's image profile reads it: any scheme except the script schemes and
+ * `file:`, relative and network-path sources, and `data:image/...` only with
+ * `allowBase64`. `null` means no source, which `null` and `''` stand for, and
+ * `undefined` a refused source.
  */
+function imageSource(value: unknown, allowBase64: boolean): string | null | undefined {
+  if (value === null || value === undefined || value === '') return null;
+  const check = checkUrl(value, { protocols: 'any', allowRelative: true, allowNetworkPath: true, allowDataImages: allowBase64 });
+  return check.status === 'allowed' ? check.url : undefined;
+}
+
+/**
+ * Sources already judged, by the attributes object of the node that holds
+ * them and by `allowBase64`. An unchanged node keeps its attributes object,
+ * so rendering a document again, as getHTML does on every change, does not
+ * judge a long data image again, and the cache lets go of a source when its
+ * node goes.
+ */
+const judgedWithData = new WeakMap<object, string | null | undefined>();
+const judgedWithoutData = new WeakMap<object, string | null | undefined>();
+
+/** The source of an image node's attributes, as {@link imageSource} judges it. */
+function nodeSource(attrs: Record<string, unknown>, allowBase64: boolean): string | null | undefined {
+  const judged = allowBase64 ? judgedWithData : judgedWithoutData;
+  if (judged.has(attrs)) return judged.get(attrs);
+  const src = imageSource(attrs['src'], allowBase64);
+  judged.set(attrs, src);
+  return src;
+}
+
+/** Whether a source may be stored: no source, or one the URL policy allows. */
 function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
-  if (value === null || value === undefined) return true; // null is valid (no src)
-  if (typeof value !== 'string') return false;
-  if (value === '') return true; // empty string is valid
+  return imageSource(value, allowBase64) !== undefined;
+}
 
-  // Block dangerous protocols
-  if (/^(javascript|vbscript|file):/i.test(value)) return false;
-
-  // Block data: URLs unless allowBase64 AND specifically data:image/
-  if (/^data:/i.test(value)) {
-    return allowBase64 && /^data:image\//i.test(value);
+/** Loads the source into the node view's image only when the policy allows it. */
+function applySource(img: HTMLImageElement, attrs: Record<string, unknown>, allowBase64: boolean): void {
+  const src = nodeSource(attrs, allowBase64);
+  if (typeof src === 'string') {
+    if (img.getAttribute('src') !== src) img.src = src;
+  } else {
+    img.removeAttribute('src');
   }
+}
 
-  // Allow everything else: http(s), relative paths, protocol-relative, etc.
-  return true;
+/**
+ * Writes the stored alt text onto the node view's image as getHTML() writes it: an empty one
+ * marks a decorative image and is written as alt="", and a missing one (null) removes the
+ * attribute, so an image without a description never looks decorative.
+ */
+function applyAlt(img: HTMLImageElement, value: unknown): void {
+  if (typeof value === 'string') {
+    if (img.getAttribute('alt') !== value) img.setAttribute('alt', value);
+  } else {
+    img.removeAttribute('alt');
+  }
 }
 
 /**
@@ -104,6 +150,53 @@ function applyWidth(img: HTMLImageElement, value: unknown): void {
         ? Number.parseFloat(/^\s*(\d+(?:\.\d+)?)(?:px)?\s*$/.exec(value)?.[1] ?? '')
         : Number.NaN;
   img.style.width = Number.isFinite(px) && px > 0 ? `${String(px)}px` : '';
+}
+
+/** The image files of a clipboard or drop in their order: file items whose type is an image type. */
+function clipboardImageFiles(data: DataTransfer | null): File[] {
+  const found: File[] = [];
+  if (!data) return found;
+  const add = (file: File | null): void => {
+    if (file?.type.startsWith('image/') === true && !found.includes(file)) found.push(file);
+  };
+  // A synthetic or older transfer may list its files only.
+  const items = data.items as DataTransferItemList | null | undefined;
+  if (items) {
+    for (const item of Array.from(items)) if (item.kind === 'file') add(item.getAsFile());
+  } else {
+    for (const file of Array.from(data.files)) add(file);
+  }
+  return found;
+}
+
+/** Whether a clipboard or drop carries files and no text of either kind. */
+function holdsOnlyFiles(data: DataTransfer | null): boolean {
+  return data !== null && data.getData('text/html') === '' && data.getData('text/plain') === '';
+}
+
+/**
+ * Places an image node at the selection of `tr`, as setImage does: not inside a code block, and a
+ * block image in the label of a list or task item at the top level after the item, with an empty
+ * paragraph after it, splitting the list around the item. Returns false when it places nothing,
+ * 'list' when it placed the image after a list item, and true otherwise.
+ */
+function placeImage(state: EditorState, tr: Transaction, node: PmNode, inline: boolean): boolean | 'list' {
+  if (tr.selection.$from.parent.type.spec.code) return false;
+  // Block-level images belong at the top level, not nested inside the list item. The util splits
+  // the parent list around the current item (an empty label is consumed). Inline images keep the
+  // insert-at-cursor behavior.
+  if (!inline) {
+    const paragraphType = state.schema.nodes['paragraph'];
+    const trailingParagraph = paragraphType?.create();
+    const nodes = trailingParagraph ? [node, trailingParagraph] : [node];
+    const listRange = splitListForInsert(state, tr);
+    if (listRange) {
+      tr.replaceWith(listRange.from, listRange.to, nodes);
+      return 'list';
+    }
+  }
+  tr.replaceSelectionWith(node);
+  return true;
 }
 
 /** Reads a File as a base64 data URL. */
@@ -129,9 +222,11 @@ export interface ImageOptions {
   allowBase64: boolean;
   HTMLAttributes: Record<string, unknown>;
   /**
-   * Async function that uploads a file and returns the URL.
-   * When provided, enables paste/drop image upload.
-   * When null (default), paste/drop is not handled.
+   * Async function that uploads a file and returns the URL. Pasted, dropped
+   * and chosen image files are stored through it. When null (default), they
+   * are read as data URLs if `allowBase64` allows it, and not stored at all
+   * otherwise. A handler that returns the URL itself, not a promise, is read
+   * as `await` reads it.
    */
   uploadHandler: ((file: File) => Promise<string>) | null;
   /**
@@ -145,11 +240,28 @@ export interface ImageOptions {
    */
   maxFileSize: number;
   /**
-   * Called when upload starts for a file.
+   * The most image files one paste, drop or file choice inserts: the first
+   * ones of an accepted type and size, in the order they came; the others are
+   * left out. Every file is read or uploaded at once, and without an
+   * `uploadHandler` each is stored in the document as a data URL, so dropping a
+   * folder of photos would otherwise add them all. 0 inserts every file.
+   * Optional in the type, so an options object written in full for 1.2 still
+   * compiles.
+   * @default 10
+   */
+  maxFiles?: number;
+  /**
+   * Called when upload starts for a file. An error it throws is reported
+   * through the editor's `error` event (context `Image.onUploadStart`) and
+   * does not stop the upload.
    */
   onUploadStart: ((file: File) => void) | null;
   /**
-   * Called when upload fails. Receives the error and the file.
+   * Called when storing a file fails: an upload that rejects or throws, a file
+   * that cannot be read, or a source setImage would refuse. Receives the error
+   * and the file. It runs after the other images of the paste or drop are
+   * placed; an error it throws is reported through the editor's `error` event
+   * (context `Image.onUploadError`).
    */
   onUploadError: ((error: Error, file: File) => void) | null;
   /**
@@ -213,6 +325,7 @@ export const Image = Node.create<ImageOptions>({
         'image/avif',
       ],
       maxFileSize: 0,
+      maxFiles: 10,
       onUploadStart: null,
       onUploadError: null,
       placement: null,
@@ -220,17 +333,12 @@ export const Image = Node.create<ImageOptions>({
   },
 
   addAttributes() {
-    const { options } = this;
     return {
       src: {
         default: null,
         parseHTML: (element: HTMLElement) => {
-          const src = element.getAttribute('src');
-          // Validate on parse - reject invalid URLs
-          if (src && !isValidImageSrc(src, options.allowBase64)) {
-            return null;
-          }
-          return src;
+          // A refused source is not stored; an allowed one in its cleaned spelling.
+          return imageSource(element.getAttribute('src'), this.options.allowBase64) ?? null;
         },
         renderHTML: (attributes: Record<string, unknown>) => {
           if (!attributes['src']) return {};
@@ -241,8 +349,9 @@ export const Image = Node.create<ImageOptions>({
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('alt'),
         renderHTML: (attributes: Record<string, unknown>) => {
-          if (!attributes['alt']) return {};
-          return { alt: attributes['alt'] as string };
+          const alt = attributes['alt'];
+          // An empty alt marks a decorative image, so it is written as alt=""; a missing one writes nothing.
+          return typeof alt === 'string' ? { alt } : {};
         },
       },
       title: {
@@ -340,15 +449,17 @@ export const Image = Node.create<ImageOptions>({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const src = node.attrs['src'] as string | null;
+    const src = nodeSource(node.attrs, this.options.allowBase64);
 
-    // XSS protection: defense in depth - validate again on render
-    if (src && !isValidImageSrc(src, this.options.allowBase64)) {
-      // Return image with empty src if URL is invalid (should not happen due to parse validation)
+    // Checked again on render, for a source stored by JSON or a collaborator:
+    // a refused one renders an empty src, so an HTML round trip keeps the node.
+    if (src === undefined) {
       return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes, src: '' }];
     }
-
-    return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
+    if (src === null) {
+      return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
+    }
+    return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes, src }];
   },
 
   leafText(node) {
@@ -366,13 +477,16 @@ export const Image = Node.create<ImageOptions>({
           const [fullMatch, wrapper, alt, src, title] = match;
           if (!src || !wrapper) return null;
 
-          // XSS validation: reject dangerous URLs in markdown syntax too
-          if (!isValidImageSrc(src, options.allowBase64)) return null;
+          // The same check as every other entry, in markdown syntax too.
+          const allowed = imageSource(src, options.allowBase64);
+          if (typeof allowed !== 'string') return null;
 
           const { tr } = state;
           const attrs: Record<string, unknown> = {
-            src,
-            alt: alt ?? null,
+            src: allowed,
+            // An empty ![](src) is an image not yet described, as the Markdown parser reads it;
+            // only content or a command marks an image decorative with an empty alt.
+            alt: alt === undefined || alt === '' ? null : alt,
             title: title ?? null,
           };
 
@@ -461,6 +575,8 @@ export const Image = Node.create<ImageOptions>({
   },
 
   addNodeView() {
+    // Read live, as parsing does, so a changed option applies to the next update.
+    const allowBase64 = (): boolean => this.options.allowBase64;
     return (node: PmNode, view: EditorView, getPos: () => number | undefined) => {
       const dom = document.createElement('div');
       dom.className = 'dm-image-resizable';
@@ -481,8 +597,8 @@ export const Image = Node.create<ImageOptions>({
       applyPlacement(node.attrs['float'], node.attrs['align']);
 
       const img = document.createElement('img');
-      img.src = node.attrs['src'] as string;
-      if (node.attrs['alt']) img.alt = node.attrs['alt'] as string;
+      applySource(img, node.attrs, allowBase64());
+      applyAlt(img, node.attrs['alt']);
       if (node.attrs['title']) img.title = node.attrs['title'] as string;
       applyWidth(img, node.attrs['width']);
       dom.appendChild(img);
@@ -550,9 +666,9 @@ export const Image = Node.create<ImageOptions>({
         dom,
         update(updatedNode: PmNode) {
           if (updatedNode.type.name !== 'image') return false;
-          img.src = updatedNode.attrs['src'] as string;
-          // A null alt/title would be written as the literal string "null".
-          img.alt = (updatedNode.attrs['alt'] as string | null) ?? '';
+          applySource(img, updatedNode.attrs, allowBase64());
+          applyAlt(img, updatedNode.attrs['alt']);
+          // A null title would be written as the literal string "null".
           img.title = (updatedNode.attrs['title'] as string | null) ?? '';
           applyWidth(img, updatedNode.attrs['width']);
           applyPlacement(updatedNode.attrs['float'], updatedNode.attrs['align']);
@@ -574,8 +690,9 @@ export const Image = Node.create<ImageOptions>({
       setImage:
         (attributes: SetImageOptions) =>
         ({ state, tr, dispatch }) => {
-          // XSS protection: validate src URL before inserting
-          if (!isValidImageSrc(attributes.src, this.options.allowBase64)) {
+          // The same check as every other entry; an allowed source is stored cleaned.
+          const src = imageSource(attributes.src, this.options.allowBase64);
+          if (src === undefined) {
             return false;
           }
 
@@ -584,32 +701,11 @@ export const Image = Node.create<ImageOptions>({
           // Refuse insertion inside code blocks
           if (tr.selection.$from.parent.type.spec.code) return false;
 
-          const node = this.nodeType.create(attributes);
-
-          // List-item-aware path: cursor in the LABEL paragraph of a
-          // list/task item. Block-level images belong at TOP LEVEL,
-          // not nested inside the list item. The util splits the
-          // parent list around the current item (empty label consumed).
-          // Only applies when image is block-level (default); inline
-          // images keep the original insert-at-cursor behavior.
-          if (!this.options.inline) {
-            const paragraphType = state.schema.nodes['paragraph'];
-            const trailingParagraph = paragraphType?.create();
-            const nodes = trailingParagraph ? [node, trailingParagraph] : [node];
-            const listRange = splitListForInsert(state, tr);
-            if (listRange) {
-              if (!dispatch) return true;
-              tr.replaceWith(listRange.from, listRange.to, nodes);
-              dispatch(tr.scrollIntoView());
-              return true;
-            }
-          }
-
-          if (dispatch) {
-            tr.replaceSelectionWith(node);
-            dispatch(tr);
-          }
-
+          const node = this.nodeType.create({ ...attributes, src: src ?? attributes.src });
+          if (!dispatch) return true;
+          // A chosen file's image goes through the same placement, see placeImage.
+          if (placeImage(state, tr, node, this.options.inline) === 'list') tr.scrollIntoView();
+          dispatch(tr);
           return true;
         },
 
@@ -675,9 +771,51 @@ export const Image = Node.create<ImageOptions>({
     const nodeType = this.nodeType;
     const options = this.options;
     const storage = this.storage as Record<string, unknown>;
+    const live = (): ImageOptions => this.options;
+    // One path for pasted, dropped and chosen files: an uploadHandler stores them, otherwise
+    // they are read as data URLs when allowBase64 allows it, and without either nothing is stored.
+    const files = nodeType ? imageFileInsertion({
+      nodeType,
+      store: () => {
+        const { uploadHandler, allowBase64 } = live();
+        return uploadHandler ?? (allowBase64 ? readFileAsDataURL : null);
+      },
+      accepts: file => {
+        const { allowedMimeTypes, maxFileSize } = live();
+        return allowedMimeTypes.includes(file.type) && (maxFileSize <= 0 || file.size <= maxFileSize);
+      },
+      maxFiles: () => live().maxFiles ?? 10,
+      allowsSource: src => isValidImageSrc(src, live().allowBase64),
+      onUploadStart: () => (live().uploadHandler ? live().onUploadStart : null),
+      onUploadError: () => live().onUploadError,
+      // An application callback that throws is reported like an extension hook, through the editor's error event.
+      reportError: (error, context) => { editor.emit('error', { editor, error, context }); },
+      // A chosen file's image goes where setImage places the image of an address.
+      placeAsCommand: (state, tr, node) => placeImage(state, tr, node, live().inline) !== false,
+    }) : undefined;
 
     // Image popover + drag overlay + paste/drop plugin
-    if (nodeType) {
+    if (nodeType && files) {
+      plugins.push(new Plugin({
+        key: new PluginKey('imageClipboardDestination'),
+        view: view => ({
+          destroy: registerClipboardImageDestination(view, () => {
+            const liveOptions = this.options;
+            return {
+              nodeTypeName: nodeType.name,
+              sourceAttribute: 'src',
+              inline: nodeType.isInline,
+              allowEmbedded: liveOptions.allowBase64,
+              allowedMimeTypes: liveOptions.allowedMimeTypes,
+              maxFileBytes: liveOptions.maxFileSize === 0 ? Number.MAX_SAFE_INTEGER : liveOptions.maxFileSize,
+              policyVersion: 'builtin:1',
+            };
+          // Core hands over a paste's image files when they are the paste, for PasteCleanup and Link too.
+          }, insertion => files.insert(view, insertion.files,
+            insertion.position === undefined ? { at: 'selection' } : { at: 'position', pos: insertion.position }, insertion.alt)),
+        }),
+      }));
+
       // --- Build popover DOM ---
       const el = document.createElement('div');
       el.className = 'dm-image-popover';
@@ -719,6 +857,8 @@ export const Image = Node.create<ImageOptions>({
       // When set, the popover edits the image at this position in place
       // (e.g. its alt text) instead of inserting a new image.
       let editingPos: number | null = null;
+      // The alt field as the edit menu filled it, so applying it unchanged changes nothing.
+      let prefilledAlt = '';
 
       let refreshingLabels = false;
       const refreshLabels = (): void => {
@@ -759,8 +899,10 @@ export const Image = Node.create<ImageOptions>({
         // only the alt field.
         urlInput.value = '';
         altInput.value = prefill?.alt ?? '';
+        prefilledAlt = altInput.value;
         urlInput.hidden = editing;
-        browseBtn.hidden = editing;
+        // Without an uploadHandler or allowBase64 a chosen file could not be stored.
+        browseBtn.hidden = editing || !files.canStore();
         altInput.hidden = !editing;
         refreshLabels();
         el.setAttribute('data-show', '');
@@ -807,36 +949,21 @@ export const Image = Node.create<ImageOptions>({
         editor.view.focus();
       };
 
+      // A chosen file goes where the URL field's setImage puts an image, and not into a code block.
+      const canInsertAtSelection = (): boolean => editor.view.state.selection.$from.parent.type.spec.code !== true;
       const insertFromFile = (file: File): void => {
-        if (options.uploadHandler) {
-          options.uploadHandler(file)
-            .then((url) => {
-              editor.commands.setImage({ src: url });
-            })
-            .catch((error: unknown) => {
-              if (options.onUploadError) {
-                options.onUploadError(
-                  error instanceof Error ? error : new Error(String(error)),
-                  file,
-                );
-              }
-            });
-        } else {
-          void readFileAsDataURL(file).then(src => {
-            const { tr } = editor.view.state;
-            tr.replaceSelectionWith(nodeType.create({ src }));
-            editor.view.dispatch(tr);
-          });
-        }
+        if (canInsertAtSelection()) files.insert(editor.view, [file], { at: 'command' });
       };
 
       const applyUrl = (): void => {
         if (editingPos !== null) {
-          // Edit menu: only the alt text changes; the existing src is kept.
-          const alt = altInput.value.trim() || null;
+          // Edit menu: only the alt text changes; the existing src is kept. A field applied as
+          // it was filled changes nothing, so a decorative image (alt "") stays decorative; a
+          // changed field stores the trimmed text, or null (no description) when it is empty.
           const { state } = editor.view;
           const node = state.doc.nodeAt(editingPos);
-          if (node?.type === nodeType) {
+          if (altInput.value !== prefilledAlt && node?.type === nodeType) {
+            const alt = altInput.value.trim() || null;
             const tr = state.tr.setNodeMarkup(editingPos, undefined, { ...node.attrs, alt });
             editor.view.dispatch(tr);
           }
@@ -851,6 +978,7 @@ export const Image = Node.create<ImageOptions>({
 
       const openFileBrowser = (): void => {
         hidePopover();
+        if (!canInsertAtSelection()) return;
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = options.allowedMimeTypes.join(',');
@@ -890,7 +1018,7 @@ export const Image = Node.create<ImageOptions>({
       // Popover event listeners. The focusable order depends on the mode:
       // insert shows [url, apply, browse], the edit menu shows [alt, apply].
       const focusables = (): HTMLElement[] =>
-        editingPos !== null ? [altInput, applyBtn] : [urlInput, applyBtn, browseBtn];
+        editingPos !== null ? [altInput, applyBtn] : [urlInput, applyBtn, browseBtn].filter(element => !element.hidden);
       const moveFocus = (current: HTMLElement, dir: 1 | -1): void => {
         const list = focusables();
         const i = list.indexOf(current);
@@ -953,50 +1081,34 @@ export const Image = Node.create<ImageOptions>({
               return false;
             },
           },
-          handlePaste(view, event) {
-            // When uploadHandler is set, let imageUploadPlugin handle paste
-            if (options.uploadHandler) return false;
-            const items = event.clipboardData?.items;
-            if (!items) return false;
-
-            for (const item of Array.from(items)) {
-              if (item.kind === 'file' && item.type.startsWith('image/')) {
-                const file = item.getAsFile();
-                if (!file) continue;
-                if (!options.allowedMimeTypes.includes(file.type)) continue;
-                if (options.maxFileSize > 0 && file.size > options.maxFileSize) continue;
-
-                event.preventDefault();
-                void readFileAsDataURL(file).then(src => {
-                  const { tr } = view.state;
-                  tr.replaceSelectionWith(nodeType.create({ src }));
-                  view.dispatch(tr);
-                });
-                return true;
-              }
+          handlePaste(view, event, slice) {
+            if (getClipboardPasteBehavior(view, event)?.assetsAlreadyHandled === true) return false;
+            // Core decides whether the files are the paste: the pasted content has no text of its
+            // own. It hands them to this node's insertFiles, with the one copied image's alt text.
+            if (pasteClipboardImageFiles(view, event, slice)) return true;
+            // Files alone that Image cannot store insert nothing, not a rendering of them.
+            if (!files.canStore() && clipboardImageFiles(event.clipboardData).length > 0 && holdsOnlyFiles(event.clipboardData)) {
+              event.preventDefault();
+              return true;
             }
             return false;
           },
-          handleDrop(view, event) {
-            // When uploadHandler is set, let imageUploadPlugin handle it
-            if (options.uploadHandler) return false;
-            const files = event.dataTransfer?.files;
-            if (!files?.length) return false;
-
-            const file = files[0];
-            if (!file || !options.allowedMimeTypes.includes(file.type)) return false;
-            if (options.maxFileSize > 0 && file.size > options.maxFileSize) return false;
-
-            event.preventDefault();
-            const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            if (!pos) return false;
-
-            void readFileAsDataURL(file).then(src => {
-              const tr = view.state.tr;
-              tr.insert(pos.pos, nodeType.create({ src }));
-              view.dispatch(tr);
-            });
-            return true;
+          handleDrop(view, event, slice, moved) {
+            // A drag inside the editor moves its own content.
+            if (moved) return false;
+            // A drop's files win; Core hands them to this node's insertFiles at the drop position,
+            // with the alt text of the one image the drop held for one file.
+            if (dropClipboardImageFiles(view, event, slice)) {
+              event.preventDefault();
+              return true;
+            }
+            if (clipboardImageFiles(event.dataTransfer).length === 0) return false;
+            // Image files alone that nothing inserts: the browser must not open them instead.
+            if (holdsOnlyFiles(event.dataTransfer)) {
+              event.preventDefault();
+              return true;
+            }
+            return false;
           },
         },
         view() {
@@ -1044,19 +1156,8 @@ export const Image = Node.create<ImageOptions>({
       }));
     }
 
-    // Paste/drop upload plugin
-    if (options.uploadHandler && nodeType) {
-      plugins.push(
-        imageUploadPlugin({
-          nodeType,
-          uploadHandler: options.uploadHandler,
-          allowedMimeTypes: options.allowedMimeTypes,
-          maxFileSize: options.maxFileSize,
-          onUploadStart: options.onUploadStart,
-          onUploadError: options.onUploadError,
-        }),
-      );
-    }
+    // Placeholders of pasted, dropped and chosen files.
+    if (files) plugins.push(files.plugin);
 
     return plugins;
   },

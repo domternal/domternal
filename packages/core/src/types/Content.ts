@@ -45,3 +45,44 @@ export interface Range {
   from: number;
   to: number;
 }
+
+/**
+ * A value that normalization replaced, or a mark it removed: in JSON content
+ * while it loaded, or in the editor document through the
+ * normalizeContentAttributes command. `path` holds child indices from the
+ * normalized input, or from the document for that command, to the node.
+ *
+ * - `unknown-list-marker`: a list marker this version does not know became
+ *   null, the default marker.
+ * - `unsupported-heading-level`: a heading level the Heading configuration
+ *   lacks, or a value that is not a level, became the nearest configured level.
+ * - `unsafe-url`: a link whose href could run script or deceive was removed,
+ *   and its text kept: a `javascript:`, `vbscript:` or `data:` address,
+ *   credentials in a web, mail or phone address, a control character or
+ *   bidi override anywhere, a format character such as a zero-width joiner
+ *   in the scheme or host, or a value that is not a string. No configuration
+ *   allows these.
+ * - `unsupported-url`: a link whose href this Link configuration does not
+ *   allow was removed, and its text kept: a scheme outside `protocols`, a
+ *   relative reference the Link does not allow, a network path, a backslash,
+ *   an address the URL parser rejects, or an empty or missing href.
+ * - `unsupported-table-span`: a table cell `colspan` or `rowspan` that is not
+ *   a whole number from 1, or that is above 1,000, became the span a browser
+ *   draws for it: a number is rounded down into 1 to 1,000, a string is read
+ *   as an HTML span attribute, and anything else is 1.
+ *
+ * The list of codes is open: a minor release can add one when the editor
+ * learns to normalize another attribute, so keep a default branch when you
+ * switch on `code`.
+ */
+export interface ContentDiagnostic {
+  readonly code: 'unknown-list-marker' | 'unsupported-heading-level' | 'unsafe-url' | 'unsupported-url' | 'unsupported-table-span';
+  /** The node that holds the value, or that carries the removed mark, such as `text`. */
+  readonly nodeType: string;
+  /** The type of the removed mark, such as `link`; absent when a node's value was replaced. */
+  readonly markType?: string;
+  readonly attribute: string;
+  readonly path: readonly number[];
+  /** The replaced value, only when it is a string of at most 64 characters or a finite number. */
+  readonly value?: string | number;
+}

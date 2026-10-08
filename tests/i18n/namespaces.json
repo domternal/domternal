@@ -6,6 +6,7 @@
   "@domternal/extension-image": "image.",
   "@domternal/extension-math": "math.",
   "@domternal/extension-mention": "mention.",
+  "@domternal/extension-paste-cleanup": "pasteCleanup.",
   "@domternal/extension-table": "table.",
   "@domternal/extension-toc": "toc."
 }

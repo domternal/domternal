@@ -95,6 +95,23 @@ export default function Editor() {
 `onCreate`, `onUpdate`, `onSelectionChange`, `onFocus`, `onBlur`, and `onDestroy` callbacks are
 accepted alongside them. `<Domternal>` additionally takes `deps`, the dependency array
 `useEditor` reads as its second argument: change a value in it and the editor is rebuilt.
+`onUpdate` follows the core `update` event: it runs after every accepted change to the document,
+including a change a plugin appended to a selection move, and never for a transaction a plugin
+vetoed or a programmatic write that skips updates. `onSelectionChange` follows the core `selectionUpdate`
+event: it runs when the selection moved without the move itself changing the document, before `onUpdate` when a
+plugin answered the move with a change, such as a click that TrailingNode answers with a paragraph.
+
+`onContentError` and `onContentDiagnostic` report what loading content changed. `onContentError`
+receives `{ editor, error, content }` when the initial content does not match the schema, so the
+editor starts empty. `onContentDiagnostic` receives `{ editor, source, diagnostics, total }` when
+content loaded with replaced values, such as an unknown list marker that became the default
+marker or a heading level the configuration lacks that became the nearest configured level. The
+report for the initial content arrives once the editor is ready, before `onCreate` (with
+`immediatelyRender`, after the first render instead of during it). Later reports come from
+`setContent`, including a changed `content` or `value`, `insertContent`, and
+`normalizeContentAttributes`, and reach the latest callback. With `outputFormat="json"`, a new
+`content` or `value` that equals the document once such values are replaced and refused links
+removed leaves the document and selection alone.
 
 Toolbar, bubble-menu, and floating-menu `icons` props accept raw SVG through `IconSet`.
 Use only trusted, developer-authored constants. Never build an `IconSet` from user input,

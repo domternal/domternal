@@ -1,3 +1,4 @@
+import { demoPasteCleanupExtensions } from './demo-paste-cleanup.js';
 import type { I18nOptions } from '@domternal/core';
 import {
   DomternalEditor,
@@ -82,6 +83,7 @@ const buildExtensions = (): AnyExtension[] => [
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
+  ...demoPasteCleanupExtensions,
   TextAlign, TextColor, FontSize, FontFamily, LineHeight,
   Table.configure({ constrainToContainer: constrainTable, resizeBehavior }),
   Details,

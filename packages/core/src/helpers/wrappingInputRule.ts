@@ -4,6 +4,7 @@
  * Drop-in replacement for ProseMirror's wrappingInputRule that exposes
  * the `undoable` option so extension authors can opt out of Backspace undo.
  */
+import { sameListMarker } from '../utils/listMarker.js';
 import { InputRule } from '@domternal/pm/inputrules';
 import { findWrapping, canJoin } from '@domternal/pm/transform';
 import type { NodeType, Node, Attrs } from '@domternal/pm/model';
@@ -89,7 +90,10 @@ export function wrappingInputRule(options: WrappingInputRuleOptions): InputRule 
       if (!wrapping) return null;
       tr.wrap(range, wrapping);
       const before = tr.doc.resolve(start - 1).nodeBefore;
-      if (before?.type === type && canJoin(tr.doc, start - 1) &&
+      const requested = type.create(attrs);
+      const markerCompatible = (node: Node): boolean => !['orderedList', 'bulletList'].includes(type.name)
+        || sameListMarker(node, requested);
+      if (before?.type === type && markerCompatible(before) && canJoin(tr.doc, start - 1) &&
           (!joinPredicate || joinPredicate(match, before))) {
         tr.join(start - 1);
       }
@@ -106,7 +110,7 @@ export function wrappingInputRule(options: WrappingInputRuleOptions): InputRule 
             const after = $cursor.after(d);
             if (after < tr.doc.content.size && canJoin(tr.doc, after)) {
               const nodeAfter = tr.doc.nodeAt(after);
-              if (nodeAfter?.type === type &&
+              if (nodeAfter?.type === type && markerCompatible(nodeAfter) &&
                   (!joinPredicate || joinPredicate(match, nodeAfter))) {
                 tr.join(after);
               }

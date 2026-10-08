@@ -51,6 +51,11 @@ const editor = new Editor({
 > package styles only the editor wrapper, edit popover, selected and error states
 > via `@domternal/theme` (`_math.scss`), never the math glyphs themselves.
 
+`createKatexRenderer` always passes `trust: false` to KaTeX, so LaTeX in a document, such as
+pasted `data-latex` or JSON from another user, cannot add a link with `\href` or `\url`, load an
+image with `\includegraphics`, or set HTML attributes with `\htmlClass` and its relatives.
+Enabling `trust` in a renderer of your own is a decision about how far you trust the content.
+
 ## Options
 
 Both nodes take the same two options:

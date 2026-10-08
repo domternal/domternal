@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-other-list-profiles-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "8aa9316ddb793cefa05f2f9964049825e826c585523a4f47c0da639b53c1c712"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "4185f86358e4fcb7a0a4951bd1ec5ffbbc467d8167ceb0469aabc65e40dc558e"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-other-list-profiles",
+    "blocks": [
+      {
+        "id": "GL61",
+        "type": "listItem",
+        "list": {
+          "kind": "bullet",
+          "marker": "disc",
+          "depth": 1
+        },
+        "docsLabel": "❖",
+        "docs": "Format > Bullets & numbering > Bulleted list: the preset whose first level shows ❖",
+        "text": "GL61 Diamond bullet",
+        "expectation": "No CSS marker names ❖.",
+        "correction": "Google Docs writes the ❖ preset's item with list-style-type disc, so it pastes as a disc bullet item: the copy does not hold the ❖.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL62",
+        "type": "listItem",
+        "list": {
+          "kind": "task",
+          "depth": 1,
+          "checked": false
+        },
+        "docsLabel": "☐",
+        "docs": "Enter twice to end the list, then Checklist (Cmd+Shift+9), left unchecked",
+        "text": "GL62 Unchecked task",
+        "correction": "Google Docs writes a checklist item as an ARIA checkbox with its state beside a picture of its box, which cleanup makes a task item without the picture.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL63",
+        "type": "listItem",
+        "list": {
+          "kind": "task",
+          "depth": 1,
+          "checked": true
+        },
+        "docsLabel": "☑",
+        "docs": "Enter, then tick the box; Google Docs strikes the text through",
+        "text": "GL63 Checked task",
+        "correction": "The checked state arrives as aria-checked. Docs strikes an item through when its box is ticked, on the item and on every run, and its export writes the line too: the line is how Docs shows the checked state, which the task item holds, so the item's text pastes without it where the editor has task lists. Kept, it outlived the state when the item was unchecked in the editor.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL64",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1
+        },
+        "docsLabel": "1.",
+        "docs": "Enter twice to end the list, then the numbered preset whose levels show 1. 1.1. 1.1.1.",
+        "text": "GL64 Legal number",
+        "correction": "The first level of the legal preset is decimal numbering, which Google Docs writes as such.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL65",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 2,
+          "ordinal": 1
+        },
+        "docsLabel": "1.1.",
+        "docs": "Enter, Tab",
+        "text": "GL65 Legal subnumber",
+        "correction": "Google Docs writes the legal second level as a nested decimal list, so it pastes as 1. at the second level: the composed 1.1. label is not in the copy.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "fcb049b8b7778cadf688e68df3ffafe5219c577b6e757f75e53da2ecc0e70d85",
+    "captureSha256": "9cb35b56049812fc1ffe3602cfda9816e91741f4f31c0a2974a34b6cb1797405",
+    "manifestSha256": "f9b43c00e76e5abb531bfa77c05c64e439a523d46d58c93bc7d0f45c847598e3"
+  }
+}

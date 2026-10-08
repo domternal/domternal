@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Schema } from '@domternal/pm/model';
 import { Plugin, TextSelection } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import { Editor } from './Editor.js';
 import { Extension } from './Extension.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
@@ -280,6 +281,115 @@ describe('Editor', () => {
       ).toThrow('fatal is misconfigured');
     });
 
+    it('carries a standard cause through editor construction', () => {
+      const cause = new Error('underlying refusal');
+      const Fatal = Extension.create({
+        name: 'fatalWithCause',
+        addProseMirrorPlugins() {
+          throw new ExtensionConfigurationError('fatal with a cause', { cause });
+        },
+      });
+
+      let thrown: unknown;
+      try {
+        editor = new Editor({ extensions: [Document, Text, Paragraph, Fatal] });
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(ExtensionConfigurationError);
+      expect(thrown).toMatchObject({ name: 'ExtensionConfigurationError', message: 'fatal with a cause' });
+      expect((thrown as Error).cause).toBe(cause);
+    });
+
+    it('has no cause unless one is given', () => {
+      expect(Object.hasOwn(new ExtensionConfigurationError('plain'), 'cause')).toBe(false);
+      expect(Object.hasOwn(new ExtensionConfigurationError('explicit', { cause: undefined }), 'cause')).toBe(true);
+    });
+
+    describe('from a plugin view', () => {
+      interface Recorded { view?: EditorView; destroyed: number }
+
+      /** An extension whose plugin view records its view and its own destruction. */
+      function recorder(name: string, priority: number, record: Recorded, fail?: () => never): Extension {
+        return Extension.create({
+          name,
+          priority,
+          addProseMirrorPlugins() {
+            return [new Plugin({
+              view: view => {
+                record.view = view;
+                fail?.();
+                return { destroy: () => { record.destroyed++; } };
+              },
+            })];
+          },
+        });
+      }
+
+      function failing(run: () => unknown): unknown {
+        try { run(); } catch (error) { return error; }
+        throw new Error('Expected a throw');
+      }
+
+      it('leaves a successfully constructed editor with its plugin views intact', () => {
+        const record: Recorded = { destroyed: 0 };
+        editor = new Editor({ extensions: [Document, Text, Paragraph, recorder('steady', 100, record)] });
+
+        expect(record.view).toBe(editor.view);
+        expect(record.destroyed).toBe(0);
+        editor.destroy();
+        expect(record.destroyed).toBe(1);
+      });
+
+      it('tears down the partially built view, so a failed editor leaves nothing running in its element', () => {
+        const element = document.createElement('div');
+        document.body.appendChild(element);
+        const cause = new Error('slot already held');
+        const refusal = new ExtensionConfigurationError('late is misconfigured', { cause });
+        const early: Recorded = { destroyed: 0 };
+        const late: Recorded = { destroyed: 0 };
+
+        const thrown = failing(() => new Editor({
+          element,
+          extensions: [Document, Text, Paragraph, recorder('early', 200, early), recorder('late', 50, late, () => { throw refusal; })],
+        }));
+
+        expect(thrown).toBe(refusal);
+        expect((thrown as Error).cause).toBe(cause);
+        expect(element.childNodes).toHaveLength(0);
+        expect(early.view?.isDestroyed).toBe(true);
+        expect(early.destroyed).toBe(1);
+        expect(late.view).toBe(early.view);
+        element.remove();
+      });
+
+      it('reports the construction error and finishes the teardown when a plugin view destroy throws', () => {
+        const element = document.createElement('div');
+        document.body.appendChild(element);
+        const refusal = new Error('late plugin view failed');
+        const Unstable = Extension.create({
+          name: 'unstable',
+          priority: 200,
+          addProseMirrorPlugins() {
+            return [new Plugin({ view: () => ({ destroy: () => { throw new Error('teardown failed'); } }) })];
+          },
+        });
+        const early: Recorded = { destroyed: 0 };
+        const late: Recorded = { destroyed: 0 };
+
+        const thrown = failing(() => new Editor({
+          element,
+          extensions: [Document, Text, Paragraph, recorder('early', 300, early), Unstable, recorder('late', 50, late, () => { throw refusal; })],
+        }));
+
+        expect(thrown).toBe(refusal);
+        expect(early.destroyed).toBe(1);
+        expect(late.view?.isDestroyed).toBe(true);
+        expect(element.childNodes).toHaveLength(0);
+        element.remove();
+      });
+    });
+
     it('keeps isolating plain errors from the same hook', () => {
       const onError = vi.fn();
       const Broken = Extension.create({
@@ -458,11 +568,32 @@ describe('Editor', () => {
         colorEditor.destroy();
       });
 
-      it('does not alter text content containing rgb()', () => {
-        const html = editor.getHTML();
-        // The basic editor has no rgb() in style attrs, so this just verifies
-        // getHTML works normally without style attrs
-        expect(html).toContain('Initial content');
+      it('does not alter text content that reads like a style attribute holding rgb()', () => {
+        const text = 'CSS: style="color: rgb(255, 0, 0)" is red, and style="background: rgba(0, 0, 255, 0.5)" is blue';
+        const textEditor = new Editor({ extensions: [Document, Text, Paragraph], content: `<p>${text}</p>` });
+        expect(textEditor.getHTML()).toBe(`<p>${text}</p>`);
+        expect(textEditor.getHTML({ styled: true })).toContain(text);
+        textEditor.destroy();
+      });
+
+      it('converts rgb() only in a style attribute, not in an attribute whose name ends in style', () => {
+        const schemaWithStyle = new Schema({
+          nodes: {
+            doc: { content: 'paragraph+' },
+            paragraph: { content: 'inline*', toDOM() { return ['p', 0]; }, parseDOM: [{ tag: 'p' }] },
+            text: { group: 'inline', inline: true },
+          },
+          marks: {
+            textStyle: {
+              attrs: { style: { default: null } },
+              toDOM(mark) { return ['span', { 'data-style': mark.attrs['style'], style: mark.attrs['style'] }, 0]; },
+              parseDOM: [{ tag: 'span[style]', getAttrs: (dom: HTMLElement) => ({ style: dom.getAttribute('style') }) }],
+            },
+          },
+        });
+        const colorEditor = new Editor({ schema: schemaWithStyle, content: '<p><span style="color: rgb(255, 0, 0)">red</span></p>' });
+        expect(colorEditor.getHTML()).toBe('<p><span data-style="color: rgb(255, 0, 0)" style="color: #ff0000;">red</span></p>');
+        colorEditor.destroy();
       });
     });
 

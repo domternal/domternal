@@ -13,7 +13,10 @@
  *
  * Tests below verify:
  *  - parse-time autofix kicks in for HTML where the first li child
- *    isn't a paragraph (heading, codeBlock, blockquote, hr, nested ul)
+ *    isn't a paragraph: a heading there, with nothing before it that
+ *    the item holds, parses as the label paragraph's text, and on
+ *    setContent a codeBlock, blockquote or bare nested ul is hoisted
+ *    out of the item
  *  - the visual alignment bug is fixed: checkbox stays aligned with
  *    the paragraph label, never with a nested heading
  *  - DOM round-trip (setContent → getHTML → setContent) is stable
@@ -145,16 +148,21 @@ test.describe('Notion-strict list schema - rule sanity', () => {
 test.describe('Notion-strict list schema - parse-time autofix', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  // PM's HTML parser does NOT inject a fresh empty label paragraph and
-  // keep the non-paragraph block inside the listItem. Instead, when the
-  // first DOM child of `<li>` doesn't satisfy the `paragraph block*`
-  // first-child requirement, the parser HOISTS that block UP to the
-  // outermost level where it can fit (top-level alongside the
-  // bulletList). The listItem retains an auto-injected empty paragraph
-  // only. Tests below pin that observable behaviour - this is also the
-  // de-facto migration path for documents authored under the previous
-  // `block+` schema.
-  test('<li><h1>...</h1></li> hoists the heading to top-level, leaving an empty list item', async ({ page }) => {
+  // A heading tag at the start of an `<li>`, with nothing before it that
+  // the item holds (text, a line break, an image, a paragraph), cannot
+  // stand there under `paragraph block*`, so the Heading parse rules
+  // decline it and its text becomes the item's label paragraph: the list
+  // keeps the item and its marker (see the Attributes section of the
+  // heading docs, /v1/nodes/heading/#attributes). Any other block the
+  // first-child slot cannot take (codeBlock, blockquote, a bare nested
+  // ul) is not turned into text: on setContent PM's HTML parser HOISTS
+  // it UP to the outermost level where it can fit (top-level alongside
+  // the bulletList), and the listItem retains an auto-injected empty
+  // paragraph only, while a paste keeps the block in the item after such
+  // an empty paragraph. Tests below pin the setContent behaviours, which
+  // are also the migration path for documents authored under the
+  // previous `block+` schema.
+  test('<li><h1>...</h1></li> parses the heading as the label paragraph text, keeping one list item', async ({ page }) => {
     await setContent(page, '<ul><li><h1>Heading first</h1></li></ul>');
     const top = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -164,19 +172,18 @@ test.describe('Notion-strict list schema - parse-time autofix', () => {
       return out;
     });
     expect(top).toEqual([
-      { type: 'bulletList', text: '' },
-      { type: 'heading', text: 'Heading first' },
+      { type: 'bulletList', text: 'Heading first' },
     ]);
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
       type: 'listItem',
       childCount: 1,
-      children: [{ type: 'paragraph', text: '' }],
+      children: [{ type: 'paragraph', text: 'Heading first' }],
     });
   });
 
-  test('<li data-type="taskItem"><h1>...</h1></li> hoists the heading out (taskItem variant)', async ({ page }) => {
+  test('<li data-type="taskItem"><h1>...</h1></li> parses the heading as the task label text (taskItem variant)', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><h1>Title</h1></li></ul>',
@@ -189,14 +196,14 @@ test.describe('Notion-strict list schema - parse-time autofix', () => {
       return out;
     });
     expect(top).toEqual([
-      { type: 'taskList', text: '' },
-      { type: 'heading', text: 'Title' },
+      { type: 'taskList', text: 'Title' },
     ]);
     const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
       type: 'taskItem',
       childCount: 1,
-      children: [{ type: 'paragraph', text: '' }],
+      children: [{ type: 'paragraph', text: 'Title' }],
     });
   });
 
@@ -237,12 +244,25 @@ test.describe('Notion-strict list schema - parse-time autofix', () => {
     });
   });
 
-  test('<li><h1>First</h1><p>After</p></li> hoists BOTH non-fitting children out, leaves an empty list item', async ({ page }) => {
-    // PM's parser sees <h1> first - cannot match the required label
-    // slot - so the listItem closes without consuming any DOM child;
-    // both <h1>First</h1> and <p>After</p> end up as top-level
-    // siblings of the bulletList. The list item gets an auto-injected
-    // empty paragraph as its required label.
+  test('<li><br><h2>...</h2></li> keeps the heading below the label paragraph the line break opens', async ({ page }) => {
+    // A line break is content the item holds, like text or an image, so
+    // the heading after it no longer starts the item and stays a heading.
+    await setContent(page, '<ul><li><br><h2>After a break</h2></li></ul>');
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      childCount: 2,
+      children: [
+        { type: 'paragraph', childCount: 1 },
+        { type: 'heading', text: 'After a break' },
+      ],
+    });
+  });
+
+  test('<li><h1>First</h1><p>After</p></li> keeps both in the item: the heading text as the label, the paragraph below it', async ({ page }) => {
+    // The heading tag at the item start gives the required label slot
+    // its text, so the listItem goes on to take <p>After</p> as its
+    // second child and nothing leaves the list.
     await setContent(page, '<ul><li><h1>First</h1><p>After</p></li></ul>');
     const top = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -252,14 +272,16 @@ test.describe('Notion-strict list schema - parse-time autofix', () => {
       return out;
     });
     expect(top).toEqual([
-      { type: 'bulletList', text: '' },
-      { type: 'heading', text: 'First' },
-      { type: 'paragraph', text: 'After' },
+      { type: 'bulletList', text: 'FirstAfter' },
     ]);
     const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
-      childCount: 1,
-      children: [{ type: 'paragraph', text: '' }],
+      childCount: 2,
+      children: [
+        { type: 'paragraph', text: 'First' },
+        { type: 'paragraph', text: 'After' },
+      ],
     });
   });
 
@@ -331,32 +353,23 @@ test.describe('Notion-strict list schema - checkbox / bullet alignment', () => {
     expect(cbY).toBeLessThanOrEqual(pY.bottom + 1);
   });
 
-  test('legacy <li data-type="taskItem"><h1>...</h1></li>: checkbox stays at the (now empty) label row, NOT pulled up to the heading', async ({ page }) => {
+  test('legacy <li data-type="taskItem"><h1>...</h1></li>: no heading row, the checkbox sits on the label that holds the heading text', async ({ page }) => {
     // The original alignment bug: an H1 ended up as the first child of
     // a taskItem and visually pulled the checkbox up to the heading
-    // baseline. With strict schema, the parser HOISTS the heading out
-    // of the taskItem (since it can't sit as the first child) and
-    // leaves an empty label paragraph in its place. The checkbox
-    // therefore aligns with the small label row, not the tall heading
-    // that now sits as a separate top-level block.
+    // baseline. With strict schema the heading tag cannot open the
+    // taskItem, so its text parses as the label paragraph: no heading
+    // row is left, and the checkbox centers on that label like on any
+    // other task.
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><h1>Big heading</h1></li></ul>',
     );
 
-    const cbInput = page.locator(`${editorSelector} li[data-type="taskItem"] input[type="checkbox"]`).first();
-    const cbBox = await cbInput.boundingBox();
-    if (!cbBox) throw new Error('checkbox missing');
-    const cbCenterY = cbBox.y + cbBox.height / 2;
-
-    const headingBox = await page.locator(`${editorSelector} h1:has-text("Big heading")`).first().boundingBox();
-    if (!headingBox) throw new Error('heading missing');
-    // The heading is now hoisted ABOVE / BELOW the bulletList - either
-    // way the checkbox center should NOT sit inside the heading's
-    // vertical span. With the old `block+` schema both shared the
-    // same row, this assertion would fail.
-    const cbInsideHeadingRow = cbCenterY >= headingBox.y && cbCenterY <= headingBox.y + headingBox.height;
-    expect(cbInsideHeadingRow).toBe(false);
+    await expect(page.locator(`${editorSelector} h1`)).toHaveCount(0);
+    const cbY = await checkboxYCenter(page, 'Big heading');
+    const pY = await paragraphYRange(page, 'Big heading');
+    expect(cbY).toBeGreaterThanOrEqual(pY.top - 1);
+    expect(cbY).toBeLessThanOrEqual(pY.bottom + 1);
   });
 
   test('bullet item with paragraph + nested heading: bullet aligned with paragraph label', async ({ page }) => {
@@ -387,13 +400,15 @@ test.describe('Notion-strict list schema - HTML round-trip', () => {
     });
   }
 
-  test('legacy <li><h1>...</h1></li> input round-trips to a stable [bulletList(empty li), heading] doc', async ({ page }) => {
-    // First parse hoists the heading out; the resulting HTML therefore
-    // serializes a separate <ul> + <h1>, and a second setContent with
-    // that HTML produces the same shape (no further changes, no
-    // duplicate label re-injection).
+  test('legacy <li><h1>...</h1></li> input round-trips to a stable one-item list whose label holds the text', async ({ page }) => {
+    // First parse gives the heading text to the label paragraph; the
+    // resulting HTML therefore serializes one <ul> whose <li> holds a
+    // <p>, with no <h1>, and a second setContent with that HTML produces
+    // the same shape and the same HTML (no further changes, no duplicate
+    // label re-injection).
     await setContent(page, '<ul><li><h1>Heading</h1></li></ul>');
     const after1 = await getHTML(page);
+    expect(after1).not.toContain('<h1');
     await setContent(page, after1);
     const top = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -403,9 +418,11 @@ test.describe('Notion-strict list schema - HTML round-trip', () => {
       return out;
     });
     expect(top).toEqual([
-      { type: 'bulletList', text: '' },
-      { type: 'heading', text: 'Heading' },
+      { type: 'bulletList', text: 'Heading' },
     ]);
+    const after2 = await getHTML(page);
+    const withoutIds = (html: string): string => html.replace(/ (?:data-)?id="[^"]*"/g, '');
+    expect(withoutIds(after2)).toBe(withoutIds(after1));
   });
 
   test('schema-valid input ([p, h1]) round-trips identically', async ({ page }) => {
@@ -870,15 +887,20 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
 
   // ── Schema-autofix ↔ children-indent interaction ──────────────────
 
-  test('autofix-injected empty label paragraph + heading NOT inside the same li (legacy `<li><h1>...</h1></li>`)', async ({ page }) => {
-    // The parser HOISTS the heading out of the li when it cannot
-    // satisfy the first-child slot, leaving the li with just an empty
-    // label paragraph. The heading lands at TOP level - NOT inside
-    // the li - so the children-zone indent does not (and should not)
-    // apply. This locks in that interaction.
-    await setContent(page, '<ul><li><h1>Hoisted</h1></li></ul>');
-    const headingMl = await marginLeft(page, `${editorSelector} h1`);
-    expect(headingMl).toBe(0);
+  test('legacy `<li><h1>...</h1><h2>...</h2></li>`: the first heading\'s text labels the item, unindented, and the heading after it stays in the children zone, indented', async ({ page }) => {
+    // The first heading tag cannot satisfy the first-child slot, so its
+    // text parses as the li's label paragraph, which takes no
+    // children-zone indent. That label is content the item holds, so the
+    // second heading stays a heading and renders indented below it. This
+    // locks in that interaction.
+    await setContent(page, '<ul><li><h1>Heading text</h1><h2>Kept heading</h2></li></ul>');
+    await expect(page.locator(`${editorSelector} h1`)).toHaveCount(0);
+    await expect(page.locator(`${editorSelector} li > p`)).toHaveText('Heading text');
+    await expect(page.locator(`${editorSelector} li > h2`)).toHaveText('Kept heading');
+    const labelMl = await marginLeft(page, `${editorSelector} li > p`);
+    expect(labelMl).toBe(0);
+    const headingMl = await marginLeft(page, `${editorSelector} li > h2`);
+    expect(headingMl).toBeGreaterThanOrEqual(20);
   });
 
   test('schema-valid li with empty label + nested heading still indents the heading', async ({ page }) => {

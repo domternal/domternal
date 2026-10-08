@@ -96,6 +96,14 @@
     "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
   },
   {
+    "file": "packages/extension-paste-cleanup/src/listCapabilities.ts",
+    "context": "officeListCapabilities.accepts",
+    "sink": "template:text",
+    "text": "Outer",
+    "occurrences": 1,
+    "reason": "Technical sentinel in a constant detached DOM schema capability probe. Outer and Inner are compared with parsed node text and never rendered in the editor or user interface."
+  },
+  {
     "file": "packages/react/src/bubble-menu/DomternalBubbleMenu.tsx",
     "context": "DomternalBubbleMenu",
     "sink": "jsx:text",

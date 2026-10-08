@@ -8,8 +8,10 @@
 import MarkdownIt from 'markdown-it';
 import { Fragment } from '@domternal/pm/model';
 import type { Node as PMNode, NodeType, Schema } from '@domternal/pm/model';
+import { resolveAttributeValue } from '@domternal/core';
 import { addMathBlockRule, addMathInlineRule } from './mathRules.js';
 import { MarkdownParseState } from './state.js';
+import { allowedImageSource, allowedLinkHref } from '../urls.js';
 
 type Token = ReturnType<MarkdownIt['parse']>[number];
 type TokenHandler = (state: MarkdownParseState, token: Token) => void;
@@ -190,17 +192,33 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
       ignore(`${tokenName}_open`, `${tokenName}_close`);
       return;
     }
-    handlers[`${tokenName}_open`] = (state, token) => {
-      state.openMark(
-        type.create(
-          tokenName === 'link'
-            ? { href: attrFrom(token, 'href'), title: attrFrom(token, 'title') }
-            : null
-        )
-      );
+    handlers[`${tokenName}_open`] = (state) => {
+      state.openMark(type.create(null));
     };
     handlers[`${tokenName}_close`] = (state) => {
       state.closeMark(type);
+    };
+  };
+
+  /**
+   * Links open a mark only for an href the schema's link keeps, as loading
+   * JSON content would; any other keeps its text. Links never nest, but the
+   * stack keeps each close paired with its own open.
+   */
+  const linkMark = (): void => {
+    const type = schema.marks['link'];
+    if (type === undefined) {
+      ignore('link_open', 'link_close');
+      return;
+    }
+    const opened: boolean[] = [];
+    handlers['link_open'] = (state, token) => {
+      const href = allowedLinkHref(schema, type.name, attrFrom(token, 'href'));
+      opened.push(href !== null);
+      if (href !== null) state.openMark(type.create({ href, title: attrFrom(token, 'title') }));
+    };
+    handlers['link_close'] = (state) => {
+      if (opened.pop() === true) state.closeMark(type);
     };
   };
 
@@ -218,6 +236,31 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
     };
   };
 
+  /**
+   * A heading where the node being built cannot take one, such as at the
+   * start of a list item, whose first block must be a paragraph, parses as a
+   * paragraph with its text, as HTML does, so the item holds no empty
+   * paragraph before a heading.
+   */
+  const headingWhereItCannotStand = (): void => {
+    const headingType = node('heading');
+    const paragraphType = node('paragraph');
+    const open = handlers['heading_open'];
+    const close = handlers['heading_close'];
+    if (headingType === undefined || paragraphType === undefined || open === undefined || close === undefined) return;
+    const asParagraph: boolean[] = [];
+    handlers['heading_open'] = (state, token) => {
+      const text = !state.canAppend(headingType) && state.canAppend(paragraphType);
+      asParagraph.push(text);
+      if (text) state.openNode(paragraphType);
+      else open(state, token);
+    };
+    handlers['heading_close'] = (state, token) => {
+      if (asParagraph.pop() === true) state.closeNode();
+      else close(state, token);
+    };
+  };
+
   const ignore = (...tokenNames: string[]): void => {
     for (const name of tokenNames) {
       handlers[name] = () => {
@@ -227,7 +270,13 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
   };
 
   block('paragraph', 'paragraph');
-  block('heading', 'heading', (token) => ({ level: Number(token.tag.slice(1)) || 1 }), 'paragraph');
+  // A level the Heading configuration lacks parses at the nearest configured
+  // level, as HTML and JSON content do; a heading node without Heading's level
+  // rules keeps the level as written.
+  block('heading', 'heading', (token) => ({
+    level: resolveAttributeValue(schema, 'heading', 'level', Number(token.tag.slice(1)) || 1),
+  }), 'paragraph');
+  headingWhereItCannotStand();
   block('blockquote', 'blockquote');
   block('bullet_list', 'bulletList');
   block('ordered_list', 'orderedList', (token) => {
@@ -264,6 +313,7 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
   };
 
   const codeBlockType = node('codeBlock') ?? node('paragraph');
+  const mathBlockType = node('mathBlock');
   if (codeBlockType !== undefined) {
     const addCodeBlock = (state: MarkdownParseState, content: string, language: string | null): void => {
       const text = content.replace(/\n$/, '');
@@ -272,6 +322,11 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
     };
     handlers['fence'] = (state, token) => {
       const language = token.info.trim().split(/\s+/)[0] ?? '';
+      // A `math` fence is block math, as GitHub and GitLab read it.
+      if (language === 'math' && mathBlockType !== undefined) {
+        state.addNode(mathBlockType, { latex: token.content.replace(/\n$/, '') });
+        return;
+      }
       addCodeBlock(state, token.content, language === '' ? null : language);
     };
     handlers['code_block'] = (state, token) => {
@@ -299,14 +354,18 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
   inlineMark('strong', 'bold');
   inlineMark('em', 'italic');
   inlineMark('s', 'strike');
-  inlineMark('link', 'link');
+  linkMark();
 
   const imageType = node('image');
   if (imageType !== undefined) {
     handlers['image'] = (state, token) => {
-      const src = attrFrom(token, 'src');
-      if (src === null) return;
+      const src = allowedImageSource(imageType, attrFrom(token, 'src'));
       const alt = altText(token);
+      // A source the Image would not load keeps the alternative text.
+      if (src === null) {
+        state.addText(alt);
+        return;
+      }
       const attrs = { src, alt: alt === '' ? null : alt, title: attrFrom(token, 'title') };
       if (imageType.isInline) {
         state.addNode(imageType, attrs);
@@ -328,7 +387,6 @@ export function createMarkdownParser(schema: Schema): MarkdownParser {
       state.addNode(mathInlineType, { latex: token.content });
     };
   }
-  const mathBlockType = node('mathBlock');
   if (mathBlockType !== undefined) {
     handlers['math_block'] = (state, token) => {
       state.addNode(mathBlockType, { latex: token.content });

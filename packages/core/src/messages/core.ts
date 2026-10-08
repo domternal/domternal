@@ -92,6 +92,7 @@ declare module '@domternal/core' {
     'core.linkPopover.urlLabel': undefined;
     'core.linkPopover.apply': undefined;
     'core.linkPopover.remove': undefined;
+    'core.linkPopover.invalidUrl': undefined;
     'core.taskItem.status': undefined;
     'core.group.format': undefined;
     'core.group.blocks': undefined;

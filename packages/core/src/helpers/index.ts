@@ -3,6 +3,7 @@
  */
 
 export { createDocument, type CreateDocumentOptions } from './createDocument.js';
+export { normalizeContent, type NormalizeContentOptions } from './normalizeContent.js';
 export {
   isNodeEmpty,
   isDocumentEmpty,
@@ -35,6 +36,13 @@ export {
   isValidUrl,
   type IsValidUrlOptions,
 } from './isValidUrl.js';
+export {
+  checkUrl,
+  type UrlCheck,
+  type UrlPolicyOptions,
+} from './checkUrl.js';
+export { isSafeCssValue } from './isSafeCssValue.js';
+export { surfaceTone, surfaceToneAttributes, type SurfaceTone, type SurfaceToneAttributes } from './surfaceTone.js';
 export {
   generateHTML,
   generateJSON,

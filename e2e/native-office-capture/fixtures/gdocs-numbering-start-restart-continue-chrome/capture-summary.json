@@ -1,0 +1,40 @@
+{
+  "kind": "authored-English-regression-summary",
+  "fixtureId": "gdocs-numbering-start-restart-continue-chrome",
+  "qualification": false,
+  "reviewed": true,
+  "baselineSourceSha256": "fcb049b8b7778cadf688e68df3ffafe5219c577b6e757f75e53da2ecc0e70d85",
+  "baselineCaptureSha256": "15e7eabf030b555b87a761685eaca2a4b0c4bb65a21d7429f48b4e912977c886",
+  "operator": {
+    "os": "Authored variant of macOS 26.5.2 (25F84)",
+    "application": "Authored variant of Google Docs web, 2026-10-05, personal account, Pages format",
+    "browser": "Authored variant of Google Chrome 153.0.8010.47 (Official Build) (arm64)",
+    "scenario": "gdocs-numbering-start-restart-continue",
+    "fixtureId": "gdocs-numbering-start-restart-continue-chrome",
+    "fixtureSha256": "8aa9316ddb793cefa05f2f9964049825e826c585523a4f47c0da639b53c1c712",
+    "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
+    "syntheticSourceConfirmed": true
+  },
+  "capturedAt": "2026-10-07T21:05:17.164Z",
+  "claimedEventKind": "synthetic-event",
+  "availableFormats": [
+    "text/plain",
+    "text/html",
+    "application/x-vnd.google-docs-document-slice-clip+wrapped",
+    "application/x-vnd.google-docs-internal-clip-id"
+  ],
+  "formatUnits": {
+    "text/html": 7213,
+    "text/plain": 189
+  },
+  "textBytes": 7402,
+  "fileBytes": 0,
+  "itemCount": 4,
+  "fileCount": 0,
+  "redactions": [],
+  "reviewNotes": [
+    "Ordinary prose was edited in the retained clipboard structure. This fixture is synthetic and makes no new native capture or support claim.",
+    "Original artifact bytes are preserved privately and identified by manifest.derivation. Previous native findings apply to that archived baseline.",
+    "Every Word image/png raster alternative is an explicit synthetic control. It is still present as a file and must not be inserted or bound to HTML text."
+  ]
+}

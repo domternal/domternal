@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 2,
+  "id": "word-headings-styles-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "f354113e756bf2039be1565333bd395d747f2fe41a2d4645e40a440c293b421a"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-headings-styles",
+    "blocks": [
+      {
+        "id": "B01",
+        "type": "heading",
+        "level": 1,
+        "word": "Style: Title",
+        "text": "B01 Paste test document",
+        "textStyle": {
+          "fontFamily": "Aptos Display",
+          "fontSize": "28pt"
+        }
+      },
+      {
+        "id": "B02",
+        "type": "heading",
+        "level": 1,
+        "word": "Style: Heading 1",
+        "text": "B02 Croatian characters and quotation marks",
+        "textStyle": {
+          "fontFamily": "Aptos Display",
+          "fontSize": "20pt",
+          "color": "#0F4761"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
+    "captureSha256": "6d43a765f8edcde7504b2b94f04b451ee885ce1ccbc554b52dd9c1a456b8752c",
+    "manifestSha256": "4fbfe97d7e1c2a87c4c646cc3aaa1b8a4fa54429c3c7993cc187d8ed78abd719"
+  }
+}

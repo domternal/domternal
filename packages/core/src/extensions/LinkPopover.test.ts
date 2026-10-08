@@ -43,7 +43,7 @@ describe('LinkPopover', () => {
 
     it('has default options', () => {
       expect(LinkPopover.options).toEqual({
-        protocols: ['http:', 'https:', 'mailto:', 'tel:'],
+        protocols: null,
       });
     });
 
@@ -407,7 +407,7 @@ describe('LinkPopover', () => {
       expect(popover.hasAttribute('data-show')).toBe(false);
     });
 
-    it('applyLink with invalid URL after protocol check hides popover', () => {
+    it('applyLink with a refused URL keeps the popover open with the reason', () => {
       editor = new Editor({
         element: host,
         extensions: allExtensions,
@@ -422,7 +422,9 @@ describe('LinkPopover', () => {
       const applyBtn = popover.querySelector<HTMLButtonElement>('.dm-link-popover-apply')!;
       input.value = 'javascript:alert(1)';
       applyBtn.click();
-      expect(popover.hasAttribute('data-show')).toBe(false);
+      expect(popover.hasAttribute('data-show')).toBe(true);
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(editor.getHTML()).not.toContain('javascript:');
     });
 
     it('applyLink on existing link with empty selection updates range', () => {

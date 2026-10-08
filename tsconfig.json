@@ -47,6 +47,9 @@
     },
     {
       "path": "./packages/extension-markdown"
+    },
+    {
+      "path": "./packages/extension-paste-cleanup"
     }
   ]
 }

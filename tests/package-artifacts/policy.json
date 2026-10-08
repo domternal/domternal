@@ -25,7 +25,31 @@
     "Their ceilings retain ten percent headroom rounded up to 1000 bytes.",
     "Existing English main JS bundles are byte-identical; locale allowlists name",
     "only de.js/de.cjs, their maps and their ESM/CommonJS declaration files.",
-    "The current maxPackedBytes includes one official locale. Each additional central locale receives only its fixed maxAdditionalLocaleBytes allowance; deleting a locale cannot increase the ceiling. Locale runtime, source map and declaration files are required by exact discovered name. No locale wildcard is allowed in tarballs. The reviewed increments allow ordinary text variation and are never derived automatically from a new language. --update keeps the reviewed base unchanged when multiple locale catalogs are present, so it cannot compound allowances or attribute their bytes to the base."
+    "The current maxPackedBytes includes one official locale. Each additional central locale receives only its fixed maxAdditionalLocaleBytes allowance; deleting a locale cannot increase the ceiling. Locale runtime, source map and declaration files are required by exact discovered name. No locale wildcard is allowed in tarballs. The reviewed increments allow ordinary text variation and are never derived automatically from a new language. --update keeps the reviewed base unchanged when multiple locale catalogs are present, so it cannot compound allowances or attribute their bytes to the base.",
+    "2026-09-24: the new optional paste-cleanup package initially measured 428770 packed bytes. Strict Office list reconstruction, inherited formatting and destination capability checks raise it to 510675. The reviewed 562000 ceiling covers ESM and CommonJS editor and standalone HTML entries, declarations, deliberate source maps and bundled HAST notices with about ten percent headroom. Core, ProseMirror and parse5 remain external; no runtime dependency was added for this increment. No existing package gains a dependency on this opt-in extension.",
+    "2026-09-24: integrated local clipboard image preparation, cancellation, bounded source capture and pending feedback raise the packed cleanup package to about 663000 bytes, including both module formats, declarations and intentional source maps. Reviewed source maps contain only production modules and existing HAST dependencies. The 730000 ceiling retains about ten percent headroom; allowed files and all other package ceilings remain unchanged.",
+    "2026-09-27: persistent resolver ownership, inline assets, destination probes, styled breaks and explicit list markers now measure 767675 packed bytes. The previous ceiling predates those additions. Reviewed tarball membership and every source-map entry contain only intended production modules, existing vendor dependencies and the single German catalog. Source maps account for 69.53 percent of unpacked bytes; the list-marker increment adds 49381 unpacked dist bytes over the styled-break snapshot, with declarations and locale output unchanged. The reviewed 845000 ceiling follows the existing ten percent headroom convention. File allowlists, the fixed additional-locale allowance and all JavaScript entry budgets remain unchanged.",
+    "2026-09-27: unknown list marker normalization, the contentDiagnostic event, the normalizeListMarkers migration command and the attribute refusals add production code, declarations and deliberate source maps to core. Measured packed bytes: core 882211, up from 864096 at the previous commit. The 971000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and export checks are unchanged.",
+    "2026-09-28: own-copy recognition with the same-page copy marker, the quiet Office envelope classification, the bounded Word @list level reader, Word list profile reconstruction from level definitions and marker run fonts, and the per item Office list fallback raise the packed cleanup package to 861052 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The 948000 ceiling keeps the documented ten percent headroom rounded up to 1000 bytes; file allowlists and all other package ceilings are unchanged.",
+    "2026-09-28: the experimental @domternal/core/clipboard subpath adds dist/clipboard.js, dist/clipboard.cjs, their empty source maps and self-contained dist/clipboard.d.ts and .d.cts. The code files only re-export the sibling main bundle, so no module is shipped twice. Core now measures 888702 packed bytes, up from 887629, including the README section and the experimental markers in the declarations; the ceiling is unchanged. The core allowlist names only the index and clipboard files.",
+    "2026-09-29: the Markdown URL policy (link and image address checks through core, a refused link written as its text, escaped destinations and one-line titles) and its README section raise the packed markdown package from 83895 to 90150 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The previous 85000 ceiling kept about one percent headroom; the new 100000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged.",
+    "2026-09-29: the markup-aware generateHighlightedHTML (a tag and quote aware scanner that highlights only real code blocks and decodes code text once) and its README note raise the packed code-block-lowlight package from 12159 to 14878 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The 17000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes; file allowlists and all other package ceilings are unchanged.",
+    "2026-09-29: the image source checks through the core URL policy, their README section and the cache that judges an unchanged node's source once raise the packed image package from 66930 to 74372 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The previous 74000 ceiling no longer covered it; the 82000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged.",
+    "2026-09-29: the URL policy (checkUrl, the link sinks, JSON link removal, relative and fragment links, the LinkPopover rules), safe CSS values, the escaped linkedom attribute output and their README sections raise the packed core package from 888702 to 971977 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The previous 971000 ceiling no longer covered it; the 1070000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged.",
+    "2026-09-29: the Markdown escaping, math and image fixes of the URL security review (&amp; for a character reference in destinations and titles, every Unicode space percent-encoded in destinations, block math with a definition label and math with an email autolink written in the GitHub fence and code span forms, images judged by the Image configuration) and their README text raise the packed markdown package from 90150 to 98224 bytes, 98 percent of the 100000 ceiling, including both module formats, declarations and intentional source maps. No dependency was added. The 109000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes; file allowlists and all other package ceilings are unchanged.",
+    "2026-09-30: validated table spans with their loading replacement, the fixTables guard that leaves a table holding an unsupported span to normalizeContentAttributes, its prosemirror-tables notice and their README text raise the packed table package to 143331 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The previous 141000 ceiling no longer covered it; the 158000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged.",
+    "2026-09-30: the cell paste helpers adapted from prosemirror-tables, which paste a cell spanning rows to the table's right edge instead of throwing, their notice and README text raise the packed table package from 143331 to 161303 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The 178000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged.",
+    "2026-09-30: image placeholders that keep their place through the whole-document replace a collaboration binding applies for a remote change, and are deleted only by a change across them, raise the packed image package from 80236 to 84688 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The previous 82000 ceiling no longer covered it; the 94000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged.",
+    "2026-10-01: moving a list-style-type that every direct item of a list declares to the list (html/listItemMarkers.ts, the list shape expected from Google Docs, checked against authored HTML only) adds that module to the editor and standalone HTML entries in both module formats with their source maps, and a README paragraph. The packed cleanup package grows from 943161 to 950805 bytes: before compression each of the four bundles gains 1922 bytes and each of their source maps about 5380. No dependency or public export was added. The ceiling rose from 948000 only to the measurement plus at least 1000 bytes, rounded up to 1000 bytes: 952000. This bump needs review.",
+    "2026-10-01: dropping the style of a span that only draws the box of the one image it holds (html/imageBoxes.ts, the image box expected from Google Docs, checked against authored HTML only) adds that module to both entries in both module formats with their source maps, and a README sentence. The packed cleanup package grows from 950805 to 959156 bytes. No dependency or public export was added. The ceiling rose the same way from 952000 to 961000. This bump needs review.",
+    "2026-10-01: reading list item markers and image boxes only from styles that CSS reads the same way as a split on semicolons (plainDeclarations in html/styles.ts: no comment, escape, !important, unclosed string or bracket, and CSS white space only) raises the packed cleanup package from 959156 to 964144 bytes. No dependency or public export was added. The two bumps above stopped at the measurement plus about 1000 bytes, short of the tenth of headroom this file documents. No release review froze this ceiling: tests/bundle-size/budget.json records that freeze for the gzip bundle ceilings only, and they still hold every paste-cleanup growth to a reviewed bump. This ceiling returns to the documented tenth of headroom rounded up to 1000 bytes: 1061000. This bump needs review.",
+    "2026-10-01: SmartPaste completing the open sides of a pasted slice before it inserts whole nodes (wholeSliceContent in SmartPaste.ts: a list whose first item starts with a nested list, as a browser copies a selection that starts inside a nested item, no longer loses the paste) and its README paragraph raise the packed block controls package from 296526 to 300401 bytes, including both module formats, declarations and intentional source maps. No dependency or public export was added. The 297000 ceiling held only 474 bytes of headroom; the 331000 ceiling follows the documented tenth of headroom rounded up to 1000 bytes. This bump needs review.",
+    "2026-10-01: blocks copied from inside a details body pasting without the details the copy recorded (helpers/unwrapCopiedBody.ts), and a paste that brings blocks into a summary going to a new block at the start of the opened content through a detailsPaste extension (DetailsPaste.ts), with their README paragraphs, raise the packed details package from 43577 to 52175 bytes, including both module formats, declarations and intentional source maps. No dependency or public export was added. The 58000 ceiling follows the documented tenth of headroom rounded up to 1000 bytes. This bump needs review.",
+    "2026-10-02: a paste into a details summary placing its blocks in the paste's own transaction (DetailsPaste.ts: a paste placement through @domternal/core/clipboard and a detailsPaste handler at priority 90), and blocks copied from the body of a details inside a list item, quote or table cell pasting without that details (helpers/unwrapCopiedBody.ts), with their README paragraphs, raise the packed details package from 52175 bytes at 6a6071b, through 57798 after the paste transaction, to 59274 bytes, including both module formats, declarations and intentional source maps. No dependency or public export was added. The 66000 ceiling follows the documented tenth of headroom rounded up to 1000 bytes. This bump needs review.",
+    "2026-10-02: an empty alt marking a decorative image (written as alt=\"\" by toDOM, getHTML() and generateHTML(), and by the node view through applyAlt in Image.ts, which also removes alt for an image without one after every update), typing ![](src) storing no alt, and an Edit alt text apply that changes nothing when the field is unchanged, with a README section, raise the packed image package from 92805 to 94394 bytes, including both module formats, declarations and intentional source maps. No dependency or public export was added. The previous 94000 ceiling no longer covered it; the 104000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged. This bump needs review.",
+    "2026-10-03: the cell surface tone plugin (plugins/cellSurfaceTonePlugin.ts: one node decoration per cell whose own background has a tone, so the theme draws its text black or white) raises the packed table package from 176814 to 179101 bytes, including both module formats, declarations and intentional source maps. surfaceToneAttributes comes from core, which stays external; no dependency or public export was added. The 198000 ceiling follows the documented tenth of headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged. This bump needs review.",
+    "2026-10-04: the paste file rule reading a Word or Excel copy that places no image as content, so Chrome's picture of a Word selection is not pasted (officeSelectionPicture in helpers/clipboardImageFiles.ts), with its README paragraph, takes the packed core package past its 1070000 ceiling, to 1070755 bytes, including both module formats, declarations and intentional source maps. No dependency or public export was added. The 1178000 ceiling follows the documented tenth of headroom rounded up to 1000 bytes. File allowlists and all other package ceilings are unchanged. This bump needs review.",
+    "2026-10-06: the Google Docs on Chrome admission (html/googleDocs.ts for checklists, list levels, image alignment and copy wrappers, the Docs line height and default color, cell alignment; html/whiteSpace.ts for the white space Docs writes on every run; floating point sizes in html/inheritance.ts) and Word hidden text (html/hiddenText.ts with its hidden-text-removed warning in English and German, and the destination capability for images), with their README text, raise the packed cleanup package from 1054462 bytes at 8d8127c to 1174853, including both module formats, both entries, declarations and intentional source maps. No dependency or public export was added; both features are owner decisions for v1, and tests/bundle-size/budget.json records the reviewed gzip bump for the same modules. The ceiling returns to the documented tenth of headroom rounded up to 1000 bytes: 1293000. This bump needs review."
   ],
   "@domternal/angular": {
     "maxPackedBytes": 77000,
@@ -37,24 +61,24 @@
     ]
   },
   "@domternal/core": {
-    "maxPackedBytes": 881000,
+    "maxPackedBytes": 1178000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
+    "allowedPatterns": ["^dist/(index|clipboard)\\.(js|cjs)(\\.map)?$", "^dist/(index|clipboard)\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 24000
   },
   "@domternal/extension-block-controls": {
-    "maxPackedBytes": 297000,
+    "maxPackedBytes": 331000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 9000
   },
   "@domternal/extension-code-block-lowlight": {
-    "maxPackedBytes": 14000,
+    "maxPackedBytes": 17000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
   "@domternal/extension-details": {
-    "maxPackedBytes": 48000,
+    "maxPackedBytes": 66000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 6000
@@ -66,13 +90,13 @@
     "maxAdditionalLocaleBytes": 6000
   },
   "@domternal/extension-image": {
-    "maxPackedBytes": 74000,
+    "maxPackedBytes": 104000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 9000
   },
   "@domternal/extension-markdown": {
-    "maxPackedBytes": 85000,
+    "maxPackedBytes": 109000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
@@ -88,8 +112,14 @@
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 6000
   },
+  "@domternal/extension-paste-cleanup": {
+    "maxPackedBytes": 1293000,
+    "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
+    "allowedPatterns": ["^dist/(html/)?index\\.(js|cjs)(\\.map)?$", "^dist/(html/)?index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 8000
+  },
   "@domternal/extension-table": {
-    "maxPackedBytes": 141000,
+    "maxPackedBytes": 198000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 10000

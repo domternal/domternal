@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-empty-paragraphs-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "4e06d3c636bcd92a2e8a1943f02af9c5dfcd256d2c414a4c8255edb55ee10bae"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-empty-paragraphs",
+    "blocks": [
+      {
+        "id": "GB21",
+        "type": "paragraph",
+        "docs": "Normal text, Indentation options: Special indent First line 1.27 cm (0.5 in)",
+        "text": "GB21 Paragraph with a first-line indent.",
+        "expectation": "First line indentation is a reported loss: unsupported-formatting.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GB22a",
+        "type": "empty",
+        "docs": "Normal text, an empty paragraph without indentation"
+      },
+      {
+        "id": "GB22b",
+        "type": "empty",
+        "docs": "Normal text, a second empty paragraph"
+      },
+      {
+        "id": "GB22",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GB22 After two empty paragraphs.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [
+        "unsupported-formatting"
+      ],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "visible",
+          "warnings": [
+            "unsupported-formatting"
+          ]
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "unsupported-formatting"
+          ]
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [
+        "unsupported-formatting"
+      ],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "visible",
+          "warnings": [
+            "unsupported-formatting"
+          ]
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "unsupported-formatting"
+          ]
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "ab26ab2302a8b9e157961df5a60f84d81836a031891d84fc1ce4523cf194f651",
+    "captureSha256": "d8030fe730104d8be1232717759c87f1590a843f68ce84554d3406d5b232eafb",
+    "manifestSha256": "5b8e9e49f96f95416d4342ac40c640e5aa8289291f54b074404fbde9e96d4229"
+  }
+}

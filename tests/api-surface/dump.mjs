@@ -86,6 +86,14 @@
  * forever with nothing noticing, so the directory slowly filled with surfaces
  * nothing published. Any snapshot with no matching entry point is now deleted
  * on write and is an error under --check.
+ *
+ * ## The @experimental tag is part of the surface
+ *
+ * A name whose own declaration carries an `@experimental` JSDoc tag is written
+ * as `name @experimental`. Marking a name experimental, or declaring it stable
+ * by dropping the tag, is a promise to consumers, so it lands as a reviewed
+ * diff like any other surface change, and the ESM and CommonJS declarations
+ * have to agree on it as they do on the names.
  */
 import { execFileSync } from 'node:child_process';
 import {
@@ -254,9 +262,58 @@ export function extractExports(content) {
   return names;
 }
 
-/** One snapshot file's contents from a set of names, sorted for a stable diff. */
-export function renderSnapshot(names) {
-  return [...names].sort((a, b) => a.localeCompare(b)).join('\n') + '\n';
+/**
+ * Exported names whose own declaration carries an `@experimental` JSDoc tag.
+ *
+ * Editors show the tag from the declaration a name resolves to, so only the
+ * JSDoc block directly above that declaration counts: a tag on the file or on
+ * a sibling never reaches the name. An aliased export is judged by its local
+ * declaration, and a name re-exported from another module has no declaration
+ * here and is never tagged. Recording the tag in the snapshot makes adding or
+ * dropping it a reviewed change, and the ESM and CommonJS halves must agree.
+ */
+export function experimentalExports(content) {
+  const locals = new Map();
+  const blockPattern = /export\s+(?:type\s+)?\{([^}]*)\}\s*(from\s*['"][^'"]+['"])?\s*;/g;
+  for (const m of content.matchAll(blockPattern)) {
+    if (m[2] !== undefined) continue;
+    for (let raw of m[1].split(',')) {
+      raw = raw.trim();
+      if (!raw) continue;
+      if (raw.startsWith('type ')) raw = raw.slice(5).trim();
+      const asMatch = raw.match(/^(\S+)\s+as\s+(\S+)$/);
+      if (asMatch) locals.set(asMatch[2] === 'default' ? `default(${asMatch[1]})` : asMatch[2], asMatch[1]);
+      else locals.set(raw, raw);
+    }
+  }
+  const declPattern =
+    /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:const|let|var|function|class|interface|type|enum)\s+(\w+)/gm;
+  for (const m of content.matchAll(declPattern)) locals.set(m[1], m[1]);
+
+  const tagged = new Set();
+  for (const [name, local] of locals) {
+    const declaration = new RegExp(
+      `(?:^|\\n)[ \\t]*(?:export\\s+)?(?:declare\\s+)?(?:abstract\\s+)?(?:interface|type|function|class|const|let|var|enum)\\s+${local.replaceAll('$', '\\$')}\\b`
+    ).exec(content);
+    if (declaration === null) continue;
+    const before = content.slice(0, declaration.index).trimEnd();
+    const doc = before.endsWith('*/') ? before.slice(before.lastIndexOf('/**')) : '';
+    if (/@experimental\b/.test(doc)) tagged.add(name);
+  }
+  return tagged;
+}
+
+/**
+ * One snapshot file's contents from a set of names, sorted for a stable diff.
+ * A name in `experimental` carries an ` @experimental` suffix.
+ */
+export function renderSnapshot(names, experimental = new Set()) {
+  return (
+    [...names]
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => (experimental.has(name) ? `${name} @experimental` : name))
+      .join('\n') + '\n'
+  );
 }
 
 /**
@@ -349,10 +406,10 @@ export function planSnapshots(targets, dir, localeContracts = new Map()) {
   const checkedLocales = new Set();
 
   for (const { label, origin, declarations } of targets) {
-    const surfaces = declarations.map(({ path, target }) => ({
-      exports: extractExports(readFileSync(path, 'utf8')),
-      target,
-    }));
+    const surfaces = declarations.map(({ path, target }) => {
+      const content = readFileSync(path, 'utf8');
+      return { exports: extractExports(content), experimental: experimentalExports(content), target };
+    });
 
     let empty = false;
     for (const surface of surfaces) {
@@ -365,10 +422,10 @@ export function planSnapshots(targets, dir, localeContracts = new Map()) {
     }
     if (empty) continue;
 
-    const canonical = renderSnapshot(surfaces[0].exports);
+    const canonical = renderSnapshot(surfaces[0].exports, surfaces[0].experimental);
     let differ = false;
     for (const surface of surfaces.slice(1)) {
-      if (renderSnapshot(surface.exports) !== canonical) {
+      if (renderSnapshot(surface.exports, surface.experimental) !== canonical) {
         differ = true;
         errors.push(
           `${origin}: declaration surfaces differ between ${surfaces[0].target} and ${surface.target}`

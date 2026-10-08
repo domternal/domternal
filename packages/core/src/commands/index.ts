@@ -44,6 +44,7 @@ export {
 
 // List commands
 export { toggleList } from './listCommands.js';
+export { normalizeContentAttributes, type NormalizeContentAttributesOptions } from './normalizeContentAttributes.js';
 
 // Attribute commands
 export {
@@ -57,6 +58,7 @@ import { setContent, clearContent, insertText, insertContent } from './contentCo
 import { toggleMark, setMark, unsetMark, unsetAllMarks } from './markCommands.js';
 import { setBlockType, toggleBlockType, wrapIn, toggleWrap, lift } from './nodeCommands.js';
 import { toggleList } from './listCommands.js';
+import { normalizeContentAttributes } from './normalizeContentAttributes.js';
 import { updateAttributes, resetAttributes } from './attributeCommands.js';
 
 export const builtInCommands: CommandMap = {
@@ -77,6 +79,7 @@ export const builtInCommands: CommandMap = {
   toggleWrap,
   lift,
   toggleList,
+  normalizeContentAttributes,
   insertContent,
   selectNodeBackward,
   updateAttributes,
@@ -88,6 +91,7 @@ import type { Attrs } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import type { SetContentOptions, ClearContentOptions } from './contentCommands.js';
+import type { NormalizeContentAttributesOptions } from './normalizeContentAttributes.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -110,6 +114,16 @@ declare module '@domternal/core' {
     toggleList: CommandSpec<
       [listNodeName: string, listItemNodeName: string, attributes?: Attrs, options?: { perItem?: boolean }]
     >;
+    /**
+     * Replaces stored values that loading JSON content would replace: unknown
+     * list markers, heading levels the configuration lacks, unsupported table
+     * spans and links the Link's URL policy refuses (removed, text kept), in
+     * one transaction outside the undo history. Run it only when every client
+     * shares this version, heading levels and Link configuration; `codes`
+     * limits it to chosen diagnostic codes. False in a read-only editor or
+     * when nothing needs replacing.
+     */
+    normalizeContentAttributes: CommandSpec<[options?: NormalizeContentAttributesOptions]>;
     insertContent: CommandSpec<[content: Content]>;
     selectNodeBackward: CommandSpec;
     updateAttributes: CommandSpec<[typeOrName: string, attributes: Record<string, unknown>]>;

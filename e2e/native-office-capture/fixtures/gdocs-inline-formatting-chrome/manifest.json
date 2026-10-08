@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-inline-formatting-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "c943178927a81d5aeec4ae5c56298b39fc3e188ad76438b914410e96770119a2"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-inline-formatting",
+    "blocks": [
+      {
+        "id": "GB10",
+        "type": "paragraph",
+        "docs": "Normal text. Apply each format to the named word only.",
+        "text": "GB10 strikethrough H2O x2 Georgia red highlighted",
+        "marks": [
+          {
+            "text": "strikethrough",
+            "marks": [
+              "strike"
+            ],
+            "docs": "Strikethrough (Cmd+Shift+X)"
+          },
+          {
+            "text": "2",
+            "occurrence": 1,
+            "marks": [
+              "subscript"
+            ],
+            "docs": "Subscript (Cmd+,) on the 2 of H2O"
+          },
+          {
+            "text": "2",
+            "occurrence": 2,
+            "marks": [
+              "superscript"
+            ],
+            "docs": "Superscript (Cmd+.) on the 2 of x2"
+          },
+          {
+            "text": "Georgia",
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": "14pt"
+            },
+            "docs": "Font Georgia, size 14"
+          },
+          {
+            "text": "red",
+            "style": {
+              "color": "#ff0000"
+            },
+            "docs": "Text color: red, the second swatch of the bright row (#ff0000)"
+          },
+          {
+            "text": "highlighted",
+            "marks": [
+              "highlight"
+            ],
+            "style": {
+              "backgroundColor": "#ffff00"
+            },
+            "formatting": "preserve",
+            "docs": "Highlight color: yellow, the fourth swatch of the bright row (#ffff00)",
+            "expectation": "adapt removes the highlight with the other colors, so it is checked in preserve only.",
+            "correction": "The highlight is the run's background color #ffff00, as Chrome's capture writes it and the editor keeps it."
+          }
+        ],
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "visible",
+          "warnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "ab26ab2302a8b9e157961df5a60f84d81836a031891d84fc1ce4523cf194f651",
+    "captureSha256": "0ff5865bb58acdfb7855b18b62c99d6aa7390e27c70db4f806083b91c9cde2e4",
+    "manifestSha256": "bec1d7ba9e71b2e78dc2200906c64511b92a0b2098ba43a74c99ebd029bef8db"
+  }
+}

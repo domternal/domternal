@@ -2,6 +2,8 @@ packages:
   - "packages/*"
   - "apps/*"
   - "tests/*"
+  # The published 1.2.0 packages, installed by test:mixed-version as a project of their own.
+  - "!tests/mixed-version/v1.2.0"
   - "domternal.dev"
 
 autoInstallPeers: true

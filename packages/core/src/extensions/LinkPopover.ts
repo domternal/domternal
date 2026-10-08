@@ -15,11 +15,15 @@
  * ```
  */
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
-import type { MarkType } from '@domternal/pm/model';
+import type { Mark as PMMark, MarkType } from '@domternal/pm/model';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import { Extension } from '../Extension.js';
-import { isValidUrl } from '../helpers/isValidUrl.js';
-import { getMarkRange } from '../helpers/getMarkRange.js';
+import { checkUrl, cleanUrl, normalizeUrlProtocol } from '../helpers/checkUrl.js';
+import { linkUrlPolicy, protocolScheme } from '../marks/Link.js';
+import type { LinkProtocolOptions } from '../marks/Link.js';
+import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
+import { getExactMarkRange } from '../helpers/getMarkRange.js';
+import { isSupportedAttributeValue } from '../utils/normalizedAttributes.js';
 import { defaultIcons } from '../icons/index.js';
 import { positionFloating } from '../utils/positionFloating.js';
 import { copyThemeClass } from '../utils/copyThemeClass.js';
@@ -28,21 +32,92 @@ import { coreMessages } from '../messages/core.js';
 
 export interface LinkPopoverOptions {
   /**
-   * List of allowed URL protocols (should match Link mark's protocols)
-   * @default ['http:', 'https:', 'mailto:', 'tel:']
+   * Schemes the popover accepts, narrowing the Link's own policy, such as
+   * `['https:']` to offer only web links in the popover. `null` accepts every
+   * address the Link accepts. Relative references follow the Link's
+   * `allowRelative` either way. Entries are read as the Link reads its own.
+   * @default null
    */
-  protocols: string[];
+  protocols: readonly (string | LinkProtocolOptions)[] | null;
 }
 
 interface LinkPopoverPluginOptions {
   editor: Editor;
   markType: MarkType;
-  protocols: string[];
+  protocols: unknown;
+}
+
+/** A relative reference as typed: a fragment, a path, a dot path or a query. */
+const RELATIVE_INPUT = /^(?:#|\/(?!\/)|\.\.?\/|\?)/;
+/** Every address that can run no script and hides nothing: the floor under any link mark. */
+const SCRIPT_FLOOR = { protocols: 'any', allowRelative: true, allowNetworkPath: true } as const;
+const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
+
+/**
+ * The address a typed value stands for. A relative reference stays as typed,
+ * a network path and a bare host get the Link's default protocol, a bare
+ * email address becomes a `mailto:` link, and anything with a scheme stays as
+ * typed, except a host and port such as `localhost:3000`.
+ */
+function addressFor(value: string, defaultProtocol: string): string {
+  if (RELATIVE_INPUT.test(value)) return value;
+  if (value.startsWith('//')) return `${defaultProtocol}:${value}`;
+  const scheme = SCHEME.exec(value)?.[1];
+  const hostAndPort = scheme !== undefined && /^[^:]+:\d+(?:[/?#]|$)/.test(value)
+    && (scheme.includes('.') || scheme.toLowerCase() === 'localhost');
+  if (scheme !== undefined && !hostAndPort) return value;
+  if (/^[^\s@/:]+@[^\s@/:]+$/.test(value)) return `mailto:${value}`;
+  return `${defaultProtocol}://${value}`;
 }
 
 const linkPopoverPluginKey = new PluginKey('linkPopover');
 
+/** Numbers each popover's reason element, so the field it describes can name it. */
+let reasonIds = 0;
+
+/**
+ * The popover's own schemes, read the way the Link reads its `protocols`, or
+ * null to accept every scheme the Link accepts. A value that names no scheme
+ * fails editor creation, as it does for the Link.
+ */
+function narrowingSchemes(protocols: unknown): string[] | null {
+  if (protocols === undefined || protocols === null) return null;
+  if (!Array.isArray(protocols)) {
+    throw new ExtensionConfigurationError("LinkPopover: protocols must be null or a list of schemes, such as ['https:']");
+  }
+  return (protocols as unknown[]).map(entry => {
+    const scheme = protocolScheme(entry);
+    if (scheme === null) {
+      throw new ExtensionConfigurationError(`LinkPopover: protocols entry ${JSON.stringify(entry)} is not a URL scheme`);
+    }
+    return scheme;
+  });
+}
+
 function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOptions): Plugin {
+  const narrowed = narrowingSchemes(protocols);
+  const linkOptions = editor.extensionManager.extensions.find(extension => extension.name === markType.name)?.options as
+    { defaultProtocol?: unknown } | undefined;
+  const defaultProtocol = typeof linkOptions?.defaultProtocol === 'string' && /^[a-z][a-z0-9+.-]*$/i.test(linkOptions.defaultProtocol)
+    ? linkOptions.defaultProtocol
+    : 'https';
+
+  const policy = linkUrlPolicy(linkOptions);
+
+  /**
+   * Whether the Link stores this address: its URL policy, as loading JSON
+   * content applies it, the policy of its options again, which holds when an
+   * extension redefines the href attribute, no script address for a custom
+   * link mark, and the popover's own scheme list when one narrows it.
+   */
+  const accepts = (href: string): boolean => {
+    if (!isSupportedAttributeValue(editor.schema, markType.name, 'href', href)) return false;
+    if (policy !== null && checkUrl(href, policy).status !== 'allowed') return false;
+    if (checkUrl(href, SCRIPT_FLOOR).status === 'unsafe') return false;
+    const scheme = SCHEME.exec(href)?.[1];
+    return narrowed === null || scheme === undefined || narrowed.includes(normalizeUrlProtocol(scheme));
+  };
+
   // Build DOM elements
   const el = document.createElement('div');
   el.className = 'dm-link-popover';
@@ -63,6 +138,21 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
   removeBtn.className = 'dm-link-popover-btn dm-link-popover-remove';
   removeBtn.innerHTML = defaultIcons['linkBreak'] ?? '';
 
+  // Why an address is refused, visible below the field and tied to it, so the reason
+  // outlasts the browser's validation bubble and reaches assistive technology.
+  const reason = document.createElement('p');
+  reason.className = 'dm-link-popover-error';
+  reason.id = `dm-link-popover-error-${String(++reasonIds)}`;
+  reason.hidden = true;
+
+  /** Writes the localized reason to the field and the reason element. */
+  const writeReason = (): void => {
+    const message = editor.i18n.resolve(coreMessages.linkInvalidUrl);
+    input.setCustomValidity(message.text);
+    if (reason.textContent !== message.text) reason.textContent = message.text;
+    reason.lang = message.language;
+  };
+
   const updateLabels = (): void => {
     const url = editor.i18n.resolve(coreMessages.linkUrlLabel);
     const apply = editor.i18n.resolve(coreMessages.linkApply);
@@ -77,14 +167,44 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
     removeBtn.title = remove.text;
     removeBtn.setAttribute('aria-label', remove.text);
     removeBtn.lang = remove.language;
+    // A refusal shown before a locale change follows it, as the labels do.
+    if (input.getAttribute('aria-invalid') === 'true') writeReason();
   };
 
   el.appendChild(input);
   el.appendChild(applyBtn);
   el.appendChild(removeBtn);
+  el.appendChild(reason);
+
+  /**
+   * Marks the input invalid with a visible, localized reason that describes it.
+   * `announce` makes the reason an alert and replaces its text node, so a refused
+   * Apply is spoken at once, also when the same reason is already shown.
+   */
+  const markInvalid = (announce: boolean): void => {
+    writeReason();
+    input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', reason.id);
+    if (announce) {
+      reason.setAttribute('role', 'alert');
+      reason.replaceChildren(document.createTextNode(reason.textContent));
+    } else {
+      reason.removeAttribute('role');
+    }
+    reason.hidden = false;
+  };
+  const clearInvalid = (): void => {
+    input.removeAttribute('aria-invalid');
+    input.removeAttribute('aria-describedby');
+    input.setCustomValidity('');
+    reason.hidden = true;
+    reason.removeAttribute('role');
+    reason.textContent = '';
+  };
 
   let isOpen = false;
   let hasExistingLink = false;
+  let existingMark: PMMark | null = null;
   let cleanupFloating: (() => void) | null = null;
   let toggleAnchor: HTMLElement | null = null;
 
@@ -99,25 +219,28 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
     // Detect existing link at cursor
     const { state } = editor.view;
     const { from, empty } = state.selection;
-    let existingHref: string | null = null;
+    let linkMark: PMMark | null = null;
 
     if (empty) {
-      const $pos = state.doc.resolve(from);
-      const linkMark = $pos.marks().find((m: { type: { name: string } }) => m.type === markType);
-      existingHref = linkMark ? (linkMark.attrs as Record<string, unknown>)['href'] as string : null;
+      linkMark = state.doc.resolve(from).marks().find(mark => mark.type === markType) ?? null;
     } else {
       // Check marks in selection
       const { to } = state.selection;
       state.doc.nodesBetween(from, to, (node) => {
-        if (existingHref) return false;
-        const linkMark = node.marks.find((m: { type: { name: string } }) => m.type === markType);
-        if (linkMark) existingHref = (linkMark.attrs as Record<string, unknown>)['href'] as string;
+        if (linkMark) return false;
+        linkMark = node.marks.find(mark => mark.type === markType) ?? null;
         return true;
       });
     }
 
-    hasExistingLink = existingHref !== null;
-    input.value = existingHref ?? '';
+    existingMark = linkMark;
+    hasExistingLink = linkMark !== null;
+    const existingHref: unknown = existingMark?.attrs['href'];
+    // Only a string can be shown; a stored value that is not one, or that the
+    // Link would not keep, opens marked invalid so Apply cannot store it again.
+    input.value = typeof existingHref === 'string' ? existingHref : '';
+    clearInvalid();
+    if (hasExistingLink && !(typeof existingHref === 'string' && accepts(existingHref))) markInvalid(false);
     removeBtn.style.display = hasExistingLink ? '' : 'none';
 
     el.style.display = '';
@@ -189,39 +312,46 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
     // so the toolbar transaction handler sees the updated value.
     editor.view.dispatch(editor.view.state.tr.setMeta(linkPopoverPluginKey, null));
     input.value = '';
+    clearInvalid();
+    existingMark = null;
   };
 
   const applyLink = (): void => {
-    let href = input.value.trim();
-    if (!href) {
+    const value = input.value.trim();
+    if (!value) {
       hide();
       editor.view.focus();
       return;
     }
 
-    // Auto-prepend https:// if no protocol
-    if (!/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-      href = 'https://' + href;
-    }
-
-    if (!isValidUrl(href, { protocols })) {
-      hide();
-      editor.view.focus();
+    // A refused address keeps the popover open with the reason, so the
+    // typed value is never lost silently.
+    const href = cleanUrl(addressFor(value, defaultProtocol));
+    if (!accepts(href)) {
+      markInvalid(true);
+      input.focus();
       return;
     }
 
     // If cursor is on existing link with no selection, select the full link range
-    // and apply the mark in a single transaction to avoid visual flash
+    // and apply the mark in a single transaction to avoid visual flash. Only
+    // the href changes: the title, target, rel and class stay.
     const { state } = editor.view;
     const { from, empty } = state.selection;
 
-    if (empty && hasExistingLink) {
+    if (empty && hasExistingLink && existingMark) {
+      // The node beside the cursor that carries the shown link, never an adjacent one.
       const $pos = state.doc.resolve(from);
-      const range = getMarkRange($pos, markType);
-      if (range) {
+      const after = $pos.parent.childAfter($pos.parentOffset);
+      const before = $pos.parent.childBefore($pos.parentOffset);
+      const holder = after.node && existingMark.isInSet(after.node.marks) ? after
+        : before.node && existingMark.isInSet(before.node.marks) ? before : null;
+      if (holder) {
+        const range = getExactMarkRange(state.doc, $pos.start() + holder.offset, existingMark);
         const tr = state.tr
           .setSelection(TextSelection.create(state.doc, range.from, range.to))
-          .addMark(range.from, range.to, markType.create({ href }));
+          .removeMark(range.from, range.to, markType)
+          .addMark(range.from, range.to, markType.create({ ...existingMark.attrs, href }));
         editor.view.dispatch(tr);
         hide();
         editor.view.focus();
@@ -229,6 +359,8 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
       }
     }
 
+    // setLink keeps each linked node's other attributes and stores the href
+    // only when the Link's URL policy allows it, as checked above.
     editor.commands.setLink({ href });
     hide();
     editor.view.focus();
@@ -341,6 +473,7 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
       // Register all event listeners here - ProseMirror calls destroy()/view()
       // on plugin view rebuilds, so listeners must be re-attached each time.
       input.addEventListener('keydown', onInputKeydown);
+      input.addEventListener('input', clearInvalid);
       applyBtn.addEventListener('mousedown', onPreventBlur);
       applyBtn.addEventListener('click', applyLink);
       applyBtn.addEventListener('keydown', onButtonKeydown);
@@ -355,6 +488,7 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
           unsubscribeI18n();
           hide();
           input.removeEventListener('keydown', onInputKeydown);
+          input.removeEventListener('input', clearInvalid);
           applyBtn.removeEventListener('mousedown', onPreventBlur);
           applyBtn.removeEventListener('click', applyLink);
           applyBtn.removeEventListener('keydown', onButtonKeydown);
@@ -377,7 +511,7 @@ export const LinkPopover = Extension.create<LinkPopoverOptions>({
 
   addOptions() {
     return {
-      protocols: ['http:', 'https:', 'mailto:', 'tel:'],
+      protocols: null,
     };
   },
 

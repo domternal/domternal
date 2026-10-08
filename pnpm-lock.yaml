@@ -155,6 +155,9 @@ importers:
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
+      '@domternal/extension-paste-cleanup':
+        specifier: workspace:*
+        version: link:../../packages/extension-paste-cleanup
       '@domternal/extension-table':
         specifier: workspace:*
         version: link:../../packages/extension-table
@@ -222,6 +225,9 @@ importers:
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
+      '@domternal/extension-paste-cleanup':
+        specifier: workspace:*
+        version: link:../../packages/extension-paste-cleanup
       '@domternal/extension-table':
         specifier: workspace:*
         version: link:../../packages/extension-table
@@ -298,6 +304,9 @@ importers:
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
+      '@domternal/extension-paste-cleanup':
+        specifier: workspace:*
+        version: link:../../packages/extension-paste-cleanup
       '@domternal/extension-table':
         specifier: workspace:*
         version: link:../../packages/extension-table
@@ -359,6 +368,9 @@ importers:
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
+      '@domternal/extension-paste-cleanup':
+        specifier: workspace:*
+        version: link:../../packages/extension-paste-cleanup
       '@domternal/extension-table':
         specifier: workspace:*
         version: link:../../packages/extension-table
@@ -423,57 +435,81 @@ importers:
       '@astrojs/starlight-tailwind':
         specifier: ^5.0.0
         version: 5.0.0(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4)(astro@7.2.4(@astrojs/markdown-remark@7.2.4)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@25.9.5)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))(typescript@6.0.2))(tailwindcss@4.3.3)
+      '@domternal-pro/core':
+        specifier: 1.1.0
+        version: 1.1.0(@domternal/core@1.2.0(linkedom@0.18.12))
+      '@domternal-pro/extension-ai':
+        specifier: 1.1.0
+        version: 1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/extension-markdown@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0))(@domternal/pm@1.2.0)
+      '@domternal-pro/extension-collaboration':
+        specifier: 1.1.0
+        version: 1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32)
+      '@domternal-pro/extension-collaboration-caret':
+        specifier: 1.1.0
+        version: 1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal-pro/extension-collaboration@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+      '@domternal-pro/extension-columns':
+        specifier: 1.1.0
+        version: 1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/extension-block-controls@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0))(@domternal/extension-markdown@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0))(@domternal/pm@1.2.0)
+      '@domternal-pro/extension-comments':
+        specifier: 1.1.0
+        version: 1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/extension-block-controls@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0))(@domternal/pm@1.2.0)(yjs@13.6.32)
+      '@domternal-pro/extension-export':
+        specifier: 1.1.0
+        version: 1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(docx@9.7.1)(pdf-lib@1.17.1)(pdfmake@0.3.11)
+      '@domternal-pro/extension-version-history':
+        specifier: 1.1.0
+        version: 1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal-pro/extension-collaboration@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32)
       '@domternal/angular':
-        specifier: 1.0.1
-        version: 1.0.1(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/forms@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2))(@angular/platform-browser@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)))(@domternal/core@1.0.1(linkedom@0.18.12))
+        specifier: 1.2.0
+        version: 1.2.0(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/forms@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2))(@angular/platform-browser@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)))(@domternal/core@1.2.0(linkedom@0.18.12))
       '@domternal/core':
-        specifier: 1.0.1
-        version: 1.0.1(linkedom@0.18.12)
+        specifier: 1.2.0
+        version: 1.2.0(linkedom@0.18.12)
       '@domternal/extension-block-controls':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
       '@domternal/extension-code-block-lowlight':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)(lowlight@3.3.0)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(lowlight@3.3.0)
       '@domternal/extension-details':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
       '@domternal/extension-emoji':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
       '@domternal/extension-image':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
       '@domternal/extension-markdown':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
       '@domternal/extension-math':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)(katex@0.17.0)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(katex@0.17.0)
       '@domternal/extension-mention':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
       '@domternal/extension-table':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
       '@domternal/extension-toc':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
       '@domternal/pm':
-        specifier: 1.0.1
-        version: 1.0.1
+        specifier: 1.2.0
+        version: 1.2.0
       '@domternal/react':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@domternal/theme':
-        specifier: 1.0.1
-        version: 1.0.1
+        specifier: 1.2.0
+        version: 1.2.0
       '@domternal/vanilla':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))
       '@domternal/vue':
-        specifier: 1.0.1
-        version: 1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(vue@3.5.41(typescript@6.0.2))
+        specifier: 1.2.0
+        version: 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(vue@3.5.41(typescript@6.0.2))
       '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
@@ -522,6 +558,9 @@ importers:
       sharp:
         specifier: ^0.35.3
         version: 0.35.3(@types/node@25.9.5)
+      standardwebhooks:
+        specifier: 1.1.1
+        version: 1.1.1
       starlight-llms-txt:
         specifier: ^0.11.0
         version: 0.11.0(@astrojs/markdown-satteri@0.3.7)(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4)(astro@7.2.4(@astrojs/markdown-remark@7.2.4)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@25.9.5)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))(typescript@6.0.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@25.9.5)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))
@@ -572,6 +611,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
       ng-packagr:
         specifier: ^21.0.0
         version: 21.2.7(@angular/compiler-cli@21.2.20(@angular/compiler@21.2.20)(typescript@5.9.3))(tailwindcss@4.3.3)(tslib@2.8.1)(typescript@5.9.3)
@@ -591,6 +633,9 @@ importers:
         specifier: ^4.3.2
         version: 4.3.2
     devDependencies:
+      '@domternal/tests-clipboard-slices':
+        specifier: workspace:*
+        version: link:../../tests/clipboard-slices
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1
@@ -606,6 +651,15 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+      y-prosemirror:
+        specifier: ~1.3.7
+        version: 1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+      y-protocols:
+        specifier: ^1.0.7
+        version: 1.0.7(yjs@13.6.32)
+      yjs:
+        specifier: ^13.6.32
+        version: 13.6.32
 
   packages/extension-block-controls:
     devDependencies:
@@ -658,6 +712,9 @@ importers:
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
+      '@domternal/tests-clipboard-slices':
+        specifier: workspace:*
+        version: link:../../tests/clipboard-slices
       jsdom:
         specifier: ^28.1.0
         version: 28.1.0(@noble/hashes@1.8.0)
@@ -703,6 +760,12 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+      y-prosemirror:
+        specifier: ~1.3.7
+        version: 1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+      yjs:
+        specifier: ^13.6.32
+        version: 13.6.32
 
   packages/extension-markdown:
     dependencies:
@@ -734,6 +797,9 @@ importers:
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
+      '@domternal/tests-clipboard-slices':
+        specifier: workspace:*
+        version: link:../../tests/clipboard-slices
       '@types/markdown-it':
         specifier: ^14.1.2
         version: 14.1.2
@@ -786,7 +852,20 @@ importers:
         specifier: ~5.9.3
         version: 5.9.3
 
-  packages/extension-table:
+  packages/extension-paste-cleanup:
+    dependencies:
+      hast-util-from-parse5:
+        specifier: ^8.0.3
+        version: 8.0.3
+      hast-util-sanitize:
+        specifier: ^5.0.2
+        version: 5.0.2
+      hast-util-to-html:
+        specifier: ^9.0.5
+        version: 9.0.5
+      parse5:
+        specifier: ^7.3.0
+        version: 7.3.0
     devDependencies:
       '@domternal/core':
         specifier: workspace:*
@@ -794,6 +873,12 @@ importers:
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
+      '@domternal/tests-clipboard-slices':
+        specifier: workspace:*
+        version: link:../../tests/clipboard-slices
+      '@types/hast':
+        specifier: ^3.0.4
+        version: 3.0.5
       jsdom:
         specifier: ^28.1.0
         version: 28.1.0(@noble/hashes@1.8.0)
@@ -803,6 +888,33 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+
+  packages/extension-table:
+    devDependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+      '@domternal/tests-clipboard-slices':
+        specifier: workspace:*
+        version: link:../../tests/clipboard-slices
+      jsdom:
+        specifier: ^28.1.0
+        version: 28.1.0(@noble/hashes@1.8.0)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      y-prosemirror:
+        specifier: ~1.3.7
+        version: 1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+      yjs:
+        specifier: ^13.6.32
+        version: 13.6.32
 
   packages/extension-toc:
     devDependencies:
@@ -892,7 +1004,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(jsdom@28.1.0(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))
+        version: 4.1.10(@types/node@25.9.5)(@vitest/coverage-v8@4.1.10)(jsdom@28.1.0(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))
 
   packages/theme:
     devDependencies:
@@ -905,6 +1017,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
       jsdom:
         specifier: ^28.1.0
         version: 28.1.0(@noble/hashes@1.8.0)
@@ -916,7 +1031,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(jsdom@28.1.0(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))
+        version: 4.1.10(@types/node@25.9.5)(@vitest/coverage-v8@4.1.10)(jsdom@28.1.0(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))
 
   packages/vue:
     devDependencies:
@@ -937,10 +1052,16 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(jsdom@28.1.0(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))
+        version: 4.1.10(@types/node@25.9.5)(@vitest/coverage-v8@4.1.10)(jsdom@28.1.0(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))
       vue:
         specifier: ^3.5.41
         version: 3.5.41(typescript@5.9.3)
+
+  tests/clipboard-slices:
+    dependencies:
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../../packages/pm
 
   tests/consumer-types:
     dependencies:
@@ -971,6 +1092,9 @@ importers:
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
+      '@domternal/extension-paste-cleanup':
+        specifier: workspace:*
+        version: link:../../packages/extension-paste-cleanup
       '@domternal/extension-table':
         specifier: workspace:*
         version: link:../../packages/extension-table
@@ -981,6 +1105,30 @@ importers:
       typescript:
         specifier: '*'
         version: 6.0.2
+
+  tests/mixed-version:
+    devDependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@domternal/extension-image':
+        specifier: workspace:*
+        version: link:../../packages/extension-image
+      '@domternal/extension-table':
+        specifier: workspace:*
+        version: link:../../packages/extension-table
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../../packages/pm
+      jsdom:
+        specifier: ^28.1.0
+        version: 28.1.0(@noble/hashes@1.8.0)
+      y-prosemirror:
+        specifier: ~1.3.7
+        version: 1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+      yjs:
+        specifier: ^13.6.32
+        version: 13.6.32
 
 packages:
 
@@ -2042,17 +2190,113 @@ packages:
     resolution: {integrity: sha512-kzyuwOAQnXJNLS9PSyrk0CWk35nWJW/zl/6KvnTBMFK65gm7U1/Z5BqjxeapjZCIhQcM/DsrEmcbRwDyXyXK4A==}
     engines: {node: '>=14'}
 
-  '@domternal/angular@1.0.1':
-    resolution: {integrity: sha512-bViII3NsmM1AotVCeCXY/q13kSU17y04yHMdTf9K55pY8xYP3cRkNDWpkbAzL5nTs0O10aWH3yMpdQSYVQV4wA==}
+  '@domternal-pro/core@1.1.0':
+    resolution: {integrity: sha512-MbjS/1lE7TlpLrU8i6ogMDDueuZS1619rejOxKFfQ00EntytV5S3wu02C3+NVvwjuwcw68KWqhA87MWOo0wnug==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@domternal/core': '>=1.2.0 <2.0.0'
+
+  '@domternal-pro/extension-ai@1.1.0':
+    resolution: {integrity: sha512-WjOF0YviHWV4IbMbYzW+M2cHaZFaGASSkatThxl8fED3NR4TuGzja44RgqRdippcs9hhZI3jBTbXZ90k5y/8IA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@domternal-pro/core': '>=1.1.0 <2.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/extension-markdown': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
+
+  '@domternal-pro/extension-collaboration-caret@1.1.0':
+    resolution: {integrity: sha512-ZXrtL3RHg0pvLAsfUYWKcWOCsxQ0fKYsKmzgOYiV+30MyjMNgy9eIJtXcf8pl8388YTUGuivLz8qzKJDiQ0UGg==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@domternal-pro/core': '>=1.1.0 <2.0.0'
+      '@domternal-pro/extension-collaboration': '>=1.1.0 <2.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
+      y-prosemirror: ~1.3.7
+      y-protocols: ^1.0.6
+      yjs: ^13.6.8
+
+  '@domternal-pro/extension-collaboration@1.1.0':
+    resolution: {integrity: sha512-ak3GovGnXDiD5KJDu+aGxFk3qvJ2Nc9t2q4Y207bAQc7HXoVa7DcmNdcBaTfTB8+/QISmCRXBQFk/wCebLAcxw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@domternal-pro/core': '>=1.1.0 <2.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
+      y-prosemirror: ~1.3.7
+      yjs: ^13.6.8
+
+  '@domternal-pro/extension-columns@1.1.0':
+    resolution: {integrity: sha512-JAOON27e1ac9z7AORZuleH4VM95Vqd3dTkTh9l7lz0M3U7s4Fr379N8e8C4bvDrI7eWW+WNVJAsW1qequtNMXA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@domternal-pro/core': '>=1.1.0 <2.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/extension-block-controls': '>=1.2.0 <2.0.0'
+      '@domternal/extension-markdown': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
+    peerDependenciesMeta:
+      '@domternal/extension-block-controls':
+        optional: true
+      '@domternal/extension-markdown':
+        optional: true
+
+  '@domternal-pro/extension-comments@1.1.0':
+    resolution: {integrity: sha512-8PEISszyOYHvW/h59mXfqnvJHZgYB0Yetisw1niNrmVFBFbUFj613KT7fpW1UGoNEiUqvxNo7Qkyn5Yz96CbMQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@domternal-pro/core': '>=1.1.0 <2.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/extension-block-controls': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
+      yjs: ^13.6.8
+    peerDependenciesMeta:
+      '@domternal/extension-block-controls':
+        optional: true
+      yjs:
+        optional: true
+
+  '@domternal-pro/extension-export-fonts@1.1.0':
+    resolution: {integrity: sha512-NjbxEbgCLyXPCZ73cYIqm8bLhaRFj8EsYSYJ7scePI/Y9J4RQGIZ+0ssJx3ilusYA4HGs7FxdDzamMJ2ooWY3A==}
+    engines: {node: '>=22'}
+
+  '@domternal-pro/extension-export@1.1.0':
+    resolution: {integrity: sha512-XOk1RBSQ7P4bfE05p2ZC6KBp/gXllTAQwikUlZ2tltwu549AA4EnTHPYozuWNXiarjjCC/mEPaT3IdkIc/f+VA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@domternal-pro/core': '>=1.1.0 <2.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
+      docx: ^9.7.1
+      pdf-lib: ^1.17.1
+      pdfmake: ^0.3.11
+    peerDependenciesMeta:
+      pdf-lib:
+        optional: true
+
+  '@domternal-pro/extension-version-history@1.1.0':
+    resolution: {integrity: sha512-DLuNEHksP0+hPo0yXmr1vQL9kfdoBMnSC1SP6m4zSmkrHQa6YN1u9zl09vWDTDf8BPn4LTZGESR9/DYE4LSz2A==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@domternal-pro/core': '>=1.1.0 <2.0.0'
+      '@domternal-pro/extension-collaboration': '>=1.1.0 <2.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
+      y-prosemirror: ~1.3.7
+      yjs: ^13.6.8
+
+  '@domternal/angular@1.2.0':
+    resolution: {integrity: sha512-IMx3I6+q0DY00Q9auZ6XuUbZUKDSCyAqgJtPm11MIzy2cn5jyulJRAVMX1HLxFmM2rzr+nWQMfJfW6iGp0bJ4w==}
     engines: {node: '>=22'}
     peerDependencies:
       '@angular/core': ^21.2.20
       '@angular/forms': ^21.2.20
       '@angular/platform-browser': ^21.2.20
-      '@domternal/core': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
 
-  '@domternal/core@1.0.1':
-    resolution: {integrity: sha512-J9NKUKwy0SizgJxxczdVmhjd24ZZqfFNN5Gor2G0aPBrT/dkxKvdNxeAGsPDp65vbYI6vSiqZ+3thRfmi7W89A==}
+  '@domternal/core@1.2.0':
+    resolution: {integrity: sha512-Fnj/o7tJe+0ShNhxr3Eetl3n/EHnxYy8RFeL/cwI6Q4xJHcAAKUi3e+8BAqYD+D6VGI8A9ATBV/14kjypiHhbw==}
     engines: {node: '>=22'}
     peerDependencies:
       linkedom: ^0.18.0
@@ -2060,105 +2304,105 @@ packages:
       linkedom:
         optional: true
 
-  '@domternal/extension-block-controls@1.0.1':
-    resolution: {integrity: sha512-S37NAuBTCsQOjZteviq+1+Q6ygEKDFzKJRjV9H0fS9107jlFgghoCx+xqe3FOi1+3A57Iz+3iofYJu8lqw6Nsg==}
+  '@domternal/extension-block-controls@1.2.0':
+    resolution: {integrity: sha512-WtUlQ6/6YLBTYuVBqay9hYRf/tfkzqlHDauHMOq3BG/FNADJlDSaOLMSMXRkODCG33nnINZWYZ7mB8iJDw76Vg==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
 
-  '@domternal/extension-code-block-lowlight@1.0.1':
-    resolution: {integrity: sha512-S9go0VcF2u2oW4rQTYZ27LCtoo1nFKm29ct6k75YkrSWokQUlD7yWNwgiTdCB6ZKo84a10nPoT1gnbbBPflinQ==}
+  '@domternal/extension-code-block-lowlight@1.2.0':
+    resolution: {integrity: sha512-I2qKjx5jlG9oM9UtnCD+Ufi5CO3j8/lx3BDq0ISczJm7yT+EtPDsh2Jw2QzIDmy01XhC0bz7w4YZbHnT/7nuEw==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
       lowlight: ^3.0.0
 
-  '@domternal/extension-details@1.0.1':
-    resolution: {integrity: sha512-IM7cZlyT4F23uIDEJR6fGpHw37efblwCr/R/g60PnajEf+HtV7OAjuT+JAaFBaZiwot+QzOdffQAkH4kNQoPmw==}
+  '@domternal/extension-details@1.2.0':
+    resolution: {integrity: sha512-v57X8CQWsIkMxNUcu1V0ilq90sxdlg94mmSHrgc9i0K9aLhcNSO/RIQDSfaX5A4ZBzIiTLLv/NET66ilTMoypg==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
 
-  '@domternal/extension-emoji@1.0.1':
-    resolution: {integrity: sha512-f/n4xTx61FvQPHMD5eHXxoZkSsPzeowM+UNb0FDAc8McQjmtzrlwF882eTS7ZsIRCfZOp/y5B2UBJPNX8ih+2g==}
+  '@domternal/extension-emoji@1.2.0':
+    resolution: {integrity: sha512-Qx5Me7BcoHBPtJCPafdqFetFpx0fXPBAhcZWGAq4T2tZbt9WQsV1BT+ZFSFarh19yt21UZgMyD/RLclIdqKa7Q==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
 
-  '@domternal/extension-image@1.0.1':
-    resolution: {integrity: sha512-tnyCRIw0aMan9BiYmdPF58Zlw200SN/p61bXQeHSY7KzQm4HBG0YTEXUITRWZpwGfx62GJJ33SipLP3TPL6dRQ==}
+  '@domternal/extension-image@1.2.0':
+    resolution: {integrity: sha512-3I+JV/t/IXGfIsFlh5wRu4HXgHn79LKs/wwgUo9zkDuHOZIqLvOxIfd3aR22BLq7nU58GtmyajQuHJj9oo45zA==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
 
-  '@domternal/extension-markdown@1.0.1':
-    resolution: {integrity: sha512-B7PQNQ6DG2z/ZIEN2BGMGif0ZYGxhUhjdj/otNwVnouQriC6be4BeKkxD7gqRwvZumGiWhSjR5fBrtR3f0en8g==}
+  '@domternal/extension-markdown@1.2.0':
+    resolution: {integrity: sha512-9Yo4nP1iVMtmSDrJYOzk0ss/tZSpsqw2GwcbLR+ArKfxQe1zNOn9IMRlVgsadAF3bpQmsgOCD8njQXcHm0WlbA==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
 
-  '@domternal/extension-math@1.0.1':
-    resolution: {integrity: sha512-6cvPqCCaom+tgHQypye1sOafZQyYWFQyFe/b+twWNsLTXNBjlvEsV5MXspo03EJeJqlPiAeStmlovvR32rCXdA==}
+  '@domternal/extension-math@1.2.0':
+    resolution: {integrity: sha512-K5GNq1G6dpCun3YLiYmXSsKWxHmigTs/QjpoK8WzWVIDz4blzn+oaAFCpz8CmQU5BbsZQUlfgf5PRPnaAq9aTg==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
       katex: ^0.16.0 || ^0.17.0
 
-  '@domternal/extension-mention@1.0.1':
-    resolution: {integrity: sha512-pYesqgbgpSssiFUsupen9v47qafzT3c5cpISnfGLJ0RLcJEqxkcMaw43YhbOFluU/p16Ya1Ub4aeEalv1G9O9Q==}
+  '@domternal/extension-mention@1.2.0':
+    resolution: {integrity: sha512-38Ugac6JrAOh+DFvAZ0NxogoP2vaMUUS7sfFgcO219pMeYYeGFyTZFF2yI4847jv+ugit2eMeJfDEZ28gpyT3g==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
 
-  '@domternal/extension-table@1.0.1':
-    resolution: {integrity: sha512-5yI4bl3qPBgxwb1l1w7BbY+QPrZuQhnA60Nv2du50szYByFEA45RotsAqdAKB9CB7YHKeml+oOZigdDZJQEY4Q==}
+  '@domternal/extension-table@1.2.0':
+    resolution: {integrity: sha512-A6/ym+CmUXzC5jjCQwwTnhQGa/ysTOu9GJLFHlgAvFQsfSUuh2+NBGSb1n4ZoPIS+vvfQ4Q1mjeMKIV89kUDjw==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
 
-  '@domternal/extension-toc@1.0.1':
-    resolution: {integrity: sha512-UWkFyDfKGx/AfeBNjzeE9weSRbEIQWl/0HqOBrYTnFIsxNCm3cMR5+249543AFy8bRpFOnCHsHUd9poyScwLdQ==}
+  '@domternal/extension-toc@1.2.0':
+    resolution: {integrity: sha512-lAFW5UvyyixloaMlDDtztuA7f+fAXkhlUXVmXZCrHiFK4b38S73q/eI6kvh1tc8oEIKdoKTvITa2QpoJHBmjkQ==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
-      '@domternal/pm': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
+      '@domternal/pm': '>=1.2.0 <2.0.0'
 
-  '@domternal/pm@1.0.1':
-    resolution: {integrity: sha512-FcaojqWYc+pEmE142PXnb/8LclAdhHyCQp6LCpAV/Tw3y+BF8wGq5edVcN79hiupKaXj3Jg4ojzkq34Qkn7yyg==}
+  '@domternal/pm@1.2.0':
+    resolution: {integrity: sha512-0C6UOr6BkX9em7xWBRWkpbC9w9B9MeGTM1TKK80bCjF5NpZTLrCO6lFKxJgTnbyGIiu8GC7R6VoTsljNWKdr5g==}
     engines: {node: '>=22'}
 
-  '@domternal/react@1.0.1':
-    resolution: {integrity: sha512-Euewe7lax4U+ASEkfyTUHGiTZzF0BgAD6NmXmqoS1/gb2j2UoyjRHe0yqpI3SEOTbMskf3ls2LkR7CSakYQGnA==}
+  '@domternal/react@1.2.0':
+    resolution: {integrity: sha512-ekxc0AxsjfVKWTsfVty2FimAi5JMB5czlFuqr11rUQz3oE10PR8Ok/WaSBaaHzSCM1+aeozMQ+wgXCxA5I3R2A==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
       react: '>=18'
       react-dom: '>=18'
 
-  '@domternal/theme@1.0.1':
-    resolution: {integrity: sha512-HUDsGOvEIxGIjmbVw/Hj1VAgLaO/fFRs++kpbt9aH5hrb2KDyg+o4kshm8BPPBK4rPKQsTsPCR3AFEuOkAI1Ew==}
+  '@domternal/theme@1.2.0':
+    resolution: {integrity: sha512-6AimZoQ86B9MXsKzc7DTw1TgwXefAbNEkq8XVuAFXwSk4QrYGxzgBicNd4cZ7MGD5vnOfhXoa8gydb/idfi1ww==}
     engines: {node: '>=22'}
 
-  '@domternal/vanilla@1.0.1':
-    resolution: {integrity: sha512-T7j0xZXxaKB1Kl2YQBQjozhR5cd14W59KthSRCERRo1bD89Xp0Rz70ZrVSZOLw4tDuu6+8xVeXtroU2HcTC1XA==}
+  '@domternal/vanilla@1.2.0':
+    resolution: {integrity: sha512-14L/pvwbAKXrAHxiBTsJ7My7/Am52we2zHzF+DLPocH2qeplBx/q2zkdQYb5urdRGT6ThkUzoqe6+kKP/4D17w==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
 
-  '@domternal/vue@1.0.1':
-    resolution: {integrity: sha512-zrFkfG8Fd4yjWH+jM7F2+VBScl0nWxpKt+c3dsBpwYBwIfpQOmprPaRqBvzQFExsIGIs4VSsuib63qlyAiWaMg==}
+  '@domternal/vue@1.2.0':
+    resolution: {integrity: sha512-CQD+L7Bhe+pKZQzWnm8gkEyv7FkDD/emQ8Gn4zEzW/lY3njVj71/wCxY8IzppPzdnJN0RPRYeb1y1JpivFTAKA==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@domternal/core': '>=1.0.0'
+      '@domternal/core': '>=1.2.0 <2.0.0'
       vue: '>=3.3'
 
   '@emnapi/core@1.11.1':
@@ -3941,6 +4185,9 @@ packages:
     resolution: {integrity: sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw==}
     engines: {node: '>=10'}
 
+  '@stablelib/base64@1.0.1':
+    resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
+
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -4233,6 +4480,12 @@ packages:
 
   '@types/parse-json@4.0.2':
     resolution: {integrity: sha512-dISoDXWWQwUquiKsyZ4Ng+HX2KsPL7LyHKHQwgGFEA3IaKac4Obd+h2a/a6waisAoepJlBcx9paWqjA8/HVjCw==}
+
+  '@types/pdfkit@0.17.6':
+    resolution: {integrity: sha512-tIwzxk2uWKp0Cq9JIluQXJid77lYhF52EsIOwhsMF4iWLA6YneoBR1xVKYYdAysHuepUB0OX4tdwMiUDdGKmig==}
+
+  '@types/pdfmake@0.3.3':
+    resolution: {integrity: sha512-ufbceB4Q3dKpmFUMKEbZvJcfLi8+C5b1+rTFVG6urtkS3FHwaTQH6NCh/iEEDINlApCxH/W3/rsq99pP5E9/JA==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -5313,6 +5566,9 @@ packages:
   fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
 
+  fast-sha256@1.3.0:
+    resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
+
   fast-uri@3.1.5:
     resolution: {integrity: sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==}
 
@@ -5543,6 +5799,9 @@ packages:
 
   hast-util-raw@9.1.0:
     resolution: {integrity: sha512-Y8/SBAHkZGoNkpzqqfCldijcuUKh7/su31kEBp67cFY09Wy0mTRgtsLYsiIxMJxlu0f6AA5SUTbDR8K0rxnbUw==}
+
+  hast-util-sanitize@5.0.2:
+    resolution: {integrity: sha512-3yTWghByc50aGS7JlGhk61SPenfE/p1oaFeNwkOOyrscaOkMGrcW9+Cy/QAIOBpZxP1yqDIzFMR0+Np0i0+usg==}
 
   hast-util-select@6.0.4:
     resolution: {integrity: sha512-RqGS1ZgI0MwxLaKLDxjprynNzINEkRHY2i8ln4DDjgv9ZhcYVIHN9rlpiYsqtFwrgpYU361SyWDQcGNIBVu3lw==}
@@ -7136,6 +7395,9 @@ packages:
   remark-stringify@11.0.0:
     resolution: {integrity: sha512-1OSmLd3awB/t8qdoEOMazZkNsfVTeY4fTsgzcQFdXNq8ToTN4ZGwrMnlda4K6smTFKD+GRV6O48i6Z4iKgPPpw==}
 
+  remend@1.3.1:
+    resolution: {integrity: sha512-N3DiY5qbRPoa5vkxn1oDLMyXOVTeo6Hp+XOj6SIqJAYUgLS0Q587gILPMom/qm86AQ/ZrcOdwEIzCz8V3J0nxQ==}
+
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
     engines: {node: '>=0.10.0'}
@@ -7409,6 +7671,9 @@ packages:
 
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
+
+  standardwebhooks@1.1.1:
+    resolution: {integrity: sha512-bCbX9ZEyFkWPsRz7Bl3NuQUJohmwGSev/yhr7vhaGPlc4AfIrspIRa6cPTBuI1ItmrTDJ4d/S2hCsfe4+vQGnQ==}
 
   starlight-llms-txt@0.11.0:
     resolution: {integrity: sha512-83TU5zPgJhL9fXIWAOWjQjyQ6EKocshEjJyA4zOJjOqu/oxQsrTpYGYxjHLyfZe4LRD52N9eCuykSkaIYwUyDw==}
@@ -8597,7 +8862,7 @@ snapshots:
 
   '@astrojs/internal-helpers@0.10.4':
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       js-yaml: 4.3.1
       picomatch: 4.0.5
@@ -9572,77 +9837,150 @@ snapshots:
 
   '@ctrl/tinycolor@4.2.0': {}
 
-  '@domternal/angular@1.0.1(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/forms@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2))(@angular/platform-browser@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)))(@domternal/core@1.0.1(linkedom@0.18.12))':
+  '@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12))':
+    dependencies:
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+
+  '@domternal-pro/extension-ai@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/extension-markdown@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0))(@domternal/pm@1.2.0)':
+    dependencies:
+      '@domternal-pro/core': 1.1.0(@domternal/core@1.2.0(linkedom@0.18.12))
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/extension-markdown': 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
+      '@domternal/pm': 1.2.0
+      eventsource-parser: 3.1.1
+      remend: 1.3.1
+
+  '@domternal-pro/extension-collaboration-caret@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal-pro/extension-collaboration@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)':
+    dependencies:
+      '@domternal-pro/core': 1.1.0(@domternal/core@1.2.0(linkedom@0.18.12))
+      '@domternal-pro/extension-collaboration': 1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32)
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
+      y-prosemirror: 1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+      y-protocols: 1.0.7(yjs@13.6.32)
+      yjs: 13.6.32
+
+  '@domternal-pro/extension-collaboration@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32)':
+    dependencies:
+      '@domternal-pro/core': 1.1.0(@domternal/core@1.2.0(linkedom@0.18.12))
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
+      y-prosemirror: 1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+      yjs: 13.6.32
+
+  '@domternal-pro/extension-columns@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/extension-block-controls@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0))(@domternal/extension-markdown@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0))(@domternal/pm@1.2.0)':
+    dependencies:
+      '@domternal-pro/core': 1.1.0(@domternal/core@1.2.0(linkedom@0.18.12))
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
+    optionalDependencies:
+      '@domternal/extension-block-controls': 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
+      '@domternal/extension-markdown': 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
+
+  '@domternal-pro/extension-comments@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/extension-block-controls@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0))(@domternal/pm@1.2.0)(yjs@13.6.32)':
+    dependencies:
+      '@domternal-pro/core': 1.1.0(@domternal/core@1.2.0(linkedom@0.18.12))
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
+    optionalDependencies:
+      '@domternal/extension-block-controls': 1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)
+      yjs: 13.6.32
+
+  '@domternal-pro/extension-export-fonts@1.1.0': {}
+
+  '@domternal-pro/extension-export@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(docx@9.7.1)(pdf-lib@1.17.1)(pdfmake@0.3.11)':
+    dependencies:
+      '@domternal-pro/core': 1.1.0(@domternal/core@1.2.0(linkedom@0.18.12))
+      '@domternal-pro/extension-export-fonts': 1.1.0
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
+      '@types/pdfmake': 0.3.3
+      docx: 9.7.1
+      jszip: 3.10.1
+      pdfmake: 0.3.11
+    optionalDependencies:
+      pdf-lib: 1.17.1
+
+  '@domternal-pro/extension-version-history@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal-pro/extension-collaboration@1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32)':
+    dependencies:
+      '@domternal-pro/core': 1.1.0(@domternal/core@1.2.0(linkedom@0.18.12))
+      '@domternal-pro/extension-collaboration': 1.1.0(@domternal-pro/core@1.1.0(@domternal/core@1.2.0(linkedom@0.18.12)))(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(yjs@13.6.32)
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
+      y-prosemirror: 1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.2)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+      yjs: 13.6.32
+
+  '@domternal/angular@1.2.0(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/forms@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2))(@angular/platform-browser@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)))(@domternal/core@1.2.0(linkedom@0.18.12))':
     dependencies:
       '@angular/core': 21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)
       '@angular/forms': 21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2)
       '@angular/platform-browser': 21.2.20(@angular/common@21.2.20(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.20(@angular/compiler@21.2.20)(rxjs@7.8.2)(zone.js@0.15.1))
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
       tslib: 2.8.1
 
-  '@domternal/core@1.0.1(linkedom@0.18.12)':
+  '@domternal/core@1.2.0(linkedom@0.18.12)':
     dependencies:
-      '@domternal/pm': 1.0.1
+      '@domternal/pm': 1.2.0
       '@floating-ui/dom': 1.8.0
       linkifyjs: 4.3.3
     optionalDependencies:
       linkedom: 0.18.12
 
-  '@domternal/extension-block-controls@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)':
+  '@domternal/extension-block-controls@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
 
-  '@domternal/extension-code-block-lowlight@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)(lowlight@3.3.0)':
+  '@domternal/extension-code-block-lowlight@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(lowlight@3.3.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
       hast-util-to-html: 9.0.5
       lowlight: 3.3.0
 
-  '@domternal/extension-details@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)':
+  '@domternal/extension-details@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
 
-  '@domternal/extension-emoji@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)':
+  '@domternal/extension-emoji@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
 
-  '@domternal/extension-image@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)':
+  '@domternal/extension-image@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
 
-  '@domternal/extension-markdown@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)':
+  '@domternal/extension-markdown@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
       markdown-it: 14.3.0
 
-  '@domternal/extension-math@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)(katex@0.17.0)':
+  '@domternal/extension-math@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)(katex@0.17.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
       katex: 0.17.0
 
-  '@domternal/extension-mention@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)':
+  '@domternal/extension-mention@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
 
-  '@domternal/extension-table@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)':
+  '@domternal/extension-table@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
 
-  '@domternal/extension-toc@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(@domternal/pm@1.0.1)':
+  '@domternal/extension-toc@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(@domternal/pm@1.2.0)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
-      '@domternal/pm': 1.0.1
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
+      '@domternal/pm': 1.2.0
 
-  '@domternal/pm@1.0.1':
+  '@domternal/pm@1.2.0':
     dependencies:
       prosemirror-commands: 1.7.2
       prosemirror-dropcursor: 1.8.3
@@ -9657,21 +9995,21 @@ snapshots:
       prosemirror-transform: 1.12.0
       prosemirror-view: 1.42.2
 
-  '@domternal/react@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@domternal/react@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@domternal/theme@1.0.1': {}
+  '@domternal/theme@1.2.0': {}
 
-  '@domternal/vanilla@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))':
+  '@domternal/vanilla@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
 
-  '@domternal/vue@1.0.1(@domternal/core@1.0.1(linkedom@0.18.12))(vue@3.5.41(typescript@6.0.2))':
+  '@domternal/vue@1.2.0(@domternal/core@1.2.0(linkedom@0.18.12))(vue@3.5.41(typescript@6.0.2))':
     dependencies:
-      '@domternal/core': 1.0.1(linkedom@0.18.12)
+      '@domternal/core': 1.2.0(linkedom@0.18.12)
       vue: 3.5.41(typescript@6.0.2)
 
   '@emnapi/core@1.11.1':
@@ -10273,7 +10611,7 @@ snapshots:
     dependencies:
       '@types/estree': 1.0.9
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdx': 2.0.13
       acorn: 8.16.0
       collapse-white-space: 2.1.0
@@ -10959,7 +11297,7 @@ snapshots:
       '@shikijs/primitive': 4.0.2
       '@shikijs/types': 4.0.2
       '@shikijs/vscode-textmate': 10.0.2
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-to-html: 9.0.5
 
   '@shikijs/engine-javascript@4.0.2':
@@ -10981,7 +11319,7 @@ snapshots:
     dependencies:
       '@shikijs/types': 4.0.2
       '@shikijs/vscode-textmate': 10.0.2
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   '@shikijs/themes@4.0.2':
     dependencies:
@@ -10990,7 +11328,7 @@ snapshots:
   '@shikijs/types@4.0.2':
     dependencies:
       '@shikijs/vscode-textmate': 10.0.2
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   '@shikijs/vscode-textmate@10.0.2': {}
 
@@ -11027,6 +11365,8 @@ snapshots:
       '@sigstore/protobuf-specs': 0.5.1
 
   '@sindresorhus/is@4.6.0': {}
+
+  '@stablelib/base64@1.0.1': {}
 
   '@standard-schema/spec@1.1.0': {}
 
@@ -11297,6 +11637,15 @@ snapshots:
 
   '@types/parse-json@4.0.2': {}
 
+  '@types/pdfkit@0.17.6':
+    dependencies:
+      '@types/node': 22.20.1
+
+  '@types/pdfmake@0.3.3':
+    dependencies:
+      '@types/node': 22.20.1
+      '@types/pdfkit': 0.17.6
+
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
       '@types/react': 19.2.14
@@ -11466,6 +11815,14 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 8.2.2(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0)
+
+  '@vitest/mocker@4.1.10(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))':
+    dependencies:
+      '@vitest/spy': 4.1.10
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 8.2.2(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -12621,6 +12978,8 @@ snapshots:
 
   fast-levenshtein@2.0.6: {}
 
+  fast-sha256@1.3.0: {}
+
   fast-uri@3.1.5: {}
 
   fast-xml-builder@1.2.0:
@@ -12833,12 +13192,12 @@ snapshots:
 
   hast-util-embedded@3.0.0:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-is-element: 3.0.0
 
   hast-util-format@1.1.0:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-embedded: 3.0.0
       hast-util-minify-whitespace: 1.0.1
       hast-util-phrasing: 3.0.1
@@ -12848,7 +13207,7 @@ snapshots:
 
   hast-util-from-html@2.0.3:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       devlop: 1.1.0
       hast-util-from-parse5: 8.0.3
       parse5: 7.3.0
@@ -12857,7 +13216,7 @@ snapshots:
 
   hast-util-from-parse5@8.0.3:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/unist': 3.0.3
       devlop: 1.1.0
       hastscript: 9.0.1
@@ -12868,19 +13227,19 @@ snapshots:
 
   hast-util-has-property@3.0.0:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   hast-util-is-body-ok-link@3.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   hast-util-is-element@3.0.0:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   hast-util-minify-whitespace@1.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-embedded: 3.0.0
       hast-util-is-element: 3.0.0
       hast-util-whitespace: 3.0.0
@@ -12888,11 +13247,11 @@ snapshots:
 
   hast-util-parse-selector@4.0.0:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   hast-util-phrasing@3.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-embedded: 3.0.0
       hast-util-has-property: 3.0.0
       hast-util-is-body-ok-link: 3.0.1
@@ -12900,7 +13259,7 @@ snapshots:
 
   hast-util-raw@9.1.0:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/unist': 3.0.3
       '@ungap/structured-clone': 1.3.0
       hast-util-from-parse5: 8.0.3
@@ -12914,9 +13273,15 @@ snapshots:
       web-namespaces: 2.0.1
       zwitch: 2.0.4
 
+  hast-util-sanitize@5.0.2:
+    dependencies:
+      '@types/hast': 3.0.5
+      '@ungap/structured-clone': 1.3.0
+      unist-util-position: 5.0.0
+
   hast-util-select@6.0.4:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/unist': 3.0.3
       bcp-47-match: 2.0.3
       comma-separated-tokens: 2.0.3
@@ -12936,7 +13301,7 @@ snapshots:
     dependencies:
       '@types/estree': 1.0.9
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       comma-separated-tokens: 2.0.3
       devlop: 1.1.0
       estree-util-attach-comments: 3.0.0
@@ -12955,7 +13320,7 @@ snapshots:
 
   hast-util-to-html@9.0.5:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/unist': 3.0.3
       ccount: 2.0.1
       comma-separated-tokens: 2.0.3
@@ -12970,7 +13335,7 @@ snapshots:
   hast-util-to-jsx-runtime@2.3.6:
     dependencies:
       '@types/estree': 1.0.9
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/unist': 3.0.3
       comma-separated-tokens: 2.0.3
       devlop: 1.1.0
@@ -12989,7 +13354,7 @@ snapshots:
 
   hast-util-to-mdast@10.1.2:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       '@ungap/structured-clone': 1.3.0
       hast-util-phrasing: 3.0.1
@@ -13006,7 +13371,7 @@ snapshots:
 
   hast-util-to-parse5@8.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       comma-separated-tokens: 2.0.3
       devlop: 1.1.0
       property-information: 7.1.0
@@ -13016,22 +13381,22 @@ snapshots:
 
   hast-util-to-string@3.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   hast-util-to-text@4.0.2:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/unist': 3.0.3
       hast-util-is-element: 3.0.0
       unist-util-find-after: 5.0.0
 
   hast-util-whitespace@3.0.0:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   hastscript@9.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       comma-separated-tokens: 2.0.3
       hast-util-parse-selector: 4.0.0
       property-information: 7.1.0
@@ -13727,7 +14092,7 @@ snapshots:
   mdast-util-mdx-expression@2.0.1:
     dependencies:
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       devlop: 1.1.0
       mdast-util-from-markdown: 2.0.3
@@ -13738,7 +14103,7 @@ snapshots:
   mdast-util-mdx-jsx@3.2.0:
     dependencies:
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       '@types/unist': 3.0.3
       ccount: 2.0.1
@@ -13765,7 +14130,7 @@ snapshots:
   mdast-util-mdxjs-esm@2.0.1:
     dependencies:
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       devlop: 1.1.0
       mdast-util-from-markdown: 2.0.3
@@ -13780,7 +14145,7 @@ snapshots:
 
   mdast-util-to-hast@13.2.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       '@ungap/structured-clone': 1.3.0
       devlop: 1.1.0
@@ -15051,37 +15416,37 @@ snapshots:
 
   rehype-format@5.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-format: 1.1.0
 
   rehype-minify-whitespace@6.0.2:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-minify-whitespace: 1.0.1
 
   rehype-parse@9.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-from-html: 2.0.3
       unified: 11.0.5
 
   rehype-raw@7.0.0:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-raw: 9.1.0
       vfile: 6.0.3
 
   rehype-recma@1.0.0:
     dependencies:
       '@types/estree': 1.0.9
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-to-estree: 3.1.3
     transitivePeerDependencies:
       - supports-color
 
   rehype-remark@10.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       hast-util-to-mdast: 10.1.2
       unified: 11.0.5
@@ -15089,13 +15454,13 @@ snapshots:
 
   rehype-stringify@10.0.1:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-to-html: 9.0.5
       unified: 11.0.5
 
   rehype@13.0.2:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       rehype-parse: 9.0.1
       rehype-stringify: 10.0.1
       unified: 11.0.5
@@ -15138,7 +15503,7 @@ snapshots:
 
   remark-rehype@11.1.2:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       mdast-util-to-hast: 13.2.1
       unified: 11.0.5
@@ -15156,6 +15521,8 @@ snapshots:
       '@types/mdast': 4.0.4
       mdast-util-to-markdown: 2.1.2
       unified: 11.0.5
+
+  remend@1.3.1: {}
 
   require-directory@2.1.1: {}
 
@@ -15362,7 +15729,7 @@ snapshots:
   satteri@0.9.5:
     dependencies:
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       '@types/unist': 3.0.3
     optionalDependencies:
@@ -15467,7 +15834,7 @@ snapshots:
       '@shikijs/themes': 4.0.2
       '@shikijs/types': 4.0.2
       '@shikijs/vscode-textmate': 10.0.2
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   side-channel-list@1.0.1:
     dependencies:
@@ -15581,6 +15948,11 @@ snapshots:
       minipass: 7.1.3
 
   stackback@0.0.2: {}
+
+  standardwebhooks@1.1.1:
+    dependencies:
+      '@stablelib/base64': 1.0.1
+      fast-sha256: 1.3.0
 
   starlight-llms-txt@0.11.0(@astrojs/markdown-satteri@0.3.7)(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4)(astro@7.2.4(@astrojs/markdown-remark@7.2.4)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@25.9.5)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))(typescript@6.0.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@25.9.5)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0)):
     dependencies:
@@ -16153,6 +16525,35 @@ snapshots:
     transitivePeerDependencies:
       - msw
     optional: true
+
+  vitest@4.1.10(@types/node@25.9.5)(@vitest/coverage-v8@4.1.10)(jsdom@28.1.0(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0)):
+    dependencies:
+      '@vitest/expect': 4.1.10
+      '@vitest/mocker': 4.1.10(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0))
+      '@vitest/pretty-format': 4.1.10
+      '@vitest/runner': 4.1.10
+      '@vitest/snapshot': 4.1.10
+      '@vitest/spy': 4.1.10
+      '@vitest/utils': 4.1.10
+      es-module-lexer: 2.3.2
+      expect-type: 1.3.0
+      magic-string: 0.30.21
+      obug: 2.1.1
+      pathe: 2.0.3
+      picomatch: 4.0.5
+      std-env: 4.2.0
+      tinybench: 2.9.0
+      tinyexec: 1.0.2
+      tinyglobby: 0.2.15
+      tinyrainbow: 3.1.1
+      vite: 8.2.2(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(less@4.9.0)(sass@1.102.0)(yaml@2.9.0)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 25.9.5
+      '@vitest/coverage-v8': 4.1.10(vitest@4.1.10)
+      jsdom: 28.1.0(@noble/hashes@1.8.0)
+    transitivePeerDependencies:
+      - msw
 
   vue@3.5.41(typescript@5.9.3):
     dependencies:

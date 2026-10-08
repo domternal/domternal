@@ -4,8 +4,18 @@
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
-import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation } from '@domternal/core';
+import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation, writeToClipboard, PluginKey } from '@domternal/core';
 import type { CompleteMessages, Messages } from '@domternal/core';
+import type * as mainEntry from '@domternal/core';
+// Clipboard coordination is published only on the experimental subpath.
+import {
+  armClipboardPasteTransaction, getClipboardImageDestination, getClipboardPasteAttemptEvent, getClipboardPasteBehavior,
+  registerClipboardCopyAnnotation, registerClipboardHTMLPreparation, registerClipboardImageDestination, setClipboardPasteBehavior,
+} from '@domternal/core/clipboard';
+import type {
+  ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay, ClipboardImageDestinationPolicy, ClipboardPasteBehavior,
+} from '@domternal/core/clipboard';
+import type * as clipboardEntry from '@domternal/core/clipboard';
 
 declare module '@domternal/core' {
   interface MessageParameters {
@@ -25,10 +35,174 @@ import '@domternal/extension-image';
 import '@domternal/extension-markdown';
 import '@domternal/extension-math';
 import '@domternal/extension-mention';
+import { PasteCleanup, pasteCleanupMessages, getPasteAffectedReferences, normalizePasteHTML as normalizePasteFromMain } from '@domternal/extension-paste-cleanup';
+import type { NormalizePasteHTMLResult as MainPasteHTMLResult } from '@domternal/extension-paste-cleanup';
+import { DEFAULT_CLIPBOARD_ASSET_LIMITS, MAX_CLIPBOARD_ASSET_LIMITS } from '@domternal/extension-paste-cleanup';
+import type { ClipboardAssetLimits, ClipboardImageBinding, ClipboardImageMatchContext, PastePreparationProgress } from '@domternal/extension-paste-cleanup';
+import type { ClipboardResolverAdapter, ClipboardCreatedResource, ClipboardAssetRecoveryReport } from '@domternal/extension-paste-cleanup';
+import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
+import type { PasteHTMLLimits, NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup/html';
 import '@domternal/extension-table';
 import '@domternal/extension-toc';
 
 declare const editor: Editor;
+declare const clipboardEvent: ClipboardEvent;
+
+const disposeHTMLPreparation: () => void = registerClipboardHTMLPreparation(editor.view, (html, context: ClipboardHTMLPreparationContext) => {
+  const origin: 'native' | 'programmatic' = context.origin;
+  const activeEvent: ClipboardEvent | undefined = getClipboardPasteAttemptEvent(editor.view);
+  return { onDeferred(replay: ClipboardHTMLReplay) {
+    queueMicrotask(() => { const handled: boolean = replay(html, new ClipboardEvent('paste')); });
+  } };
+}, context => {
+  const currentEvent: ClipboardEvent | undefined = context.event;
+  const origin: 'native' | 'programmatic' = context.origin;
+});
+// @ts-expect-error Preparation requires a callable gate.
+registerClipboardHTMLPreparation(editor.view, false);
+// @ts-expect-error Attempt observers must be callable.
+registerClipboardHTMLPreparation(editor.view, () => undefined, false);
+
+const imagePolicy: ClipboardImageDestinationPolicy = {
+  nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
+  allowedMimeTypes: ['image/png'], maxFileBytes: 1024, policyVersion: 'application:1',
+};
+const disposeImagePolicy: () => void = registerClipboardImageDestination(editor.view, () => imagePolicy);
+const liveImagePolicy: ClipboardImageDestinationPolicy | undefined = getClipboardImageDestination(editor.view);
+setClipboardPasteBehavior(editor.view, clipboardEvent, { preserveOrderedListStart: true, assetsAlreadyHandled: true });
+// @ts-expect-error Published image policies are immutable declarations.
+imagePolicy.allowedMimeTypes.push('image/svg+xml');
+// @ts-expect-error Asset ownership is a boolean signal, not a string trust label.
+setClipboardPasteBehavior(editor.view, clipboardEvent, { assetsAlreadyHandled: 'trusted' });
+const pasteBehavior: Readonly<ClipboardPasteBehavior> | undefined = getClipboardPasteBehavior(editor.view, clipboardEvent);
+const disarmPaste: () => void = armClipboardPasteTransaction(editor.view, new PluginKey('consumerPaste'), { operationId: 'consumer' });
+const disposeCopyAnnotation: () => void = registerClipboardCopyAnnotation(editor.view, (fragment: DocumentFragment) => {
+  fragment.firstElementChild?.setAttribute('data-consumer-copy', '');
+});
+// @ts-expect-error Copy annotations must be callable.
+registerClipboardCopyAnnotation(editor.view, 'annotate');
+const deferral: ClipboardHTMLDeferral = { onDeferred(replay: ClipboardHTMLReplay) { /* Resumed by the application. */ }, discard() { /* Released. */ } };
+const copied: Promise<boolean> = writeToClipboard('consumer');
+
+// The main entry declares none of the clipboard coordination names.
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainSetClipboardPasteBehavior = typeof mainEntry.setClipboardPasteBehavior;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainGetClipboardPasteBehavior = typeof mainEntry.getClipboardPasteBehavior;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardPasteBehavior = mainEntry.ClipboardPasteBehavior;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainArmClipboardPasteTransaction = typeof mainEntry.armClipboardPasteTransaction;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainRegisterClipboardImageDestination = typeof mainEntry.registerClipboardImageDestination;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainGetClipboardImageDestination = typeof mainEntry.getClipboardImageDestination;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardImageDestinationPolicy = mainEntry.ClipboardImageDestinationPolicy;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainRegisterClipboardCopyAnnotation = typeof mainEntry.registerClipboardCopyAnnotation;
+// @ts-expect-error Internal to the clipboard declarations.
+type MainClipboardCopyAnnotator = mainEntry.ClipboardCopyAnnotator;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainRegisterClipboardHTMLPreparation = typeof mainEntry.registerClipboardHTMLPreparation;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainGetClipboardPasteAttemptEvent = typeof mainEntry.getClipboardPasteAttemptEvent;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardHTMLPreparationContext = mainEntry.ClipboardHTMLPreparationContext;
+// @ts-expect-error Internal to the clipboard declarations.
+type MainClipboardHTMLPreparationGate = mainEntry.ClipboardHTMLPreparationGate;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardHTMLDeferral = mainEntry.ClipboardHTMLDeferral;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardHTMLReplay = mainEntry.ClipboardHTMLReplay;
+// The subpath exposes the smallest contract: no internal helper types and no main entry utilities.
+// @ts-expect-error Internal to the clipboard declarations.
+type SubpathClipboardHTMLPreparationGate = clipboardEntry.ClipboardHTMLPreparationGate;
+// @ts-expect-error Internal to the clipboard declarations.
+type SubpathClipboardCopyAnnotator = clipboardEntry.ClipboardCopyAnnotator;
+// @ts-expect-error writeToClipboard stays on the main entry.
+type SubpathWriteToClipboard = typeof clipboardEntry.writeToClipboard;
+
+// Both published entries retain the same typed conversion contract.
+PasteCleanup.configure({ formatting: 'adapt' });
+const assetLimits: Readonly<ClipboardAssetLimits> = DEFAULT_CLIPBOARD_ASSET_LIMITS;
+const maximumAssetBytes: number = MAX_CLIPBOARD_ASSET_LIMITS.maxTotalFileBytes;
+PasteCleanup.configure({ imageAssets: {
+  mode: 'embedded', limits: { maxFileBytes: 1024 }, unresolved: 'reject',
+  match(context: ClipboardImageMatchContext): readonly ClipboardImageBinding[] {
+    const operationId: string = context.operationId;
+    // @ts-expect-error Matchers receive bounded metadata, never live File objects.
+    context.items[0]?.file.arrayBuffer();
+    // @ts-expect-error The original item metadata is immutable.
+    context.items.push({});
+    return [];
+  },
+}, onPasteProgress(progress: PastePreparationProgress) {
+  const phase: 'preparing' = progress.phase;
+  progress.cancel();
+} });
+PasteCleanup.configure({ imageAssets: false });
+// @ts-expect-error Upload is not a supported image asset mode.
+PasteCleanup.configure({ imageAssets: { mode: 'upload' } });
+// @ts-expect-error Association must be supplied synchronously from captured metadata.
+PasteCleanup.configure({ imageAssets: { mode: 'embedded', match: async () => [] } });
+const assetResolver: ClipboardResolverAdapter = {
+  idempotency: 'operation-asset-key',
+  async resolve(request) {
+    const blob: Blob = request.blob;
+    const signal: AbortSignal = request.signal;
+    const resource: ClipboardCreatedResource | undefined = request.registerCreated('application-resource');
+    // @ts-expect-error Resolver requests contain immutable raster Blobs, not original File metadata.
+    request.blob.name;
+    if (resource === undefined) return { status: 'failed', creation: 'unknown', recoveryToken: 'application-recovery' };
+    return { status: 'resolved', src: 'https://images.example/test.png', ownership: 'created', resource };
+  },
+  async releaseUncommitted(request) {
+    const operationId: string = request.operationId;
+    const handle: string = request.handle;
+    return { status: 'released' };
+  },
+};
+const assetRecovery = (report: ClipboardAssetRecoveryReport): void => {
+  const revision: number = report.revision;
+  const settled: boolean = report.settled;
+  // @ts-expect-error Resource recovery reports never expose source URLs.
+  report.src;
+  // @ts-expect-error Recovery snapshots cannot be modified by the application.
+  report.recovery.push({});
+};
+PasteCleanup.configure({ imageAssets: { mode: 'resolver', resolver: assetResolver, sourcePolicy: { allowedOrigins: ['https://images.example'] }, onRecovery: assetRecovery } });
+// @ts-expect-error Resolver mode requires an explicit recovery observer.
+PasteCleanup.configure({ imageAssets: { mode: 'resolver', resolver: assetResolver, sourcePolicy: { allowedOrigins: ['https://images.example'] } } });
+// @ts-expect-error Created ownership requires an authentic registered resource capability.
+const forgedCreatedResource: ClipboardCreatedResource = {};
+PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
+  const status: 'applied' | 'rejected' | 'untracked' | 'noop' = result.status;
+  const references = getPasteAffectedReferences(editor.view, result.operationId);
+  const precision: 'operation' | undefined = references?.precision;
+  // @ts-expect-error Accepted operation snapshots cannot be changed by observers.
+  result.diagnostics.push({ code: 'parse-failed', severity: 'error' });
+  // @ts-expect-error Affected ranges are immutable snapshots.
+  references?.ranges.push({ from: 1, to: 2 });
+} });
+editor.i18n.t(pasteCleanupMessages.applied);
+// @ts-expect-error Feedback ownership is a finite public option.
+PasteCleanup.configure({ feedback: 'none' });
+const pasteLimits: Partial<PasteHTMLLimits> = { maxInputLength: 20_000, maxDiagnostics: 10 };
+const cleanedPaste: NormalizePasteHTMLResult = normalizePasteHTML('<p>Clipboard content</p>', {
+  formatting: 'preserve',
+  allowRemoteImages: false,
+  allowDataImages: true,
+  sourceURL: 'https://example.com/document',
+  limits: pasteLimits,
+});
+const cleanedFromMain: MainPasteHTMLResult = normalizePasteFromMain('<p>Clipboard content</p>');
+const pasteStatus: 'cleaned' | 'rejected' = cleanedPaste.status;
+const pasteDiagnosticsTruncated: boolean = cleanedFromMain.diagnosticsTruncated;
+// @ts-expect-error Unsupported formatting modes must not enter published options.
+normalizePasteHTML('<p>Clipboard content</p>', { formatting: 'word' });
+// @ts-expect-error Resource limits remain numeric in the published declaration graph.
+normalizePasteFromMain('<p>Clipboard content</p>', { limits: { maxDepth: 'unlimited' } });
 
 // Every built-in definition must retain its public parameter augmentation in dist.
 type PublishedCoreMessages = CompleteMessages<typeof coreMessages>;
@@ -107,6 +281,7 @@ editor.commands.wrapIn('blockquote');
 editor.commands.toggleWrap('blockquote');
 editor.commands.lift();
 editor.commands.toggleList('bulletList', 'listItem');
+editor.commands.normalizeContentAttributes();
 editor.commands.insertContent('<p>hi</p>');
 editor.commands.selectNodeBackward();
 editor.commands.updateAttributes('paragraph', { textAlign: 'center' });
@@ -249,3 +424,124 @@ BlockHandle.configure({
   dropZoneProviders: [provider],
   nested: { allowedNodes: ['paragraph'], anchorContainers: ['column'] },
 });
+
+// The URL policy result narrows on its status: only an allowed address carries a spelling.
+import { checkUrl, isValidUrl } from '@domternal/core';
+import type { UrlCheck, UrlPolicyOptions } from '@domternal/core';
+
+const linkPolicy: UrlPolicyOptions = { protocols: ['https:', 'mailto:'], allowRelative: true };
+const urlCheck: UrlCheck = checkUrl(' https://example.com/', linkPolicy);
+if (urlCheck.status === 'allowed') {
+  const cleaned: string = urlCheck.url;
+  void cleaned;
+}
+isValidUrl(['https://example.com/'], { protocols: 'any', allowNetworkPath: true, allowDataImages: true });
+
+// A custom link UI asks whether loading would keep a stored href before it opens or exports it.
+import { isSupportedAttributeValue } from '@domternal/core';
+import type { ContentDiagnostic } from '@domternal/core';
+
+const keepsHref: boolean = isSupportedAttributeValue(editor.schema, 'link', 'href', editor.getAttributes('link')['href']);
+void keepsHref;
+const describeDiagnostic = (diagnostic: ContentDiagnostic): string => {
+  switch (diagnostic.code) {
+    case 'unsafe-url':
+    case 'unsupported-url':
+      return `${diagnostic.markType ?? diagnostic.nodeType} ${diagnostic.attribute}`;
+    case 'unknown-list-marker':
+    case 'unsupported-heading-level':
+    case 'unsupported-table-span':
+      return diagnostic.nodeType;
+    default:
+      // The list of codes is open: a minor release can add one.
+      return 'replaced value';
+  }
+};
+void describeDiagnostic;
+
+// Version-independent repairs run on their own while older clients still share the document.
+import type { NormalizeContentAttributesOptions } from '@domternal/core';
+const safeRepairs: NormalizeContentAttributesOptions = { codes: ['unsupported-table-span', 'unsafe-url'] };
+const repaired: boolean = editor.commands.normalizeContentAttributes(safeRepairs);
+void repaired;
+
+// An extension registers how loading normalizes its own attribute (experimental).
+import { pastedAttributesPlugin, registerAttributeNormalizer } from '@domternal/core';
+import type { AttributeNormalizer } from '@domternal/core';
+const validateSize = (value: unknown): void => { if (typeof value !== 'number') throw new RangeError('Invalid size'); };
+const sizeNormalizer: AttributeNormalizer = {
+  code: 'unsupported-table-span',
+  invalid: value => typeof value !== 'number',
+  replacement: () => 1,
+};
+registerAttributeNormalizer(validateSize, sizeNormalizer);
+void pastedAttributesPlugin('unsupported-table-span');
+
+// Relative links follow the Link option; the popover's scheme list only narrows the Link's policy.
+import { Link, LinkPopover } from '@domternal/core';
+import type { LinkOptions, LinkPopoverOptions } from '@domternal/core';
+
+Link.configure({ allowRelative: false, protocols: ['https:'] });
+const popoverSchemes: LinkPopoverOptions['protocols'] = null;
+LinkPopover.configure({ protocols: popoverSchemes });
+LinkPopover.configure({ protocols: ['https:'] });
+const relativeLinks: LinkOptions['allowRelative'] = true;
+void relativeLinks;
+
+// A stored style value is checked before an exporter writes it into markup.
+import { isSafeCssValue } from '@domternal/core';
+
+const safeColor: boolean = isSafeCssValue(editor.getAttributes('textStyle')['color']);
+void safeColor;
+
+// The tone of a kept background, for a host that draws its own text on it.
+import { surfaceTone, surfaceToneAttributes, type SurfaceTone, type SurfaceToneAttributes } from '@domternal/core';
+
+const highlightTone: SurfaceTone | null = surfaceTone(editor.getAttributes('textStyle')['backgroundColor']);
+const toneName: 'light' | 'dark' | undefined = highlightTone?.tone;
+const toneAttributes: SurfaceToneAttributes | null = surfaceToneAttributes('#002060');
+const toneName2: string | undefined = toneAttributes?.['data-dm-tone'];
+// A painted value the editor cannot read carries its value for the theme as a style.
+const unreadSurface: string | undefined = surfaceToneAttributes('var(--brand)')?.style;
+void toneName;
+void toneName2;
+void unreadSurface;
+
+// Options objects written in full for 1.2 still compile, and the documented option forms type-check.
+import { Extension } from '@domternal/core';
+import type { ImageOptions } from '@domternal/extension-image';
+
+const linkOptions12: LinkOptions = {
+  HTMLAttributes: {}, protocols: ['https:'], openOnClick: true, addRelNoopener: true, autolink: true,
+  linkOnPaste: true, defaultProtocol: 'https', enableClickSelection: false,
+};
+void linkOptions12;
+Link.configure({ protocols: [{ scheme: 'tel' }, 'https:', { scheme: 'ftp', optionalSlashes: true }] });
+Link.configure({ protocols: null });
+Link.configure({ protocols: ['https:', 'mailto:'] as const });
+LinkPopover.configure({ protocols: [{ scheme: 'https' }] });
+LinkPopover.configure({ protocols: ['https:'] as const });
+const imageOptions12: ImageOptions = {
+  inline: false, allowBase64: true, HTMLAttributes: {}, uploadHandler: null,
+  allowedMimeTypes: ['image/png'], maxFileSize: 0, onUploadStart: null, onUploadError: null, placement: null,
+};
+void imageOptions12;
+const TransactionHook = Extension.create({
+  name: 'transactionHook',
+  onTransaction({ transaction, appendedTransactions = [] }) { void transaction; void appendedTransactions.length; },
+});
+declare const rootTransaction: Parameters<NonNullable<typeof TransactionHook.config.onTransaction>>[0]['transaction'];
+TransactionHook.config.onTransaction?.call(TransactionHook as never, { transaction: rootTransaction });
+
+// Every type a public PasteCleanup signature uses can be named by a consumer. ClipboardResolverReport
+// is named ClipboardAssetRecoveryReport.
+import type { ClipboardRasterMime, ClipboardResolverAsset, ClipboardImageAssetCommonOptions } from '@domternal/extension-paste-cleanup';
+
+const rasterMime: ClipboardRasterMime = 'image/png';
+declare const resolverAsset: ClipboardResolverAsset;
+const commonAssetOptions: ClipboardImageAssetCommonOptions = { unresolved: 'omit' };
+declare const recoveryReport: ClipboardAssetRecoveryReport;
+void rasterMime;
+void resolverAsset.mimeType;
+void commonAssetOptions;
+void recoveryReport.phase;

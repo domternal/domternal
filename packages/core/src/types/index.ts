@@ -9,6 +9,7 @@ export type {
   JSONContent,
   Content,
   Range,
+  ContentDiagnostic,
 } from './Content.js';
 
 // Editor options
@@ -26,6 +27,7 @@ export type {
   FocusEventProps,
   CreateEventProps,
   ContentErrorProps,
+  ContentDiagnosticProps,
   MountEventProps,
   AdoptEventProps,
   ErrorEventProps,

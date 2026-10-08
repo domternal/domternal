@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-partial-table-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "ee404c94e849755f39159363ff310f43997b466dd5eeda2a42db1920aa2eb790"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "b926d0da1da75db0316a304df67b34925a848c905507ee1055fd7bf03a15e2ea"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-partial-table",
+    "blocks": [
+      {
+        "id": "GT05",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 1,
+          "shading": "light gray 2",
+          "background": "#efefef"
+        },
+        "docs": "Table properties > Color > Cell background color: light gray 2",
+        "text": "GT05 Gray cell",
+        "correction": "Light gray 2 is #efefef, the background Google Docs writes on the cell.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT06",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 2
+        },
+        "text": "GT06 Plain cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GT07",
+        "type": "tableCell",
+        "cell": {
+          "table": 1,
+          "row": 2,
+          "column": 3
+        },
+        "text": "GT07 Third cell",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "27acad3cd5048ef34f905049ede0089ea735e7bdacbd12da702b25bfa1ee75f7",
+    "captureSha256": "1c4f9bd368e06c175758589d05237787904113e235108cf3035e38d7952d798a",
+    "manifestSha256": "a042468a9ca92dc76004173a48a5d956e0d4b047be8e2eeed69d25bd1bd01346"
+  }
+}

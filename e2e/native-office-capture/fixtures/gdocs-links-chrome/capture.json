@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "harnessVersion": "native-office-capture-v1",
+  "capturedAt": "2026-10-07T21:05:17.164Z",
+  "status": "complete",
+  "qualification": false,
+  "scope": "allowlisted-formats-and-exposed-files",
+  "provenance": {
+    "eventKind": "synthetic-event",
+    "nativeClipboardCaptured": false,
+    "sourceApplicationVerified": false
+  },
+  "operator": {
+    "os": "Authored variant of macOS 26.5.2 (25F84)",
+    "application": "Authored variant of Google Docs web, 2026-10-05, personal account, Pages format",
+    "browser": "Authored variant of Google Chrome 153.0.8010.47 (Official Build) (arm64)",
+    "scenario": "gdocs-links",
+    "fixtureId": "gdocs-links-chrome",
+    "fixtureSha256": "60aef929a428709685619df13e3c42fede824e94f857f6ff63ebbc5230432f47",
+    "copyMethod": "Offline English text edit of archived clipboard shape; no new native copy. Original artifact hashes are in manifest.derivation.",
+    "syntheticSourceConfirmed": true
+  },
+  "limits": {
+    "maxItems": 64,
+    "maxFormats": 32,
+    "maxMetadataLength": 512,
+    "maxFormatBytes": 2097152,
+    "maxTextBytes": 4194304,
+    "maxFileBytes": 5242880,
+    "maxTotalFileBytes": 10485760,
+    "maxClipboardBytes": 12582912,
+    "maxJSONBytes": 25165824,
+    "maxDurationMs": 15000
+  },
+  "diagnostics": [],
+  "payload": {
+    "availableFormats": [
+      "text/plain",
+      "text/html",
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "omittedFormats": [
+      "application/x-vnd.google-docs-document-slice-clip+wrapped",
+      "application/x-vnd.google-docs-internal-clip-id"
+    ],
+    "text": {
+      "text/html": "<meta charset='utf-8'><meta charset=\"utf-8\"><b style=\"font-weight:normal;\" id=\"docs-internal-guid-6d675bf2-7fff-005f-85d1-4b088b5f3875\"><h2 dir=\"ltr\" style=\"line-height:1.38;margin-top:18pt;margin-bottom:6pt;\"><span style=\"font-size:16pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GB11 Links</span></h2><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GB12 Link to </span><a href=\"https://example.com/domternal/gdocs-v1\" style=\"text-decoration:none;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#1155cc;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:underline;-webkit-text-decoration-skip:none;text-decoration-skip-ink:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">an example page</span></a><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"> in a sentence.</span></p><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GB13 Bare URL </span><a href=\"https://example.org/gdocs-v1\" style=\"text-decoration:none;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#1155cc;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:underline;-webkit-text-decoration-skip:none;text-decoration-skip-ink:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">https://example.org/gdocs-v1</span></a><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"> becomes a link.</span></p><p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">GB14 Address </span><a href=\"mailto:pisi@example.com\" style=\"text-decoration:none;\"><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#1155cc;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:underline;-webkit-text-decoration-skip:none;text-decoration-skip-ink:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\">pisi@example.com</span></a><span style=\"font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;\"> for email.</span></p></b><br class=\"Apple-interchange-newline\">",
+      "text/plain": "GB11 Links\nGB12 Link to an example page in a sentence.\nGB13 Bare URL https://example.org/gdocs-v1 becomes a link.\nGB14 Address pisi@example.com for email.\n"
+    },
+    "items": [
+      {
+        "itemIndex": 0,
+        "kind": "string",
+        "type": "text/plain",
+        "file": null
+      },
+      {
+        "itemIndex": 1,
+        "kind": "string",
+        "type": "text/html",
+        "file": null
+      },
+      {
+        "itemIndex": 2,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-document-slice-clip+wrapped",
+        "file": null
+      },
+      {
+        "itemIndex": 3,
+        "kind": "string",
+        "type": "application/x-vnd.google-docs-internal-clip-id",
+        "file": null
+      }
+    ],
+    "files": [],
+    "totals": {
+      "textBytes": 3672,
+      "fileBytes": 0
+    }
+  }
+}

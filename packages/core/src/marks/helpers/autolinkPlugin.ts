@@ -8,6 +8,7 @@
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { MarkType } from '@domternal/pm/model';
 import { find } from 'linkifyjs';
+import { checkUrl } from '../../helpers/checkUrl.js';
 
 /**
  * Options for the autolink plugin
@@ -19,10 +20,11 @@ export interface AutolinkPluginOptions {
   type: MarkType;
 
   /**
-   * Allowed URL protocols
+   * Allowed URL protocols. The URL policy also refuses credentials in web,
+   * mail and phone addresses and hidden characters, whatever this lists.
    * @default ['http:', 'https:']
    */
-  protocols?: string[];
+  protocols?: readonly string[];
 
   /**
    * Default protocol to add to bare URLs (e.g., 'example.com' → 'https://example.com')
@@ -31,7 +33,7 @@ export interface AutolinkPluginOptions {
   defaultProtocol?: string;
 
   /**
-   * Custom validation function
+   * Custom validation function, called only for an address the URL policy allows.
    * Return false to prevent auto-linking specific URLs
    */
   shouldAutoLink?: (url: string) => boolean;
@@ -107,22 +109,11 @@ export function autolinkPlugin(options: AutolinkPluginOptions): Plugin {
           return false;
         }
 
-        const href = lastMatch.href;
-
-        // Validate protocol
-        try {
-          const url = new URL(href);
-          if (!protocols.includes(url.protocol)) {
-            return false;
-          }
-        } catch {
-          return false;
-        }
-
-        // Custom validation
-        if (shouldAutoLink && !shouldAutoLink(href)) {
-          return false;
-        }
+        // The URL policy first: an allowed scheme, no credentials in a web
+        // address, no hidden characters. Custom validation only sees an address the policy allows.
+        const check = checkUrl(lastMatch.href, { protocols });
+        const href = check.status === 'allowed' ? check.url : null;
+        const linked = href !== null && (!shouldAutoLink || shouldAutoLink(href));
 
         // Calculate positions in document
         const blockStart = from - $from.parentOffset;
@@ -136,15 +127,12 @@ export function autolinkPlugin(options: AutolinkPluginOptions): Plugin {
           return false;
         }
 
-        // End an auto-detected URL before its delimiter, keeping other formatting.
-        const tr = state.tr;
-        if (!existingLink) {
-          tr.addMark(linkStart, linkEnd, type.create({ href }));
-        } else {
-          // Punctuation can be both a delimiter and part of a URL. A period
-          // may have linked `https://example` before the user finished `.com`.
-          // Extend that matching URL prefix once the complete token is known,
-          // preserving manually assigned destinations that differ from its text.
+        // Punctuation can be both a delimiter and part of a URL. A period may
+        // have linked `https://example` before the user finished `.com`. That
+        // link covers a prefix of the token and points where its own text
+        // does, unlike a manually assigned destination.
+        let autolinkedPrefix = false;
+        if (existingLink) {
           let markedEnd = linkStart;
           state.doc.nodesBetween(linkStart, linkEnd, (node, pos) => {
             if (node.isText && pos <= markedEnd && node.marks.some(mark => mark.eq(existingLink))) {
@@ -154,11 +142,23 @@ export function autolinkPlugin(options: AutolinkPluginOptions): Plugin {
           if (markedEnd > linkStart && markedEnd < linkEnd) {
             const prefix = state.doc.textBetween(linkStart, markedEnd);
             const prefixMatch = find(prefix, { defaultProtocol })[0];
-            if (prefixMatch?.start === 0 && prefixMatch.end === prefix.length
-              && prefixMatch.href === existingLink.attrs['href']) {
-              tr.addMark(linkStart, linkEnd, type.create({ ...existingLink.attrs, href }));
-            }
+            autolinkedPrefix = prefixMatch?.start === 0 && prefixMatch.end === prefix.length
+              && prefixMatch.href === existingLink.attrs['href'];
           }
+        }
+        if (!linked && !autolinkedPrefix) {
+          return false;
+        }
+
+        // End an auto-detected URL before its delimiter, keeping other formatting.
+        const tr = state.tr;
+        if (existingLink && autolinkedPrefix) {
+          // Extend the prefix link over the complete token, or remove it when
+          // the complete token is not linked, such as one with credentials.
+          tr.removeMark(linkStart, linkEnd, existingLink);
+          if (linked) tr.addMark(linkStart, linkEnd, type.create({ ...existingLink.attrs, href }));
+        } else if (!existingLink && linked) {
+          tr.addMark(linkStart, linkEnd, type.create({ href }));
         }
         const insertionMarks = type.removeFromSet(state.storedMarks ?? $from.marks());
         tr.setStoredMarks(insertionMarks);

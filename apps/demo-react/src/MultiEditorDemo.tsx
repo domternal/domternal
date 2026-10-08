@@ -1,3 +1,4 @@
+import { demoPasteCleanupExtensions } from './demo-paste-cleanup.js';
 import { useDemoI18n } from './demo-language.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor, DomternalToolbar, DomternalBubbleMenu } from '@domternal/react';
@@ -27,6 +28,7 @@ const sharedExtensions: AnyExtension[] = [
   Bold, Italic, Underline, Strike, Code, Link,
   Heading, Blockquote, HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList, ListIndent,
+  ...demoPasteCleanupExtensions,
   SelectionDecoration, ClearFormatting, Dropcursor,
 ];
 

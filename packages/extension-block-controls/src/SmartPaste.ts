@@ -3,8 +3,9 @@
  * content fitter, which strips the block wrapper and pastes only inline text.
  * SmartPaste catches the relevant cases and routes each to the right strategy:
  *
- *  1. List slice into a list ancestor: same-kind items merge as siblings; a
- *     different-kind list keeps its kind and splits the host list around it.
+ *  1. List slice into a list ancestor: matching-kind and marker items merge as
+ *     siblings unless explicit paste intent preserves ordered starts and blocks.
+ *     Other lists keep their wrapper and split the host list around it.
  *  2. Trailing hardBreak (Shift+Enter): trim the hardBreak, insert as sibling.
  *  3. Truly empty parent paragraph (`parentSize === 0`): replace the parent.
  *  4-6. Caret at start / end / middle: insert as sibling or split-and-insert.
@@ -17,16 +18,21 @@
  *
  * Do NOT bail on `openStart > 0`: PM's clipboard parser routinely sets
  * `openStart=1` even for closed-looking input like `<h1>x</h1>`. Top-level
- * children of the slice are what matter.
+ * children of the slice are what matter. The strategies insert those children
+ * as whole nodes, so the slice's open sides are completed first (see
+ * `wholeSliceContent`), and a slice that cannot be completed is left to PM.
  */
 
 import { Extension } from '@domternal/core';
+import { getClipboardPasteBehavior, placeClipboardPaste } from '@domternal/core/clipboard';
 import { Plugin, TextSelection, Selection } from '@domternal/pm/state';
-import { Fragment } from '@domternal/pm/model';
-import type { Slice, Node as PMNode, ResolvedPos, NodeType } from '@domternal/pm/model';
+import { canSplit } from '@domternal/pm/transform';
+import { Fragment, Slice } from '@domternal/pm/model';
+import type { Node as PMNode, ResolvedPos, NodeType } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import type { Transaction } from '@domternal/pm/state';
 import { insertBlockSplittingList } from './helpers/moveBlock.js';
+import { canMergeListWrappers } from './helpers/listMarkers.js';
 
 const LIST_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
@@ -54,7 +60,7 @@ export const SmartPaste = Extension.create<SmartPasteOptions>({
     return [
       new Plugin({
         props: {
-          handlePaste: (view, _event, slice) => handleSmartPaste(view, slice),
+          handlePaste: (view, event, slice) => handleSmartPaste(view, event, slice),
         },
       }),
     ];
@@ -62,7 +68,7 @@ export const SmartPaste = Extension.create<SmartPasteOptions>({
 });
 
 /** Returns `true` when this plugin handled the paste (PM skips its default). */
-function handleSmartPaste(view: EditorView, slice: Slice): boolean {
+function handleSmartPaste(view: EditorView, event: ClipboardEvent, pasted: Slice): boolean {
   const { state } = view;
   const { selection } = state;
   const $from = selection.$from;
@@ -71,19 +77,35 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
   if (!$from.parent.isTextblock) return false;
 
   // No non-paragraph block at top level: PM merges plain inline content cleanly.
-  if (!sliceHasNonParagraphBlock(slice)) return false;
+  if (!sliceHasNonParagraphBlock(pasted)) return false;
 
   // Single block of the SAME TYPE as the destination (e.g. <h1> into <h1>):
   // splitting the parent to "preserve" the wrapper would shred the heading
   // into three pieces. PM's default inline merge is what the user wants.
-  if (sliceIsSingleSameTypeAsParent(slice, $from.parent.type.name)) return false;
+  if (sliceIsSingleSameTypeAsParent(pasted, $from.parent.type.name)) return false;
+
+  // Every strategy below inserts whole nodes. A slice whose open sides cannot
+  // be completed is left to PM's paste, which fits an open slice itself.
+  const whole = wholeSliceContent(pasted);
+  if (whole === undefined) return false;
+  const slice = new Slice(whole, 0, 0);
 
   // Strategy 1: list-slice into list ancestor, merge as siblings.
-  if (tryPasteListSliceIntoList(view, slice)) return true;
+  if (tryPasteListSliceIntoList(view, event, slice)) return true;
+
+  // Text copied from inside a list item, quote, table cell or details summary is text, though the
+  // paste rebuilds the container the copy recorded around it: outside a list, where the rule above
+  // keeps a copied item's list and marker, it joins the caret's textblock through PM's paste, as it
+  // does without SmartPaste, instead of landing beside it in a list, quote, table or details.
+  if (isCopiedText(event, pasted)) return false;
+
+  // A node that places pasted blocks elsewhere, as Details puts blocks pasted into its summary
+  // at the start of its content, gives the transaction and the caret the strategies start from.
+  const placed = placeClipboardPaste(view, slice.content);
 
   // Strategies 2-7: collapse range, then route by parent state + offset.
-  const tr = state.tr;
-  if (!selection.empty) tr.deleteSelection();
+  const tr = placed ?? state.tr;
+  if (placed === undefined && !selection.empty) tr.deleteSelection();
 
   const $pos = tr.selection.$from;
   const parent = $pos.parent;
@@ -98,6 +120,16 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
   const isListItemLabel = $pos.depth >= 2
     && LIST_ITEM_TYPES.has($pos.node($pos.depth - 1).type.name)
     && $pos.index($pos.depth - 1) === 0;
+
+  // A textblock its blocks cannot leave, such as a details summary, can sit in a parent that takes
+  // no block beside it, where the insertions below would split that parent in two. Such a paste
+  // goes to the textblock's owner, as Details puts it in its content, or to ProseMirror's paste.
+  if (parent.type.spec.isolating === true && $pos.depth > 0) {
+    const container = $pos.node($pos.depth - 1);
+    const index = $pos.index($pos.depth - 1);
+    const at = offset === 0 && parentSize > 0 ? index : index + 1;
+    if (!container.canReplace(parentSize === 0 ? index : at, at, slice.content)) return false;
+  }
 
   if (hasTrailingHardBreakAtCursor(parent, offset, parentSize)) {
     // Shift+Enter: trim the trailing hardBreak, insert the slice as a SIBLING
@@ -147,15 +179,117 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
     // Caret in the middle: split the textblock, insert at the boundary between
     // the two halves. After split the cursor's pos sits at the END of the first
     // half (before its close marker); the boundary is one past that, cursorPos+1.
+    // A block its parent cannot hold twice, such as a details summary, is left
+    // to ProseMirror's paste.
     const cursorPos = $pos.pos;
+    if (!canSplit(tr.doc, cursorPos)) return false;
     tr.split(cursorPos);
     const insertAt = cursorPos + 1;
     tr.insert(insertAt, slice.content);
     setCaretAtEndOfInserted(tr, insertAt, slice.content);
   }
 
-  view.dispatch(tr.scrollIntoView());
+  view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
   return true;
+}
+
+/**
+ * The slice's content as whole nodes, or undefined when it cannot be made valid.
+ *
+ * ProseMirror's clipboard parse leaves a slice open where the pasted HTML starts
+ * or ends inside a node, and a node on an open side can lack what its schema
+ * requires there. A web page copy that starts inside a nested list item gives a
+ * list whose first item starts with the nested list and has no label paragraph;
+ * a list in a list leaves an empty list; a copy that ends at the start of an
+ * item leaves an empty item. Inserted as they are, such nodes break the
+ * document, and an extension that then changes one of them, as UniqueID does,
+ * throws and loses the paste. Each node on an open side therefore gets the
+ * content its schema requires before its first child and after its last, as
+ * ProseMirror completes a slice it closes: an empty label paragraph keeps a
+ * nested list at its depth under an empty item. Valid nodes come back as they
+ * were, so a slice that needs nothing is unchanged.
+ */
+function wholeSliceContent(slice: Slice): Fragment | undefined {
+  const content = completeSides(slice.content, slice.openStart, slice.openEnd);
+  if (content === null) return undefined;
+  try {
+    content.forEach((node) => { node.check(); });
+  } catch {
+    return undefined;
+  }
+  return content;
+}
+
+/** `fragment` with its first child completed `openStart` levels down and its last child `openEnd` levels down. */
+function completeSides(fragment: Fragment, openStart: number, openEnd: number): Fragment | null {
+  const last = fragment.childCount - 1;
+  let result = fragment;
+  for (const index of last > 0 ? [0, last] : last === 0 ? [0] : []) {
+    const child = completeNode(result.child(index), index === 0 ? openStart : 0, index === last ? openEnd : 0);
+    if (child === null) return null;
+    if (child !== result.child(index)) result = result.replaceChild(index, child);
+  }
+  return result;
+}
+
+/** `node`, open `openStart` levels at its start and `openEnd` at its end counting itself, with both sides completed. */
+function completeNode(node: PMNode, openStart: number, openEnd: number): PMNode | null {
+  if (node.isLeaf || (openStart <= 0 && openEnd <= 0)) return node;
+  const inner = completeSides(node.content, openStart - 1, openEnd - 1);
+  if (inner === null) return null;
+  const before = node.type.contentMatch.fillBefore(inner);
+  const filled = before?.append(inner);
+  const after = filled && node.type.contentMatch.matchFragment(filled)?.fillBefore(Fragment.empty, true);
+  if (!filled || !after) return null;
+  const content = filled.append(after);
+  return content.eq(node.content) ? node : node.copy(content);
+}
+
+// The context a ProseMirror copy records in its clipboard HTML, the nodes around the copied content, as
+// written: only HTML that holds it is parsed. ProseMirror reads the marker's value as its parser reads it.
+const SLICE_CONTEXT = /\bdata-pm-slice="\d+ \d+(?: -\d+)? (\[[^"]*\])"/;
+const SLICE_DATA = /^\d+ \d+(?: -\d+)? (\[.*\])$/;
+
+/**
+ * The context of the marker ProseMirror reads from clipboard HTML: the `data-pm-slice` attribute of the
+ * first element that carries one, as the browser parses the HTML. HTML whose text, comment or another
+ * attribute shows such a marker has none, except where the page's Trusted Types refuse the parser.
+ */
+function sliceContext(html: string): string | undefined {
+  const written = SLICE_CONTEXT.exec(html)?.[1];
+  if (written === undefined) return undefined;
+  try {
+    const detached = document.implementation.createHTMLDocument('');
+    if (detached.defaultView !== null) return undefined;
+    // Read metadata only in a document without a browsing context; these nodes never enter the live DOM.
+    // A template keeps a copy that starts with table rows or cells, as ProseMirror wraps them.
+    const template = detached.createElement('template');
+    template.innerHTML = html;
+    return SLICE_DATA.exec(template.content.querySelector('[data-pm-slice]')?.getAttribute('data-pm-slice') ?? '')?.[1];
+  } catch {
+    // A page whose Trusted Types refuse the parser, which ProseMirror passes with a policy of its own, has it read as written.
+    return written;
+  }
+}
+
+/**
+ * Whether the paste is text copied from inside a textblock that sits in other nodes: the clipboard
+ * HTML records those nodes as the slice's context, and the slice is one node open on both sides
+ * at each level down to the textblock, which is open on both sides too.
+ */
+function isCopiedText(event: ClipboardEvent, slice: Slice): boolean {
+  let html: string;
+  try { html = event.clipboardData?.getData('text/html') ?? ''; } catch { return false; }
+  const context = sliceContext(html);
+  if (context === undefined || context === '[]') return false;
+  let { content, openStart, openEnd } = slice;
+  for (let node = content.firstChild; content.childCount === 1 && node !== null && openStart > 0 && openEnd > 0; node = content.firstChild) {
+    if (node.isTextblock) return true;
+    content = node.content;
+    openStart--;
+    openEnd--;
+  }
+  return false;
 }
 
 /** True if any top-level slice child is a block other than `paragraph`. */
@@ -184,23 +318,37 @@ function hasTrailingHardBreakAtCursor(parent: PMNode, offset: number, parentSize
 }
 
 /**
- * When the slice top-level is a single list AND the caret has a list ancestor:
- *   - SAME list kind: adapt the items (a no-op for the same item type) and merge
- *     them as siblings of the current item, preserving the surrounding list.
- *   - DIFFERENT kind (e.g. to-dos pasted into a bullet list): the pasted list
+ * When the caret has a list ancestor and the slice is a single list, or explicit
+ * paste behavior preserves a block fragment containing top-level ordered lists:
+ *   - SAME list kind and marker: merge items as siblings, unless explicit paste
+ *     behavior preserves the pasted ordered list's start in its own wrapper.
+ *   - DIFFERENT kind or marker: the pasted list
  *     keeps its OWN kind, checked state, and ordered `start`, splitting the host
  *     list around it. This mirrors the cross-kind drag rules (`moveBlock`) and
  *     prevents the silent checked-state loss a blind adapt-and-merge caused.
  * Returns false (caller falls through) when this case doesn't apply.
  */
-function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
+function tryPasteListSliceIntoList(view: EditorView, event: ClipboardEvent, slice: Slice): boolean {
   const { state } = view;
   const { selection } = state;
 
-  // Slice must be exactly one top-level list node.
-  if (slice.content.childCount !== 1) return false;
+  let preserveOrderedStart = false;
+  if (getClipboardPasteBehavior(view, event)?.preserveOrderedListStart === true) {
+    let hasOrderedList = false;
+    let blocksOnly = true;
+    for (let index = 0; index < slice.content.childCount; index++) {
+      const node = slice.content.child(index);
+      if (node.type.name === 'orderedList') hasOrderedList = true;
+      if (!node.isBlock) blocksOnly = false;
+    }
+    preserveOrderedStart = hasOrderedList && blocksOnly;
+  }
+
+  // Explicit preservation also keeps restart wrappers and source interruptions
+  // together at list level. Ordinary multi-block paste retains its usual route.
   const sliceTop = slice.content.firstChild;
-  if (!sliceTop || !LIST_TYPES.has(sliceTop.type.name)) return false;
+  if (!sliceTop) return false;
+  if (!preserveOrderedStart && (slice.content.childCount !== 1 || !LIST_TYPES.has(sliceTop.type.name))) return false;
 
   // Find nearest list-wrapper ancestor of the caret.
   const $from = selection.$from;
@@ -214,9 +362,6 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
   const listItemDepth = listDepth + 1;
   if ($from.depth < listItemDepth) return false;
 
-  const listParent = $from.node(listDepth);
-  const sameKind = sliceTop.type === listParent.type;
-
   const tr = state.tr;
   if (!selection.empty) tr.deleteSelection();
 
@@ -225,6 +370,7 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
   const $pos = tr.selection.$from;
   if ($pos.depth < listItemDepth) return false;
   if (!LIST_TYPES.has($pos.node(listDepth).type.name)) return false;
+  const sameWrapper = canMergeListWrappers(sliceTop, $pos.node(listDepth));
 
   const parent = $pos.parent;
   const parentEnd = $pos.after($pos.depth);
@@ -234,9 +380,18 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
   const liEnd = $pos.after(listItemDepth);
   const itemHasOnlyOneChild = $pos.node(listItemDepth).childCount === 1;
 
-  if (sameKind) {
-    // Same wrapper kind: the items already match the host's item type, so insert
-    // them as-is and merge them as siblings of the current item.
+  // Caret in the middle: the item splits around the pasted list only when the
+  // caret's textblock is a child of the item and its tail can start an item.
+  // A heading or code block cannot, and a block nested deeper, such as a
+  // blockquote, keeps its own content: the list then lands at the caret.
+  const typesAfter = typesAfterUncheckedTail($pos, listItemDepth);
+  if (offset > 0 && offset < parentSize && ($pos.depth !== listItemDepth + 1 || !canSplit(tr.doc, $pos.pos, 2, typesAfter))) {
+    return false;
+  }
+
+  if (sameWrapper && !preserveOrderedStart) {
+    // Matching wrapper kind and marker: insert the items as siblings without
+    // changing their list marker policy.
     const adapted = sliceTop.content;
     if (adapted.childCount === 0) return false;
 
@@ -267,19 +422,19 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
       // A checked to-do split mid-label spawns an UNCHECKED tail (Notion; matches
       // the Enter handler), so a split half is never silently pre-checked.
       const cursorPos = $pos.pos;
-      tr.split(cursorPos, 2, typesAfterUncheckedTail($pos, listItemDepth));
+      tr.split(cursorPos, 2, typesAfter);
       insertAt = cursorPos + 2;
       tr.insert(insertAt, adapted);
     }
 
     setCaretAtEndOfInserted(tr, insertAt, adapted);
-    view.dispatch(tr.scrollIntoView());
+    view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
     return true;
   }
 
-  // Different list kind: keep the pasted list as its own wrapper and split the
-  // host list around it, so kind / checked / `start` all survive.
-  const content = Fragment.from(sliceTop);
+  // Preserve a different kind/marker or an explicitly requested ordered start
+  // in its own wrapper, splitting the host list around the inserted content.
+  const content = preserveOrderedStart ? slice.content : Fragment.from(sliceTop);
   let insertedAt: number;
   if (hasTrailingHardBreakAtCursor(parent, offset, parentSize)) {
     const hbStart = parentEnd - 2;
@@ -293,7 +448,7 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
       // Host list is just this empty item: replace the whole wrapper.
       const wrapperStart = $pos.before(listDepth);
       const wrapperEnd = $pos.after(listDepth);
-      tr.replaceWith(wrapperStart, wrapperEnd, sliceTop);
+      tr.replaceWith(wrapperStart, wrapperEnd, content);
       insertedAt = wrapperStart;
     } else {
       tr.delete(liStart, liEnd);
@@ -305,12 +460,12 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
     insertedAt = insertBlockSplittingList(tr, tr.doc.resolve(liEnd), content);
   } else {
     const cursorPos = $pos.pos;
-    tr.split(cursorPos, 2, typesAfterUncheckedTail($pos, listItemDepth));
+    tr.split(cursorPos, 2, typesAfter);
     insertedAt = insertBlockSplittingList(tr, tr.doc.resolve(cursorPos + 2), content);
   }
 
   setCaretAtEndOfInserted(tr, insertedAt, content);
-  view.dispatch(tr.scrollIntoView());
+  view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
   return true;
 }
 

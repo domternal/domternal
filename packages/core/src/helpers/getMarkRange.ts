@@ -4,11 +4,30 @@
  * Walks backward and forward from the position to find contiguous
  * text nodes that share the same mark type, returning the full range.
  */
-import type { MarkType, ResolvedPos } from '@domternal/pm/model';
+import type { Mark, MarkType, Node as PMNode, ResolvedPos } from '@domternal/pm/model';
 
 export interface MarkRange {
   from: number;
   to: number;
+}
+
+/**
+ * @internal The range of the siblings around the node at `pos` that carry
+ * exactly `mark`, attributes included, so an adjacent link of the same type
+ * is never part of it.
+ */
+export function getExactMarkRange(doc: PMNode, pos: number, mark: Mark): MarkRange {
+  const $pos = doc.resolve(pos);
+  const parent = $pos.parent;
+  let first = $pos.index();
+  let last = first;
+  while (first > 0 && mark.isInSet(parent.child(first - 1).marks)) first--;
+  while (last + 1 < parent.childCount && mark.isInSet(parent.child(last + 1).marks)) last++;
+  let from = $pos.start();
+  for (let index = 0; index < first; index++) from += parent.child(index).nodeSize;
+  let to = from;
+  for (let index = first; index <= last; index++) to += parent.child(index).nodeSize;
+  return { from, to };
 }
 
 /**

@@ -1,0 +1,48 @@
+/** Types of the parts of offline.mjs that TypeScript specs use. */
+import type { ContentSpecification } from './semantics.mjs';
+
+export interface PolicyOracle {
+  readonly status: 'cleaned' | 'rejected';
+  readonly source: 'word' | 'google-docs' | 'libreoffice' | 'html';
+  readonly warnings: readonly string[];
+  /** The fixture editor's outcome in one schema, or one per schema the fixture is pinned in. */
+  readonly editor: EditorOutcome | readonly EditorOutcome[];
+}
+export interface EditorOutcome { readonly schema: 'default' | 'capability-full'; readonly notice: 'quiet' | 'visible'; readonly warnings: readonly string[] }
+export interface SemanticExpected {
+  readonly specification: string;
+  readonly scenario: string;
+  readonly partial?: { readonly first: string; readonly last: string };
+  /**
+   * Whether the copy holds the hidden text a block authors, which the browser decides; present exactly when a block authors one.
+   * Hidden text pastes in neither case; a copy that holds it reports `hidden-text-removed` in every outcome.
+   */
+  readonly hiddenText?: 'copied' | 'omitted';
+  readonly blocks: readonly { readonly id: string; readonly type: string; readonly [key: string]: unknown }[];
+  readonly preserve: PolicyOracle;
+  readonly adapt: PolicyOracle;
+}
+/** Archived baseline hashes for an authored English variant, never a new native capture claim. */
+export interface EnglishTextDerivation {
+  readonly kind: 'english-text-variant';
+  readonly sourceSha256: string;
+  readonly captureSha256: string;
+  readonly manifestSha256: string;
+}
+export class CaptureEvidenceError extends Error { readonly code: string }
+export function noticeCodes(diagnostics: readonly { readonly code: string; readonly severity: string }[]): string[];
+export function readSemanticExpected(expected: unknown): SemanticExpected;
+export function editorOutcomes(oracle: PolicyOracle): readonly EditorOutcome[];
+export function semanticSpecification(expected: SemanticExpected): ContentSpecification;
+export function verifyCaptureFixture(directory: string): Promise<{
+  readonly integrity: {
+    readonly qualification: false;
+    readonly nativeEvidenceAuthenticated: false;
+    readonly origin: 'synthetic' | 'claimed-native';
+    readonly claimedEventKind: 'synthetic-event' | 'native-event';
+    readonly fixtureId: string;
+    readonly redactions?: readonly unknown[];
+    readonly derivation?: EnglishTextDerivation;
+  };
+  readonly replay: { readonly kind: string; readonly outcomes: readonly { readonly formatting: string; readonly warnings?: readonly string[] }[] };
+}>;

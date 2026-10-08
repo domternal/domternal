@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 2,
+  "id": "word-list-punctuation-case-firefox",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "51baf486c74a4889eb33feb9403a412e3cb3eabe67e089efc2f0d8043b557e49"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-list-punctuation-case",
+    "blocks": [
+      {
+        "id": "L25",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1)"
+        },
+        "word": "Numbering Library: 1)",
+        "text": "L25 Parenthesis one",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L26",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "2)"
+        },
+        "word": "Enter",
+        "text": "L26 Parenthesis two",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L27",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "a)"
+        },
+        "word": "Numbering Library: a), restart",
+        "text": "L27 Letter a with a parenthesis",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L28",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "lower-alpha",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "b)"
+        },
+        "word": "Enter",
+        "text": "L28 Letter b with a parenthesis",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L29",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-alpha",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "A."
+        },
+        "word": "Numbering Library: A., restart",
+        "text": "L29 Uppercase A",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L30",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-alpha",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "B."
+        },
+        "word": "Enter",
+        "text": "L30 Uppercase B",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L31",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-roman",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "I."
+        },
+        "word": "Numbering Library: I., restart",
+        "text": "L31 Uppercase Roman I",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L32",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-roman",
+          "depth": 1,
+          "ordinal": 2,
+          "wordLabel": "II."
+        },
+        "word": "Enter",
+        "text": "L32 Uppercase Roman II",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [],
+      "editor": {
+        "schema": "default",
+        "notice": "quiet",
+        "warnings": []
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+    "captureSha256": "06980058fe501047a37a80450363875a915427d76d07fbfab834b6c4c488cf90",
+    "manifestSha256": "97abb2bb84d31b6b18be7949e3b92300d82ad13176bb32857f028a86469af390"
+  }
+}

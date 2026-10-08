@@ -1,0 +1,1387 @@
+{
+  "schemaVersion": 1,
+  "kind": "domternal-authored-regression-content",
+  "id": "word-mac-v1",
+  "status": "authored-English-regression-variant",
+  "license": "MIT; synthetic text authored for Domternal paste qualification, without personal or customer data",
+  "source": {
+    "application": "Microsoft Word for Mac",
+    "version": "16.111",
+    "build": "16.111.26071325",
+    "platform": "macOS",
+    "destinations": [
+      "Safari",
+      "Chrome",
+      "Firefox"
+    ]
+  },
+  "captures": [],
+  "conventions": [
+    "This is an offline edited English regression specification. Block IDs and v1 document names remain stable. No native recapture was performed; baseline application instructions describe the shape being modeled.",
+    "Corrections after the first captures say what changed and why in a correction field on the block or scenario; the earlier expectation is not kept.",
+    "Every paragraph starts with its block identifier, so any output order, loss or duplication is visible.",
+    "Type the text exactly. The typographic characters are part of the test: use the characters in this file, not keyboard substitutes.",
+    "Use the named built-in styles and the Home tab buttons, not manual formatting, unless a block says otherwise.",
+    "A marker in list.wordLabel is what Word shows. Do not type it; Word creates it from the list formatting.",
+    "A document's textStyle is the text style of Word's Normal style as Word shows it, a block's textStyle that of its own style, such as a heading's font, size and color; automatic color is no color. A pasted run may keep these values or none, never another."
+  ],
+  "documents": [
+    {
+      "file": "word-mac-v1-basics.docx",
+      "textStyle": {
+        "fontFamily": "Aptos",
+        "fontSize": "12pt"
+      },
+      "blocks": [
+        {
+          "id": "B01",
+          "type": "heading",
+          "level": 1,
+          "word": "Style: Title",
+          "text": "B01 Paste test document",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "28pt"
+          }
+        },
+        {
+          "id": "B02",
+          "type": "heading",
+          "level": 1,
+          "word": "Style: Heading 1",
+          "text": "B02 Croatian characters and quotation marks",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "B03",
+          "type": "paragraph",
+          "word": "Style: Normal",
+          "text": "B03 Lowercase č ć đ š ž, uppercase Č Ć Đ Š Ž."
+        },
+        {
+          "id": "B04",
+          "type": "paragraph",
+          "word": "Style: Normal. Keep AutoFormat quotes as typed here.",
+          "text": "B04 Quotation marks „double“, ‚single‘, »reversed«, \"straight\" and 'straight', the apostrophe in don’t, an en dash – and an ellipsis…"
+        },
+        {
+          "id": "B05",
+          "type": "paragraph",
+          "word": "Style: Normal. Insert a nonbreaking space (Option+Space) between 10 and kg.",
+          "text": "B05 Nonbreaking space between 10 kg.",
+          "correction": "The text holds the nonbreaking space the block asks for; it had an ordinary space, which every capture shows as U+00A0."
+        },
+        {
+          "id": "B06",
+          "type": "heading",
+          "level": 2,
+          "word": "Style: Heading 2",
+          "text": "B06 Inline formatting",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "16pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "B07",
+          "type": "paragraph",
+          "word": "Style: Normal. Apply each format to the named word only.",
+          "text": "B07 bold italic underlined strikethrough H2O x2 Georgia red highlighted",
+          "marks": [
+            {
+              "text": "bold",
+              "marks": [
+                "bold"
+              ],
+              "word": "Bold"
+            },
+            {
+              "text": "italic",
+              "marks": [
+                "italic"
+              ],
+              "word": "Italic"
+            },
+            {
+              "text": "underlined",
+              "marks": [
+                "underline"
+              ],
+              "word": "Underline"
+            },
+            {
+              "text": "strikethrough",
+              "marks": [
+                "strike"
+              ],
+              "word": "Strikethrough"
+            },
+            {
+              "text": "2",
+              "occurrence": 1,
+              "marks": [
+                "subscript"
+              ],
+              "word": "Subscript on the 2 of H2O"
+            },
+            {
+              "text": "2",
+              "occurrence": 2,
+              "marks": [
+                "superscript"
+              ],
+              "word": "Superscript on the 2 of x2"
+            },
+            {
+              "text": "Georgia",
+              "style": {
+                "fontFamily": "Georgia",
+                "fontSize": "14pt"
+              },
+              "word": "Font Georgia, 14 pt"
+            },
+            {
+              "text": "red",
+              "style": {
+                "color": "#FF0000"
+              },
+              "word": "Font color red (#FF0000)"
+            },
+            {
+              "text": "highlighted",
+              "marks": [
+                "highlight"
+              ],
+              "style": {
+                "backgroundColor": "#FFFF00"
+              },
+              "formatting": "preserve",
+              "word": "Text highlight color yellow",
+              "expectation": "Word writes the highlight as a background shorthand (background: yellow in the Safari capture), which cleanup reads as the highlight color.",
+              "correction": "A highlight is a text style that adapt removes, so the mark is expected in preserve only."
+            }
+          ]
+        },
+        {
+          "id": "B08",
+          "type": "heading",
+          "level": 3,
+          "word": "Style: Heading 3",
+          "text": "B08 Alignment and spacing",
+          "textStyle": {
+            "fontFamily": "Aptos",
+            "fontSize": "14pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "B09",
+          "type": "paragraph",
+          "align": "center",
+          "word": "Style: Normal, Center",
+          "text": "B09 Centered paragraph."
+        },
+        {
+          "id": "B10",
+          "type": "paragraph",
+          "align": "right",
+          "word": "Style: Normal, Align Right",
+          "text": "B10 Right-aligned paragraph."
+        },
+        {
+          "id": "B11",
+          "type": "paragraph",
+          "align": "justify",
+          "word": "Style: Normal, Justify",
+          "text": "B11 This justified paragraph contains enough words to wrap onto at least two lines at the normal page width, so that the alignment is visible."
+        },
+        {
+          "id": "B12",
+          "type": "paragraph",
+          "lineHeight": "1.5",
+          "word": "Style: Normal, Line Spacing 1.5",
+          "text": "B12 Paragraph with 1.5 line spacing."
+        },
+        {
+          "id": "B13",
+          "type": "paragraph",
+          "word": "Style: Normal, Format > Paragraph > Left indentation 1.27 cm",
+          "text": "B13 Paragraph with a 1.27 cm left indent.",
+          "expectation": "Nonzero horizontal indentation is a reported loss: unsupported-formatting."
+        },
+        {
+          "id": "B14",
+          "type": "paragraph",
+          "word": "Style: Normal, Format > Paragraph > Special: First line 1.27 cm",
+          "text": "B14 Paragraph with a first-line indent.",
+          "expectation": "First-line indentation is a reported loss: unsupported-formatting."
+        },
+        {
+          "id": "B15",
+          "type": "paragraph",
+          "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
+          "text": "B15 Visible part HIDDEN end.",
+          "hidden": "HIDDEN",
+          "expectation": "Hidden text never pastes, as Word does not show it. Chrome and Firefox carry Word's raw HTML, which keeps the word in a run Word hides (display:none with mso-hide:all): cleanup leaves the run out and reports hidden-text-removed. Safari leaves the word out of the copy and nothing in it tells of hidden text, so nothing is reported.",
+          "correction": "Records what Word copies per browser, which the captures show. On the owner's decision of 2026-10-05 the hidden word no longer pastes visible with unsupported-formatting; it is left out with a warning of its own."
+        },
+        {
+          "id": "B16a",
+          "type": "empty",
+          "word": "Style: Normal, an empty paragraph"
+        },
+        {
+          "id": "B16b",
+          "type": "empty",
+          "word": "Style: Normal, a second empty paragraph"
+        },
+        {
+          "id": "B16",
+          "type": "paragraph",
+          "word": "Style: Normal",
+          "text": "B16 After two empty paragraphs."
+        }
+      ]
+    },
+    {
+      "file": "word-mac-v1-lists.docx",
+      "textStyle": {
+        "fontFamily": "Aptos",
+        "fontSize": "12pt"
+      },
+      "provenance": "The captured document was recreated on 2026-10-03 after Word's Normal template was reset, so its lists are the Home tab libraries the blocks name: unnamed list definitions whose levels name their fonts in font-family. The third level of the numbering library is right aligned, and Word pads its label with a spacer run of 7 pt no-break spaces that fills the indent before it. The document of the first Safari captures defined its lists as named lists (mso-list-name D3 ...) from templates, whose o level named its font per script; cleanup reads both, and its unit tests keep that shape.",
+      "blocks": [
+        {
+          "id": "L01",
+          "type": "heading",
+          "level": 1,
+          "word": "Style: Heading 1",
+          "text": "L01 Bullets",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "L02",
+          "type": "listItem",
+          "list": {
+            "kind": "bullet",
+            "marker": "disc",
+            "depth": 1,
+            "wordLabel": "•"
+          },
+          "word": "Home > Bullets (default library bullet)",
+          "text": "L02 First level"
+        },
+        {
+          "id": "L03",
+          "type": "listItem",
+          "list": {
+            "kind": "bullet",
+            "marker": "circle",
+            "depth": 2,
+            "wordLabel": "o"
+          },
+          "word": "Tab: Word shows o",
+          "text": "L03 Second level"
+        },
+        {
+          "id": "L04",
+          "type": "listItem",
+          "list": {
+            "kind": "bullet",
+            "marker": "square",
+            "depth": 3,
+            "wordLabel": "▪"
+          },
+          "word": "Tab: Word shows a small square",
+          "text": "L04 Third level"
+        },
+        {
+          "id": "L05",
+          "type": "listItem",
+          "list": {
+            "kind": "bullet",
+            "marker": "disc",
+            "depth": 1,
+            "wordLabel": "•"
+          },
+          "word": "Shift+Tab twice",
+          "text": "L05 First level again"
+        },
+        {
+          "id": "L06",
+          "type": "heading",
+          "level": 1,
+          "word": "Style: Heading 1",
+          "text": "L06 Numbering",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "L07",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 1,
+            "wordLabel": "1."
+          },
+          "word": "Home > Numbering (default 1.)",
+          "text": "L07 First number"
+        },
+        {
+          "id": "L08",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "lower-alpha",
+            "depth": 2,
+            "ordinal": 1,
+            "wordLabel": "a."
+          },
+          "word": "Tab: Word shows a.",
+          "text": "L08 Letter a"
+        },
+        {
+          "id": "L09",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "lower-roman",
+            "depth": 3,
+            "ordinal": 1,
+            "wordLabel": "i."
+          },
+          "word": "Tab: Word shows i.",
+          "text": "L09 Roman i"
+        },
+        {
+          "id": "L10",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "lower-roman",
+            "depth": 3,
+            "ordinal": 2,
+            "wordLabel": "ii."
+          },
+          "word": "Enter",
+          "text": "L10 Roman ii"
+        },
+        {
+          "id": "L11",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "lower-alpha",
+            "depth": 2,
+            "ordinal": 2,
+            "wordLabel": "b."
+          },
+          "word": "Shift+Tab",
+          "text": "L11 Letter b"
+        },
+        {
+          "id": "L12",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 2,
+            "wordLabel": "2."
+          },
+          "word": "Shift+Tab",
+          "text": "L12 Second number"
+        },
+        {
+          "id": "L13",
+          "type": "paragraph",
+          "word": "Style: Normal, numbering off",
+          "text": "L13 List interruption."
+        },
+        {
+          "id": "L14",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 3,
+            "wordLabel": "3."
+          },
+          "word": "Numbering, then right-click > Continue Numbering",
+          "text": "L14 Numbering continues"
+        },
+        {
+          "id": "L15",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 1,
+            "wordLabel": "1."
+          },
+          "word": "Enter, then right-click > Restart at 1",
+          "text": "L15 Restart at one"
+        },
+        {
+          "id": "L16",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 5,
+            "wordLabel": "5."
+          },
+          "word": "Enter, then Format > Bullets and Numbering or right-click > Set Numbering Value: start a new list at 5",
+          "text": "L16 Start at five"
+        },
+        {
+          "id": "L17",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 6,
+            "wordLabel": "6."
+          },
+          "word": "Enter",
+          "text": "L17 Six"
+        },
+        {
+          "id": "L18",
+          "type": "heading",
+          "level": 1,
+          "word": "Style: Heading 1",
+          "text": "L18 Mixed nesting",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "L19",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 1,
+            "wordLabel": "1."
+          },
+          "word": "Numbering, restart at 1",
+          "text": "L19 Number"
+        },
+        {
+          "id": "L20",
+          "type": "listItem",
+          "list": {
+            "kind": "bullet",
+            "marker": "circle",
+            "depth": 2,
+            "wordLabel": "o"
+          },
+          "word": "Enter, Tab, then Home > Bullets; make Word show the o bullet at the second level",
+          "text": "L20 Bullet below a number"
+        },
+        {
+          "id": "L21",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 2,
+            "wordLabel": "2."
+          },
+          "word": "Enter, Shift+Tab, then Home > Numbering so Word continues with 2.",
+          "text": "L21 Second number"
+        },
+        {
+          "id": "L21a",
+          "type": "empty",
+          "word": "Style: Normal, an empty paragraph before L22",
+          "correction": "L22 follows an empty Normal paragraph, as its instruction says, so a selection from L21 to L22 holds it; it was missing from the blocks."
+        },
+        {
+          "id": "L22",
+          "type": "listItem",
+          "list": {
+            "kind": "bullet",
+            "marker": "disc",
+            "depth": 1,
+            "wordLabel": "•"
+          },
+          "word": "After an empty Normal paragraph: Home > Bullets",
+          "text": "L22 Bullet"
+        },
+        {
+          "id": "L23",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "lower-alpha",
+            "depth": 2,
+            "ordinal": 1,
+            "wordLabel": "a."
+          },
+          "word": "Enter, Tab, then Home > Numbering; make Word show a. at the second level",
+          "text": "L23 Number below a bullet"
+        },
+        {
+          "id": "L24",
+          "type": "heading",
+          "level": 1,
+          "word": "Style: Heading 1",
+          "text": "L24 Punctuation and letter case",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "L25",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 1,
+            "wordLabel": "1)"
+          },
+          "word": "Numbering Library: 1)",
+          "text": "L25 Parenthesis one"
+        },
+        {
+          "id": "L26",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 2,
+            "wordLabel": "2)"
+          },
+          "word": "Enter",
+          "text": "L26 Parenthesis two"
+        },
+        {
+          "id": "L27",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "lower-alpha",
+            "depth": 1,
+            "ordinal": 1,
+            "wordLabel": "a)"
+          },
+          "word": "Numbering Library: a), restart",
+          "text": "L27 Letter a with a parenthesis"
+        },
+        {
+          "id": "L28",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "lower-alpha",
+            "depth": 1,
+            "ordinal": 2,
+            "wordLabel": "b)"
+          },
+          "word": "Enter",
+          "text": "L28 Letter b with a parenthesis"
+        },
+        {
+          "id": "L29",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "upper-alpha",
+            "depth": 1,
+            "ordinal": 1,
+            "wordLabel": "A."
+          },
+          "word": "Numbering Library: A., restart",
+          "text": "L29 Uppercase A"
+        },
+        {
+          "id": "L30",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "upper-alpha",
+            "depth": 1,
+            "ordinal": 2,
+            "wordLabel": "B."
+          },
+          "word": "Enter",
+          "text": "L30 Uppercase B"
+        },
+        {
+          "id": "L31",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "upper-roman",
+            "depth": 1,
+            "ordinal": 1,
+            "wordLabel": "I."
+          },
+          "word": "Numbering Library: I., restart",
+          "text": "L31 Uppercase Roman I"
+        },
+        {
+          "id": "L32",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "upper-roman",
+            "depth": 1,
+            "ordinal": 2,
+            "wordLabel": "II."
+          },
+          "word": "Enter",
+          "text": "L32 Uppercase Roman II"
+        },
+        {
+          "id": "L33",
+          "type": "heading",
+          "level": 1,
+          "word": "Style: Heading 1",
+          "text": "L33 Alphabet after z",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "L34",
+          "type": "alphabet",
+          "count": 28,
+          "word": "Numbering Library: a., restart at a, then 28 items: L34 Item 1 to L61 Item 28. Word shows a. to z., then aa. and bb.",
+          "textPattern": "L{34+n} Item {1+n}",
+          "expectation": "Items 1 to 26 become one lower-alpha list; aa. and bb. stay literal paragraphs with one office-list-unsupported."
+        },
+        {
+          "id": "L62",
+          "type": "heading",
+          "level": 1,
+          "word": "Style: Heading 1",
+          "text": "L62 Unsupported profiles",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "L63",
+          "type": "literalItem",
+          "wordLabel": "–",
+          "word": "Bullets > Define New Bullet > Character: en dash",
+          "text": "L63 Dash",
+          "expectation": "Literal paragraph with its visible marker and office-list-unsupported."
+        },
+        {
+          "id": "L64",
+          "type": "literalItem",
+          "wordLabel": "✓",
+          "word": "Bullets Library: check mark",
+          "text": "L64 Check mark",
+          "expectation": "Literal paragraph with office-list-unsupported."
+        },
+        {
+          "id": "L65",
+          "type": "literalItem",
+          "wordLabel": "➢",
+          "word": "Bullets Library: arrow",
+          "text": "L65 Arrow",
+          "expectation": "Literal paragraph with office-list-unsupported."
+        },
+        {
+          "id": "L66",
+          "type": "literalItem",
+          "wordLabel": "picture",
+          "word": "Bullets > Define New Bullet > Picture: any built-in picture bullet",
+          "text": "L66 Picture bullet",
+          "expectation": "Literal paragraph or missing marker, with office-list-unsupported or image-removed; record what Word copies."
+        },
+        {
+          "id": "L67",
+          "type": "listItem",
+          "list": {
+            "kind": "ordered",
+            "marker": "decimal",
+            "depth": 1,
+            "ordinal": 1,
+            "wordLabel": "1."
+          },
+          "word": "Multilevel List Library: 1. / 1.1. / 1.1.1.",
+          "text": "L67 Legal number",
+          "expectation": "The first level of the legal list is plain decimal numbering, 1., so it is an ordered list item; its legal second level stays literal.",
+          "correction": "Expected literal before the captures; the first level's definition is %1. without legal numbering, which Word shows as 1."
+        },
+        {
+          "id": "L68",
+          "type": "literalItem",
+          "wordLabel": "1.1.",
+          "word": "Tab",
+          "text": "L68 Legal subnumber",
+          "expectation": "Legal multilevel numbering stays literal."
+        }
+      ]
+    },
+    {
+      "file": "word-mac-v1-tables.docx",
+      "textStyle": {
+        "fontFamily": "Aptos",
+        "fontSize": "12pt"
+      },
+      "blocks": [
+        {
+          "id": "T01",
+          "type": "heading",
+          "level": 1,
+          "word": "Style: Heading 1",
+          "text": "T01 Table",
+          "textStyle": {
+            "fontFamily": "Aptos Display",
+            "fontSize": "20pt",
+            "color": "#0F4761"
+          }
+        },
+        {
+          "id": "T02",
+          "type": "tableCell",
+          "cell": {
+            "table": 1,
+            "row": 1,
+            "column": 1,
+            "headerRow": true
+          },
+          "word": "Insert > Table 3x3, Table Design: Header Row on",
+          "text": "T02 Column A",
+          "expectation": "Header Row is a table style option: the clipboard HTML has no header cells, so the first row arrives as ordinary cells, which the checker accepts."
+        },
+        {
+          "id": "T03",
+          "type": "tableCell",
+          "cell": {
+            "table": 1,
+            "row": 1,
+            "column": 2,
+            "headerRow": true
+          },
+          "text": "T03 Column B"
+        },
+        {
+          "id": "T04",
+          "type": "tableCell",
+          "cell": {
+            "table": 1,
+            "row": 1,
+            "column": 3,
+            "headerRow": true
+          },
+          "text": "T04 Column C"
+        },
+        {
+          "id": "T05",
+          "type": "tableCell",
+          "cell": {
+            "table": 1,
+            "row": 2,
+            "column": 1,
+            "shading": "light gray",
+            "background": "#D9D9D9"
+          },
+          "word": "Shading: light gray",
+          "text": "T05 Gray cell",
+          "textStyle": {
+            "color": "#000000"
+          },
+          "expectation": "Word writes the automatic color of the text on the shading as black, which is how it shows it; light gray is White, Background 1, Darker 15 %, #D9D9D9."
+        },
+        {
+          "id": "T06",
+          "type": "tableCell",
+          "cell": {
+            "table": 1,
+            "row": 2,
+            "column": 2
+          },
+          "text": "T06 Plain cell"
+        },
+        {
+          "id": "T07",
+          "type": "tableCell",
+          "cell": {
+            "table": 1,
+            "row": 2,
+            "column": 3
+          },
+          "text": "T07 Third cell"
+        },
+        {
+          "id": "T08",
+          "type": "tableCell",
+          "cell": {
+            "table": 1,
+            "row": 3,
+            "column": 1,
+            "colspan": 2
+          },
+          "word": "Merge the first two cells of row 3",
+          "text": "T08 Merged cells"
+        },
+        {
+          "id": "T09",
+          "type": "tableCell",
+          "cell": {
+            "table": 1,
+            "row": 3,
+            "column": 3
+          },
+          "text": "T09 Last cell"
+        },
+        {
+          "id": "T10",
+          "type": "paragraph",
+          "word": "Style: Normal, between the tables",
+          "text": "T10 Between tables."
+        },
+        {
+          "id": "T11",
+          "type": "tableCell",
+          "cell": {
+            "table": 2,
+            "row": 1,
+            "column": 1
+          },
+          "word": "Insert > Table 2x1, Borders: No Border",
+          "text": "T11 Borderless left"
+        },
+        {
+          "id": "T12",
+          "type": "tableCell",
+          "cell": {
+            "table": 2,
+            "row": 1,
+            "column": 2
+          },
+          "text": "T12 Borderless right"
+        },
+        {
+          "id": "T12a",
+          "type": "empty",
+          "word": "Style: Normal, the empty paragraph Word keeps between two tables",
+          "correction": "Word keeps an empty paragraph between the second and the third table, which Select All copies; it was missing from the blocks."
+        },
+        {
+          "id": "T13",
+          "type": "tableCell",
+          "cell": {
+            "table": 3,
+            "row": 1,
+            "column": 1
+          },
+          "word": "Insert > Table 1x1 with a bulleted list inside the cell",
+          "text": "T13 List in a cell"
+        },
+        {
+          "id": "T14",
+          "type": "listItem",
+          "list": {
+            "kind": "bullet",
+            "marker": "disc",
+            "depth": 1,
+            "wordLabel": "•"
+          },
+          "cell": {
+            "table": 3,
+            "row": 1,
+            "column": 1
+          },
+          "word": "In the same cell: Home > Bullets",
+          "text": "T14 First bullet in a cell"
+        },
+        {
+          "id": "T15",
+          "type": "listItem",
+          "list": {
+            "kind": "bullet",
+            "marker": "disc",
+            "depth": 1,
+            "wordLabel": "•"
+          },
+          "cell": {
+            "table": 3,
+            "row": 1,
+            "column": 1
+          },
+          "word": "Enter",
+          "text": "T15 Second bullet in a cell"
+        },
+        {
+          "id": "T15a",
+          "type": "empty",
+          "word": "Style: Normal, the document's last paragraph, empty, which Word keeps after the last table",
+          "correction": "The recreated document ends with the one empty paragraph Word keeps after a table, which Select All copies; the first document had a second one, T15b, which is gone."
+        }
+      ]
+    },
+    {
+      "file": "word-mac-v1-large.docx",
+      "generated": "node e2e/native-office-capture/content/large-source.mjs > large-v1.html",
+      "word": "Open large-v1.html in Word for Mac and save it as Word Document (.docx). Copy only from that Word-saved file.",
+      "blocks": [
+        {
+          "id": "G",
+          "type": "generated",
+          "description": "Headings, paragraphs, bulleted and numbered lists and tables, 10,000 words, every block starting with consecutive tokens from G00001",
+          "tokens": 1200
+        }
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "word-routine-envelope",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B01 to B05 (drag from the start of B01 to the end of B05)",
+      "blocks": [
+        "B01",
+        "B02",
+        "B03",
+        "B04",
+        "B05"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-alignment-spacing",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B08 to B12",
+      "blocks": [
+        "B08",
+        "B09",
+        "B10",
+        "B11",
+        "B12"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": [],
+        "preserve": {
+          "notice": "visible",
+          "requiredWarnings": [
+            "destination-formatting-unconfirmed"
+          ]
+        }
+      },
+      "correction": "B12 keeps its explicit 1.5 spacing in preserve, which the fixture editor's default schema, without LineHeight, cannot show: the notice is visible there, and adapt, which removes spacing, stays quiet."
+    },
+    {
+      "id": "word-inline-formatting",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B07 only, including its paragraph mark",
+      "blocks": [
+        "B07"
+      ],
+      "outcome": {
+        "notice": "observe",
+        "allowedWarnings": [
+          "unsupported-formatting",
+          "destination-formatting-unconfirmed"
+        ]
+      }
+    },
+    {
+      "id": "word-headings-styles",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B01 to B02; B06 and B08 are the separate selections word-headings-styles-b06 and word-headings-styles-b08",
+      "blocks": [
+        "B01",
+        "B02"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-headings-styles-b06",
+      "capturedAs": "word-headings-styles",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B06 only: triple-click the heading",
+      "blocks": [
+        "B06"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-headings-styles-b08",
+      "capturedAs": "word-headings-styles",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B08 only: triple-click the heading",
+      "blocks": [
+        "B08"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-indentation-loss",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B13 to B14",
+      "blocks": [
+        "B13",
+        "B14"
+      ],
+      "outcome": {
+        "notice": "visible",
+        "requiredWarnings": [
+          "unsupported-formatting"
+        ]
+      }
+    },
+    {
+      "id": "word-hidden-text",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B15 only",
+      "blocks": [
+        "B15"
+      ],
+      "outcome": {
+        "notice": "observe",
+        "allowedWarnings": [
+          "hidden-text-removed"
+        ]
+      }
+    },
+    {
+      "id": "word-empty-paragraphs",
+      "document": "word-mac-v1-basics.docx",
+      "selection": "B14 to B16, across the two empty paragraphs",
+      "blocks": [
+        "B14",
+        "B15",
+        "B16a",
+        "B16b",
+        "B16"
+      ],
+      "outcome": {
+        "notice": "visible",
+        "requiredWarnings": [
+          "unsupported-formatting"
+        ],
+        "allowedWarnings": [
+          "hidden-text-removed"
+        ]
+      },
+      "correction": "B15 lies between B14 and the empty paragraphs, so the selection holds it; it was missing from the blocks."
+    },
+    {
+      "id": "word-default-bullets",
+      "document": "word-mac-v1-lists.docx",
+      "selection": "L02 to L05",
+      "blocks": [
+        "L02",
+        "L03",
+        "L04",
+        "L05"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-default-numbering",
+      "document": "word-mac-v1-lists.docx",
+      "selection": "L07 to L12",
+      "blocks": [
+        "L07",
+        "L08",
+        "L09",
+        "L10",
+        "L11",
+        "L12"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-numbering-start-restart-continue",
+      "document": "word-mac-v1-lists.docx",
+      "selection": "L07 to L17",
+      "blocks": [
+        "L07",
+        "L08",
+        "L09",
+        "L10",
+        "L11",
+        "L12",
+        "L13",
+        "L14",
+        "L15",
+        "L16",
+        "L17"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-mixed-nesting",
+      "document": "word-mac-v1-lists.docx",
+      "selection": "L19 to L23",
+      "blocks": [
+        "L19",
+        "L20",
+        "L21",
+        "L21a",
+        "L22",
+        "L23"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      },
+      "correction": "The selection holds the empty paragraph L21a before L22."
+    },
+    {
+      "id": "word-list-punctuation-case",
+      "document": "word-mac-v1-lists.docx",
+      "selection": "L25 to L32",
+      "blocks": [
+        "L25",
+        "L26",
+        "L27",
+        "L28",
+        "L29",
+        "L30",
+        "L31",
+        "L32"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    },
+    {
+      "id": "word-alpha-beyond-z",
+      "document": "word-mac-v1-lists.docx",
+      "selection": "All 28 items from L34 to L61",
+      "blocks": [
+        "L34"
+      ],
+      "outcome": {
+        "notice": "visible",
+        "requiredWarnings": [
+          "office-list-unsupported"
+        ],
+        "allowedWarnings": [
+          "unsupported-formatting"
+        ]
+      }
+    },
+    {
+      "id": "word-unsupported-list-profiles",
+      "document": "word-mac-v1-lists.docx",
+      "selection": "L63 to L68",
+      "blocks": [
+        "L63",
+        "L64",
+        "L65",
+        "L66",
+        "L67",
+        "L68"
+      ],
+      "outcome": {
+        "notice": "visible",
+        "requiredWarnings": [
+          "office-list-unsupported"
+        ],
+        "allowedWarnings": [
+          "unsupported-formatting",
+          "image-removed"
+        ]
+      }
+    },
+    {
+      "id": "word-list-partial-selection",
+      "document": "word-mac-v1-lists.docx",
+      "selection": "From after 'L08 Letter' (inside the second-level item) to after 'L11 Letter' (mid item)",
+      "partial": {
+        "first": "a",
+        "last": "L11 Letter"
+      },
+      "blocks": [
+        "L08",
+        "L09",
+        "L10",
+        "L11"
+      ],
+      "outcome": {
+        "notice": "observe",
+        "allowedWarnings": [
+          "office-list-unsupported",
+          "unsupported-formatting"
+        ]
+      }
+    },
+    {
+      "id": "word-single-list-item",
+      "document": "word-mac-v1-lists.docx",
+      "selection": "L03 only: triple-click the item so the paragraph mark is included",
+      "blocks": [
+        "L03"
+      ],
+      "outcome": {
+        "notice": "observe",
+        "allowedWarnings": [
+          "office-list-unsupported",
+          "unsupported-formatting"
+        ]
+      }
+    },
+    {
+      "id": "word-table-text",
+      "document": "word-mac-v1-tables.docx",
+      "selection": "Select All (Command+A)",
+      "blocks": [
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05",
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10",
+        "T11",
+        "T12",
+        "T12a",
+        "T13",
+        "T14",
+        "T15",
+        "T15a"
+      ],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": [
+          "destination-formatting-unconfirmed"
+        ]
+      },
+      "correction": "Select All holds the empty paragraphs T12a and T15a; the recreated document ends with one empty paragraph after the last table, so T15b is gone."
+    },
+    {
+      "id": "word-large-document",
+      "document": "word-mac-v1-large.docx",
+      "selection": "Select All, and separately the first 25 % and 50 % of pages; record which one in the copy method",
+      "blocks": [
+        "G"
+      ],
+      "outcome": {
+        "notice": "observe",
+        "allowedWarnings": [],
+        "allowedErrors": [
+          "structure-limit",
+          "input-limit"
+        ]
+      }
+    },
+    {
+      "id": "domternal-own-copy",
+      "document": "Free paste-cleanup fixture editor",
+      "selection": "Copy a partial list and a formatted paragraph from http://127.0.0.1:5895/?framework=vanilla&list-markers=1",
+      "blocks": [],
+      "outcome": {
+        "notice": "quiet",
+        "allowedWarnings": []
+      }
+    }
+  ],
+  "historicalBaselineCaptures": [
+    {
+      "date": "2026-10-02",
+      "application": "Microsoft Word 16.113.3 (16.113.26092714)",
+      "os": "macOS 26.5.2 (25F84)",
+      "browser": "Safari 26.5.2 (21624.2.5.11.8)",
+      "scenarios": "Every scenario except word-large-document and domternal-own-copy, word-headings-styles as its three selections",
+      "fixtures": "fixtures/<scenario>-safari",
+      "note": "The specification was prepared for Word 16.111; the owner authored the documents and made these captures with Word 16.113.3. The list and table scenarios were captured again in Safari on 2026-10-04 from recreated documents, which replace these captures of them. Chrome and Firefox have records of their own; the large document and the own copy are not captured yet."
+    },
+    {
+      "date": "2026-10-04",
+      "application": "Microsoft Word 16.113.3 (16.113.26092714)",
+      "os": "macOS 26.5.2 (25F84)",
+      "browser": "Safari 26.5.2 (21624.2.5.11.8)",
+      "scenarios": "word-default-bullets to word-table-text: the list and table scenarios",
+      "fixtures": "fixtures/<scenario>-safari",
+      "note": "Captured again from the recreated lists and tables documents, in the session of the Chrome and Firefox captures; the bundles record 2026-10-03T22:46Z to 23:08Z (UTC). They replace the 2026-10-02 captures of these scenarios, whose documents defined their lists from templates rather than Word's libraries."
+    },
+    {
+      "date": "2026-10-04",
+      "application": "Microsoft Word 16.113.3 (16.113.26092714)",
+      "os": "macOS 26.5.2 (25F84)",
+      "browser": "Google Chrome 154.0.8037.93 (bundle build 8037.93)",
+      "scenarios": "Every scenario except word-large-document and domternal-own-copy, word-headings-styles as its three selections",
+      "fixtures": "fixtures/<scenario>-chrome",
+      "note": "Captured from the basics document of the Safari captures and the lists and tables documents the owner recreated with Word's own libraries; the bundles record 2026-10-03T22:29Z to 23:17Z (UTC). Chrome exposes Word's raw HTML, text/rtf and Word's picture of the selection as an image/png file."
+    },
+    {
+      "date": "2026-10-04",
+      "application": "Microsoft Word 16.113.3 (16.113.26092714)",
+      "os": "macOS 26.5.2 (25F84)",
+      "browser": "Mozilla Firefox 155.0.1 (BuildID 20260903215306; bundle build 15526.9.3)",
+      "scenarios": "Every scenario except word-large-document and domternal-own-copy, word-headings-styles as its three selections",
+      "fixtures": "fixtures/<scenario>-firefox",
+      "note": "Captured from the same documents as the Chrome captures, in the same session; the bundles record 2026-10-03T22:29Z to 23:16Z (UTC). Firefox exposes Word's raw HTML, text/rtf and text/plain, no files."
+    }
+  ],
+  "sourceContext": "Historical authoring-specification context only. The source application versions and destinations above do not describe production of the offline edited English variant. Original capture facts are retained separately in historicalBaselineCaptures; their fixture paths identify scenario lineage, not an attestation of the current edited bytes.",
+  "editedRegressionProvenance": {
+    "origin": "authored-English-regression-variant",
+    "nativeCapturePerformed": false,
+    "originalSpecificationBlob": "9a5f06a3c7a06db7012125da4497153f9445fd16",
+    "originalSpecificationSha256": "a658c7d6882fd73c3cce7af41d687ff48dff263d638858d617c64434a4d9fc7a",
+    "originalKind": "domternal-native-capture-content",
+    "originalStatus": "captured-in-part",
+    "method": "Offline translation of authored prose and matching semantic text expectations, preserving structure, marks and intentional Unicode cases.",
+    "baselinePolicy": "Original sources and evidence remain preserved privately. This English variant is synthetic edited regression evidence, not a native Word or Google Docs capture.",
+    "notesPolicy": "Existing correction, provenance, capture, application instructions and observation descriptions explain the original source shapes or inherited expectations. They do not claim a new native observation of the English bytes."
+  }
+}

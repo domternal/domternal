@@ -103,7 +103,8 @@ persisted document content, or an API response.
 ### Reactive forms
 
 `DomternalEditorComponent` is a `ControlValueAccessor`, so it binds directly to
-`ngModel` or a `FormControl`. Set `outputFormat="json"` to emit JSON instead of HTML;
+`ngModel` or a `FormControl`. Set `outputFormat="json"` to emit JSON instead of HTML, each
+value its own object, so changing it in place leaves the `jsonContent` signal alone;
 calling `disable()`/`enable()` on the bound `FormControl` toggles the editor's editable
 state.
 
@@ -126,6 +127,23 @@ export class FormEditorComponent {
 }
 ```
 
+### Content reports
+
+`contentError` emits `{ editor, error, content }` when the initial content does not match the
+schema, so the editor starts empty. `contentDiagnostic` emits `{ editor, source, diagnostics, total }`
+when content loaded with replaced values, such as an unknown list marker that became the default
+marker or a heading level the configuration lacks that became the nearest configured level. The
+report for the initial content is emitted once the editor is ready, before `editorCreated`. Later
+reports come from `setContent`, including a changed `content` input or form value,
+`insertContent`, and `normalizeContentAttributes`. With `outputFormat="json"`, a `content` input
+or form value that equals the document once such values are replaced and refused links removed
+leaves the document and selection alone.
+
+```html
+<domternal-editor [extensions]="extensions" [formControl]="editorControl" outputFormat="json"
+  (contentDiagnostic)="report($event.source, $event.diagnostics)" />
+```
+
 ## Components
 
 All components are standalone (no NgModule). Import them directly from
@@ -135,9 +153,14 @@ All components are standalone (no NgModule). Import them directly from
   `extensions` / `history` / `content` / `editable` / `preset` / `i18n` /
   `autofocus` / `outputFormat` inputs (`extensions`, `content`, `editable`, `i18n`, and
   `outputFormat` are reactive; the rest are read once at creation), `editorCreated`,
-  `contentUpdated`, `selectionChanged`, `focusChanged`, `blurChanged`, and
-  `editorDestroyed` outputs, and read-only `htmlContent`, `jsonContent`, `isEmpty`,
-  `isFocused`, `isEditable` signals.
+  `contentUpdated`, `selectionChanged`, `focusChanged`, `blurChanged`, `editorDestroyed`,
+  `contentError`, and `contentDiagnostic` outputs, and read-only `htmlContent`,
+  `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals. `contentUpdated` and the form
+  value follow the core `update` event, including a change a plugin appended to a selection
+  move, and never a vetoed transaction; the content signals also follow programmatic writes
+  (`writeValue`, `[content]`), which emit nothing and leave the form pristine. `selectionChanged`
+  follows the core `selectionUpdate` event, before `contentUpdated` when a plugin answered a
+  selection move with a change, such as a click that TrailingNode answers with a paragraph.
 - `DomternalToolbarComponent` (`<domternal-toolbar>`): auto-rendered formatting
   toolbar with keyboard navigation, custom `icons`, and `layout` overrides.
 - `DomternalBubbleMenuComponent` (`<domternal-bubble-menu>`): inline selection menu

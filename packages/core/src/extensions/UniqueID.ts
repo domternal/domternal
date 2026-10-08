@@ -246,6 +246,7 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
       tr: Transaction,
       incumbents?: Map<string, number>
     ): void => {
+      const storedMarks = tr.storedMarks;
       /**
        * Which position keeps each CONTESTED id. Only ids held by more than one
        * node are contested, so an id that merely moved (setContent remaps every
@@ -320,6 +321,8 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
         }
         seen.add(existingID);
       });
+      // ID-only steps must preserve explicit typing marks, including an empty set.
+      if (storedMarks !== null) tr.setStoredMarks(storedMarks);
     };
 
     return [

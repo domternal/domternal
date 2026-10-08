@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-mixed-one-image-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "0cbf5fc50e0a8738e25317084d758c7ccad57e9d05b470d065e16d25cc7d6838"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "ee1a256dec58cd2c2c20af0e7195e659681c64eafe6b448e37c1ba2ce4acf158"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-mixed-one-image",
+    "blocks": [
+      {
+        "id": "GI02",
+        "type": "paragraph",
+        "docs": "Normal text",
+        "text": "GI02 Text before the picture.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI03",
+        "type": "image",
+        "src": "data",
+        "width": 320,
+        "height": 200,
+        "file": "gdocs-v1-blue-320x200.png",
+        "alt": "GI03 Blue rectangle",
+        "docs": "Enter, then Insert > Image > Upload from computer, In line wrapping, in a paragraph of its own; alt text (Cmd+Option+Y) as given",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GI04",
+        "type": "paragraph",
+        "docs": "Enter after the image, Normal text",
+        "text": "GI04 Text after the picture.",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "f985698b856bb867bba20c96603f9d59cb131b1f9c7472425f468cd3070a6b73",
+    "captureSha256": "c6f8595f324d45a65313a80ef836b5043698dd008a97f165bc15ae1b2560fd5d",
+    "manifestSha256": "20fb04faaa3a1bda0a44b95e1a31673ec7d511592943f69eb452faf601fde3b9"
+  }
+}

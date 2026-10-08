@@ -17,6 +17,7 @@ import type { InputRule } from '@domternal/pm/inputrules';
 import { inputRulesPlugin as createInputRulesPlugin } from './helpers/inputRulesPlugin.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { describeForeignExtension } from './utils/prosemirrorSingleton.js';
+import { recordExtensionSchema } from './utils/extensionSchema.js';
 
 import type { Command as PMCommand } from '@domternal/pm/state';
 
@@ -633,11 +634,14 @@ export class ExtensionManager {
       }
     }
 
-    return new Schema({
+    const schema = new Schema({
       nodes,
       marks,
       ...(topNode && { topNode }),
     });
+    // Parse rules that must know which nodes the schema holds read it at parse time.
+    for (const ext of this._extensions) recordExtensionSchema(ext, schema);
+    return schema;
   }
 
   /**
@@ -1000,6 +1004,8 @@ export class ExtensionManager {
    */
   callOnUpdate(): void {
     for (const ext of this._extensions) {
+      // A hook that destroyed the editor ends the sequence.
+      if (this.isDestroyed) return;
       const hook = (ext as Extension).config.onUpdate;
       if (hook) {
         this.safeCall(() => {
@@ -1014,6 +1020,7 @@ export class ExtensionManager {
    */
   callOnSelectionUpdate(): void {
     for (const ext of this._extensions) {
+      if (this.isDestroyed) return;
       const hook = (ext as Extension).config.onSelectionUpdate;
       if (hook) {
         this.safeCall(() => {
@@ -1025,14 +1032,16 @@ export class ExtensionManager {
 
   /**
    * Calls onTransaction on all extensions
-   * @param props - Transaction props
+   * @param props - The accepted root transaction and the accepted appended ones
    */
-  callOnTransaction(props: { transaction: Transaction }): void {
+  callOnTransaction(props: { transaction: Transaction; appendedTransactions?: readonly Transaction[] }): void {
+    const hookProps = { transaction: props.transaction, appendedTransactions: props.appendedTransactions ?? [] };
     for (const ext of this._extensions) {
+      if (this.isDestroyed) return;
       const hook = (ext as Extension).config.onTransaction;
       if (hook) {
         this.safeCall(() => {
-          hook.call(ext, props);
+          hook.call(ext, hookProps);
         }, `${ext.name}.onTransaction`);
       }
     }

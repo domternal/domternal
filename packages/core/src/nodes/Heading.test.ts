@@ -74,17 +74,37 @@ describe('Heading', () => {
   });
 
   describe('parseHTML', () => {
-    it('returns rules for all configured levels', () => {
+    it('returns a rule for every heading tag, the configured levels first', () => {
       const rules = Heading.config.parseHTML?.call(Heading);
-      expect(rules).toHaveLength(4);
-      expect(rules?.[0]).toEqual({ tag: 'h1', attrs: { level: 1 } });
-      expect(rules?.[3]).toEqual({ tag: 'h4', attrs: { level: 4 } });
+      expect(rules?.map(rule => [rule.tag, rule.priority])).toEqual([
+        ['h1', undefined], ['h2', undefined], ['h3', undefined], ['h4', undefined], ['h5', 0.89], ['h6', 0.88],
+      ]);
     });
 
-    it('only parses configured levels', () => {
+    it('ranks a tag the configured levels lack below other rules, nearer levels first', () => {
       const CustomHeading = Heading.configure({ levels: [1, 2] });
       const rules = CustomHeading.config.parseHTML?.call(CustomHeading);
-      expect(rules).toHaveLength(2);
+      expect(rules?.filter(rule => rule.priority === undefined).map(rule => rule.tag)).toEqual(['h1', 'h2']);
+      expect(rules?.filter(rule => rule.priority !== undefined).map(rule => [rule.tag, rule.priority]))
+        .toEqual([['h3', 0.89], ['h4', 0.88], ['h5', 0.87], ['h6', 0.86]]);
+    });
+
+    it('declines every heading tag, configured or not, only where a heading cannot stand', () => {
+      const rules = Heading.config.parseHTML?.call(Heading) ?? [];
+      const host = document.createElement('div');
+      host.innerHTML = '<ul><li><h5 id="first">a</h5></li><li><p>x</p><h5 id="later">b</h5></li>'
+        + '<li><h1 id="first-one">c</h1></li><li><p>y</p><h1 id="later-one">d</h1></li></ul>';
+      const find = (selector: string): HTMLElement => {
+        const found = host.querySelector<HTMLElement>(selector);
+        if (!found) throw new Error(`No ${selector}`);
+        return found;
+      };
+      const five = rules.find(rule => rule.tag === 'h5');
+      expect(five?.getAttrs?.(find('#first'))).toBeNull();
+      expect(five?.getAttrs?.(find('#later'))).toEqual({});
+      const one = rules.find(rule => rule.tag === 'h1');
+      expect(one?.getAttrs?.(find('#first-one'))).toBeNull();
+      expect(one?.getAttrs?.(find('#later-one'))).toEqual({});
     });
   });
 
@@ -237,14 +257,15 @@ describe('Heading', () => {
       expect(editor.getHTML()).toBe('<h2>My Heading</h2>');
     });
 
-    it('respects configured levels for parsing', () => {
+    it('parses a tag the configured levels lack at the nearest configured level', () => {
       const CustomHeading = Heading.configure({ levels: [1, 2] });
       editor = new Editor({
         extensions: [Document, Text, Paragraph, CustomHeading],
         content: '<h1>H1</h1><h3>H3</h3>',
       });
-      expect(editor.state.doc.child(0).type.name).toBe('heading');
-      expect(editor.state.doc.child(1).type.name).toBe('paragraph');
+      expect(editor.state.doc.child(0).attrs['level']).toBe(1);
+      expect(editor.state.doc.child(1).type.name).toBe('heading');
+      expect(editor.state.doc.child(1).attrs['level']).toBe(2);
     });
   });
 

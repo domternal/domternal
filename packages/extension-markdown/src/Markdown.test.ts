@@ -13,6 +13,7 @@ import {
   Extension,
   HardBreak,
   Heading,
+  History,
   Italic,
   Link,
   ListItem,
@@ -21,6 +22,8 @@ import {
   Text,
 } from '@domternal/core';
 import { Plugin, TextSelection } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
+import { redoDepth, undoDepth } from '@domternal/pm/history';
 import { Table, TableCell, TableHeader, TableRow } from '@domternal/extension-table';
 import { downloadMarkdown } from './download.js';
 import { getMarkdown, Markdown } from './Markdown.js';
@@ -166,6 +169,57 @@ describe('Markdown extension', () => {
 });
 
 describe('markdown paste', () => {
+  it.each([
+    {
+      source: 'plain text',
+      text: '**New** content',
+      html: '',
+      expected: '<p><strong>New</strong> content</p>',
+    },
+    {
+      source: 'source HTML',
+      text: '**New** content',
+      html: '<pre>**New** content</pre>',
+      expected: '<p><strong>New</strong> content</p>',
+    },
+    {
+      source: 'multiple blocks',
+      text: '# Title\n\n- First\n- Second',
+      html: '',
+      expected: '<h1>Title</h1><ul><li><p>First</p></li><li><p>Second</p></li></ul>',
+    },
+  ])('tags $source replacement as paste and preserves undo/redo', ({ text, html, expected }) => {
+    const changes: Transaction[] = [];
+    editor = new Editor({
+      extensions: [...baseExtensions, Markdown, History],
+      content: '<p>Original content</p>',
+      onTransaction: ({ transaction }) => {
+        if (transaction.docChanged) changes.push(transaction);
+      },
+    });
+    editor.commands.selectAll();
+    const before = editor.state.doc;
+    const selectionBefore = editor.state.selection.toJSON();
+
+    pasteClipboard(editor, { text, html });
+
+    expect(editor.getHTML()).toBe(expected);
+    expect(() => { editor?.state.doc.check(); }).not.toThrow();
+    expect(changes).toHaveLength(1);
+    expect(changes[0]?.getMeta('paste')).toBe(true);
+    expect(changes[0]?.getMeta('uiEvent')).toBe('paste');
+    expect(undoDepth(editor.state)).toBe(1);
+    const pasted = editor.state.doc;
+
+    expect(editor.commands.undo()).toBe(true);
+    expect(editor.state.doc.eq(before)).toBe(true);
+    expect(editor.state.selection.toJSON()).toEqual(selectionBefore);
+    expect(undoDepth(editor.state)).toBe(0);
+    expect(redoDepth(editor.state)).toBe(1);
+    expect(editor.commands.redo()).toBe(true);
+    expect(editor.state.doc.eq(pasted)).toBe(true);
+  });
+
   it('converts markdown-looking plain text pastes', () => {
     const instance = mount();
     const handled = dispatchPaste(instance, pasteEvent({ text: '# Title\n\n- a\n- b' }));

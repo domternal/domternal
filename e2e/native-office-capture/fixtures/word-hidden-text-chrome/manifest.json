@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "id": "word-hidden-text-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "a6b92303c6c0fe7c953c0377580f81cd07d8226b4de9495a01059ed7f88a574a"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "204c3429ba500365eba20f5c79e56f61324844bdb705e898bb688ea851a1a8a6"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-hidden-text",
+    "hiddenText": "copied",
+    "blocks": [
+      {
+        "id": "B15",
+        "type": "paragraph",
+        "word": "Style: Normal. Select only the word HIDDEN and apply Format > Font > Hidden.",
+        "text": "B15 Visible part HIDDEN end.",
+        "hidden": "HIDDEN",
+        "expectation": "Hidden text never pastes, as Word does not show it. Chrome and Firefox carry Word's raw HTML, which keeps the word in a run Word hides (display:none with mso-hide:all): cleanup leaves the run out and reports hidden-text-removed. Safari leaves the word out of the copy and nothing in it tells of hidden text, so nothing is reported.",
+        "correction": "Records what Word copies per browser, which the captures show. On the owner's decision of 2026-10-05 the hidden word no longer pastes visible with unsupported-formatting; it is left out with a warning of its own.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "hidden-text-removed"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "hidden-text-removed"
+        ]
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "hidden-text-removed"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "hidden-text-removed"
+        ]
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "6782242db616b2683363e7debcc2df372c833a8c664fea22103c26bfaec4d635",
+    "captureSha256": "e1fd206eae50bffdbba737869e86e68bceb80dbba9a53fa30e484a028380804e",
+    "manifestSha256": "0ac099e330eb700e379ae6382c61740f8d61ab05ce88c39dff42cf384f5aa262"
+  }
+}

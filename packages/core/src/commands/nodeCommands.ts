@@ -5,6 +5,8 @@ import { findWrapping, liftTarget } from '@domternal/pm/transform';
 import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import { liftCurrentListItem } from '../utils/liftCurrentListItem.js';
+import { validAttributes } from './attributeCommands.js';
+import { resolveAttributeValue } from '../utils/normalizedAttributes.js';
 
 /**
  * SetBlockType command - changes the block type of the selection
@@ -22,6 +24,22 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
     const nodeType = state.schema.nodes[nodeName];
 
     if (!nodeType) {
+      return false;
+    }
+
+    // Block creation does not validate, so refuse given values validation
+    // rejects, as wrapIn does, before the list item fallback changes anything.
+    // Each block's stored values stand in for the attributes not given, so
+    // only the given ones are judged.
+    if (attributes && tr.selection.ranges.some(range => {
+      let refused = false;
+      tr.doc.nodesBetween(range.$from.pos, range.$to.pos, node => {
+        if (refused) return false;
+        if (node.isTextblock) refused = !validAttributes(state.schema, nodeName, attributes, false, node.attrs);
+        return !node.isTextblock;
+      });
+      return refused;
+    })) {
       return false;
     }
 
@@ -114,21 +132,24 @@ export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: st
       return false;
     }
 
-    // Collect non-empty textblocks in the selection. Empty textblocks
-    // (e.g., trailing node from TrailingNode extension) are excluded so they
-    // don't affect toggle direction. This handles AllSelection correctly.
+    // The textblocks with content in the selection decide the toggle direction.
+    // Empty textblocks (e.g., trailing node from TrailingNode extension) are
+    // left out while any block has content, which handles AllSelection. A
+    // selection of empty blocks only, such as an empty heading, decides by them.
     const { from, to } = tr.selection;
-    const contentBlocks: { node: PMNode }[] = [];
+    const textblocks: PMNode[] = [];
     tr.doc.nodesBetween(from, to, (node) => {
-      if (node.isTextblock && node.content.size > 0) {
-        contentBlocks.push({ node });
-      }
+      if (node.isTextblock) textblocks.push(node);
     });
+    const withContent = textblocks.filter((node) => node.content.size > 0);
+    const contentBlocks = withContent.length > 0 ? withContent : textblocks;
 
-    const allMatch = contentBlocks.length > 0 && contentBlocks.every(({ node }) => {
+    // A block matches as it renders: a heading level the configuration lacks
+    // counts as the level it renders at, as isActive reads it for the toolbar.
+    const allMatch = contentBlocks.length > 0 && contentBlocks.every((node) => {
       const typeMatches = node.type === nodeType;
       const attrsMatch = !attributes || Object.keys(attributes).every(
-        (key) => node.attrs[key] === attributes[key]
+        (key) => resolveAttributeValue(state.schema, nodeName, key, node.attrs[key]) === attributes[key]
       );
       return typeMatches && attrsMatch;
     });
@@ -155,7 +176,9 @@ export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   ({ state, tr, dispatch }) => {
     const nodeType = state.schema.nodes[nodeName];
 
-    if (!nodeType) {
+    // Wrapper creation does not validate, so refuse values validation rejects, as toggleList does,
+    // including defaults that stand in for attributes not given.
+    if (!nodeType || !validAttributes(state.schema, nodeName, attributes ?? {}, false)) {
       return false;
     }
 
@@ -210,7 +233,7 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
     const { state, tr, dispatch } = props;
     const nodeType = state.schema.nodes[nodeName];
 
-    if (!nodeType) {
+    if (!nodeType || !validAttributes(state.schema, nodeName, attributes ?? {}, false)) {
       return false;
     }
 

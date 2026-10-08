@@ -13,6 +13,9 @@ import { tutorialFixtureServer } from './tutorial-fixture-server.js';
 
 export default defineConfig({
   testDir: '.',
+  // Only matrix specs. Standalone tooling tests run through their own runners:
+  // `node --test`, native-office-capture/browser.config.mjs and paste-performance/runner.mjs.
+  testMatch: '**/*.spec.ts',
   timeout: 30000,
   fullyParallel: true,
   forbidOnly: !!process.env['CI'],

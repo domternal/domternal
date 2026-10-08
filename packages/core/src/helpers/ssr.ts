@@ -16,6 +16,8 @@ import {
 import type { Schema } from '@domternal/pm/model';
 import type { AnyExtension, JSONContent } from '../types/index.js';
 import { ExtensionManager } from '../ExtensionManager.js';
+import { normalizeContent, type NormalizeContentOptions } from './normalizeContent.js';
+import { serializeChildren } from '../utils/serializeChildren.js';
 
 // Declare global require for Node.js environment
 declare const require: (id: string) => unknown;
@@ -63,7 +65,7 @@ function getDocument(): Document {
   }
 }
 
-export interface GenerateHTMLOptions {
+export interface GenerateHTMLOptions extends NormalizeContentOptions {
   /**
    * Custom document implementation. If not provided, uses native document
    * in browser or linkedom in Node.js.
@@ -94,7 +96,8 @@ export function generateHTML(
   options: GenerateHTMLOptions = {}
 ): string {
   const schema = buildSchemaFromExtensions(extensions);
-  const doc = PMNode.fromJSON(schema, content);
+  // Unknown list markers load as the default marker, unsupported heading levels as the nearest configured level.
+  const doc = PMNode.fromJSON(schema, normalizeContent(content, schema, options));
   const targetDocument = options.document ?? getDocument();
 
   const serializer = DOMSerializer.fromSchema(schema);
@@ -105,7 +108,8 @@ export function generateHTML(
   const container = targetDocument.createElement('div');
   container.appendChild(fragment);
 
-  return container.innerHTML;
+  // Attribute values escaped as the HTML standard writes them, also under linkedom.
+  return serializeChildren(container);
 }
 
 export interface GenerateJSONOptions {
@@ -152,7 +156,7 @@ export function generateJSON(
   return doc.toJSON() as JSONContent;
 }
 
-export interface GenerateTextOptions {
+export interface GenerateTextOptions extends NormalizeContentOptions {
   /**
    * Separator between block elements.
    * @default '\n\n'
@@ -187,7 +191,7 @@ export function generateText(
 ): string {
   const { blockSeparator = '\n\n' } = options;
   const schema = buildSchemaFromExtensions(extensions);
-  const doc = PMNode.fromJSON(schema, content);
+  const doc = PMNode.fromJSON(schema, normalizeContent(content, schema, options));
 
   return doc.textBetween(0, doc.content.size, blockSeparator);
 }

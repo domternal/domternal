@@ -1,7 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { TextSelection, SelectionRange } from '@domternal/pm/state';
+import type { Attrs } from '@domternal/pm/model';
 import { toggleWrap, lift } from './nodeCommands.js';
 import { Editor } from '../Editor.js';
+import { Node } from '../Node.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
@@ -286,6 +288,74 @@ describe('nodeCommands', () => {
     });
   });
 
+  describe('setBlockType and toggleBlockType attribute validation', () => {
+    /** A textblock whose stored values can fail validation, and one attribute without a default. */
+    const Note = Node.create({
+      name: 'note',
+      group: 'block',
+      content: 'inline*',
+      addAttributes: () => ({
+        kind: { validate: 'string' },
+        tone: { default: null, validate: 'string|null' },
+      }),
+      parseHTML: () => [{ tag: 'aside', getAttrs: () => ({ kind: 'info' }) }],
+      renderHTML: () => ['aside', 0],
+    });
+
+    it('refuses a level that schema validation rejects without dispatching, as wrapIn does', () => {
+      editor = new Editor({ extensions, content: '<p>Title</p>' });
+      setSelection(editor, 2);
+      const before = editor.state.doc;
+      let transactions = 0;
+      editor.on('transaction', () => { transactions++; });
+      expect(editor.can().setBlockType('heading', { level: 9 })).toBe(false);
+      expect(editor.commands.setBlockType('heading', { level: 9 })).toBe(false);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 'x' })).toBe(false);
+      expect(editor.commands.setBlockType('heading', { level: 2.5 })).toBe(false);
+      expect(editor.state.doc).toBe(before);
+      expect(transactions).toBe(0);
+    });
+
+    it('accepts every heading level, including one the configuration lacks, which renders at the nearest configured level', () => {
+      editor = new Editor({ extensions, content: '<p>Title</p>' });
+      setSelection(editor, 2);
+      expect(editor.commands.setBlockType('heading', { level: 5 })).toBe(true);
+      expect(editor.state.doc.firstChild?.attrs['level']).toBe(5);
+      expect(editor.getHTML()).toBe('<h4>Title</h4>');
+      // The block reads as the level it renders at, 4, so toggling level 5 would turn level 5 on,
+      // which it already stores; toggling the rendered level turns it off.
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 5 })).toBe(false);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 4 })).toBe(true);
+      expect(editor.getHTML()).toBe('<p>Title</p>');
+    });
+
+    it('refuses before the list item fallback changes anything', () => {
+      editor = new Editor({ extensions: listExtensions, content: '<ul><li><p>Buy milk</p></li></ul>' });
+      setSelection(editor, 3);
+      const before = editor.state.doc;
+      expect(editor.commands.setBlockType('heading', { level: 9 })).toBe(false);
+      expect(editor.state.doc).toBe(before);
+      expect(editor.commands.setBlockType('heading', { level: 3 })).toBe(true);
+      expect(editor.getHTML()).toBe('<h3>Buy milk</h3>');
+    });
+
+    it('judges only the given attributes, so a missing default or a stored value does not block a change', () => {
+      editor = new Editor({ extensions: [...extensions, Note], content: '<aside>A</aside><h2>B</h2>' });
+      setSelection(editor, 1);
+      // The stored kind stands in for its missing default.
+      expect(editor.commands.setBlockType('note', { tone: 'warm' })).toBe(true);
+      expect(editor.state.doc.firstChild?.attrs).toEqual({ kind: 'info', tone: 'warm' });
+      expect(editor.commands.setBlockType('note', { tone: 7 })).toBe(false);
+      // Stored the way a bound collaborative document holds them: without validation.
+      editor.view.dispatch(editor.state.tr.setNodeAttribute(0, 'tone', 7).setNodeAttribute(3, 'level', 99));
+      expect(editor.commands.setBlockType('note', { kind: 'tip' })).toBe(true);
+      expect(editor.state.doc.firstChild?.attrs).toEqual({ kind: 'tip', tone: 7 });
+      setSelection(editor, 5);
+      expect(editor.commands.setBlockType('heading', { level: 3 })).toBe(true);
+      expect(editor.state.doc.lastChild?.attrs['level']).toBe(3);
+    });
+  });
+
   describe('toggleBlockType', () => {
     it('toggles paragraph to heading', () => {
       editor = new Editor({ extensions, content: '<p>Title</p>' });
@@ -306,6 +376,39 @@ describe('nodeCommands', () => {
       setSelection(editor, 2);
       expect(editor.commands.toggleBlockType('fake', 'paragraph')).toBe(false);
     });
+
+    it('toggles an empty heading back to a paragraph, as the active toolbar item promises', () => {
+      editor = new Editor({ extensions, content: '<h2></h2><p>After</p>' });
+      setSelection(editor, 1);
+      expect(editor.isActive('heading', { level: 2 })).toBe(true);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 2 })).toBe(true);
+      expect(editor.getHTML()).toBe('<p></p><p>After</p>');
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 2 })).toBe(true);
+      expect(editor.getHTML()).toBe('<h2></h2><p>After</p>');
+    });
+
+    it('turns an empty heading of another level into the requested level', () => {
+      editor = new Editor({ extensions, content: '<h2></h2>' });
+      setSelection(editor, 1);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 3 })).toBe(true);
+      expect(editor.getHTML()).toBe('<h3></h3>');
+    });
+
+    it('decides by the blocks with content, so an empty block in the selection does not flip the toggle', () => {
+      editor = new Editor({ extensions, content: '<h1>Title</h1><p></p>' });
+      setSelection(editor, 2, editor.state.doc.content.size - 1);
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 1 })).toBe(true);
+      expect(editor.getHTML()).toBe('<p>Title</p><p></p>');
+
+      editor.destroy();
+      editor = new Editor({ extensions, content: '<h1></h1><p></p>' });
+      setSelection(editor, 1, editor.state.doc.content.size - 1);
+      // Only empty blocks: they decide, and one is not a heading, so the toggle turns both on.
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 1 })).toBe(true);
+      expect(editor.getHTML()).toBe('<h1></h1><h1></h1>');
+      expect(editor.commands.toggleBlockType('heading', 'paragraph', { level: 1 })).toBe(true);
+      expect(editor.getHTML()).toBe('<p></p><p></p>');
+    });
   });
 
   describe('wrapIn', () => {
@@ -320,6 +423,38 @@ describe('nodeCommands', () => {
       editor = new Editor({ extensions, content: '<p>Text</p>' });
       setSelection(editor, 2);
       expect(editor.commands.wrapIn('nonexistent')).toBe(false);
+    });
+
+    it('refuses attributes that fail schema validation, matching toggleList and updateAttributes', () => {
+      editor = new Editor({ extensions: listExtensions, content: '<p>A</p>' });
+      setSelection(editor, 2);
+      const before = editor.state.doc;
+      expect(editor.can().wrapIn('orderedList', { listStyleType: 'bogus' })).toBe(false);
+      expect(editor.commands.wrapIn('orderedList', { listStyleType: 'bogus' })).toBe(false);
+      expect(editor.commands.toggleWrap('bulletList', { listStyleType: 'decimal' })).toBe(false);
+      expect(editor.state.doc).toBe(before);
+      expect(editor.commands.wrapIn('orderedList', { listStyleType: 'upper-roman' })).toBe(true);
+      expect(editor.getJSON().content?.[0]?.attrs?.['listStyleType']).toBe('upper-roman');
+    });
+
+    it('refuses a wrapper whose defaults fail validation when no attributes are given', () => {
+      // An extension attribute declared without a default gets an undefined one, which 'string' rejects.
+      const Callout = Node.create({
+        name: 'callout',
+        group: 'block',
+        content: 'block+',
+        addAttributes: () => ({ kind: { validate: 'string' } }),
+        parseHTML: () => [{ tag: 'aside' }],
+        renderHTML: ({ HTMLAttributes }) => ['aside', HTMLAttributes, 0],
+      });
+      editor = new Editor({ extensions: [...extensions, Callout], content: '<p>A</p>' });
+      setSelection(editor, 2);
+      const before = editor.state.doc;
+      expect(editor.commands.wrapIn('callout')).toBe(false);
+      expect(editor.commands.toggleWrap('callout')).toBe(false);
+      expect(editor.state.doc).toBe(before);
+      expect(editor.commands.wrapIn('callout', { kind: 'note' })).toBe(true);
+      expect(editor.schema.nodeFromJSON(editor.getJSON()).eq(editor.state.doc)).toBe(true);
     });
 
     describe('dissolve-list-item fallback (Notion-style /quote in label)', () => {
@@ -434,6 +569,7 @@ describe('nodeCommands', () => {
       ranges: SelectionRange[],
       nodeName: string,
       dispatch: boolean,
+      attributes?: Attrs,
     ): boolean {
       const state = ed.state;
       const tr = state.tr;
@@ -445,7 +581,7 @@ describe('nodeCommands', () => {
         to: ranges[ranges.length - 1]!.$to.pos,
       };
       Object.defineProperty(tr, 'selection', { value: fakeSel, configurable: true });
-      const cmd = toggleWrap(nodeName);
+      const cmd = toggleWrap(nodeName, attributes);
       return cmd({
         editor: ed,
         state,
@@ -486,6 +622,16 @@ describe('nodeCommands', () => {
       const r2 = new SelectionRange(doc.resolve(6), doc.resolve(9));
       const result = invoke(editor, [r1, r2], 'blockquote', false);
       expect(result).toBe(true);
+    });
+
+    it('multi-range: refuses attributes that fail schema validation', () => {
+      editor = new Editor({ extensions: listExtensions, content: '<p>foo</p><p>bar</p>' });
+      const doc = editor.state.doc;
+      const r1 = new SelectionRange(doc.resolve(1), doc.resolve(4));
+      const r2 = new SelectionRange(doc.resolve(6), doc.resolve(9));
+      expect(invoke(editor, [r1, r2], 'orderedList', false, { listStyleType: 'bogus' })).toBe(false);
+      expect(invoke(editor, [r1, r2], 'orderedList', true, { listStyleType: 'bogus' })).toBe(false);
+      expect(editor.state.doc).toBe(doc);
     });
   });
 

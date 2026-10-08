@@ -11,15 +11,16 @@ import {
   splitListForInsert,
   Gapcursor,
   warnOnDuplicateProseMirrorCopy,
+  isSafeCssValue,
+  isSupportedAttributeValue,
+  pastedAttributesPlugin,
 } from '@domternal/core';
-import type { CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
+import type { Command, CommandSpec, Editor, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
-import type { Transaction } from '@domternal/pm/state';
+import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { EditorView, NodeView, NodeViewConstructor } from '@domternal/pm/view';
 import {
-  tableEditing,
-  columnResizing,
   deleteColumn,
   addRowBefore,
   addRowAfter,
@@ -36,15 +37,20 @@ import {
   selectedRect,
   TableMap,
   isInTable,
+  tableNodeTypes,
 } from '@domternal/pm/tables';
 
 import { tableMessages } from './messages.js';
 import { TableView } from './TableView.js';
+import { CSS_CELL_ATTRIBUTES } from './helpers/cellAttributes.js';
 import { createTable } from './helpers/createTable.js';
 import { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCellsSelected.js';
 import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 import { createResizeSuppressionPlugin } from './plugins/resizeSuppressionPlugin.js';
 import { createCellSelectionPlugin } from './plugins/cellSelectionPlugin.js';
+import { guardedColumnResizing, guardedTableEditing, inUnsupportedTable, selectionInUnsupportedTable } from './helpers/guardedTableEditing.js';
+import { createTableCellPastePlugin } from './plugins/tableCellPastePlugin.js';
+import { createCellSurfaceTonePlugin } from './plugins/cellSurfaceTonePlugin.js';
 import { TableRow } from './TableRow.js';
 import { TableCell } from './TableCell.js';
 import { TableHeader } from './TableHeader.js';
@@ -193,6 +199,10 @@ export const Table = Node.create<TableOptions>({
   },
 
   addCommands() {
+    // The commands that build a table map refuse a table that holds an unsupported span: that map
+    // would be wrong or huge. Deleting the table and moving between cells still work.
+    const inTableMap = (command: (state: EditorState, dispatch?: (tr: Transaction) => void) => boolean): Command =>
+      ({ state, dispatch }) => !selectionInUnsupportedTable(state) && command(state, dispatch);
     return {
       insertTable:
         (options?: { rows?: number; cols?: number; withHeaderRow?: boolean }) =>
@@ -242,22 +252,14 @@ export const Table = Node.create<TableOptions>({
           return deleteTable(state, dispatch);
         },
 
-      addRowBefore:
-        () =>
-        ({ state, dispatch }) => {
-          return addRowBefore(state, dispatch);
-        },
+      addRowBefore: () => inTableMap(addRowBefore),
 
-      addRowAfter:
-        () =>
-        ({ state, dispatch }) => {
-          return addRowAfter(state, dispatch);
-        },
+      addRowAfter: () => inTableMap(addRowAfter),
 
       deleteRow:
         () =>
         ({ state, dispatch }) => {
-          if (!isInTable(state)) return false;
+          if (!isInTable(state) || selectionInUnsupportedTable(state)) return false;
           const rect = selectedRect(state);
           if (rect.top === 0 && rect.bottom === rect.map.height) {
             return deleteTable(state, dispatch);
@@ -268,19 +270,21 @@ export const Table = Node.create<TableOptions>({
       addColumnBefore:
         () =>
         ({ state, dispatch, editor, tr }) => {
+          if (selectionInUnsupportedTable(state)) return false;
           return addColumnWithWidths('before', state, dispatch, editor.view as EditorView, this.options, tr);
         },
 
       addColumnAfter:
         () =>
         ({ state, dispatch, editor, tr }) => {
+          if (selectionInUnsupportedTable(state)) return false;
           return addColumnWithWidths('after', state, dispatch, editor.view as EditorView, this.options, tr);
         },
 
       deleteColumn:
         () =>
         ({ state, dispatch }) => {
-          if (!isInTable(state)) return false;
+          if (!isInTable(state) || selectionInUnsupportedTable(state)) return false;
           const rect = selectedRect(state);
           if (rect.left === 0 && rect.right === rect.map.width) {
             return deleteTable(state, dispatch);
@@ -308,39 +312,29 @@ export const Table = Node.create<TableOptions>({
           return true;
         },
 
-      toggleHeaderRow:
-        () =>
-        ({ state, dispatch }) => {
-          return toggleHeader('row')(state, dispatch);
-        },
+      toggleHeaderRow: () => inTableMap(toggleHeader('row')),
 
-      toggleHeaderColumn:
-        () =>
-        ({ state, dispatch }) => {
-          return toggleHeader('column')(state, dispatch);
-        },
+      toggleHeaderColumn: () => inTableMap(toggleHeader('column')),
 
-      toggleHeaderCell:
-        () =>
-        ({ state, dispatch }) => {
-          return toggleHeaderCell(state, dispatch);
-        },
+      toggleHeaderCell: () => inTableMap(toggleHeaderCell),
 
-      mergeCells:
-        () =>
-        ({ state, dispatch }) => {
-          return mergeCells(state, dispatch);
-        },
+      mergeCells: () => inTableMap(mergeCells),
 
-      splitCell:
-        () =>
-        ({ state, dispatch }) => {
-          return splitCell(state, dispatch);
-        },
+      splitCell: () => inTableMap(splitCell),
 
       setCellAttribute:
         (name: string, value: unknown) =>
         ({ state, dispatch }) => {
+          // These are written into a declaration, so only a safe CSS value is
+          // stored; an empty one, as 1.2 accepted it, clears the attribute.
+          if (CSS_CELL_ATTRIBUTES.has(name) && value !== null) {
+            if (typeof value === 'string' && value.trim() === '') return setCellAttr(name, null)(state, dispatch);
+            if (!isSafeCssValue(value)) return false;
+          }
+          // A span is stored only when loading would keep it: a whole number from 1 to 1,000.
+          if ((name === 'colspan' || name === 'rowspan') && !isSupportedAttributeValue(state.schema, tableNodeTypes(state.schema).cell.name, name, value)) {
+            return false;
+          }
           return setCellAttr(name, value)(state, dispatch);
         },
 
@@ -369,6 +363,7 @@ export const Table = Node.create<TableOptions>({
       setCellSelection:
         (position: { anchorCell: number; headCell?: number }) =>
         ({ tr, dispatch }) => {
+          if (inUnsupportedTable(tr.doc.resolve(position.anchorCell))) return false;
           const selection = CellSelection.create(tr.doc, position.anchorCell, position.headCell);
           tr.setSelection(selection);
           if (dispatch) {
@@ -488,16 +483,31 @@ export const Table = Node.create<TableOptions>({
         constrainToContainer: this.options.constrainToContainer,
       }),
 
-      columnResizing({
+      // Column resizing leaves a table that holds an unsupported span alone.
+      guardedColumnResizing({
         cellMinWidth: this.options.cellMinWidth,
         defaultCellMinWidth: this.options.defaultCellMinWidth,
       }),
 
-      tableEditing({
+      // Cell pastes, ahead of tableEditing's own handler, which throws on cells that span rows. A
+      // paste that fails anyway is reported like an extension hook, through the editor's error event.
+      createTableCellPastePlugin(error => {
+        const editor = this.editor as unknown as Editor | null;
+        editor?.emit('error', { editor, error, context: 'Table.paste' });
+      }),
+
+      // fixTables leaves a table that holds an unsupported span to normalizeContentAttributes.
+      guardedTableEditing({
         allowTableNodeSelection: this.options.allowTableNodeSelection,
       }),
 
       createCellSelectionPlugin(),
+
+      // A cell's own background marks it light or dark in the view, for the theme's text colors.
+      createCellSurfaceTonePlugin(),
+
+      // A span that data-pm-slice context carries is rebuilt without validation.
+      pastedAttributesPlugin('unsupported-table-span'),
     ];
   },
 });

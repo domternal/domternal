@@ -4,10 +4,14 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  BUILT_OUTPUT_GATES,
+  FOCUSED_BROWSER_SCRIPTS,
   LOCAL_ONLY_SCRIPTS,
+  MANDATORY_GATES,
   NOT_GATES,
   REQUIRED_SCRIPTS,
   actionlintProblems,
+  buildOrderProblems,
   checkoutStepsWithPersistedCredentials,
   ciTriggerProblems,
   codeqlWorkflowProblems,
@@ -18,8 +22,11 @@ import {
   dependencyReviewWorkflowProblems,
   gateExecutionProblems,
   gateScripts,
+  focusedBrowserWorkflowProblems,
   leastPrivilegePermissionProblems,
   localActionReferences,
+  localOnlyProblems,
+  mandatoryGateProblems,
   nonBlockingChecks,
   packageManagerConsistencyProblems,
   packageValidationProblems,
@@ -35,6 +42,9 @@ import {
 
 const repoRoot = new URL('../../', import.meta.url);
 const realCi = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+const realManifest = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+);
 const realDependencyReview = readFileSync(
   new URL('../../.github/workflows/dependency-review.yml', import.meta.url),
   'utf8'
@@ -43,6 +53,13 @@ const realDependabot = readFileSync(
   new URL('../../.github/dependabot.yml', import.meta.url),
   'utf8'
 );
+const realPasteCleanup = readFileSync(
+  new URL('../../.github/workflows/paste-cleanup-e2e.yml', import.meta.url),
+  'utf8'
+);
+const pasteCleanupManifest = { scripts: {
+  'test:e2e:paste-cleanup': 'playwright test --config e2e/paste-cleanup.config.ts',
+} };
 
 function workflow(steps, extraJobs = '') {
   const indented = steps
@@ -100,7 +117,8 @@ test('exception lists are pinned, so one word cannot silently remove a gate', ()
     'test:e2e',
     'test:e2e:matrix',
   ]);
-  assert.deepEqual([...LOCAL_ONLY_SCRIPTS].sort(), ['test:dedupe-reachable', 'test:pm-ranges']);
+  assert.deepEqual([...LOCAL_ONLY_SCRIPTS].sort(), ['test:dedupe-reachable']);
+  assert.deepEqual([...FOCUSED_BROWSER_SCRIPTS], [['test:e2e:paste-cleanup', 'paste-cleanup-e2e.yml']]);
   assert.deepEqual(REQUIRED_SCRIPTS, ['build', 'lint', 'typecheck', 'typecheck:e2e']);
 });
 
@@ -112,7 +130,7 @@ test('checks that are not test:-prefixed are held down too', () => {
       typecheck: 'tsc',
       'typecheck:e2e': 'tsc -p e2e',
       'test:css-vars': 'node x',
-      'test:pm-ranges': 'node local-only',
+      'test:dedupe-reachable': 'node local-only',
       dev: 'vite',
     },
   };
@@ -130,6 +148,151 @@ test('checks that are not test:-prefixed are held down too', () => {
     'typecheck:e2e',
   ]);
 });
+
+test('only the explicitly contracted paste browser script leaves the main gate set', () => {
+  const manifest = { scripts: {
+    'test:e2e:paste-cleanup': 'playwright test --config e2e/paste-cleanup.config.ts',
+    'test:e2e:unreviewed-feature': 'playwright test --config e2e/unknown.config.ts',
+    'test:package-policy': 'node tests/package-policy/check.mjs',
+  } };
+  assert.deepEqual(gateScripts(manifest), ['test:e2e:unreviewed-feature', 'test:package-policy']);
+});
+
+test('the ProseMirror range check is an ordinary gate that CI runs in full', () => {
+  /* A hosted install holds the y-prosemirror that @domternal/core installs for
+     its own tests, so the full check has a peer to compare there. Going back
+     to its unit suite alone would leave that comparison unenforced. */
+  assert.ok(gateScripts(realManifest).includes('test:pm-ranges'));
+  assert.ok(scriptInvocations(realCi).has('test:pm-ranges'));
+  assert.deepEqual(gateExecutionProblems(realCi, ['test:pm-ranges']), []);
+  assert.deepEqual(localOnlyProblems(realManifest, realCi), []);
+
+  const unitOnly = realCi.replace(
+    '        run: pnpm test:pm-ranges\n',
+    '        run: pnpm test:pm-ranges:unit\n'
+  );
+  assert.notEqual(unitOnly, realCi);
+  assert.deepEqual(unwiredScripts(['test:pm-ranges'], unitOnly), ['test:pm-ranges']);
+});
+
+test('the dedupe check stays local-only, with just its unit suite in CI', () => {
+  assert.deepEqual(localOnlyProblems(realManifest, realCi), []);
+  assert.ok(gateScripts(realManifest).includes('test:dedupe-reachable:unit'));
+  assert.equal(gateScripts(realManifest).includes('test:dedupe-reachable'), false);
+  assert.ok(scriptInvocations(realCi).has('test:dedupe-reachable:unit'));
+
+  const fullInCi = realCi.replace(
+    '        run: pnpm test:dedupe-reachable:unit\n',
+    '        run: pnpm test:dedupe-reachable\n'
+  );
+  assert.notEqual(fullInCi, realCi);
+  assert.match(
+    localOnlyProblems(realManifest, fullInCi).join('\n'),
+    /runs local-only "test:dedupe-reachable"/
+  );
+
+  const withoutUnit = { ...realManifest.scripts };
+  delete withoutUnit['test:dedupe-reachable:unit'];
+  assert.match(
+    localOnlyProblems({ scripts: withoutUnit }, realCi).join('\n'),
+    /CI script "test:dedupe-reachable:unit"/
+  );
+  const rewritten = { ...realManifest.scripts, 'test:dedupe-reachable': 'echo skipped' };
+  assert.match(
+    localOnlyProblems({ scripts: rewritten }, realCi).join('\n'),
+    /full local-only script "test:dedupe-reachable"/
+  );
+});
+
+test('the full dedupe check is refused in CI however the step reaches it', () => {
+  /* A wrapped, filtered, conditional or direct run is not a wired gate, but it
+     still prints a SKIPPED line that reads as a pass. Only the unit suite, or a
+     commented-out mention, may appear. */
+  const unitStep = '        run: pnpm test:dedupe-reachable:unit\n';
+  for (const extra of [
+    'run: pnpm test:dedupe-reachable && true',
+    'run: pnpm test:dedupe-reachable || true',
+    'run: pnpm --filter . test:dedupe-reachable',
+    'run: node tests/dedupe-reachable/check.mjs',
+    "if: github.event_name == 'schedule'\n        run: pnpm test:dedupe-reachable",
+  ]) {
+    const changed = realCi.replace(
+      unitStep,
+      `${unitStep}\n      - name: Probe\n        ${extra}\n`
+    );
+    assert.notEqual(changed, realCi);
+    assert.match(
+      localOnlyProblems(realManifest, changed).join('\n'),
+      /runs local-only "test:dedupe-reachable"/,
+      extra
+    );
+  }
+
+  const commented = realCi.replace(
+    unitStep,
+    '        run: |\n          # pnpm test:dedupe-reachable\n          pnpm test:dedupe-reachable:unit\n'
+  );
+  assert.notEqual(commented, realCi);
+  assert.deepEqual(localOnlyProblems(realManifest, commented), []);
+});
+
+test('the focused paste browser workflow is manual only and keeps the exact reviewed runner', () => {
+  assert.deepEqual(parseWorkflow(realPasteCleanup).on, { workflow_dispatch: {} });
+  assert.deepEqual(focusedBrowserWorkflowProblems(pasteCleanupManifest, realPasteCleanup), []);
+});
+
+test('a focused browser classification cannot hide a removed workflow or changed command', () => {
+  assert.ok(focusedBrowserWorkflowProblems(pasteCleanupManifest, undefined).length > 0);
+  assert.ok(focusedBrowserWorkflowProblems({ scripts: {} }, realPasteCleanup).length > 0);
+  assert.ok(focusedBrowserWorkflowProblems({ scripts: {
+    'test:e2e:paste-cleanup': 'echo skipped',
+  } }, realPasteCleanup).length > 0);
+});
+
+for (const [name, change] of [
+  ['removed manual trigger', parsed => { delete parsed.on.workflow_dispatch; }],
+  ['automatic pushes', parsed => { parsed.on.push = { branches: ['main'] }; }],
+  ['automatic pull requests', parsed => { parsed.on.pull_request = { branches: ['main'] }; }],
+  ['path-filtered pull requests', parsed => { parsed.on.pull_request = { paths: ['unrelated/**'] }; }],
+  ['automatic merge groups', parsed => { parsed.on.merge_group = {}; }],
+  ['automatic schedule', parsed => { parsed.on.schedule = [{ cron: '7 5 * * 1' }]; }],
+  ['reusable workflow trigger', parsed => { parsed.on.workflow_call = {}; }],
+  ['conditional job', parsed => { parsed.jobs['paste-cleanup-e2e'].if = 'false'; }],
+  ['ignored job failure', parsed => { parsed.jobs['paste-cleanup-e2e']['continue-on-error'] = true; }],
+  ['removed package build', parsed => {
+    const job = parsed.jobs['paste-cleanup-e2e'];
+    job.steps = job.steps.filter(step => step.run !== 'pnpm build');
+  }],
+  ['incomplete public build', parsed => {
+    parsed.jobs['paste-cleanup-e2e'].steps.find(step => step.run === 'pnpm build').run = 'pnpm --filter @domternal/extension-paste-cleanup build';
+  }],
+  ['conditional runner', parsed => {
+    parsed.jobs['paste-cleanup-e2e'].steps.find(step => step.name === 'Run paste cleanup browser coverage').if = 'false';
+  }],
+  ['removed artifacts', parsed => { parsed.jobs['paste-cleanup-e2e'].steps.pop(); }],
+]) {
+  test(`focused browser enforcement rejects ${name}`, () => {
+    const parsed = parseWorkflow(realPasteCleanup);
+    change(parsed);
+    assert.ok(focusedBrowserWorkflowProblems(pasteCleanupManifest, JSON.stringify(parsed)).length > 0);
+  });
+}
+
+for (const [name, change] of [
+  ['commented invocation', run => run.replace('PLAYWRIGHT_JSON_OUTPUT_NAME=', '# PLAYWRIGHT_JSON_OUTPUT_NAME=')],
+  ['different root script', run => run.replace('pnpm test:e2e:paste-cleanup', 'pnpm test:e2e:matrix')],
+  ['unreachable invocation', run => `if false; then\n${run}\nfi\n`],
+  ['retries concealing failures', run => run.replace('--retries=0', '--retries=1')],
+  ['ignored runner status', run => run.replace('wait "$runner_pid" || status=$?', 'wait "$runner_pid" || true')],
+  ['successful final exit', run => run.replace('exit "$status"\n', 'exit 0\n')],
+]) {
+  test(`focused browser enforcement rejects ${name}`, () => {
+    const parsed = parseWorkflow(realPasteCleanup);
+    const step = parsed.jobs['paste-cleanup-e2e'].steps.find(step => step.name === 'Run paste cleanup browser coverage');
+    step.run = change(step.run);
+    assert.ok(focusedBrowserWorkflowProblems(pasteCleanupManifest, JSON.stringify(parsed)).length > 0);
+  });
+}
 
 test('only commands from run fields count as invocations', () => {
   const fixture = workflow(
@@ -531,6 +694,74 @@ test('the build bootstrap pins checkout, Node, pnpm and the frozen install', () 
   );
 });
 
+test('gates that read the built packages run after the explicit build', () => {
+  const steps = (runs) => runs.map((run) => `      - run: ${JSON.stringify(run)}`).join('\n');
+  const buildJob = (...runs) =>
+    `name: fixture\njobs:\n  build:\n    runs-on: ubuntu-24.04\n    steps:\n${steps(runs)}\n`;
+  const early = (name) =>
+    `ci.yml runs "pnpm ${name}" before "pnpm build", but it reads packages/*/dist, ` +
+    'which a clean checkout has only after the build';
+  const unbuilt =
+    'ci.yml build job never runs "pnpm build", so nothing builds the packages that ' +
+    'lint and typecheck:e2e and test:mixed-version read';
+
+  assert.deepEqual(BUILT_OUTPUT_GATES, ['lint', 'typecheck:e2e', 'test:mixed-version']);
+  assert.deepEqual(buildOrderProblems(realCi), []);
+  assert.deepEqual(
+    buildOrderProblems(buildJob('pnpm build', 'pnpm lint', 'pnpm typecheck:e2e')),
+    []
+  );
+  // Only the listed gates are held: Nx builds what the package type checks need.
+  assert.deepEqual(
+    buildOrderProblems(buildJob('pnpm typecheck', 'pnpm build', 'pnpm lint', 'pnpm typecheck:e2e')),
+    []
+  );
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm lint', 'pnpm build', 'pnpm typecheck:e2e')), [
+    early('lint'),
+  ]);
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm lint', 'pnpm typecheck:e2e', 'pnpm build')), [
+    early('lint'),
+    early('typecheck:e2e'),
+  ]);
+  // Line order inside one multi-line step counts as well.
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm typecheck:e2e\npnpm build', 'pnpm lint')), [
+    early('typecheck:e2e'),
+  ]);
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm build\npnpm typecheck:e2e', 'pnpm lint')), []);
+  // The mixed-version collaboration test loads the built packages as well.
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm test:mixed-version', 'pnpm build', 'pnpm lint')), [
+    early('test:mixed-version'),
+  ]);
+  // A filtered or swallowed build is not the full build the e2e paths resolve against.
+  assert.deepEqual(
+    buildOrderProblems(buildJob('pnpm --filter @domternal/core build', 'pnpm lint')),
+    [unbuilt]
+  );
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm build || true', 'pnpm lint')), [unbuilt]);
+  // A build in another job leaves this runner without dist.
+  assert.deepEqual(
+    buildOrderProblems(
+      `name: fixture\njobs:\n  prepare:\n    runs-on: ubuntu-24.04\n    steps:\n` +
+        `${steps(['pnpm build'])}\n  build:\n    runs-on: ubuntu-24.04\n    steps:\n` +
+        `${steps(['pnpm lint', 'pnpm typecheck:e2e'])}\n`
+    ),
+    [unbuilt]
+  );
+  assert.deepEqual(buildOrderProblems(realCi.replace('  build:\n', '  decoy:\n')), [unbuilt]);
+
+  // The real workflow with its Build step moved back below the e2e type check.
+  const buildStep = /\n {6}- name: Build\n(?: {8}.*\n)+/.exec(realCi);
+  assert.ok(buildStep, 'ci.yml has a Build step');
+  const moved = realCi
+    .replace(buildStep[0], '')
+    .replace(
+      '        run: pnpm typecheck:e2e\n',
+      '        run: pnpm typecheck:e2e\n\n      - name: Build\n        run: pnpm build\n'
+    );
+  assert.notEqual(moved, realCi);
+  assert.deepEqual(buildOrderProblems(moved), [early('lint'), early('typecheck:e2e')]);
+});
+
 test('nested Corepack pins cannot select a different pnpm release', () => {
   const root = { packageManager: 'pnpm@10.34.4' };
   assert.deepEqual(
@@ -695,4 +926,48 @@ test('the fixture suite itself executes the live repository checker', () => {
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
+test('mandatory gates are declared with their reviewed command and run by ci.yml', () => {
+  assert.deepEqual(mandatoryGateProblems(realManifest, realCi), []);
+  assert.equal(MANDATORY_GATES.get('test:privacy'), 'node --test tests/privacy/check.test.mjs && node tests/privacy/check.mjs');
+  const withoutScript = { scripts: { ...realManifest.scripts } };
+  delete withoutScript.scripts['test:privacy'];
+  const withoutStep = realCi.replace(/\n {6}- name: No personal data in tracked files\n(?: {8}.*\n)+/, '\n');
+  assert.notEqual(withoutStep, realCi, 'the fixture removes the privacy step');
+  assert.deepEqual(mandatoryGateProblems(withoutScript, withoutStep), [
+    'package.json must declare the mandatory gate "test:privacy" as "node --test tests/privacy/check.test.mjs && node tests/privacy/check.mjs"',
+    'ci.yml must run the mandatory gate "pnpm test:privacy"',
+  ]);
+  const hollowed = { scripts: { ...realManifest.scripts, 'test:privacy': 'node --test tests/privacy/check.test.mjs' } };
+  assert.equal(mandatoryGateProblems(hollowed, realCi).length, 1);
+});
+
+test('the evidence gate holds declared redactions with the committed bytes alone, so the build checkout needs no history', () => {
+  const command = 'node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check';
+  assert.equal(MANDATORY_GATES.get('test:evidence'), command);
+  // The history check is retired: the originals it compared were removed from the history on 2026-10-03.
+  const withHistory = { scripts: { ...realManifest.scripts, 'test:evidence': `${command} --history` } };
+  assert.deepEqual(mandatoryGateProblems(withHistory, realCi), [`package.json must declare the mandatory gate "test:evidence" as "${command}"`]);
+  const hollowed = { scripts: { ...realManifest.scripts, 'test:evidence': 'node --test tests/evidence/*.test.mjs' } };
+  assert.equal(mandatoryGateProblems(hollowed, realCi).length, 1);
+  assert.equal(/fetch-depth: 0/.test(realCi), false, 'the build checkout fetches only the tested commit');
+  assert.deepEqual(pnpmSetupProblems(realManifest, realCi), []);
+  const deep = realCi.replace('          persist-credentials: false\n', '          fetch-depth: 0\n          persist-credentials: false\n');
+  assert.notEqual(deep, realCi, 'the fixture adds a full history checkout');
+  assert.notDeepEqual(pnpmSetupProblems(realManifest, deep), []);
+});
+
+test('the privacy step may read the names a CI secret lists, and nothing else from its environment', () => {
+  assert.deepEqual(gateExecutionProblems(realCi, ['test:privacy']), []);
+  assert.ok(scriptInvocations(realCi).has('test:privacy'));
+  const secret = '          PRIVACY_NAMES: ${{ secrets.PRIVACY_NAMES }}\n';
+  assert.ok(realCi.includes(secret), 'ci.yml passes the secret to the privacy step');
+  for (const changed of [
+    realCi.replace(secret, `${secret}          PATH: ./attacker-bin\n`),
+    realCi.replace(secret, '          PRIVACY_NAMES: nobody\n'),
+  ]) {
+    assert.notDeepEqual(gateExecutionProblems(changed, ['test:privacy']), [], changed.slice(0, 0));
+    assert.equal(scriptInvocations(changed).has('test:privacy'), false);
+  }
 });

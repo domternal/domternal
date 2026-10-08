@@ -4,6 +4,7 @@ import type { Transaction } from '@domternal/pm/state';
 import { insertAsListItemChild } from '@domternal/core';
 import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
 import { rejoinAtSeam } from './rejoinAtSeam.js';
+import { freshListMarkerAttributes } from './listMarkers.js';
 
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 
@@ -14,8 +15,8 @@ const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
  *
  * A non-list block inserts directly; a listItem/taskItem keeps its OWN list kind
  * (Notion: nesting never changes type, and a to-do keeps its checked state) by
- * being wrapped in a fresh same-kind list, then merged with an adjacent
- * same-kind sublist so it doesn't form a redundant second list. Returns `false`
+ * being wrapped in a fresh same-kind list with its explicit marker, then merged
+ * only with an adjacent matching-marker sublist. Returns `false`
  * (no mutation) on invalid source, self-drop, or schema reject.
  */
 export function moveBlockAsNestedChild(
@@ -34,9 +35,9 @@ export function moveBlockAsNestedChild(
   if (targetItemPos >= sourcePos && targetItemPos < sourceEnd) return false;
   if (wrapperPos >= sourcePos && wrapperPos < sourceEnd) return false;
 
-  // The source item's OWN list wrapper type: a list item keeps its kind (and a
-  // to-do keeps its checked state) when nested, instead of adopting the target's.
-  const sourceWrapperType = tr.doc.resolve(sourcePos).parent.type;
+  // Retain the source kind and safe marker without copying IDs or starts into
+  // the fresh wrapper. A task item's checked state stays on the original item.
+  const sourceWrapper = tr.doc.resolve(sourcePos).parent;
 
   const stepsBefore = tr.steps.length;
   // Widen the deletion so a single-child wrapper collapses with the source.
@@ -47,7 +48,7 @@ export function moveBlockAsNestedChild(
   let blockNode: PMNode;
   const wrapped = LIST_ITEM_TYPES.has(sourceNode.type.name);
   if (wrapped) {
-    blockNode = sourceWrapperType.create(null, Fragment.from(sourceNode));
+    blockNode = sourceWrapper.type.create(freshListMarkerAttributes(sourceWrapper), Fragment.from(sourceNode));
   } else {
     blockNode = sourceNode;
   }
@@ -63,8 +64,8 @@ export function moveBlockAsNestedChild(
   });
   if (!result.ok || result.insertedAt === undefined) return result.ok;
 
-  // Merge with an adjacent same-KIND sublist instead of forming a second list.
-  // `rejoinAtSeam` gates on equal wrapper types, so an ordered sublist nested
+  // Merge only with an adjacent same-kind and marker sublist.
+  // `rejoinAtSeam` gates on equal wrapper types and markers, so an ordered sublist nested
   // beside a bullet one is NOT silently re-converted (both share `listItem`
   // content, so a bare `canJoin` would merge them). Trailing boundary first
   // (higher pos) so the leading one stays valid.

@@ -14,13 +14,15 @@
  * Tab / Shift-Tab handled by the ListKeymap extension.
  */
 import { Node } from '../Node.js';
-import { splitListItem, liftListItem } from '@domternal/pm/schema-list';
+import { splitListItem } from '@domternal/pm/schema-list';
+import { hasMarkerLiftConflict, liftListItemWithMarker as liftListItem } from '../utils/listMarkerCommands.js';
 import { Selection } from '@domternal/pm/state';
 import { splitBlock } from '@domternal/pm/commands';
 import { ListKeymap } from '../extensions/ListKeymap.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
 import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
 import { liftEmptyChildrenZoneParagraph } from '../utils/liftEmptyChildrenZoneParagraph.js';
+import { pastedAttributesPlugin } from '../utils/pastedAttributes.js';
 
 export interface ListItemOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -49,6 +51,11 @@ export const ListItem = Node.create<ListItemOptions>({
 
   addExtensions() {
     return [ListKeymap];
+  },
+
+  addProseMirrorPlugins() {
+    // Every built-in list brings this item type, so it guards their pasted markers.
+    return [pastedAttributesPlugin('unknown-list-marker')];
   },
 
   addKeyboardShortcuts() {
@@ -99,6 +106,12 @@ export const ListItem = Node.create<ListItemOptions>({
         // which outdents the whole item one level (Notion: empty Enter
         // outdents). Childless empty labels still split (splitListItem no-ops
         // on them, then liftListItem runs).
+        const itemRange = $from.blockRange(state.selection.$to, node => node.firstChild?.type === this.nodeType);
+        if (labelEmpty && itemRange && hasMarkerLiftConflict(itemRange, this.nodeType)) {
+          // A failed preservation plan must not fall through to an attr-blind lift.
+          liftListItem(this.nodeType)(state, view.dispatch);
+          return true;
+        }
         const skipSplit = !ctx?.isInChildrenZone && labelEmpty && hasChildren;
         if (!skipSplit && splitListItem(this.nodeType)(state, view.dispatch)) return true;
 

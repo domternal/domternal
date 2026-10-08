@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "id": "gdocs-list-presets-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "8aa9316ddb793cefa05f2f9964049825e826c585523a4f47c0da639b53c1c712"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "43860209712997158443f3ccc24f8f93a6e9c2bca925b606bec474095a8b2102"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "google-docs-v1",
+    "scenario": "gdocs-list-presets",
+    "blocks": [
+      {
+        "id": "GL25",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "docsLabel": "1)"
+        },
+        "docs": "Format > Bullets & numbering > Numbered list: the preset whose first level shows 1)",
+        "text": "GL25 Parenthesis one",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL26",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 2,
+          "docsLabel": "2)"
+        },
+        "docs": "Enter",
+        "text": "GL26 Parenthesis two",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL27",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-alpha",
+          "depth": 1,
+          "ordinal": 1,
+          "docsLabel": "A."
+        },
+        "docs": "Enter twice to end the list, then the numbered preset whose first level shows A.",
+        "text": "GL27 Uppercase A",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL28",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-alpha",
+          "depth": 1,
+          "ordinal": 2,
+          "docsLabel": "B."
+        },
+        "docs": "Enter",
+        "text": "GL28 Uppercase B",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL29",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-roman",
+          "depth": 1,
+          "ordinal": 1,
+          "docsLabel": "I."
+        },
+        "docs": "Enter twice to end the list, then the numbered preset whose first level shows I.",
+        "text": "GL29 Uppercase Roman I",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      },
+      {
+        "id": "GL30",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "upper-roman",
+          "depth": 1,
+          "ordinal": 2,
+          "docsLabel": "II."
+        },
+        "docs": "Enter",
+        "text": "GL30 Uppercase Roman II",
+        "textStyle": {
+          "fontFamily": "Arial",
+          "fontSize": "11pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "google-docs",
+      "warnings": [],
+      "editor": [
+        {
+          "schema": "capability-full",
+          "notice": "quiet",
+          "warnings": []
+        },
+        {
+          "schema": "default",
+          "notice": "quiet",
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "fcb049b8b7778cadf688e68df3ffafe5219c577b6e757f75e53da2ecc0e70d85",
+    "captureSha256": "d317eb4f25cc5f5f8a9389921774b3ee24687b78fa6cad2c4b96c87c609865b0",
+    "manifestSha256": "0fbd3401905434227b5e12d491678bf3aa5d40fe9e1cee826d4fd63563483c70"
+  }
+}

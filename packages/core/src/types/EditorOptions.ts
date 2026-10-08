@@ -6,6 +6,7 @@ import type {
   TransactionEventProps,
   FocusEventProps,
   ContentErrorProps,
+  ContentDiagnosticProps,
   MountEventProps,
   ErrorEventProps,
 } from './EditorEvents.js';
@@ -150,17 +151,22 @@ export interface EditorOptions {
   onMount?: (props: MountEventProps) => void;
 
   /**
-   * Called when the document content changes
+   * Called after the `update` event: an accepted dispatch in which the root or
+   * an appended transaction changed the document, unless the root has the
+   * `skipUpdate` meta. See `EditorEvents` for the full contract.
    */
   onUpdate?: (props: TransactionEventProps) => void;
 
   /**
-   * Called when selection changes (without content change)
+   * Called after the `selectionUpdate` event: an accepted dispatch whose root
+   * set the selection without changing the document, or whose appended
+   * transactions set it when none changed the document. See `EditorEvents`.
    */
   onSelectionUpdate?: (props: TransactionEventProps) => void;
 
   /**
-   * Called on every transaction
+   * Called after the `transaction` event, once for every accepted root
+   * transaction; never for a transaction a plugin vetoed.
    */
   onTransaction?: (props: TransactionEventProps) => void;
 
@@ -181,9 +187,22 @@ export interface EditorOptions {
 
   /**
    * Called when content doesn't match schema (AD-8)
-   * Use this to handle content validation errors gracefully
+   * Use this to handle content validation errors gracefully.
+   * For the initial content it runs during construction, before
+   * `editor.view` exists, so read the report rather than the editor state.
    */
   onContentError?: (props: ContentErrorProps) => void;
+
+  /**
+   * Called when content loaded with replaced values, such as an unknown
+   * list marker that became the default marker or a heading level the
+   * configuration lacks that became the nearest configured level. See the
+   * contentDiagnostic event.
+   * For the initial content it runs during construction, before
+   * `editor.view` exists; the framework wrappers deliver that report once
+   * the editor is ready.
+   */
+  onContentDiagnostic?: (props: ContentDiagnosticProps) => void;
 
   /**
    * Called when an extension throws an error (2.7: Extension Error Isolation)

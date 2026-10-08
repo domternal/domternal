@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 2,
+  "id": "word-unsupported-list-profiles-chrome",
+  "origin": "synthetic",
+  "license": "MIT; authored English regression variant of an archived Office clipboard shape, not a native capture. Word raster alternatives use a synthetic control PNG.",
+  "source": {
+    "path": "source.docx",
+    "sha256": "24ec26cb75f3a52766047cba6e57593f9c47d62d58e2b30bc7a650ffb4c07207"
+  },
+  "capture": {
+    "path": "capture.json",
+    "sha256": "d386f71a7a7ea681802f05cac5a488a2a8a88928b69172dd564945e2b96eae9b"
+  },
+  "redactions": [],
+  "expected": {
+    "specification": "word-mac-v1",
+    "scenario": "word-unsupported-list-profiles",
+    "blocks": [
+      {
+        "id": "L63",
+        "type": "literalItem",
+        "wordLabel": "–",
+        "word": "Bullets > Define New Bullet > Character: en dash",
+        "text": "L63 Dash",
+        "expectation": "Literal paragraph with its visible marker and office-list-unsupported.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L64",
+        "type": "literalItem",
+        "wordLabel": "✓",
+        "word": "Bullets Library: check mark",
+        "text": "L64 Check mark",
+        "expectation": "Literal paragraph with office-list-unsupported.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L65",
+        "type": "literalItem",
+        "wordLabel": "➢",
+        "word": "Bullets Library: arrow",
+        "text": "L65 Arrow",
+        "expectation": "Literal paragraph with office-list-unsupported.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L66",
+        "type": "literalItem",
+        "wordLabel": "picture",
+        "word": "Bullets > Define New Bullet > Picture: any built-in picture bullet",
+        "text": "L66 Picture bullet",
+        "expectation": "Literal paragraph or missing marker, with office-list-unsupported or image-removed; record what Word copies.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L67",
+        "type": "listItem",
+        "list": {
+          "kind": "ordered",
+          "marker": "decimal",
+          "depth": 1,
+          "ordinal": 1,
+          "wordLabel": "1."
+        },
+        "word": "Multilevel List Library: 1. / 1.1. / 1.1.1.",
+        "text": "L67 Legal number",
+        "expectation": "The first level of the legal list is plain decimal numbering, 1., so it is an ordered list item; its legal second level stays literal.",
+        "correction": "Expected literal before the captures; the first level's definition is %1. without legal numbering, which Word shows as 1.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      },
+      {
+        "id": "L68",
+        "type": "literalItem",
+        "wordLabel": "1.1.",
+        "word": "Tab",
+        "text": "L68 Legal subnumber",
+        "expectation": "Legal multilevel numbering stays literal.",
+        "textStyle": {
+          "fontFamily": "Aptos",
+          "fontSize": "12pt"
+        }
+      }
+    ],
+    "preserve": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "office-list-unsupported",
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "office-list-unsupported",
+          "unsupported-formatting"
+        ]
+      }
+    },
+    "adapt": {
+      "status": "cleaned",
+      "source": "word",
+      "warnings": [
+        "office-list-unsupported",
+        "unsupported-formatting"
+      ],
+      "editor": {
+        "schema": "default",
+        "notice": "visible",
+        "warnings": [
+          "office-list-unsupported",
+          "unsupported-formatting"
+        ]
+      }
+    }
+  },
+  "derivation": {
+    "kind": "english-text-variant",
+    "sourceSha256": "54fb1090f83810dfd18da57484abe72456073e241b956c98bc99ef5dd9c9a00c",
+    "captureSha256": "4f1735fff83004b91aeb3c7a8afab9d0c003f36876753f3f452fc2cc2288e88e",
+    "manifestSha256": "380d559bfd0441a28f24246414d1ca01605a378ca004bdd14cedc0d1b84a415e"
+  }
+}

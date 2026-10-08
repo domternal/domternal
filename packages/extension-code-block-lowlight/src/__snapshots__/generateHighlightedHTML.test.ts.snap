@@ -1,0 +1,35 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ordinary output is unchanged (K3) > writes auto detect as before 1`] = `"<pre><code><span class="hljs-selector-tag">SELECT</span> * <span class="hljs-selector-tag">FROM</span> t WHERE <span class="hljs-selector-tag">a</span> = <span class="hljs-number">1</span>;</code></pre>"`;
+
+exports[`ordinary output is unchanged (K3) > writes css as before 1`] = `"<pre><code class="language-css"><span class="hljs-selector-class">.a</span> > <span class="hljs-selector-class">.b</span> { <span class="hljs-attribute">color</span>: red; }</code></pre>"`;
+
+exports[`ordinary output is unchanged (K3) > writes default language as before 1`] = `"<pre><code><span class="hljs-keyword">let</span> a = <span class="hljs-number">1</span>;</code></pre>"`;
+
+exports[`ordinary output is unchanged (K3) > writes empty as before 1`] = `"<pre><code class="language-javascript"></code></pre>"`;
+
+exports[`ordinary output is unchanged (K3) > writes javascript as before 1`] = `
+"<pre><code class="language-javascript"><span class="hljs-keyword">function</span> <span class="hljs-title function_">add</span>(<span class="hljs-params">a, b</span>) {
+  <span class="hljs-keyword">return</span> a + b; <span class="hljs-comment">// sum</span>
+}</code></pre>"
+`;
+
+exports[`ordinary output is unchanged (K3) > writes json as before 1`] = `"<pre><code class="language-json"><span class="hljs-punctuation">{</span><span class="hljs-attr">"a"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-number">1</span><span class="hljs-punctuation">,</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"three"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"b"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">}</span></code></pre>"`;
+
+exports[`ordinary output is unchanged (K3) > writes mixed as before 1`] = `"<p>Before <strong>bold</strong> &amp; "quotes"</p><pre><code class="language-javascript"><span class="hljs-keyword">const</span> a = <span class="hljs-string">"&#x3C;b>"</span>;</code></pre><p><a href="https://ok.example/?a=1&amp;b=2" title="T">link</a></p><pre><code class="language-nonexistent">x</code></pre><p>line<br>break</p>"`;
+
+exports[`ordinary output is unchanged (K3) > writes no language as before 1`] = `"<pre><code>plain &lt;text&gt; &amp; more</code></pre>"`;
+
+exports[`ordinary output is unchanged (K3) > writes python as before 1`] = `
+"<pre><code class="language-python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">f</span>(<span class="hljs-params">x</span>):
+    <span class="hljs-keyword">return</span> x * <span class="hljs-number">2</span>
+</code></pre>"
+`;
+
+exports[`ordinary output is unchanged (K3) > writes quotes as before 1`] = `"<pre><code class="language-javascript">it<span class="hljs-string">'s "quoted" and '</span>single<span class="hljs-string">'</span></code></pre>"`;
+
+exports[`ordinary output is unchanged (K3) > writes typescript as before 1`] = `"<pre><code class="language-typescript"><span class="hljs-keyword">const</span> <span class="hljs-attr">x</span>: <span class="hljs-title class_">Map</span>&#x3C;<span class="hljs-built_in">string</span>, <span class="hljs-built_in">number</span>> = <span class="hljs-keyword">new</span> <span class="hljs-title class_">Map</span>();</code></pre>"`;
+
+exports[`ordinary output is unchanged (K3) > writes unregistered as before 1`] = `"<pre><code class="language-nonexistent">some code</code></pre>"`;
+
+exports[`ordinary output is unchanged (K3) > writes xml as before 1`] = `"<pre><code class="language-xml"><span class="hljs-tag">&#x3C;<span class="hljs-name">div</span> <span class="hljs-attr">class</span>=<span class="hljs-string">"x"</span>></span>Hi &#x26; bye<span class="hljs-tag">&#x3C;/<span class="hljs-name">div</span>></span></code></pre>"`;
