@@ -19,6 +19,7 @@ pnpm add @domternal/core @domternal/pm @domternal/extension-emoji @domternal/the
 ```
 
 Requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`.
+Use version 1.3.1 for all installed Domternal packages.
 The theme styles the suggestion dropdown; you can supply your own styles instead.
 
 ## Quick start

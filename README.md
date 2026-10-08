@@ -118,15 +118,19 @@ catalogs, formatting, and custom translation resolvers.
 
 ## Version compatibility
 
-The 1.3.0 release introduces PasteCleanup, explicit list markers, content
-diagnostics, and coordinated clipboard handling. Upgrade installed `@domternal/*`
-packages together to 1.3.0: wrappers require core `>=1.3.0 <2.0.0`, and extensions
-require both core and pm in that range. New wrappers and extensions use APIs that
-core 1.2.0 does not provide.
+Upgrade installed `@domternal/*` packages together to **1.3.1** for compatibility
+and dependency fixes. Wrappers require core `>=1.3.0 <2.0.0`, and extensions
+require both core and pm as peers in that range. Core 1.3.1 requires pm
+`>=1.3.1 <2.0.0` at runtime so its dependency fixes are included.
 
-This release also changes content validation and transaction callbacks. Loading
-JSON normalizes unsupported heading levels, list markers and table spans, and
-removes links the configured URL policy refuses while keeping their text.
+PasteCleanup, explicit list markers, content diagnostics, and coordinated
+clipboard handling were introduced in 1.3.0. Keep 1.3.x wrappers and extensions
+with 1.3.x core; new APIs are unavailable in core 1.2.0.
+
+The migration requirements for content validation and transaction callbacks
+introduced in 1.3.0 still apply. Loading JSON normalizes unsupported heading levels,
+list markers and table spans, and removes links the configured URL policy refuses
+while keeping their text.
 Stored JSON, strict loaders and mixed-version collaborative documents may need
 migration. Review the [1.3.0 breaking changes](CHANGELOG.md#breaking) and the
 [Core migration guidance](packages/core/docs/content.md) before upgrading; use

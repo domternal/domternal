@@ -19,7 +19,8 @@ pnpm add @domternal/core @domternal/pm @domternal/extension-code-block-lowlight 
 ```
 
 Requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`, plus `lowlight`
-`^3.0.0`. Supply a configured lowlight instance as shown below. The theme supplies
+`^3.0.0`. Use version 1.3.1 for all installed Domternal packages.
+Supply a configured lowlight instance as shown below. The theme supplies
 syntax colors; you can use your own highlight.js-compatible stylesheet instead.
 
 ## Quick start

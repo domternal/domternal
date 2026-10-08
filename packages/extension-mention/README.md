@@ -19,6 +19,7 @@ pnpm add @domternal/core @domternal/pm @domternal/extension-mention @domternal/t
 ```
 
 Requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`.
+Use version 1.3.1 for all installed Domternal packages.
 The theme styles mentions and the suggestion dropdown; custom styles are also supported.
 
 ## Quick start

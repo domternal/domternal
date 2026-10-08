@@ -18,6 +18,7 @@ pnpm add @domternal/core @domternal/pm @domternal/extension-block-controls @domt
 ```
 
 The extension requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`.
+Use version 1.3.1 for all installed Domternal packages.
 The example uses `@domternal/vanilla` for the rendered insert menu and
 `@domternal/theme` for styling; both are optional if you provide your own UI.
 

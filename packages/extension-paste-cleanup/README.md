@@ -19,7 +19,7 @@ For a new editor:
 pnpm add @domternal/core @domternal/pm @domternal/theme @domternal/extension-paste-cleanup
 ```
 
-For an existing editor, add `@domternal/extension-paste-cleanup` and keep installed Domternal Free packages on the same release. Version 1.3.0 requires `@domternal/core` and `@domternal/pm` peers in `>=1.3.0 <2.0.0`; Core 1.2.0 lacks the clipboard API it needs.
+For an existing editor, add `@domternal/extension-paste-cleanup` and use version 1.3.1 for all installed Domternal Free packages. It requires `@domternal/core` and `@domternal/pm` peers in `>=1.3.0 <2.0.0`; Core 1.2.0 lacks the clipboard API it needs.
 
 ## Quick start
 

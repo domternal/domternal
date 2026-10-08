@@ -113,6 +113,26 @@ describe('HTML heading tags the configuration lacks', () => {
     expect(blocks(titled.editor.getJSON())).toEqual([1]);
   });
 
+  it.each([[[], 1], [[2, 4], 2]] as const)(
+    'uses a valid default for a custom heading tag with levels %j', (levels, expected) => {
+      const CustomHeading = Heading.configure({ levels: [...levels] }).extend({
+        parseHTML: () => [{ tag: 'div[data-heading]' }],
+      });
+      const element = document.createElement('div');
+      element.setAttribute('data-heading', '');
+      element.textContent = 'Custom heading';
+      const extensions = [Document, Paragraph, Text, CustomHeading];
+      const editor = new Editor({ extensions, content: element.outerHTML });
+      editors.push(editor);
+
+      const rule = editor.schema.nodes['heading']?.spec.parseDOM?.[0];
+      expect(rule?.getAttrs?.(element)).toEqual({ level: expected });
+      expect(blocks(editor.getJSON())).toEqual([expected]);
+      expect(editor.getHTML()).toBe(`<h${String(expected)}>Custom heading</h${String(expected)}>`);
+      expect(blocks(generateJSON(element.outerHTML, extensions))).toEqual([expected]);
+    }
+  );
+
   it('builds a parse rule for every heading tag, ranking the configured ones first and the rest below priority 1', () => {
     const { editor } = mount('<p></p>', [4, 2]);
     // A tag the levels lack ranks by how near the level it takes is: a deeper level first, then a shallower one.

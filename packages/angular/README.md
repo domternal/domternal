@@ -23,8 +23,8 @@ in [Angular library compatibility](https://angular.dev/tools/libraries/creating-
 The manifest still declares a broader `>=17.1.0` peer range; this is not a guarantee
 of compatibility with older Angular releases.
 
-Requires `@domternal/core >=1.3.0 <2.0.0`. Keep installed Domternal packages on the
-same release. The package declares Node.js 22 or later for tooling; also follow
+Requires `@domternal/core >=1.3.0 <2.0.0`. Use version 1.3.1 for all installed
+Domternal packages. The package declares Node.js 22 or later for tooling; also follow
 your Angular version's [Node.js requirements](https://angular.dev/reference/versions).
 
 Load the theme in your global stylesheet, such as `styles.scss`:
