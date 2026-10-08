@@ -564,7 +564,8 @@ describe('private clipboard HTML preparation', () => {
 });
 
 describe('prepared HTML budgets', () => {
-  it('preserves the original two-million-unit input cap independently from the output cap', () => {
+  // Parsing and serializing the full input limit under coverage can exceed 5 s on shared CI runners.
+  it('preserves the original two-million-unit input cap independently from the output cap', { timeout: 30_000 }, () => {
     const html = `<p>${'x'.repeat(2_000_000 - 7)}</p>`;
     const result = prepared(prepareClipboardHTML(html, LIMITS));
     expect(materialized(result.handle).html).toBe(html);
