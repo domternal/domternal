@@ -18,10 +18,10 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core
 ```
 
-Core has no framework dependency and includes `@domternal/pm`. Keep installed
-Domternal packages on the same release. Their 1.3.x peer compatibility range is
-`>=1.3.0 <2.0.0`; Core's runtime dependency on PM starts at Core's full version,
-including the patch, so updates include its dependency fixes.
+Core has no framework dependency and includes `@domternal/pm`. Use version 1.3.1
+for all installed Domternal packages. Their 1.3.x peer compatibility range remains
+`>=1.3.0 <2.0.0`; Core 1.3.1 requires PM `>=1.3.1 <2.0.0` at runtime so its
+dependency fixes are included.
 Import ProseMirror primitives from `@domternal/pm/*` to keep
 [one shared copy](https://domternal.dev/v1/guides/single-prosemirror-copy/).
 

@@ -14,8 +14,8 @@ integrations for Astro, Svelte, Solid, Lit, and Web Components.
 pnpm add @domternal/vanilla @domternal/core @domternal/theme
 ```
 
-The package declares Node.js 22 or later for tooling. Requires `@domternal/core >=1.3.0 <2.0.0`. Keep installed Domternal packages on the
-same release. The theme supplies the default styles.
+The package declares Node.js 22 or later for tooling. Requires `@domternal/core >=1.3.0 <2.0.0`.
+Use version 1.3.1 for all installed Domternal packages. The theme supplies the default styles.
 
 ## Quick start
 

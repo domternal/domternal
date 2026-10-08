@@ -19,7 +19,7 @@ For a new editor:
 pnpm add @domternal/core @domternal/pm @domternal/theme @domternal/extension-markdown
 ```
 
-For an existing editor, add `@domternal/extension-markdown`. Version 1.3.0 requires `@domternal/core` and `@domternal/pm` peers in `>=1.3.0 <2.0.0`. Keep installed Domternal Free packages on the same release.
+For an existing editor, add `@domternal/extension-markdown`. It requires `@domternal/core` and `@domternal/pm` peers in `>=1.3.0 <2.0.0`. Use version 1.3.1 for all installed Domternal Free packages.
 
 ## Quick start
 

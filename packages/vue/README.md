@@ -14,7 +14,7 @@ pnpm add @domternal/vue @domternal/core @domternal/theme vue
 ```
 
 The package declares Node.js 22 or later for tooling. Requires Vue 3.3 or later and `@domternal/core >=1.3.0 <2.0.0`.
-Keep installed Domternal packages on the same release. Import the theme once in
+Use version 1.3.1 for all installed Domternal packages. Import the theme once in
 your application for default styling.
 
 ## Quick start

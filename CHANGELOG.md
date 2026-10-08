@@ -1,21 +1,23 @@
 # Changelog
 
-## Unreleased
+## 1.3.1 (2026-10-08)
 
 ### Fixes
 
-- Restore array-valued default protocol options on LinkPopover while retaining the public option types and configuration forms introduced in 1.3.0. An unconfigured LinkPopover continues to follow the Link policy; explicit protocol settings narrow it. Link protocol validation notices in-place changes to configured scheme lists.
-- Accept `Heading.configure({ levels: [] })` again, including through StarterKit and server-side helpers. An empty list offers no heading commands or parsing rules, while existing heading nodes retain the legacy `h1` rendering fallback.
-- Keep published workspace runtime dependencies at least at the package's own patch version, so a future Core patch cannot retain an older PM package that lacks its security fixes. Peer dependency ranges keep their minor-version compatibility floor.
-- Require `prosemirror-view` at least 1.42.3 and `markdown-it` at least 14.3.1 in the published dependency ranges, addressing [GHSA-c8x8-7fp4-3x9w](https://github.com/advisories/GHSA-c8x8-7fp4-3x9w) and [GHSA-253c-mchw-3w2r](https://github.com/advisories/GHSA-253c-mchw-3w2r). The workspace resolves 1.42.6 and 14.3.2 respectively.
+- Restore array-valued default protocol options on LinkPopover while retaining the public option types and configuration forms introduced in 1.3.0. An unconfigured LinkPopover continues to follow the Link policy; explicit protocol settings narrow it. Link protocol validation notices in-place changes to configured scheme lists. (#191)
+- Accept `Heading.configure({ levels: [] })` again, including through StarterKit and server-side helpers. An empty list offers no heading commands or parsing rules, while existing heading nodes retain the legacy `h1` rendering fallback. Normalizing a heading already at that fallback produces no further change or diagnostic. (#191)
+- Keep published workspace runtime dependencies at least at the package's own patch version. Core 1.3.1 requires `@domternal/pm >=1.3.1 <2.0.0`, so updating Core cannot retain PM 1.3.0 without its dependency fixes. Peer ranges remain `>=1.3.0 <2.0.0`. (#191)
+- Require `prosemirror-view` at least 1.42.3 and `markdown-it` at least 14.3.1 in the published dependency ranges, addressing [GHSA-c8x8-7fp4-3x9w](https://github.com/advisories/GHSA-c8x8-7fp4-3x9w) and [GHSA-253c-mchw-3w2r](https://github.com/advisories/GHSA-253c-mchw-3w2r). The workspace resolves 1.42.6 and 14.3.2 respectively. (#191)
 
 ### Docs
 
-- Clarify protocol option compatibility and normalization before strict loaders consume documents saved by 1.2.0. Complete translation catalogs still require `core.linkPopover.invalidUrl`; applications can add its translation or use `Messages` for a partial catalog with English fallback. The 1.3 URL and style safeguards, content normalization and transaction callback contract remain in effect; these fixes do not restore every 1.2 behavior.
+- Clarify protocol option compatibility and normalization before strict loaders consume documents saved by 1.2.0. Complete translation catalogs still require `core.linkPopover.invalidUrl`; applications can add its translation or use `Messages` for a partial catalog with English fallback. The 1.3 URL and style safeguards, content normalization and transaction callback contract remain in effect; these fixes do not restore every 1.2 behavior. (#191)
+- Update package READMEs and upgrade guidance for the coordinated 1.3.1 release, distinguishing the unchanged peer range from Core's runtime PM dependency floor.
 
 ### Internal
 
-- Add the existing Paste Cleanup dependency to each demo's TypeScript project references, so local Nx typechecks pass their project synchronization check.
+- Add the existing Paste Cleanup dependency to each demo's TypeScript project references, so local Nx typechecks pass their project synchronization check. (#191)
+- Cover custom heading HTML parsers with empty and non-empty level lists, including the level 1 fallback.
 
 ## 1.3.0 (2026-10-08)
 
