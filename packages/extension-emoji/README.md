@@ -3,86 +3,99 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-emoji.svg)](https://www.npmjs.com/package/@domternal/extension-emoji)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Inline emoji for the [Domternal](https://domternal.dev) editor. Adds an atom
-`emoji` node with `:shortcode:` input rules, optional emoticon shortcuts (`:)`,
-`<3`), and a **headless** suggestion plugin that powers autocomplete dropdowns on
-a `:` trigger. Ships a curated ~200-emoji dataset (`emojis`) plus an extended
-~500-emoji set (`allEmojis`), the `emoticons` mapping table, built-in frequency
-tracking, and a framework-free vanilla DOM renderer. No external suggestion library
-required.
+Emoji input for the [Domternal](https://domternal.dev) editor: `:shortcode:`
+conversion, optional emoticons, and an autocomplete dropdown. Includes two emoji
+datasets, frequency tracking, and a DOM suggestion renderer. Use structured emoji
+nodes or insert plain Unicode text.
 
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/nodes/emoji)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+[Documentation](https://domternal.dev/v1/nodes/emoji/) · [Live examples](https://domternal.dev/examples/)
 
 ## Install
 
+The package declares Node.js 22 or later for tooling.
+
 ```bash
-pnpm add @domternal/extension-emoji
+pnpm add @domternal/core @domternal/pm @domternal/extension-emoji @domternal/theme
 ```
 
-`@domternal/core` and `@domternal/pm` are peer dependencies (installed with the
-editor itself).
+Requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`.
+The theme styles the suggestion dropdown; you can supply your own styles instead.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+## Quick start
 
-## Usage
+Add a host, then run the TypeScript after it is mounted in a browser app that
+supports CSS imports:
+
+```html
+<div class="dm-editor"><div id="editor"></div></div>
+```
 
 ```ts
-import { Editor, Document, Text, Paragraph } from '@domternal/core';
-import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
+import { Editor, StarterKit } from '@domternal/core';
+import {
+  Emoji,
+  emojis,
+  createEmojiSuggestionRenderer,
+} from '@domternal/extension-emoji';
+import '@domternal/theme';
 
 const editor = new Editor({
+  element: document.getElementById('editor')!,
   extensions: [
-    Document,
-    Text,
-    Paragraph,
+    StarterKit,
     Emoji.configure({
       emojis,
       enableEmoticons: true,
       suggestion: { render: createEmojiSuggestionRenderer() },
     }),
   ],
-  content: '<p>Type :smile: or :) to insert an emoji.</p>',
+  content: '<p>Try typing :smile: or an emoticon followed by a space.</p>',
 });
 ```
 
-Typing `:smile:` converts to an emoji node as soon as the closing colon lands. With
-`enableEmoticons: true`, emoticons like `:)` and `<3` convert on the space typed after
-them, and that space is kept. Neither rule fires inside a code block or inline code.
-Typing `:` followed by a name opens the suggestion dropdown (when a `render` factory is
-provided).
+Type `:` and a name to open suggestions. Use arrow keys to navigate, `Enter` to
+insert, and `Escape` to dismiss. A complete shortcode such as `:smile:` converts
+when its closing colon is typed. With emoticons enabled, `:)` or `<3` converts on
+the following space, which is kept. These input rules do not run in code blocks or
+inline code, and do not convert text already in the initial content.
 
-> The default suggestion dropdown is styled by `@domternal/theme`
-> (`_emoji-picker.scss`, via the `dm-emoji-suggestion` classes). Import the theme,
-> or supply your own `render` factory if you want fully custom markup.
+Call `editor.destroy()` when removing the editor.
 
 ## Commands
 
 ```ts
-editor.commands.insertEmoji('fire'); // insert by EmojiItem name (not shortcode)
-editor.commands.suggestEmoji();        // inserts the ':' trigger to open the picker (requires suggestion configured)
+editor.chain().focus().insertEmoji('fire').run();
+editor.chain().focus().suggestEmoji().run();
 ```
 
-## Options
+`insertEmoji()` takes a dataset name, not a colon-delimited shortcode.
+`suggestEmoji()` inserts the trigger and requires `suggestion` to be configured.
+A compatible toolbar's emoji button emits an `insertEmoji` event: connect that
+event to `suggestEmoji()` or your own picker. See the
+[toolbar integration](https://domternal.dev/v1/nodes/emoji/#toolbar-items).
 
-- `emojis` - dataset to use. Defaults to the built-in ~200 popular emoji; pass
-  `allEmojis` for the extended ~500-emoji set, or your own `EmojiItem[]`.
-- `enableEmoticons` - convert text emoticons like `:)` and `<3`. Default `false`.
-- `plainText` - insert the raw emoji character instead of an atom node. Default `false`.
-- `suggestion` - `SuggestionOptions` for the autocomplete picker, or `null` to disable. Default `null`.
-- `toolbar` - show the emoji button in the toolbar. Default `true`.
-- `HTMLAttributes` - attributes applied to the rendered emoji `span`.
+## Options and custom UI
 
-For a custom picker, drive the headless plugin directly with `createSuggestionPlugin`
-and read its state via `emojiSuggestionPluginKey`. The `Emoji` storage also exposes
-`searchEmoji`, `findEmoji`, `getFrequentlyUsed`, and `addFrequentlyUsed`.
+| Option | Default | Use |
+| --- | --- | --- |
+| `emojis` | `emojis` | Use the curated dataset, the larger exported `allEmojis`, or your own `EmojiItem[]`. |
+| `enableEmoticons` | `false` | Convert shortcuts such as `:)` and `<3`. |
+| `plainText` | `false` | Insert Unicode text instead of an emoji atom node. |
+| `suggestion` | `null` | Enable autocomplete and provide a renderer. Without it, shortcode input still works. |
+| `toolbar` | `true` | Contribute the emoji toolbar button. |
+| `HTMLAttributes` | `{}` | Attributes on serialized emoji spans. |
+
+For custom suggestions, supply a `render` factory through `suggestion`. Storage at
+`editor.storage.emoji` exposes `searchEmoji`, `findEmoji`, `getFrequentlyUsed`, and
+`addFrequentlyUsed`. The lower-level `createSuggestionPlugin` and
+`emojiSuggestionPluginKey` are also exported. See the
+[suggestion reference](https://domternal.dev/v1/nodes/emoji/#suggestion-plugin)
+for the renderer lifecycle and options.
 
 ## Localization
 
-This package exports `emojiMessages` for typed custom catalogs. Optional German UI
-messages are available from `@domternal/extension-emoji/locales/de` as `deMessages` and
-`deSearchAliases`. Merge them with the core and other enabled feature catalogs. Missing
-entries fall back to English. Emoji names, shortcodes, and custom dataset labels remain
-application-owned.
+`emojiMessages` provides typed message keys. German `deMessages` and
+`deSearchAliases` are exported from `@domternal/extension-emoji/locales/de`.
+See the [localization guide](https://domternal.dev/v1/guides/i18n/) for combining
+catalogs. Missing messages fall back to English; emoji names, shortcodes, and
+custom dataset labels remain application-owned.

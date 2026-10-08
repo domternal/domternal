@@ -3,15 +3,9 @@
 [![Version](https://img.shields.io/npm/v/@domternal/vue.svg)](https://www.npmjs.com/package/@domternal/vue)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Vue 3 bindings for the [Domternal](https://domternal.dev) editor. Provides the composable
-`Domternal` component with namespaced subcomponents, the `useEditor` and `useEditorState`
-composables for full control, provide/inject helpers for sharing one editor across descendants,
-and `VueNodeViewRenderer` for writing custom node views as Vue SFCs. SSR-safe by default: the
-editor is created in `onMounted`. Requires Vue 3.3+ and the Composition API.
-
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/guides/vue)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+Vue 3 components and composables for the [Domternal](https://domternal.dev) rich
+text editor. Includes toolbar and menu components, `v-model` support, reactive
+editor state, and custom node views written as Vue components.
 
 ## Install
 
@@ -19,16 +13,13 @@ editor is created in `onMounted`. Requires Vue 3.3+ and the Composition API.
 pnpm add @domternal/vue @domternal/core @domternal/theme vue
 ```
 
-`vue` (>=3.3) and `@domternal/core` (>=1.2.0 <2.0.0) are peer dependencies. `@domternal/theme`
-supplies the editor styles.
+The package declares Node.js 22 or later for tooling. Requires Vue 3.3 or later and `@domternal/core >=1.3.0 <2.0.0`.
+Keep installed Domternal packages on the same release. Import the theme once in
+your application for default styling.
 
-This package is part of the coordinated Domternal 1.2.0 release.
-Upgrade installed `@domternal/*` packages together.
+## Quick start
 
-## Usage
-
-Composable component pattern (recommended): `Domternal` creates the editor and provides it to all
-subcomponents via inject, so children need no `editor` prop.
+Use the composable component to arrange the toolbar, content, and menus:
 
 ```vue
 <script setup lang="ts">
@@ -48,103 +39,57 @@ const extensions = [StarterKit, BubbleMenu];
 </template>
 ```
 
-### Composable hook
+`Domternal` creates the editor, provides it to descendants, and destroys it on
+unmount. The toolbar renders controls contributed by the loaded extensions.
 
-Use `useEditor` directly when you need the editor instance, then read reactive state with
-`useEditorState`:
+## Bind content with v-model
+
+Use `DomternalEditor` when the document should bind to application state:
 
 ```vue
 <script setup lang="ts">
-import { useEditor, useEditorState, provideEditor, DomternalToolbar } from '@domternal/vue';
-import { StarterKit } from '@domternal/core';
+import { ref } from 'vue';
+import { DomternalEditor } from '@domternal/vue';
+import { StarterKit, type Content } from '@domternal/core';
 
-const { editor, editorRef } = useEditor({
-  extensions: [StarterKit],
-  content: '<p>Start typing...</p>',
-  onUpdate: ({ editor }) => console.log(editor.getHTML()),
-});
-
-provideEditor(editor);
-
-const { htmlContent, isEmpty } = useEditorState(editor);
+const extensions = [StarterKit];
+const content = ref<Content>('<p>Start typing...</p>');
 </script>
 
 <template>
-  <DomternalToolbar />
-  <div class="dm-editor">
-    <div ref="editorRef" />
-  </div>
+  <DomternalEditor v-model="content" :extensions="extensions" />
 </template>
 ```
 
-`useEditor` returns `editor` (a `ShallowRef<Editor | null>`, null until mounted unless
-`immediatelyRender` is set) and `editorRef` (bind to the mount element). `useEditorState`
-returns `htmlContent`, `jsonContent`, `isEmpty`, `isFocused`, and `isEditable`, or pass a
-selector for a granular `ComputedRef`:
+The model holds HTML by default. Set `outputFormat="json"` and initialize it with
+JSON content to bind JSON instead.
 
-```ts
-const isBold = useEditorState(editor, (ed) => ed.isActive('bold'));
-```
+For full control, `useEditor` returns `editor`, a `ShallowRef<Editor | null>`, and
+`editorRef`, which you bind to the mount element. Use `provideEditor(editor)` to
+share it and `useEditorState(editor, ed => ed.isActive('bold'))` for derived state.
+See the [composable example](https://domternal.dev/v1/guides/vue/#composable-hook-pattern-full-control).
 
-## Options
+## Configuration notes
 
-`useEditor(options)` takes:
+- The wrapper includes `Document`, `Paragraph`, `Text`, `BaseKeymap`, and `History`.
+  `StarterKit` adds common formatting.
+- `Domternal` and `DomternalEditor` do **not** forward a `history` prop. To use
+  another undo manager, call `useEditor({ history: false, extensions })` and omit
+  History from those extensions as well. See [disabling history](https://domternal.dev/v1/extensions/history/#disabling-the-built-in-history).
+- Creation happens in `onMounted`, so the editor is `null` during SSR and initial
+  setup. Leave `immediatelyRender` off for SSR; see [Nuxt integration](https://domternal.dev/v1/guides/vue/#ssr-nuxt).
+- `editable` controls read-only mode. `preset="notion"` is read at creation.
+  Replace `i18n` to update UI translations without recreating the editor.
+- `onContentError` reports invalid initial content; `onContentDiagnostic` reports
+  normalized content values. The [Vue guide](https://domternal.dev/v1/guides/vue/#options)
+  documents callback options; the [Editor API](https://domternal.dev/v1/guides/editor-api/#content-diagnostics)
+  explains diagnostics.
+- Custom `icons` contain raw SVG. Supply trusted, developer-authored constants.
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `extensions` | `AnyExtension[]` | `[]` | Extensions to load on top of `DEFAULT_EXTENSIONS`. |
-| `history` | `boolean` | `true` | Whether the built-in History extension is loaded. Turn it off when an extension brings its own undo. |
-| `content` | `Content` | `''` | Initial content, HTML string or JSON. |
-| `editable` | `boolean` | `true` | Whether the editor is editable. |
-| `i18n` | `I18nOptions` | `{}` | UI translations and formatting. Replacing the object updates the existing editor without changing authored content. |
-| `preset` | `'classic' \| 'notion'` | `'classic'` | `'notion'` paints `dm-notion-mode` on the `.dm-editor` host and switches preset-aware extensions to their Notion behavior. Create-time only. |
-| `autofocus` | `FocusPosition` | `false` | Where to place the caret on mount. |
-| `outputFormat` | `'html' \| 'json'` | `'html'` | Format used when comparing incoming content against the document. |
-| `immediatelyRender` | `boolean` | `false` | Create the editor during setup instead of in `onMounted`. Not SSR-safe. |
+## Further reading
 
-`onCreate`, `onUpdate`, `onSelectionChange`, `onFocus`, `onBlur`, and `onDestroy` callbacks are
-accepted alongside them. `<Domternal>` and `<DomternalEditor>` take the same options as props,
-except `history`: their prop lists are fixed, so `:history="false"` never reaches the composable.
-Call `useEditor({ history: false })` with `provideEditor` instead.
-`onUpdate` (and `v-model`) follows the core `update` event: it runs after every accepted change to the document,
-including a change a plugin appended to a selection move, and never for a transaction a plugin
-vetoed or a programmatic write that skips updates. `onSelectionChange` follows the core `selectionUpdate`
-event: it runs when the selection moved without the move itself changing the document, before `onUpdate` when a
-plugin answered the move with a change, such as a click that TrailingNode answers with a paragraph.
-
-`onContentError` and `onContentDiagnostic` (`@content-error` and `@content-diagnostic` on the
-components) report what loading content changed. `onContentError` receives
-`{ editor, error, content }` when the initial content does not match the schema, so the editor
-starts empty. `onContentDiagnostic` receives `{ editor, source, diagnostics, total }` when content
-loaded with replaced values, such as an unknown list marker that became the default marker or a
-heading level the configuration lacks that became the nearest configured level. The report for
-the initial content arrives once the editor is ready, before `onCreate`. Later reports come from
-`setContent`, including a changed `v-model` or watched `content`, `insertContent`, and
-`normalizeContentAttributes`. With `outputFormat: 'json'`, incoming content that equals the
-document once such values are replaced and refused links removed leaves the document and
-selection alone.
-
-Toolbar, bubble-menu, and floating-menu `icons` props accept raw SVG through `IconSet`.
-Use only trusted, developer-authored constants. Never build an `IconSet` from user input,
-persisted document content, or an API response.
-
-The wrapper has no locale subpath. Import `I18nOptions` from `@domternal/core`, and import
-`deMessages` and `deSearchAliases` from `@domternal/core/locales/de` for its built-in
-toolbar, menus, and pickers. Merge locale entries from any loaded extensions. Missing
-messages fall back to English. See the
-[i18n guide](https://domternal.dev/v1/guides/i18n) for complete examples.
-
-## Exports
-
-- **Composables**: `useEditor`, `useEditorState` (full state or a granular selector),
-  `useCurrentEditor`, `provideEditor`, `useNotionColorPicker`
-- **Constants**: `DEFAULT_EXTENSIONS`, `EDITOR_KEY`
-- **Composable component**: `Domternal` with `Domternal.Toolbar`, `Domternal.Content`,
-  `Domternal.BubbleMenu`, `Domternal.FloatingMenu`, `Domternal.EmojiPicker`, `Domternal.Loading`
-- **Components**: `DomternalEditor` (supports `v-model`), `EditorContent`, `DomternalToolbar`,
-  `DomternalBubbleMenu`, `DomternalFloatingMenu`, `DomternalEmojiPicker`,
-  `DomternalNotionColorPicker`
-- **Node views**: `VueNodeViewRenderer`, `NodeViewWrapper`, `NodeViewContent`, `useVueNodeView`
-- **Core re-exports**: the `Editor` class plus the `Content`, `AnyExtension`, `FocusPosition`,
-  and `JSONContent` types
-- **SSR helpers** (re-exported from core, work without an editor instance): `generateHTML`, `generateJSON`, `generateText`
+- [Vue guide and component reference](https://domternal.dev/v1/guides/vue/)
+- [Editor commands and content API](https://domternal.dev/v1/guides/editor-api/)
+- [Theming](https://domternal.dev/v1/guides/theming/) and [localization with `i18n`](https://domternal.dev/v1/guides/i18n/#vue)
+- [Optional clipboard HTML cleanup](https://domternal.dev/v1/extensions/paste-cleanup/)
+- [Custom Vue node views](https://domternal.dev/v1/guides/vue/#custom-node-views)

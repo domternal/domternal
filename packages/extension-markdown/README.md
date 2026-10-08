@@ -3,72 +3,112 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-markdown.svg)](https://www.npmjs.com/package/@domternal/extension-markdown)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Bidirectional Markdown for the [Domternal](https://domternal.dev) editor: parse GitHub-flavored Markdown into the document and serialize the document back to Markdown, covering the full Notion-style schema.
+Import and export GitHub-flavored Markdown in [Domternal](https://domternal.dev). Convert Markdown pastes into rich content, insert or replace documents through commands, and export `.md` files with warnings for content Markdown cannot represent.
 
-- **Import**: `insertMarkdown` / `setMarkdownContent` commands, plus automatic conversion of Markdown-looking plain-text pastes (opt-out).
-- **Export**: `getMarkdown(editor)` and a `downloadMarkdown` helper, with a warning channel for anything Markdown cannot express (alignment, colors, explicit list markers, merged table cells).
-- **Headless**: `parseMarkdown` / `serializeMarkdown` work against any schema without an editor instance.
-- Coverage: headings, lists (bullet, ordered with start, GFM task lists), blockquotes, fenced code with language, tables with column alignment, images, links and autolinks, bold/italic/strike/inline code, hard breaks, LaTeX math (`$...$`, `$$` blocks, and GitHub's `` $`...`$ `` and `math` fences), emoji glyphs.
+Part of **Domternal Free**, MIT licensed. Supports headings, lists and task lists, blockquotes, code, tables, images, links, common marks and math when their corresponding extensions are installed. Parsing and serialization are also available without an editor instance.
 
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/extensions/markdown)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+[Documentation](https://domternal.dev/v1/extensions/markdown/) · [Live examples](https://domternal.dev/examples) · [Source](https://github.com/domternal/domternal/tree/main/packages/extension-markdown/src)
 
 ## Install
 
+The package declares Node.js 22 or later for tooling.
+
+For a new editor:
+
 ```bash
-pnpm add @domternal/extension-markdown
+pnpm add @domternal/core @domternal/pm @domternal/theme @domternal/extension-markdown
 ```
 
-`@domternal/core` and `@domternal/pm` are peer dependencies.
+For an existing editor, add `@domternal/extension-markdown`. Version 1.3.0 requires `@domternal/core` and `@domternal/pm` peers in `>=1.3.0 <2.0.0`. Keep installed Domternal Free packages on the same release.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+## Quick start
 
-## Usage
+Add the editor and export button to your page:
+
+```html
+<div id="editor" class="dm-editor"></div>
+<button id="export-markdown" type="button">Export Markdown</button>
+```
+
+Initialize the editor in your application's browser entry point:
 
 ```ts
-import { Editor } from '@domternal/core';
-import { Markdown, getMarkdown, downloadMarkdown } from '@domternal/extension-markdown';
+import { Editor, StarterKit } from '@domternal/core';
+import {
+  Markdown,
+  getMarkdown,
+  downloadMarkdown,
+} from '@domternal/extension-markdown';
+import '@domternal/theme';
 
 const editor = new Editor({
-  extensions: [/* your extensions */, Markdown],
+  element: document.getElementById('editor')!,
+  extensions: [StarterKit, Markdown],
 });
 
-// Import
-editor.commands.insertMarkdown('## Hello\n\n- [x] done\n- [ ] open');
-editor.commands.setMarkdownContent('# Fresh document');
-// A second argument takes SetContentOptions, e.g. to replace without firing `update`
-editor.commands.setMarkdownContent('# Silent replace', { emitUpdate: false });
+// Replace the document, then insert at the selection.
+editor.commands.setMarkdownContent('# Notes\n\nStart writing here.');
+editor.commands.insertMarkdown('**Hello** from Markdown.');
 
-// Export
+// Serialize without downloading.
 const { markdown, warnings } = getMarkdown(editor);
-// downloadMarkdown saves the file and returns the same result, warnings included
-const saved = downloadMarkdown(editor, 'notes.md');
+console.log(markdown, warnings);
+
+const exportButton = document.getElementById('export-markdown')!;
+
+function exportMarkdown(): void {
+  const result = downloadMarkdown(editor, 'notes.md');
+  console.log(result.warnings);
+}
+
+exportButton.addEventListener('click', exportMarkdown);
+
+// Call this when your application removes the editor.
+function destroyEditor(): void {
+  exportButton.removeEventListener('click', exportMarkdown);
+  editor.destroy();
+}
 ```
 
-Markdown-looking plain-text pastes convert automatically. Syntax-highlighted source copies, such as Markdown copied from VS Code, convert too when their HTML contains only source wrappers (`pre`, `div`, `span`, `br`), preserves whitespace, and matches the clipboard's plain text. HTML display formatting may expand tabs, but the original Markdown and its indentation are used for parsing. HTML with rich-text elements or editor metadata, copied editor code blocks, plain prose, and pastes into code blocks keep their usual handling. Markdown that parses to nothing visible, such as `---` in an editor without a horizontal rule, a fence opener or an empty heading, pastes as the text it was. In a text-only block its blocks cannot leave, inside a parent that takes no block beside it, such as a details summary, one line that parses as a paragraph or heading joins the block as its text, and one that parses as anything else, such as a list item or a code block, pastes as the text it was. Several lines there go where the block's node places pasted blocks through `@domternal/core/clipboard`, in the paste's own transaction: with Details, into the details content, which opens. Without such a node they paste as the text they were. A textblock whose parent takes blocks after it, such as a title the document starts with, takes converted Markdown as any block does. Disable with `Markdown.configure({ paste: false })`. The test the plugin applies is exported as `looksLikeMarkdown(text)`, so a handler that takes over the paste path can reuse the same heuristic.
+`insertMarkdown` merges a single paragraph at the cursor and inserts larger content as blocks. `setMarkdownContent` replaces the entire document and accepts `SetContentOptions`, for example `{ emitUpdate: false }` as its second argument. `downloadMarkdown` starts a browser download and returns the same `{ markdown, warnings }` result as `getMarkdown`.
 
-Headings follow the editor's `Heading` `levels`, as HTML and JSON content do. Import places a
-level the configuration lacks at the nearest configured level, so with levels 1 to 4 a
-`#####` heading becomes a level 4 heading, and export writes each heading at the level it
-renders at, so the Markdown matches `getHTML()` even for a level stored by a collaborator
-configured with more levels. A heading node that does not use `Heading`'s level rules keeps
-the level as written. A heading where one cannot stand, such as `- # Title` at the start of a
-list item, whose first block is a paragraph, imports as that item's text, as HTML does, so the
-item holds no empty paragraph before a heading.
+StarterKit covers basic text, headings, lists and marks. Add extensions for tables, images, math or other content you need. The parser adapts to the schema: unavailable features fall back to readable content where possible. Typing shortcuts come from individual extensions and do not require this package.
+
+## Markdown paste
+
+Markdown-looking plain text converts automatically. Matching syntax-highlighted source copies, such as a `.md` file copied from VS Code, convert too. Rich HTML, ordinary prose, bare URLs and pastes into code blocks keep their usual handling. Markdown that produces no visible content falls back to its literal text.
+
+Use `Markdown.configure({ paste: false })` to disable conversion. Custom paste handlers can reuse `looksLikeMarkdown(text)`. With [PasteCleanup](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/README.md), input and markup-token limits run before Markdown expands the text; rejected pastes insert nothing. Neither package imports DOCX files. The [paste guide](https://domternal.dev/v1/extensions/markdown/#markdown-paste) explains source HTML matching, constrained destinations and handler ordering.
 
 ## Options
 
-| Option | Default | Description |
+| Option | Default | Purpose |
 | --- | --- | --- |
-| `paste` | `true` | Convert Markdown-looking plain-text pastes into rich content. |
-| `tightLists` | `true` | Serialize lists without blank lines between items. |
-| `specs` | `null` | Extra or replacement Markdown mappings for custom nodes and marks. |
+| `paste` | `true` | Convert Markdown-looking plain text and matching source copies on paste. |
+| `tightLists` | `true` | Export lists without blank lines between items. |
+| `specs` | `null` | Add or replace serializer mappings for custom nodes and marks. |
 
-## Headless usage
+## Export warnings and fidelity
+
+Always inspect `warnings` when export fidelity matters. Each warning has `code`, `message` and an optional `nodeType`; distinct losses are deduplicated per export.
+
+| Code | Meaning |
+| --- | --- |
+| `unsupported-node` | An unmapped node is flattened to its content; a leaf without serializable content is omitted. |
+| `unsupported-mark` | Unsupported formatting is dropped while text remains. |
+| `lossy-attribute` | An attribute cannot be represented, such as alignment, explicit list markers or image dimensions. |
+| `lossy-structure` | Structure is simplified, such as merged cells, details blocks or mentions. |
+
+Markdown cannot retain every editor feature. Colors, underline, line height, cell styling and complex tables can lose information. Generated table-of-contents blocks and images without an allowed source are omitted with warnings. Supported content round-trips through the document model; serialization may normalize the original Markdown spelling.
+
+Headings follow the destination's configured levels. Links and images follow its URL policy on import and export. Math needs the math nodes and uses guarded GitHub/GitLab forms when ordinary dollar delimiters would be ambiguous. See the [detailed guide](https://domternal.dev/v1/extensions/markdown/) for mappings, escaping, math, heading rules and [custom serializers](https://domternal.dev/v1/extensions/markdown/#custom-nodes-and-marks).
+
+## Parse and serialize without an editor
+
+Supply a ProseMirror schema. This complete example uses a minimal text-only schema:
 
 ```ts
+import { Schema } from '@domternal/pm/model';
 import {
   parseMarkdown,
   serializeMarkdown,
@@ -76,72 +116,25 @@ import {
   createMarkdownSerializer,
 } from '@domternal/extension-markdown';
 
-const doc = parseMarkdown('# Title', schema);
+const schema = new Schema({
+  nodes: {
+    doc: { content: 'block+' },
+    paragraph: { group: 'block', content: 'inline*' },
+    text: { group: 'inline' },
+  },
+});
+
+const doc = parseMarkdown('Hello Markdown.', schema);
 const { markdown, warnings } = serializeMarkdown(doc);
 
-// Both one-shot helpers rebuild their machinery on every call. Build the
-// instances once when converting repeatedly.
+// Reuse these instances when converting repeatedly.
 const parser = createMarkdownParser(schema);
 const serializer = createMarkdownSerializer();
-const result = serializer.serialize(parser.parse('# Title'));
+const result = serializer.serialize(parser.parse('Another paragraph.'));
 ```
 
-With the extension loaded the editor already holds one of each at
-`editor.storage.markdown.parser` and `editor.storage.markdown.serializer`, so a
-companion package can reuse them instead of building its own.
-
-Custom nodes without a mapping degrade gracefully: content is preserved as plain text and a warning is reported instead of failing. Custom mappings plug in via `Markdown.configure({ specs })` or the `specs` option of `serializeMarkdown`.
-
-## Links and images
-
-Markdown follows the same URL policy as the editor (`checkUrl` and `isSupportedAttributeValue` from
-`@domternal/core`), so an import or export never carries an address the editor itself would not
-store or render.
-
-- Parsing opens a link only for an href the schema's `Link` keeps with its `protocols` and
-  `allowRelative`: `[a](#intro)` and `[a](/docs/page)` become links by default, while
-  `[a](ftp://x)`, `[a](//host/x)`, `[a](data:image/png;base64,...)` and a link with credentials
-  keep their text without a link. An image whose source the `Image` would not load, such as a
-  `data:` image with `allowBase64: false`, keeps its alternative text. markdown-it's own check still refuses `javascript:`, `vbscript:` and `file:`
-  first. Markdown pastes behave the same.
-- Serializing writes a link the editor would not render, such as a stored `javascript:` href or one
-  a collaborator wrote, as its text with a `lossy-attribute` warning, and omits such an image with
-  an `unsupported-node` warning. An allowed href is written in its cleaned spelling.
-- Destinations write an `&` that starts a character reference, such as `&colon;` or `&#106;`, as
-  `&amp;`: renderers decode it once into the stored `&`, so the reference stays text and a query
-  such as `?q=x&copy;y` keeps its meaning. They also percent-encode `<`, `>` and every space, a
-  Unicode one such as U+00A0 or U+3000 too, which some renderers read as the end of the
-  destination (`%3C`, `%3E`, `%20`, `%E3%80%80`), and escape `\`, `(`, `)` and `"` with a backslash.
-  Titles are written on one line, with `\`, `"`, `<` and `>` escaped with a backslash and an `&`
-  that starts a character reference written as `&amp;`, as in destinations, so every renderer,
-  marked included, shows the stored title.
-- The `<url>` autolink form is used only for `http:`, `https:` and `mailto:` links whose text is
-  their href; any other link, such as `tel:`, is written as `[text](href)`.
-
-## Math
-
-Inline math is written as `$latex$` and block math between `$$` lines. LaTeX is written as it is
-stored, so when it holds something that could end the math early or read as Markdown in a renderer
-without math, the serializer uses the forms GitHub and GitLab read as math instead, which no LaTeX
-can close and every other renderer shows as code:
-
-- inline math as `` $`latex`$ `` (with a longer backtick run when the LaTeX holds backticks) when it
-  holds a `$`, a backtick, a `<` that opens a tag, comment or autolink (an email autolink such as
-  `<1@example.com>` too, whose first character need not be a letter), a `](` or `][`, a space at
-  either end or a `\` at the end, or when a digit follows it, which parsers take for currency.
-  Line breaks are written as spaces, as TeX reads them in math;
-- block math as a `math` code fence when it holds a `$$`, a backtick, a `<` that opens a tag or
-  autolink, a `](` or `][`, a `]:`, which ends the label of every link reference definition, also
-  one in a quote or a list item, that any `[label]` of the export would link to, or a line that
-  starts with `~~~`.
-
-Empty inline math is omitted with a `lossy-structure` warning. The parser reads both forms back into
-the math nodes; a `math` fence becomes block math only when the schema has it.
-
-## Fidelity notes
-
-Markdown cannot express everything the editor can. The serializer keeps the content and reports a warning for: text alignment and line height, an explicit list marker (`listStyleType`, such as `upper-roman` or `square`, written as `1.` or `-`), text and background colors, underline, merged table cells, multi-block table cells, table cell background and vertical alignment, image resize dimensions, toggle (details) structure, and mentions. Two cases drop the content instead of keeping it, each with its own warning: an image without a `src`, and a table of contents block (generated content). Round trips of the supported subset, which leaves out everything these warnings report, are exact and covered by tests.
+Use your application's schema to retain richer features. One-shot helpers rebuild their parser or serializer on each call. With the extension installed, `editor.storage.markdown.parser` and `.serializer` hold the configured instances after initialization. Custom export mappings work through `Markdown.configure({ specs })` or the `specs` option of `serializeMarkdown`.
 
 ## License
 
-MIT
+[MIT](https://github.com/domternal/domternal/blob/main/LICENSE)

@@ -3,15 +3,9 @@
 [![Version](https://img.shields.io/npm/v/@domternal/react.svg)](https://www.npmjs.com/package/@domternal/react)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-React components and hooks for the [Domternal](https://domternal.dev) editor. Wraps the headless
-[`@domternal/core`](https://www.npmjs.com/package/@domternal/core) editor with React-native APIs: a composable
-`Domternal` component with namespaced subcomponents, a `useEditor` hook for full control, an `EditorProvider`
-context, and `ReactNodeViewRenderer` for writing custom node views as React components. Works with React 18
-and React 19.
-
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/guides/react)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+React components and hooks for the [Domternal](https://domternal.dev) rich text editor.
+Compose an editor with a toolbar and menus, manage it with hooks, or render custom
+node views as React components.
 
 ## Install
 
@@ -19,30 +13,25 @@ and React 19.
 pnpm add @domternal/react @domternal/core @domternal/theme react react-dom
 ```
 
-`react` (>=18), `react-dom` (>=18), and `@domternal/core` (>=1.2.0 <2.0.0) are peer dependencies. Import the theme
-([`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)) in your entry CSS for default styling:
+The package declares Node.js 22 or later for tooling. Requires React and React DOM 18 or later, and `@domternal/core >=1.3.0 <2.0.0`.
+Keep installed Domternal packages on the same release. The theme supplies default
+styles; import it once in your application entry point.
 
-```css
-@import '@domternal/theme';
-```
-
-This package is part of the coordinated Domternal 1.2.0 release.
-Upgrade installed `@domternal/*` packages together.
-
-## Usage
-
-The recommended pattern uses the composable `Domternal` component. It creates the editor and provides it
-to every subcomponent via context, so no `editor` prop needs to be passed down:
+## Quick start
 
 ```tsx
 import { Domternal } from '@domternal/react';
 import { StarterKit, BubbleMenu } from '@domternal/core';
+import '@domternal/theme';
 
-export default function Editor() {
+const extensions = [StarterKit, BubbleMenu];
+
+export default function TextEditor() {
   return (
     <Domternal
-      extensions={[StarterKit, BubbleMenu]}
+      extensions={extensions}
       content="<p>Hello from React!</p>"
+      onUpdate={({ editor }) => console.log(editor.getHTML())}
     >
       <Domternal.Toolbar />
       <Domternal.Content />
@@ -52,87 +41,66 @@ export default function Editor() {
 }
 ```
 
-Need direct access to the editor instance? Use the `useEditor` hook and mount the view yourself:
+`Domternal` owns the editor lifecycle and shares the instance with its children.
+The toolbar renders controls contributed by your extensions. Keep `extensions`
+stable, for example at module scope or with `useMemo`: a changed array recreates
+the editor while preserving its content.
+
+## Working with the editor
+
+Use `useEditor` for direct access to commands and content. It returns an `editor`
+instance and an `editorRef` for the mount element, and cleans up on unmount:
 
 ```tsx
-import { useEditor, EditorProvider, DomternalToolbar } from '@domternal/react';
+import { useEditor, useEditorState } from '@domternal/react';
 import { StarterKit } from '@domternal/core';
 
-export default function Editor() {
+const extensions = [StarterKit];
+
+export function TextEditor() {
   const { editor, editorRef } = useEditor({
-    extensions: [StarterKit],
-    content: '<p>Hello</p>',
-    onUpdate: ({ editor }) => console.log(editor.getHTML()),
+    extensions,
+    content: '<p>Start typing...</p>',
   });
+  const isEmpty = useEditorState(editor, (ed) => ed.isEmpty);
 
   return (
-    <EditorProvider editor={editor}>
-      {editor && <DomternalToolbar />}
-      <div className="dm-editor">
-        <div ref={editorRef} />
-      </div>
-    </EditorProvider>
+    <>
+      <button type="button" onClick={() => editor?.chain().focus().toggleBold().run()}>
+        Bold
+      </button>
+      <div className="dm-editor"><div ref={editorRef} /></div>
+      <p>{isEmpty ? 'The document is empty.' : 'The document has content.'}</p>
+    </>
   );
 }
 ```
 
-## Options
+For shared controls, wrap descendants in `EditorProvider` and read the instance
+with `useCurrentEditor`. See the [React guide](https://domternal.dev/v1/guides/react/)
+for component props, selectors, custom node views, and additional menus.
 
-`useEditor(options, deps?)` and `<Domternal>` take the same options:
+## Configuration notes
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `extensions` | `AnyExtension[]` | `[]` | Extensions to load on top of `DEFAULT_EXTENSIONS`. |
-| `history` | `boolean` | `true` | Whether the built-in History extension is loaded. Turn it off when an extension brings its own undo. |
-| `content` | `Content` | `''` | Initial content, HTML string or JSON. Changing it syncs the editor. |
-| `editable` | `boolean` | `true` | Whether the editor is editable. |
-| `i18n` | `I18nOptions` | `{}` | UI translations and formatting. Replacing the object updates the existing editor without changing authored content. |
-| `preset` | `'classic' \| 'notion'` | `'classic'` | `'notion'` paints `dm-notion-mode` on the `.dm-editor` host and switches preset-aware extensions to their Notion behavior. Create-time only. |
-| `autofocus` | `FocusPosition` | `false` | Where to place the caret on mount. |
-| `outputFormat` | `'html' \| 'json'` | `'html'` | Format used when comparing the `content` prop against the document. |
-| `immediatelyRender` | `boolean` | `false` | Create the editor during the first render, so `editor` is never null. Throws in SSR. |
+- The wrapper includes `Document`, `Paragraph`, `Text`, `BaseKeymap`, and `History`.
+  `StarterKit` adds common formatting. To use another undo manager, disable the
+  wrapper's history with `history: false` and omit History from your extensions,
+  including [StarterKit's history](https://domternal.dev/v1/extensions/history/#disabling-the-built-in-history).
+- `content` accepts HTML or JSON. Changed values sync to the editor; use
+  `outputFormat="json"` for JSON comparison and `editor.getJSON()` for JSON output.
+  `editable` controls read-only mode. `preset="notion"` is read at creation.
+- Editor creation waits until the component mounts, so `editor` starts as `null`.
+  Keep the default `immediatelyRender: false` for SSR. Next.js App Router editor
+  components need `'use client'`; see [SSR setup](https://domternal.dev/v1/guides/react/#ssr-nextjs).
+- `onContentError` reports invalid initial content; `onContentDiagnostic` reports
+  normalized content values. See [content diagnostics](https://domternal.dev/v1/guides/editor-api/#content-diagnostics)
+  and [event behavior](https://domternal.dev/v1/guides/editor-api/#transaction-flow).
+- Custom `icons` contain raw SVG. Supply trusted, developer-authored constants.
 
-`onCreate`, `onUpdate`, `onSelectionChange`, `onFocus`, `onBlur`, and `onDestroy` callbacks are
-accepted alongside them. `<Domternal>` additionally takes `deps`, the dependency array
-`useEditor` reads as its second argument: change a value in it and the editor is rebuilt.
-`onUpdate` follows the core `update` event: it runs after every accepted change to the document,
-including a change a plugin appended to a selection move, and never for a transaction a plugin
-vetoed or a programmatic write that skips updates. `onSelectionChange` follows the core `selectionUpdate`
-event: it runs when the selection moved without the move itself changing the document, before `onUpdate` when a
-plugin answered the move with a change, such as a click that TrailingNode answers with a paragraph.
+## Further reading
 
-`onContentError` and `onContentDiagnostic` report what loading content changed. `onContentError`
-receives `{ editor, error, content }` when the initial content does not match the schema, so the
-editor starts empty. `onContentDiagnostic` receives `{ editor, source, diagnostics, total }` when
-content loaded with replaced values, such as an unknown list marker that became the default
-marker or a heading level the configuration lacks that became the nearest configured level. The
-report for the initial content arrives once the editor is ready, before `onCreate` (with
-`immediatelyRender`, after the first render instead of during it). Later reports come from
-`setContent`, including a changed `content` or `value`, `insertContent`, and
-`normalizeContentAttributes`, and reach the latest callback. With `outputFormat="json"`, a new
-`content` or `value` that equals the document once such values are replaced and refused links
-removed leaves the document and selection alone.
-
-Toolbar, bubble-menu, and floating-menu `icons` props accept raw SVG through `IconSet`.
-Use only trusted, developer-authored constants. Never build an `IconSet` from user input,
-persisted document content, or an API response.
-
-The wrapper has no locale subpath. Import `I18nOptions` from `@domternal/core`, and import
-`deMessages` and `deSearchAliases` from `@domternal/core/locales/de` for its built-in
-toolbar, menus, and pickers. Merge locale entries from any loaded extensions. Missing
-messages fall back to English. See the
-[i18n guide](https://domternal.dev/v1/guides/i18n) for complete examples.
-
-## Exports
-
-- **Hooks**: `useEditor`, `useEditorState` (full state or a granular selector), `useCurrentEditor`,
-  `useNotionColorPicker`
-- **Constants**: `DEFAULT_EXTENSIONS`
-- **Composable component**: `Domternal` with `Domternal.Toolbar`, `Domternal.Content`, `Domternal.BubbleMenu`,
-  `Domternal.FloatingMenu`, `Domternal.EmojiPicker`, `Domternal.Loading`
-- **Components**: `DomternalEditor`, `EditorContent`, `DomternalToolbar`, `DomternalBubbleMenu`,
-  `DomternalFloatingMenu`, `DomternalEmojiPicker`, `DomternalNotionColorPicker`, `EditorProvider`
-- **Node views**: `ReactNodeViewRenderer`, `NodeViewWrapper`, `NodeViewContent`, `useReactNodeView`
-- **Core re-exports**: the `Editor` class plus the `Content`, `AnyExtension`, `FocusPosition`,
-  and `JSONContent` types
-- **SSR helpers** (re-exported from core, work without an editor instance): `generateHTML`, `generateJSON`, `generateText`
+- [React guide and component reference](https://domternal.dev/v1/guides/react/)
+- [Editor commands and content API](https://domternal.dev/v1/guides/editor-api/)
+- [Theming](https://domternal.dev/v1/guides/theming/) and [localization with `i18n`](https://domternal.dev/v1/guides/i18n/#react)
+- [Optional clipboard HTML cleanup](https://domternal.dev/v1/extensions/paste-cleanup/)
+- [Custom React node views](https://domternal.dev/v1/guides/react/#custom-node-views)

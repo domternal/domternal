@@ -3,32 +3,31 @@
 [![Version](https://img.shields.io/npm/v/@domternal/vanilla.svg)](https://www.npmjs.com/package/@domternal/vanilla)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Framework-free DOM components for the [Domternal](https://domternal.dev) editor.
-Most are classes you instantiate against a host element: `DomternalEditor`,
-`DomternalToolbar`, `DomternalBubbleMenu`, `DomternalFloatingMenu`, and
-`DomternalEmojiPicker`. `DomternalNotionColorPicker` is the exception: it takes only an
-options object and resolves its own `.dm-editor` host from the editor. Every class extends
-`EventTarget`, exposes plain getters and mutator methods, dispatches `CustomEvent`s for state
-changes, and tears down with an idempotent `destroy()`. Use it in Astro, Svelte, Solid,
-Lit, Web Components, or plain HTML - anywhere without a framework runtime.
-
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/guides/vanilla)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+Framework-free DOM components for the [Domternal](https://domternal.dev) rich text
+editor. Mount an editor, toolbar, and menus on ordinary elements, with getters,
+methods, and `CustomEvent` subscriptions. Use it in plain JavaScript or client-side
+integrations for Astro, Svelte, Solid, Lit, and Web Components.
 
 ## Install
 
 ```bash
-pnpm add @domternal/core @domternal/theme @domternal/vanilla
+pnpm add @domternal/vanilla @domternal/core @domternal/theme
 ```
 
-`@domternal/core` (>=1.2.0 <2.0.0) is a peer dependency. `@domternal/theme` supplies the editor
-styles (import it once in your app).
+The package declares Node.js 22 or later for tooling. Requires `@domternal/core >=1.3.0 <2.0.0`. Keep installed Domternal packages on the
+same release. The theme supplies the default styles.
 
-This package is part of the coordinated Domternal 1.2.0 release.
-Upgrade installed `@domternal/*` packages together.
+## Quick start
 
-## Usage
+Add the mount elements to your page:
+
+```html
+<div id="toolbar"></div>
+<div id="editor" class="dm-editor"></div>
+<div id="bubble"></div>
+```
+
+Run this through your application's bundler after those elements exist:
 
 ```ts
 import { StarterKit } from '@domternal/core';
@@ -39,90 +38,68 @@ import {
 } from '@domternal/vanilla';
 import '@domternal/theme';
 
-const toolbarEl = document.getElementById('toolbar')!;
-const editorEl = document.getElementById('editor')!;
-const bubbleEl = document.getElementById('bubble')!;
-
-const dm = new DomternalEditor(editorEl, {
+const dm = new DomternalEditor(document.getElementById('editor')!, {
   extensions: [StarterKit],
-  content: '<p>Hello world</p>',
+  content: '<p>Hello from JavaScript!</p>',
   onUpdate: ({ editor }) => console.log(editor.getHTML()),
 });
 
-new DomternalToolbar(toolbarEl, { editor: dm.editor });
-new DomternalBubbleMenu(bubbleEl, { editor: dm.editor });
+const toolbar = new DomternalToolbar(document.getElementById('toolbar')!, {
+  editor: dm.editor,
+});
+const bubble = new DomternalBubbleMenu(document.getElementById('bubble')!, {
+  editor: dm.editor,
+  items: ['bold', 'italic', 'underline'],
+});
+```
 
-// Reactive-friendly getters:
-console.log(dm.htmlContent, dm.isEmpty);
+UI components add their own CSS classes and render controls from the loaded
+extensions. Keep `dm-editor` on the editor host to apply the theme. Module imports are safe during SSR, but constructors require a browser:
+instantiate them in your framework's client mount hook.
 
-// CustomEvent subscription:
-dm.addEventListener('update', () => console.log('content changed'));
+Destroy each UI instance before the editor when your page or component unmounts:
 
-// Cleanup (idempotent):
+```ts
+bubble.destroy();
+toolbar.destroy();
 dm.destroy();
 ```
 
-The matching mount points:
+## Read and update content
 
-```html
-<div id="toolbar"></div>
-<div id="editor" class="dm-editor"></div>
-<div id="bubble" class="dm-bubble-menu"></div>
+```ts
+const html = dm.htmlContent;
+const json = dm.jsonContent;
+
+// Replace content without notifying update listeners.
+dm.setContent('<p>Loaded document</p>', false);
+
+// Access the underlying editor for commands and other APIs.
+dm.editor.chain().focus().toggleBold().run();
 ```
 
-> Construction is browser-only: every constructor calls `assertBrowser()` and throws in
-> SSR. Module-scope imports stay SSR-safe, so gate instantiation behind a client-side
-> entry point (e.g. an Astro `<script>` block or `client:only`).
+Use the `onUpdate` option or `dm.addEventListener('update', handler)` to subscribe
+to document changes. The [Vanilla guide](https://domternal.dev/v1/guides/vanilla/)
+documents getters, methods, options, and each component's events.
 
-## Options
+## Configuration notes
 
-`DomternalEditorOptions`, the second constructor argument:
+- The wrapper includes `Document`, `Paragraph`, `Text`, `BaseKeymap`, and `History`.
+  To use another undo manager, set `history: false` and omit History from your
+  extensions, including [StarterKit's history](https://domternal.dev/v1/extensions/history/#disabling-the-built-in-history).
+- `content` accepts HTML or JSON. Use `getHTML()` or `getJSON()` on `dm.editor`
+  to choose an output format; the wrapper's `outputFormat` option is only a hint
+  for host integrations.
+- Use `dm.setEditable(false)` for read-only mode. `preset: 'notion'` is read at creation. Set initial translations with `i18n` and
+  replace them live with `dm.editor.i18n.set()`.
+- Initial `onContentError` and `onContentDiagnostic` reports arrive during
+  construction. Provide callbacks to receive them; event listeners added afterward
+  receive only later reports. See [content diagnostics](https://domternal.dev/v1/guides/editor-api/#content-diagnostics).
+- Custom `icons` contain raw SVG. Supply trusted, developer-authored constants.
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `extensions` | `AnyExtension[]` | `[]` | Extensions merged on top of `DEFAULT_EXTENSIONS`. |
-| `history` | `boolean` | `true` | Whether the built-in History extension is loaded. Turn it off when an extension brings its own undo. |
-| `content` | `Content` | `''` | Initial content, HTML string or JSON. |
-| `editable` | `boolean` | `true` | Whether the editor is editable. |
-| `i18n` | `I18nOptions` | `{}` | Initial UI translations and formatting. Use `dm.editor.i18n.set()` for live replacement. |
-| `preset` | `'classic' \| 'notion'` | `'classic'` | `'notion'` paints `dm-notion-mode` on the `.dm-editor` host and switches preset-aware extensions to their Notion behavior. Create-time only. |
-| `autofocus` | `FocusPosition` | `false` | Where to place the caret on mount. |
-| `outputFormat` | `'html' \| 'json'` | `'html'` | Format hint for host frameworks comparing controlled content. Does not change editor behavior. |
+## Further reading
 
-`onCreate`, `onUpdate`, `onSelectionChange`, `onFocus`, `onBlur`, and `onDestroy` callbacks are
-accepted alongside them, and the same moments are dispatched on the instance as `create`,
-`update`, `selectionchange`, `focus`, `blur`, and `destroy` `CustomEvent`s.
-`onUpdate` and the `update` event follow the core `update` event: it runs after every accepted change to the document,
-including a change a plugin appended to a selection move, and never for a transaction a plugin
-vetoed or a programmatic write that skips updates. `onSelectionChange` and `selectionchange` follow the core
-`selectionUpdate` event: they run when the selection moved without the move itself changing the document, before
-`onUpdate` when a plugin answered the move with a change, such as a click that TrailingNode answers with a paragraph.
-
-`onContentError` and `onContentDiagnostic` report what loading content changed, and are
-dispatched as `contenterror` and `contentdiagnostic` events. `onContentError` receives
-`{ editor, error, content }` when the initial content does not match the schema, so the editor
-starts empty. `onContentDiagnostic` receives `{ editor, source, diagnostics, total }` when content
-loaded with replaced values, such as an unknown list marker that became the default marker or a
-heading level the configuration lacks that became the nearest configured level. The report for
-the initial content arrives while the constructor runs, once the editor is ready and before
-`onCreate`, so only the callbacks receive it. Later reports come from `setContent`,
-`insertContent`, and `normalizeContentAttributes`.
-
-Toolbar, bubble-menu, and floating-menu `icons` options accept raw SVG through `IconSet`.
-Use only trusted, developer-authored constants. Never build an `IconSet` from user input,
-persisted document content, or an API response.
-
-The wrapper has no locale subpath. Import `I18nOptions` from `@domternal/core`, and import
-`deMessages` and `deSearchAliases` from `@domternal/core/locales/de` for its built-in
-toolbar, menus, and pickers. Merge locale entries from any loaded extensions. Missing
-messages fall back to English, and changing the UI language does not change authored
-content. See the [i18n guide](https://domternal.dev/v1/guides/i18n) for complete examples.
-
-## Exports
-
-- `DomternalEditor` / `DomternalEditorOptions` - wraps core's `Editor`, plus
-  `DEFAULT_EXTENSIONS` (Document, Paragraph, Text, BaseKeymap, History).
-- `DomternalToolbar`, `DomternalBubbleMenu`, `DomternalFloatingMenu`,
-  `DomternalEmojiPicker`, `DomternalNotionColorPicker` - the floating UI components.
-- Shared helpers: `isBrowser`, `assertBrowser`, `createPluginKey`, `renderIconInto`,
-  `resolveIcon`, `subscribe`.
+- [Vanilla guide and component reference](https://domternal.dev/v1/guides/vanilla/)
+- [Editor commands and content API](https://domternal.dev/v1/guides/editor-api/)
+- [Theming](https://domternal.dev/v1/guides/theming/) and [localization with `i18n`](https://domternal.dev/v1/guides/i18n/#vanilla)
+- [Optional clipboard HTML cleanup](https://domternal.dev/v1/extensions/paste-cleanup/)

@@ -3,175 +3,100 @@
 [![Version](https://img.shields.io/npm/v/@domternal/angular.svg)](https://www.npmjs.com/package/@domternal/angular)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Angular components for the [Domternal](https://domternal.dev) editor: six standalone,
-signals-driven, OnPush, zoneless-ready components that wrap the headless core with
-Angular-native APIs. `DomternalEditorComponent` implements `ControlValueAccessor`, so
-it drops into `ngModel` and reactive forms. The toolbar, bubble menu, floating menu,
-emoji picker, and Notion color picker auto-render from the extensions you load.
-
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/guides/angular)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+Angular components for the [Domternal](https://domternal.dev) rich text editor.
+The standalone editor integrates with reactive forms and `ngModel` through
+`ControlValueAccessor`. Toolbar, selection menu, insert menu, and picker components
+use signals and OnPush change detection.
 
 ## Install
+
+In an Angular application:
 
 ```bash
 pnpm add @domternal/angular @domternal/core @domternal/theme
 ```
 
-`@angular/core` (>=17.1), `@angular/forms` (>=17.1), `@angular/platform-browser` (>=17.1), and `@domternal/core` (>=1.2.0 <2.0.0)
-are peer dependencies. Add the theme ([`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme))
-to your global stylesheet (e.g. `styles.scss`):
+The current build is compiled with Angular 21.2.20. We recommend matching
+`@angular/core`, `@angular/forms`, and `@angular/platform-browser` packages at that
+version or later. Applications should use the same or a newer compiler, as described
+in [Angular library compatibility](https://angular.dev/tools/libraries/creating-libraries#ensuring-library-version-compatibility).
+The manifest still declares a broader `>=17.1.0` peer range; this is not a guarantee
+of compatibility with older Angular releases.
+
+Requires `@domternal/core >=1.3.0 <2.0.0`. Keep installed Domternal packages on the
+same release. The package declares Node.js 22 or later for tooling; also follow
+your Angular version's [Node.js requirements](https://angular.dev/reference/versions).
+
+Load the theme in your global stylesheet, such as `styles.scss`:
 
 ```scss
-@use '@domternal/theme';
+@use '@domternal/theme/scss';
 ```
 
-This package is part of the coordinated Domternal 1.2.0 release.
-Upgrade installed `@domternal/*` packages together.
+## Quick start
 
-## Usage
+This standalone component binds the document to a form control and adds a toolbar:
 
 ```ts
 import { Component, signal } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import {
   DomternalEditorComponent,
   DomternalToolbarComponent,
-  DomternalBubbleMenuComponent,
 } from '@domternal/angular';
-import { Editor, StarterKit, BubbleMenu } from '@domternal/core';
+import { StarterKit, type Editor } from '@domternal/core';
 
 @Component({
-  selector: 'app-editor',
-  imports: [
-    DomternalEditorComponent,
-    DomternalToolbarComponent,
-    DomternalBubbleMenuComponent,
-  ],
+  selector: 'app-text-editor',
+  standalone: true,
+  imports: [ReactiveFormsModule, DomternalEditorComponent, DomternalToolbarComponent],
   template: `
     @if (editor(); as ed) {
       <domternal-toolbar [editor]="ed" />
     }
     <domternal-editor
       [extensions]="extensions"
-      [content]="content"
+      [formControl]="content"
       (editorCreated)="editor.set($event)"
     />
-    @if (editor(); as ed) {
-      <domternal-bubble-menu [editor]="ed" />
-    }
   `,
 })
-export class EditorComponent {
-  editor = signal<Editor | null>(null);
-  extensions = [StarterKit, BubbleMenu];
-  content = '<p>Hello from Angular!</p>';
+export class TextEditorComponent {
+  readonly editor = signal<Editor | null>(null);
+  readonly extensions = [StarterKit];
+  readonly content = new FormControl('<p>Hello from Angular!</p>', { nonNullable: true });
 }
 ```
 
-The toolbar and bubble menu render their buttons from the loaded extensions, so no
-manual button wiring is needed.
+The editor owns its lifecycle; `editorCreated` provides the instance for commands
+and sibling UI components. The toolbar renders the controls your extensions
+contribute. Subscribe to the form control's `valueChanges` to save content.
 
-### Presets
+## Forms and configuration
 
-`preset="notion"` switches the editor to the Notion-style experience in one input. It paints
-the `dm-notion-mode` class on the component host for you, and preset-aware code follows it:
-the bubble menu serves the Notion text context, and images offer align controls instead of
-float. `'classic'` is the default, and the input is read once, when the editor is created.
+- Form values are HTML by default. Use `outputFormat="json"` with a JSON content
+  value for structured documents. Calling `disable()` or `enable()` on the form
+  control updates editability.
+- Without a form, pass HTML or JSON through `[content]`, handle `(contentUpdated)`,
+  and read `event.editor.getHTML()` or `getJSON()`. The component also exposes
+  `htmlContent`, `jsonContent`, `isEmpty`, `isFocused`, and `isEditable` signals.
+- The wrapper includes `Document`, `Paragraph`, `Text`, `BaseKeymap`, and `History`.
+  For another undo manager, set `[history]="false"` and omit History from your
+  extensions, including [StarterKit's history](https://domternal.dev/v1/extensions/history/#disabling-the-built-in-history).
+- `preset="notion"` is read at creation. The `i18n` input updates UI translations
+  when replaced, without recreating the editor or changing its form value.
+- `(contentError)` reports invalid initial content. `(contentDiagnostic)` reports
+  normalized values; initial reports arrive before `editorCreated`. See
+  [content diagnostics](https://domternal.dev/v1/guides/editor-api/#content-diagnostics).
+- Custom `icons` inputs contain raw SVG. Supply trusted, developer-authored constants.
 
-```html
-<domternal-editor [extensions]="extensions" preset="notion" />
-```
+The [Angular guide](https://domternal.dev/v1/guides/angular/) covers inputs, outputs,
+form behavior, and the toolbar, bubble menu, floating menu, emoji picker, and
+Notion color picker components.
 
-### Localization
+## Further reading
 
-Pass an `I18nOptions` object through the reactive `i18n` input. Replacing it updates
-the existing editor and its open UI without recreating the editor or changing authored
-content. The wrapper has no locale subpath: its built-in toolbar, menus, and pickers use
-`deMessages` and `deSearchAliases` from `@domternal/core/locales/de`. Merge locale entries
-from any loaded extensions. See the [i18n guide](https://domternal.dev/v1/guides/i18n)
-for the catalog shape, English fallback, and live language switching.
-
-```html
-<domternal-editor [extensions]="extensions" [i18n]="german" />
-```
-
-Toolbar, bubble-menu, and floating-menu `icons` inputs accept raw SVG through `IconSet`.
-Use only trusted, developer-authored constants. Never build an `IconSet` from user input,
-persisted document content, or an API response.
-
-### Reactive forms
-
-`DomternalEditorComponent` is a `ControlValueAccessor`, so it binds directly to
-`ngModel` or a `FormControl`. Set `outputFormat="json"` to emit JSON instead of HTML, each
-value its own object, so changing it in place leaves the `jsonContent` signal alone;
-calling `disable()`/`enable()` on the bound `FormControl` toggles the editor's editable
-state.
-
-```ts
-import { Component } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { DomternalEditorComponent } from '@domternal/angular';
-import { StarterKit } from '@domternal/core';
-
-@Component({
-  selector: 'app-form-editor',
-  imports: [ReactiveFormsModule, DomternalEditorComponent],
-  template: `
-    <domternal-editor [extensions]="extensions" [formControl]="editorControl" />
-  `,
-})
-export class FormEditorComponent {
-  extensions = [StarterKit];
-  editorControl = new FormControl('<p>Initial content</p>');
-}
-```
-
-### Content reports
-
-`contentError` emits `{ editor, error, content }` when the initial content does not match the
-schema, so the editor starts empty. `contentDiagnostic` emits `{ editor, source, diagnostics, total }`
-when content loaded with replaced values, such as an unknown list marker that became the default
-marker or a heading level the configuration lacks that became the nearest configured level. The
-report for the initial content is emitted once the editor is ready, before `editorCreated`. Later
-reports come from `setContent`, including a changed `content` input or form value,
-`insertContent`, and `normalizeContentAttributes`. With `outputFormat="json"`, a `content` input
-or form value that equals the document once such values are replaced and refused links removed
-leaves the document and selection alone.
-
-```html
-<domternal-editor [extensions]="extensions" [formControl]="editorControl" outputFormat="json"
-  (contentDiagnostic)="report($event.source, $event.diagnostics)" />
-```
-
-## Components
-
-All components are standalone (no NgModule). Import them directly from
-`@domternal/angular`:
-
-- `DomternalEditorComponent` (`<domternal-editor>`): the editor, with
-  `extensions` / `history` / `content` / `editable` / `preset` / `i18n` /
-  `autofocus` / `outputFormat` inputs (`extensions`, `content`, `editable`, `i18n`, and
-  `outputFormat` are reactive; the rest are read once at creation), `editorCreated`,
-  `contentUpdated`, `selectionChanged`, `focusChanged`, `blurChanged`, `editorDestroyed`,
-  `contentError`, and `contentDiagnostic` outputs, and read-only `htmlContent`,
-  `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals. `contentUpdated` and the form
-  value follow the core `update` event, including a change a plugin appended to a selection
-  move, and never a vetoed transaction; the content signals also follow programmatic writes
-  (`writeValue`, `[content]`), which emit nothing and leave the form pristine. `selectionChanged`
-  follows the core `selectionUpdate` event, before `contentUpdated` when a plugin answered a
-  selection move with a change, such as a click that TrailingNode answers with a paragraph.
-- `DomternalToolbarComponent` (`<domternal-toolbar>`): auto-rendered formatting
-  toolbar with keyboard navigation, custom `icons`, and `layout` overrides.
-- `DomternalBubbleMenuComponent` (`<domternal-bubble-menu>`): inline selection menu
-  with `items` / `contexts` / `shouldShow` controls and content projection.
-- `DomternalFloatingMenuComponent` (`<domternal-floating-menu>`): insert menu shown
-  on empty lines.
-- `DomternalEmojiPickerComponent` (`<domternal-emoji-picker>`): searchable emoji
-  panel, driven by an `emojis: EmojiPickerItem[]` input.
-- `DomternalNotionColorPickerComponent` (`<domternal-notion-color-picker>`):
-  Notion-style text and background color palette.
-
-`DEFAULT_EXTENSIONS` (`[Document, Paragraph, Text, BaseKeymap, History]`) and the core
-`Editor` class plus `Content`, `AnyExtension`, `FocusPosition`, `I18nOptions`, `Messages`,
-and `JSONContent` types are re-exported for convenience.
+- [Angular guide and component reference](https://domternal.dev/v1/guides/angular/)
+- [Editor commands and content API](https://domternal.dev/v1/guides/editor-api/)
+- [Theming](https://domternal.dev/v1/guides/theming/) and [localization with `i18n`](https://domternal.dev/v1/guides/i18n/#angular)
+- [Optional clipboard HTML cleanup](https://domternal.dev/v1/extensions/paste-cleanup/)

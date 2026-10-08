@@ -3,124 +3,106 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-details.svg)](https://www.npmjs.com/package/@domternal/extension-details)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Collapsible accordion blocks for the [Domternal](https://domternal.dev) editor,
-built on semantic `<details>` / `<summary>` HTML. Each block has a clickable
-summary header and an expandable content area that holds any block-level content
-(paragraphs, lists, code blocks, tables, and more). The toggle is an accessible
-disclosure (`aria-expanded` / `aria-controls`), and open state can optionally be
-persisted into the document so the serialized JSON/HTML reflects user choices.
+Collapsible blocks for the [Domternal](https://domternal.dev) editor. Each block has
+an accessible disclosure button, an editable summary, and content that can contain
+paragraphs, lists, or other registered block nodes. Documents serialize to semantic
+`<details>` and `<summary>` HTML.
 
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/nodes/details)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+[Documentation](https://domternal.dev/v1/nodes/details/) · [Live examples](https://domternal.dev/examples/)
 
 ## Install
 
+The package declares Node.js 22 or later for tooling.
+
 ```bash
-pnpm add @domternal/extension-details
+pnpm add @domternal/core @domternal/pm @domternal/extension-details @domternal/theme
 ```
 
-`@domternal/core` and `@domternal/pm` are peer dependencies.
+Requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`.
+The theme is optional if you provide your own styles.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+## Quick start
 
-## Usage
+Add a host, then run the TypeScript after it is mounted in a browser app that
+supports CSS imports:
 
-The `Details` extension automatically pulls in its child nodes (`DetailsSummary`
-and `DetailsContent`), so adding `Details` to your extension list is enough.
+```html
+<div class="dm-editor"><div id="editor"></div></div>
+```
 
 ```ts
-import { Editor, Document, Text, Paragraph } from '@domternal/core';
+import { Editor, StarterKit } from '@domternal/core';
 import { Details } from '@domternal/extension-details';
 import '@domternal/theme';
 
 const editor = new Editor({
-  extensions: [
-    Document,
-    Text,
-    Paragraph,
-    Details.configure({ persist: true }),
-  ],
-  content:
-    '<details><summary>Click to expand</summary><div data-details-content><p>Hidden content here.</p></div></details>',
+  element: document.getElementById('editor')!,
+  extensions: [StarterKit, Details.configure({ persist: true })],
+  content: `
+    <details open>
+      <summary>Project notes</summary>
+      <div data-details-content><p>Keep supporting information here.</p></div>
+    </details>
+  `,
 });
-
-// Wrap the current selection in a collapsible block, then open it
-editor.chain().focus().setDetails().openDetails().run();
 ```
+
+`Details` includes its `DetailsSummary` and `DetailsContent` child nodes
+automatically. `StarterKit` supplies the basic nodes and keyboard behavior.
+Call `editor.destroy()` when removing the editor.
 
 ## Commands
 
-- `setDetails()` - wrap the selected block(s) in a new details accordion
-- `unsetDetails()` - unwrap the surrounding details back into plain blocks
-- `toggleDetails()` - wrap if outside a details, unwrap if inside one
-- `openDetails()` / `closeDetails()` - expand or collapse the current details (requires `persist: true`)
-- `setDetailsOpen(open: boolean)` - set the open state explicitly (requires `persist: true`)
+Run these with the cursor or selection in the blocks you want to change:
 
-`openDetails()`, `closeDetails()`, and `setDetailsOpen()` only change a saved
-attribute, so they no-op unless `persist: true` is set.
+```ts
+editor.chain().focus().setDetails().openDetails().run();
+editor.commands.toggleDetails();
+editor.commands.unsetDetails();
+editor.commands.closeDetails();
+editor.commands.setDetailsOpen(true);
+```
 
-Adding `Details` also registers a toolbar button and a slash-menu entry
-("Toggle block") that run `toggleDetails`.
+`setDetails()` wraps selected blocks, `unsetDetails()` unwraps the surrounding
+details block, and `toggleDetails()` chooses between them. `openDetails()`,
+`closeDetails()`, and `setDetailsOpen()` require `persist: true`.
+
+The extension also contributes a Toggle block action to compatible toolbars and
+insert menus. Add [block controls](https://domternal.dev/v1/extensions/block-controls/)
+to expose it in a slash menu.
 
 ## Options
 
-`Details.configure({ ... })` accepts:
+| Option | Default | Use |
+| --- | --- | --- |
+| `persist` | `false` | Save the open state in document JSON and HTML. Otherwise expansion is local UI state. |
+| `openClassName` | `'is-open'` | Class applied to expanded blocks. Update your CSS if you change it. |
+| `HTMLAttributes` | `{}` | Attributes on the serialized details element. |
 
-- `persist` (default `false`) - when `true`, the `open` attribute is saved and
-  restored so the open/closed state lives in the document. In a read-only
-  editor the toggle still expands and collapses so the content can be read, but
-  nothing is written back
-- `openClassName` (default `'is-open'`) - CSS class applied while a block is
-  open. The theme's rules target the default, so change it only alongside
-  matching CSS of your own
-- `HTMLAttributes` - extra attributes for the rendered element
+Read-only editors still let readers expand and collapse content without writing
+the open state back to the document.
 
-`DetailsSummary` and `DetailsContent` are exported too, each taking a single
-`HTMLAttributes` option, for the rare case where a child node needs configuring.
+## Editing and paste behavior
 
-## Keyboard shortcuts
+- `Enter` in the summary opens the block and moves into its content. If already
+  open, it inserts a new block at the start of the content.
+- `Backspace` at the start of the summary unwraps the block. `Enter` in the final
+  empty content block exits the details block.
+- `ArrowRight` at the end of a collapsed summary, or `ArrowDown` within it, moves
+  to a gap cursor after the block. This needs `Gapcursor`, included in `StarterKit`.
+- Pasting multiple blocks into the summary inserts them at the start of the
+  content and opens it. Inline text and a single paragraph or heading join the
+  summary. A block paste is one undoable change.
+- Copying content without its summary pastes those blocks; including the summary
+  copies the whole details block. Dropping blocks onto a summary is not supported
+  by the paste-placement behavior.
 
-- `Backspace` at the start of the summary unwraps the block
-- `Enter` in the summary opens a collapsed block and puts the cursor in its
-  content; in an open block it starts a new block at the top of the content
-- `ArrowRight` at the end of the summary, or `ArrowDown` anywhere in it, places
-  a gap cursor after a collapsed block. Both need the `Gapcursor` extension
-  from `@domternal/core` and fall through to the default handling without it
-- `Enter` on the last block of the content, when that block is empty, removes
-  it and creates a block after the accordion, so a second `Enter` escapes
-
-## Copy and paste
-
-- A paste into the summary that brings blocks, such as several paragraphs, a
-  list, Markdown lines or an image file, goes where `Enter` in the summary puts
-  the cursor: a new block at the top of the content, which opens. The summary
-  keeps its text. The new block and the paste are one transaction: a paste that
-  a transaction filter refuses, such as one past a `CharacterCount` limit,
-  leaves the accordion as it was and closed, a paste whose images Paste Cleanup
-  prepares first is applied, and undo takes it back in one step. `Details`
-  registers a paste placement through `@domternal/core/clipboard`, which
-  Markdown, SmartPaste and the image node's file paste start from, and a
-  `detailsPaste` extension, at priority 90, that pastes what none of them took
-  as ProseMirror's own paste would. Inline content, a single paragraph or
-  heading, a line copied with its line break, and text copied from inside a
-  code block, list item, quote, table cell or another summary still join the
-  summary's text. Image files the image node does not store leave the
-  accordion as it was. Before, the paste split the accordion in two and moved
-  the content into a second, collapsed one with an empty summary. Dropping
-  blocks onto the summary is not covered yet
-- Blocks copied from inside the content, without the summary, paste as those
-  blocks. The copy records the accordion around them, and the paste used to
-  rebuild it as a collapsed block with an empty summary, which hid what was
-  pasted. A copy that includes the summary pastes the whole block. This also
-  holds for content nested in the content of another accordion, and for an
-  accordion inside a list item, quote or table cell, whose blocks paste in that
-  container
+See the [full reference](https://domternal.dev/v1/nodes/details/) for child-node
+configuration, serialization, and clipboard integration.
 
 ## Localization
 
-This package exports `detailsMessages` for typed custom catalogs. Optional German UI
-messages and search aliases are available from `@domternal/extension-details/locales/de`
-as `deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
-catalogs. Missing entries fall back to English.
+`detailsMessages` provides typed message keys. German `deMessages` and
+`deSearchAliases` are exported from `@domternal/extension-details/locales/de`.
+See the [localization guide](https://domternal.dev/v1/guides/i18n/) for combining
+catalogs. Missing messages fall back to English.

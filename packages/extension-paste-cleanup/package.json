@@ -1,9 +1,12 @@
 {
   "name": "@domternal/extension-paste-cleanup",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Opt-in Office paste cleanup and bounded, network-free HTML normalization for Domternal",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -67,8 +70,8 @@
     "parse5": "^7.3.0"
   },
   "peerDependencies": {
-    "@domternal/core": ">=1.2.0 <2.0.0",
-    "@domternal/pm": ">=1.2.0 <2.0.0"
+    "@domternal/core": ">=1.3.0 <2.0.0",
+    "@domternal/pm": ">=1.3.0 <2.0.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",

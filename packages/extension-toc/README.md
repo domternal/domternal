@@ -3,36 +3,32 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-toc.svg)](https://www.npmjs.com/package/@domternal/extension-toc)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Notion-style Table of Contents for the [Domternal](https://domternal.dev) editor.
+A live table of contents for the [Domternal](https://domternal.dev) editor, with
+active-heading tracking, smooth scrolling, and URL hash navigation. Use the
+floating outline, an insertable contents block, or the heading data for your own UI.
 
-A shared heading-discovery data layer feeds three pieces that work together:
-
-- `TableOfContents` - the headless heading observer that maintains a reactive heading list in `editor.storage.toc` and exposes the `scrollToHeading` command.
-- `FloatingTocOutline` - a sticky right-rail outline with a hover-expanded card, anchored to the editor or the viewport.
-- `TableOfContentsBlock` - a block-level atom node, inserted from the slash menu by typing `/toc`.
-
-Active-heading tracking, smooth click-to-jump scrolling, and initial-load
-`#hash` navigation are built in.
-
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/extensions/table-of-contents)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+[Documentation](https://domternal.dev/v1/extensions/table-of-contents/) · [Live examples](https://domternal.dev/examples/)
 
 ## Install
 
+The package declares Node.js 22 or later for tooling.
+
 ```bash
-pnpm add @domternal/extension-toc
+pnpm add @domternal/core @domternal/pm @domternal/extension-toc @domternal/theme
 ```
 
-`@domternal/core` and `@domternal/pm` are peer dependencies. `TableOfContents`
-also requires the `UniqueID` extension (from `@domternal/core`) to be loaded: it
-reads UniqueID's `id` attribute on headings as the navigation anchor and stays
-inert without it.
+Requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`.
+`TableOfContents` also requires the core `UniqueID` extension for heading anchors.
+The theme supplies the outline and contents-block styles.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+## Quick start
 
-## Usage
+Add a host, then run the TypeScript after it is mounted in a browser app that
+supports CSS imports:
+
+```html
+<div class="dm-editor"><div id="editor"></div></div>
+```
 
 ```ts
 import { Editor, StarterKit, UniqueID } from '@domternal/core';
@@ -47,113 +43,87 @@ const editor = new Editor({
   element: document.getElementById('editor')!,
   extensions: [
     StarterKit,
-    // UniqueID's default `types` already stamps headings; pass `types` only
-    // when TableOfContents' `anchorTypes` point at custom node types.
     UniqueID,
     TableOfContents.configure({ levels: [1, 2, 3] }),
     FloatingTocOutline.configure({ anchor: 'editor' }),
     TableOfContentsBlock,
   ],
+  content: `
+    <div data-type="table-of-contents"></div>
+    <h1 id="introduction">Introduction</h1>
+    <p>Start reading here.</p>
+    <h2>Next steps</h2>
+    <p>Add more headings to update the outline.</p>
+  `,
 });
-
-// Jump to a heading by its UniqueID-assigned id (updates the URL hash).
-editor.commands.scrollToHeading('introduction');
-
-// Read the live heading list, or subscribe via the onUpdate option.
-console.log(editor.storage.toc.content); // HeadingEntry[]
 ```
 
-`UniqueID` stamps ids on headings; `TableOfContents` watches the document and
-keeps `editor.storage.toc` in sync; `FloatingTocOutline` renders the sticky
-outline; `TableOfContentsBlock` adds the `/toc` atom so users can drop a contents
-list into the document.
+The contents block appears inside the document. The floating outline appears at
+viewport widths above its default `1024px` breakpoint; set `mobileBreakpoint: 0`
+on `FloatingTocOutline` to keep it visible on smaller screens. Call
+`editor.destroy()` when removing the editor.
 
-## Options
+## Choose the UI
 
-`TableOfContents.configure({ ... })`:
+| Extension | Purpose |
+| --- | --- |
+| `TableOfContents` | Required data layer. Tracks headings and the active section in `editor.storage.toc`. |
+| `FloatingTocOutline` | Optional right-side outline. Hover or focus to expand its heading list. |
+| `TableOfContentsBlock` | Optional document node that renders a contents list from the same data. |
 
-- `levels` (default `[1, 2, 3]`) - heading levels to track. Each heading counts
-  at the level it renders at: a stored level the `Heading` `levels` lack, such as
-  one written by a collaborator configured with more levels, counts as the
-  nearest configured level, so the entry, its `data-level` and its outline label
-  match the heading the reader sees
-- `anchorTypes` (default `['heading']`) - node names treated as anchors. Every
-  type listed here must also be in `UniqueID.options.types`
-- `onUpdate` - called with the storage object whenever the heading list or the
-  active heading changes
+The visual extensions need `TableOfContents`; neither replaces it. For a custom
+outline, use `TableOfContents` alone and subscribe with its `onUpdate` callback.
 
-Activity tracking belongs to `TableOfContents`, so `HeadingEntry.domNode`,
-`isActive`, and `isScrolledOver` stay current even without `FloatingTocOutline`.
-The inline block, floating outline, and `scrollToHeading` command share its
-navigation state. These observer options are also accepted:
-
-- `activeScrollParent` (default `null`, meaning the window): the scroll container
-- `activeRootMargin` (default `'0px 0px -85% 0px'`): the observer margin that
-  schedules measurements
-- `activeOffset` (default `0`): the activation line in pixels below the scroll
-  root's inner top
-- `clickOverrideMs` (default `500`): how long a navigation target stays active
-  while scrolling catches up
-
-Explicit `TableOfContents` options take precedence. Omitted scroll-parent,
-root-margin, and click-override options inherit the corresponding legacy
-`FloatingTocOutline` options, preserving existing configurations. Use
-`activeOffset` to move the activation line; root margin controls observation.
-
-`FloatingTocOutline.configure({ ... })`:
-
-- `anchor` (default `'editor'`) - `'editor'` pins the outline to the editor
-  container's right gutter, `'viewport'` fixes it to the right edge of the
-  viewport
-- `minHeadings` (default `1`) - hide the outline while the document has fewer
-  headings than this
-- `mobileBreakpoint` (default `1024`) - viewport width in px at or below which
-  the outline is hidden; `0` never hides it
-- `activeScrollParent` (default `null`, meaning the window) - scroll container
-  for the active-heading tracker. Set it when the editor lives in its own
-  scrolling region
-- `activeRootMargin` (default `'0px 0px -85% 0px'`) - `IntersectionObserver`
-  rootMargin used to schedule active-heading measurements
-- `clickOverrideMs` (default `500`) - how long scroll-derived updates are ignored
-  after a tick is clicked, so the click target stays active until the scroll lands
-- `hoverInDelay` / `hoverOutDelay` (defaults `120` / `350`) - ms before the
-  expanded card appears and before it collapses back to ticks
-- `outlineHost` - `(view: EditorView) => HTMLElement` overriding where the outline
-  DOM mounts. The default walks up from the editor's DOM to the first ancestor
-  whose computed `overflow` is not `hidden`
-
-`TableOfContentsBlock.configure({ ... })`:
-
-- `emptyStateText` (default `'Add headings to create a table of contents.'`) -
-  placeholder shown while the document has no headings
-- `HTMLAttributes` - extra attributes for the block wrapper
-
-## Exports
+## Navigation and insertion
 
 ```ts
-import {
-  TableOfContents,
-  tocPluginKey,
-  FloatingTocOutline,
-  floatingTocOutlinePluginKey,
-  TableOfContentsBlock,
-  walkHeadings,
-  scrollToHeading,
-  createActiveStateTracker,
-} from '@domternal/extension-toc';
+import type { TocStorage } from '@domternal/extension-toc';
+
+editor.commands.scrollToHeading('introduction');
+
+const toc = editor.storage.toc as TocStorage;
+const headings = toc.content;
+const activeId = toc.activeId;
+
+editor.commands.insertContent({ type: 'tableOfContents' });
 ```
 
-`walkHeadings`, `scrollToHeading`, and `createActiveStateTracker` are exposed as
-standalone helpers so you can build a custom outline UI on top of the same
-data layer and active-tracking rule.
+`scrollToHeading()` takes an actual heading ID and updates the URL hash. An initial
+`#hash` also navigates to its matching heading once the editor is connected.
+`TableOfContentsBlock` contributes a `/toc` action when
+[`SlashCommand`](https://domternal.dev/v1/extensions/block-controls/) is installed;
+slash commands are not included by this package.
 
-The tracker snapshot type is exported as `ActiveStateSnapshot`, with `activeId`
-and `scrolledOverIds`. The saved inline node remains `tableOfContents`; no
-document migration or change to `UniqueID` defaults is required.
+## Common options
+
+- `TableOfContents.levels` chooses heading levels, defaulting to `[1, 2, 3]`.
+  Entries use the level each heading renders at.
+- `TableOfContents.onUpdate(storage)` runs when headings or the active section
+  change. Entries include `id`, `level`, `textContent`, `pos`, `domNode`,
+  `isActive`, and `isScrolledOver`.
+- `TableOfContents.activeScrollParent` sets an editor's scroll container; the
+  default is the window. `activeOffset` moves the activation line below a sticky
+  toolbar, in pixels.
+- `FloatingTocOutline.anchor` is `'editor'` or `'viewport'`. `minHeadings` controls
+  when to show it, and `outlineHost` overrides where it mounts.
+- `TableOfContentsBlock.emptyStateText` customizes the message shown when there
+  are no headings. `HTMLAttributes` adds attributes to the serialized block.
+
+Keep `UniqueID` unconfigured for its default block IDs, which already include
+headings. If you use custom `anchorTypes`, include them in `UniqueID.types` too.
+Setting `UniqueID.types` replaces its defaults, so retain any other node types
+that need Copy link or stable IDs. Without `UniqueID`, the TOC stays inactive.
+
+The contents block serializes to an empty `<div data-type="table-of-contents">`;
+the live list is rendered by its editor node view. For a static page, render the
+heading list in your output pipeline. See the
+[full reference](https://domternal.dev/v1/extensions/table-of-contents/) for tracking
+options and the `walkHeadings`, `scrollToHeading`, and `createActiveStateTracker`
+helpers.
 
 ## Localization
 
-This package exports `tocMessages` for typed custom catalogs. Optional German UI messages
-and search aliases are available from `@domternal/extension-toc/locales/de` as
-`deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
-catalogs. Missing entries fall back to English. Authored heading text remains unchanged.
+`tocMessages` provides typed message keys. German `deMessages` and `deSearchAliases`
+are exported from `@domternal/extension-toc/locales/de`. See the
+[localization guide](https://domternal.dev/v1/guides/i18n/) for combining catalogs.
+Missing messages fall back to English; heading text remains unchanged.
