@@ -97,6 +97,13 @@ input and returns it as is when nothing changes. Where it removes a link, it joi
 beside a neighbor with the same marks, as loading does, so the result equals the loaded
 document's `getJSON()` for JSON an editor wrote.
 
+This preparation matters even when an application never writes attributes itself. For example,
+1.2 could parse an invalid HTML table span as `NaN` and save it as JSON `null`. Passing that save
+directly to a strict schema or Yjs loader throws; normalizing the JSON first repairs the span
+while preserving the cell text. The ordinary `Editor({ content })` and `setContent` paths already
+perform this normalization. Strict validation remains enabled for callers using ProseMirror
+directly.
+
 ### Reading collaborative content
 
 A document can still hold such a value: a collaborative document binds without validation, a
@@ -158,6 +165,18 @@ link href that is not a string or that the policy refuses, and a stored href doe
 change to another attribute. Autolink and link paste create a link only for an allowed address:
 pasted text must be a single line, and an address with credentials is never linked.
 
+The default `Link.options.protocols` and `LinkPopover.options.protocols` are string arrays at
+runtime. Their public types still include `null`, readonly arrays and object entries, so code
+that reads the options must handle those forms. See the [protocol copying example](url-and-style-policy.md#url-policy).
+The untouched LinkPopover defaults follow the Link policy; an explicitly configured array
+narrows it, including an array equal to the displayed defaults.
+
+The published `LinkOptions`, `LinkPopoverOptions` and `IsValidUrlOptions` types still describe
+the broader configuration inputs accepted in 1.3. For a locally created mutable URL options object, use
+`const options = { protocols: ['https:'] } satisfies IsValidUrlOptions` to check the accepted
+shape without widening the array. Prefer `configure()` before creating the editor to set a
+policy; a running editor can already hold derived policy and plugin state.
+
 The link `href` is recognized by its validator, so an extension that redefines the attribute
 keeps the parent's spec to keep JSON loading, validation and `isSupportedAttributeValue` on the
 policy:
@@ -174,10 +193,16 @@ const MyLink = Link.extend({
 Rendering, clicks and the LinkPopover apply the Link's `protocols` and `allowRelative` either way,
 and the LinkPopover refuses a script address for any link mark.
 
-`Heading.configure({ levels })` takes a non-empty list of whole numbers from 1 to 6, in any order.
+`Heading.configure({ levels })` takes a list of whole numbers from 1 to 6, in any order.
 A repeated level counts once, at its first position, so each toolbar item, menu item, shortcut and
 parse rule appears once, and the option array itself is left as given. The first level is the
-default level for content and commands without a level. Other values fail `new Editor(...)` and
+default level for content and commands without a level. An empty list is accepted again:
+it offers no headings, parses heading tags as ordinary blocks and makes `setHeading` and
+`toggleHeading` return `false`. Existing heading nodes still render as `h1`, and headings created
+through the generic schema or `setBlockType` use level 1 when no level is given.
+Loading JSON with no offered levels normalizes stored heading levels to 1; headings already at
+that fallback produce no diagnostic or further migration.
+Invalid entries or a non-array option fail `new Editor(...)` and
 the SSR helpers with an `ExtensionConfigurationError`. `updateAttributes`, `setBlockType`, and
 `toggleBlockType` refuse a level that is not a whole number from 1 to 6, and `setHeading` and
 `toggleHeading` accept only configured levels. HTML content parses every heading tag at the

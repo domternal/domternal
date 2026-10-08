@@ -27,7 +27,7 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar
 - **Office paste cleanup:** opt-in Word and Google Docs HTML normalization, preserve/adapt formatting, list reconstruction, and localized feedback about content the editor cannot keep
 - **Tree-shakeable JavaScript** - import only the JavaScript exports you use; the optional `@domternal/theme` deliberately ships one complete stylesheet
-- **~77 KiB minified and gzipped** (own code), [**~158 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies - see Packages for the full bundle breakdown
+- **~77 KiB minified and gzipped** (own code), [**~159 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies - see Packages for the full bundle breakdown
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
 - **17,000+ automated test executions** - unit coverage and a Playwright matrix across four demo apps
 - **Light and dark theme** - 150+ CSS custom properties for full visual control

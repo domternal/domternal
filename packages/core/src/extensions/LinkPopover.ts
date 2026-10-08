@@ -36,10 +36,14 @@ export interface LinkPopoverOptions {
    * `['https:']` to offer only web links in the popover. `null` accepts every
    * address the Link accepts. Relative references follow the Link's
    * `allowRelative` either way. Entries are read as the Link reads its own.
-   * @default null
+   * The default public value is the standard scheme list for compatibility.
+   * Unless explicitly configured, the popover follows the Link policy.
+   * @default ['http:', 'https:', 'mailto:', 'tel:']
    */
   protocols: readonly (string | LinkProtocolOptions)[] | null;
 }
+
+const DEFAULT_PROTOCOLS = ['http:', 'https:', 'mailto:', 'tel:'] as const;
 
 interface LinkPopoverPluginOptions {
   editor: Editor;
@@ -511,7 +515,7 @@ export const LinkPopover = Extension.create<LinkPopoverOptions>({
 
   addOptions() {
     return {
-      protocols: null,
+      protocols: [...DEFAULT_PROTOCOLS],
     };
   },
 
@@ -520,11 +524,14 @@ export const LinkPopover = Extension.create<LinkPopoverOptions>({
     const markType = editor.schema.marks['link'];
     if (!markType) return [];
 
+    const protocols = this.options.protocols;
+    const untouchedDefault = Array.isArray(protocols) && protocols.length === DEFAULT_PROTOCOLS.length
+      && protocols.every((value, index) => value === DEFAULT_PROTOCOLS[index]);
     return [
       linkPopoverPlugin({
         editor,
         markType,
-        protocols: this.options.protocols,
+        protocols: this.isOptionExplicit('protocols') || !untouchedDefault ? protocols : null,
       }),
     ];
   },

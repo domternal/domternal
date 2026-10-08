@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Restore array-valued default protocol options on LinkPopover while retaining the public option types and configuration forms introduced in 1.3.0. An unconfigured LinkPopover continues to follow the Link policy; explicit protocol settings narrow it. Link protocol validation notices in-place changes to configured scheme lists.
+- Accept `Heading.configure({ levels: [] })` again, including through StarterKit and server-side helpers. An empty list offers no heading commands or parsing rules, while existing heading nodes retain the legacy `h1` rendering fallback.
+- Keep published workspace runtime dependencies at least at the package's own patch version, so a future Core patch cannot retain an older PM package that lacks its security fixes. Peer dependency ranges keep their minor-version compatibility floor.
+- Require `prosemirror-view` at least 1.42.3 and `markdown-it` at least 14.3.1 in the published dependency ranges, addressing [GHSA-c8x8-7fp4-3x9w](https://github.com/advisories/GHSA-c8x8-7fp4-3x9w) and [GHSA-253c-mchw-3w2r](https://github.com/advisories/GHSA-253c-mchw-3w2r). The workspace resolves 1.42.6 and 14.3.2 respectively.
+
+### Docs
+
+- Clarify protocol option compatibility and normalization before strict loaders consume documents saved by 1.2.0. Complete translation catalogs still require `core.linkPopover.invalidUrl`; applications can add its translation or use `Messages` for a partial catalog with English fallback. The 1.3 URL and style safeguards, content normalization and transaction callback contract remain in effect; these fixes do not restore every 1.2 behavior.
+
+### Internal
+
+- Add the existing Paste Cleanup dependency to each demo's TypeScript project references, so local Nx typechecks pass their project synchronization check.
+
 ## 1.3.0 (2026-10-08)
 
 ### Breaking

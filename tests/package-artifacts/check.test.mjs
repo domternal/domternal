@@ -251,7 +251,7 @@ test('a workspace specifier the publish transform cannot resolve is caught', () 
   const source = { name: '@domternal/core', version: '0.15.0' };
   const base = { ...source, license: 'MIT' };
 
-  /* workspace:* is understood: the transform turns it into the compatibility
+  /* workspace:* is understood: the transform turns it into the runtime
      range, which is what the published manifest carries, so it is not a failure here. */
   assert.deepEqual(
     manifestFailures(source, { ...base, dependencies: { '@domternal/pm': 'workspace:*' } }, [
@@ -269,4 +269,18 @@ test('a workspace specifier the publish transform cannot resolve is caught', () 
   );
   assert.equal(failures.length, 1);
   assert.match(failures[0], /workspace protocol/);
+});
+
+test('a patch artifact cannot retain a runtime dependency from an older patch', () => {
+  const source = { name: '@domternal/core', version: '1.3.1' };
+  const packed = range => ({ ...source, license: 'MIT', dependencies: { '@domternal/pm': range } });
+  for (const range of ['workspace:*', '1.3.1', '>=1.3.1 <2.0.0']) {
+    assert.deepEqual(manifestFailures(source, packed(range), ['package.json']), []);
+  }
+  for (const range of ['1.3.0', '>=1.3.0 <2.0.0']) {
+    const failures = manifestFailures(source, packed(range), ['package.json']);
+    assert.equal(failures.length, 1);
+    assert.match(failures[0], /dependencies\.@domternal\/pm/);
+    assert.match(failures[0], /expected ">=1\.3\.1 <2\.0\.0"/);
+  }
 });

@@ -60,6 +60,18 @@ where you use it instead of keeping an earlier answer.
 `isValidUrl(value, options)` answers the same question with a boolean. Use `checkUrl` in a custom
 link or image UI before opening an address yourself, and open it with `noopener`.
 
+`IsValidUrlOptions` retains the 1.3 policy forms, including readonly protocol lists and `'any'`.
+Code receiving that type must narrow it before reading a list; copying a list is preferable to
+mutating caller-owned options. For a local mutable list, `satisfies` checks the options without
+widening the inferred array type:
+
+```ts
+import type { IsValidUrlOptions } from '@domternal/core';
+
+const options = { protocols: ['https:'] } satisfies IsValidUrlOptions;
+options.protocols.push('mailto:');
+```
+
 The `Link` mark applies the policy with its `protocols` and `allowRelative` at every entry and
 again at every sink. `allowRelative` (default `true`) allows relative links: `/docs/page`,
 `./page`, `../page`, `page.html`, `?query` and `#section`. A network path (`//host`), a backslash
@@ -101,8 +113,37 @@ popover on a stored link the Link would not keep shows it already marked invalid
 reason and without an alert. Editing an existing link changes
 only its href and keeps its `title`, `target`, `rel` and `class`. `LinkPopover.configure({
 protocols })` narrows the schemes the popover accepts, read the way the Link reads its own; the
-default `null` accepts every scheme the Link accepts, and an entry that names no scheme fails
-editor creation with an `ExtensionConfigurationError`.
+untouched default and an explicit `null` accept every scheme the Link accepts. An entry that
+names no scheme fails editor creation with an `ExtensionConfigurationError`.
+
+When upgrading a complete application translation catalog from 1.2, add
+`core.linkPopover.invalidUrl`. `CompleteMessages<typeof coreMessages>` requires
+every selected translation, including this key. Applications that intentionally
+leave some messages in English can type their overrides as `Messages` instead;
+missing translations then use the English defaults.
+
+The public default `Link.options.protocols` and `LinkPopover.options.protocols` values are
+string arrays at runtime. The public types continue to accept `null`, readonly lists and object
+entries, as in 1.3.0. An explicitly configured
+popover array narrows the Link policy even when it contains the default schemes. A changed
+default array also narrows the policy. Configure policies before creating the editor.
+
+TypeScript code that reads `protocols` must handle `null` and object entries, including when
+reading the default instance. To edit a policy, copy its entries into a new array and configure
+the extension before creating the editor:
+
+```ts
+import { Link } from '@domternal/core';
+
+const protocols = Link.options.protocols?.map(entry =>
+  typeof entry === 'string' ? entry : entry.scheme,
+) ?? ['http:', 'https:', 'mailto:', 'tel:'];
+protocols.push('ftp:');
+const applicationLink = Link.configure({ protocols });
+```
+
+Here `null` uses Link's standard schemes. On LinkPopover, `null` instead follows the configured
+Link policy, so preserve it when that is the intended behavior.
 
 ## Style values
 

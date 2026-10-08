@@ -7,8 +7,9 @@ import { Paragraph } from './Paragraph.js';
 import { Text } from './Text.js';
 import { Heading } from './Heading.js';
 import { StarterKit } from '../extensions/StarterKit.js';
-import { generateHTML } from '../helpers/ssr.js';
-import type { JSONAttribute, JSONContent } from '../types/index.js';
+import { generateHTML, generateJSON } from '../helpers/ssr.js';
+import { normalizeContent } from '../helpers/normalizeContent.js';
+import type { ContentDiagnostic, JSONAttribute, JSONContent } from '../types/index.js';
 
 let editor: Editor | undefined;
 afterEach(() => { editor?.destroy(); editor = undefined; });
@@ -86,11 +87,81 @@ describe('the default heading level', () => {
 });
 
 describe('configured heading levels', () => {
-  it.each([[[]], [[0]], [[7]], [['3']], [[1.5]]])('refuses levels %j when the editor, StarterKit or generateHTML builds the schema', levels => {
+  it('keeps an empty 1.2 level list usable without parsing headings or offering heading commands', () => {
+    const html = '<h1>A</h1><h2>B</h2><h3>C</h3><h4>D</h4><h5>E</h5><h6>F</h6>';
+    const ed = mount([], html);
+    const paragraphs = '<p>A</p><p>B</p><p>C</p><p>D</p><p>E</p><p>F</p>';
+    expect(ed.getHTML()).toBe(paragraphs);
+    expect(ed.schema.nodes['heading']?.spec.parseDOM ?? []).toEqual([]);
+    expect(ed.commands.setHeading()).toBe(false);
+    expect(ed.commands.toggleHeading({ level: 1 })).toBe(false);
+    expect(ed.getHTML()).toBe(paragraphs);
+    expect(ed.extensionManager.floatingMenuItems.some(item => item.name.startsWith('heading-'))).toBe(false);
+
+    const extensions = [StarterKit.configure({ heading: { levels: [] } })];
+    expect(generateHTML(generateJSON(html, extensions), extensions)).toBe(paragraphs);
+    const starter = new Editor({ extensions, content: html });
+    try {
+      expect(starter.getHTML()).toBe(paragraphs);
+      expect(starter.commands.setHeading({ level: 2 })).toBe(false);
+    } finally {
+      starter.destroy();
+    }
+  });
+
+  it('keeps the legacy h1 fallback for existing or generic headings with no offered levels', () => {
+    const ed = mount([], '<p>A</p>');
+    expect(ed.commands.setBlockType('heading')).toBe(true);
+    expect(ed.state.doc.firstChild?.attrs['level']).toBe(1);
+    expect(ed.getHTML()).toBe('<h1>A</h1>');
+    store(ed, 5);
+    expect(ed.state.doc.firstChild?.attrs['level']).toBe(5);
+    expect(ed.getHTML()).toBe('<h1>A</h1>');
+    expect(generateHTML({ type: 'doc', content: [{ type: 'heading', content: [{ type: 'text', text: 'B' }] }] },
+      [Document, Paragraph, Text, Heading.configure({ levels: [] })])).toBe('<h1>B</h1>');
+  });
+
+  it('treats the empty-list fallback as already normalized and replaces another level only once', () => {
+    const reports: ContentDiagnostic[] = [];
+    const content: JSONContent = { type: 'doc', content: [heading(1)] };
+    editor = new Editor({
+      extensions: [Document, Paragraph, Text, Heading.configure({ levels: [] })], content,
+      onContentDiagnostic: ({ diagnostics }) => { reports.push(...diagnostics); },
+    });
+    expect(editor.getHTML()).toBe('<h1>A</h1>');
+    expect(reports).toEqual([]);
+    expect(normalizeContent(content, editor.schema)).toBe(content);
+
+    const previous: JSONContent = { type: 'doc', content: [heading(5), heading(1, 'B')] };
+    const normalized = normalizeContent(previous, editor.schema, { onDiagnostic: diagnostic => { reports.push(diagnostic); } });
+    expect(normalized.content?.map(node => node.attrs?.['level'])).toEqual([1, 1]);
+    expect(previous.content?.map(node => node.attrs?.['level'])).toEqual([5, 1]);
+    expect(reports.map(report => [report.code, report.value])).toEqual([['unsupported-heading-level', 5]]);
+    expect(normalizeContent(normalized, editor.schema, { onDiagnostic: diagnostic => { reports.push(diagnostic); } })).toBe(normalized);
+    expect(reports).toHaveLength(1);
+  });
+
+  it('stops migrating an empty-list heading once it has the fallback level', () => {
+    const ed = mount([], '<p>A</p>');
+    expect(ed.commands.setBlockType('heading')).toBe(true);
+    const reports: ContentDiagnostic[] = [];
+    ed.on('contentDiagnostic', ({ diagnostics }) => { reports.push(...diagnostics); });
+    expect(ed.commands.normalizeContentAttributes()).toBe(false);
+    store(ed, 5);
+    expect(ed.can().normalizeContentAttributes()).toBe(true);
+    expect(ed.commands.normalizeContentAttributes()).toBe(true);
+    expect(ed.getJSON().content?.[0]?.attrs?.['level']).toBe(1);
+    expect(ed.getHTML()).toBe('<h1>A</h1>');
+    expect(ed.can().normalizeContentAttributes()).toBe(false);
+    expect(ed.commands.normalizeContentAttributes()).toBe(false);
+    expect(reports.map(report => [report.code, report.value])).toEqual([['unsupported-heading-level', 5]]);
+  });
+
+  it.each([[[0]], [[7]], [['3']], [[1.5]]])('refuses levels %j when the editor, StarterKit or generateHTML builds the schema', levels => {
     const configured = Heading.configure({ levels: levels as number[] });
     expect(() => new Editor({ extensions: [Document, Paragraph, Text, configured] })).toThrow(ExtensionConfigurationError);
     expect(() => new Editor({ extensions: [StarterKit.configure({ heading: { levels: levels as number[] } })] }))
-      .toThrow('Heading: levels must be a non-empty list of whole numbers from 1 to 6');
+      .toThrow('Heading: levels must be a list of whole numbers from 1 to 6');
     expect(() => generateHTML({ type: 'doc', content: [] }, [Document, Paragraph, Text, configured])).toThrow(ExtensionConfigurationError);
   });
 

@@ -3,7 +3,8 @@
 // rewriting the shared document, and that values change only through normalizeContentAttributes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Editor } from '@domternal/core';
+import { Editor, normalizeContent } from '@domternal/core';
+import { prosemirrorJSONToYDoc, yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
 import {
   OldEditor, SIX, assertPublishedOldClient, codes, counts, destroy, editSeed, linkText, makeEditor, makeOldEditor, network, nodeValues,
   oldSeedFromJSON, settle, sharedAttributes, sharedText, typeAfter, words,
@@ -58,6 +59,37 @@ test('1.2.0 saves the values a current editor must replace or refuse', () => {
   assert.equal(saved.json.content.find(node => node.type === 'bulletList').attrs, undefined);
   assert.ok(textRuns(saved.json).some(run => run.marks.includes('link:javascript:alert(1)')));
   assert.deepEqual(jsonNodes(saved.json, 'image').map(image => image.attrs.src), ['javascript:alert(2)']);
+});
+
+test('normalizing an actual 1.2.0 save keeps its text through strict schema and Yjs loading', () => {
+  const saved = savedBy120();
+  const original = JSON.stringify(saved.json);
+  const { editor } = makeEditor({ levels: SIX });
+  let ydoc;
+  try {
+    const { schema } = editor;
+    assert.throws(() => schema.nodeFromJSON(saved.json), /Invalid table span/);
+    assert.throws(() => prosemirrorJSONToYDoc(schema, saved.json, 'default'), /Invalid table span/);
+
+    // Normalize saved JSON before the strict external loader, not an existing shared Y.Doc.
+    const normalized = normalizeContent(saved.json, schema);
+    const doc = schema.nodeFromJSON(normalized);
+    assert.doesNotThrow(() => doc.check());
+    assert.equal(words({ state: { doc } }), saved.words);
+    assert.deepEqual(jsonNodes(doc.toJSON(), 'tableCell').map(cell => cell.attrs.colspan), [1, 1, 1, 1000]);
+    assert.deepEqual(jsonNodes(doc.toJSON(), 'heading').map(node => node.attrs.level), [2, 5, 6]);
+    assert.deepEqual(textRuns(doc.toJSON()).filter(run => run.marks.length > 0).map(run => run.marks[0]), ['link:https://example.com']);
+
+    ydoc = prosemirrorJSONToYDoc(schema, normalized, 'default');
+    const restored = yXmlFragmentToProseMirrorRootNode(ydoc.getXmlFragment('default'), schema);
+    assert.doesNotThrow(() => restored.check());
+    assert.equal(words({ state: { doc: restored } }), saved.words);
+    assert.deepEqual(jsonNodes(restored.toJSON(), 'tableCell').map(cell => cell.attrs.colspan), [1, 1, 1, 1000]);
+    assert.equal(JSON.stringify(saved.json), original);
+  } finally {
+    ydoc?.destroy();
+    editor.destroy();
+  }
 });
 
 for (const levels of [undefined, SIX]) {

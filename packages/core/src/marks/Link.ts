@@ -112,7 +112,16 @@ export interface LinkAttributes {
 /** Schemes no Link configuration may allow: each can run script or show a document of its own. */
 const FORBIDDEN_PROTOCOLS = new Set(['javascript:', 'vbscript:', 'data:']);
 const DEFAULT_PROTOCOLS: readonly string[] = Object.freeze(['http:', 'https:', 'mailto:', 'tel:']);
-const checkedProtocols = new WeakMap<object, readonly string[]>();
+interface CheckedProtocols {
+  readonly values: readonly unknown[];
+  readonly schemes: readonly string[];
+}
+const checkedProtocols = new WeakMap<object, CheckedProtocols>();
+
+/** An entry's current scheme, including changes to an object entry in place. */
+function protocolValue(entry: unknown): unknown {
+  return entry !== null && typeof entry === 'object' ? (entry as { scheme?: unknown }).scheme : entry;
+}
 
 /**
  * @internal The scheme a `protocols` entry names, spelled as the URL parser
@@ -121,7 +130,7 @@ const checkedProtocols = new WeakMap<object, readonly string[]>();
  * `scheme`, as Tiptap's `{ scheme: 'tel', optionalSlashes: true }` writes it.
  */
 export function protocolScheme(entry: unknown): string | null {
-  const scheme: unknown = entry !== null && typeof entry === 'object' ? (entry as { scheme?: unknown }).scheme : entry;
+  const scheme = protocolValue(entry);
   if (typeof scheme !== 'string') return null;
   const name = /^([a-z][a-z0-9+.-]*)(?::(?:\/\/)?)?$/i.exec(scheme)?.[1];
   return name === undefined ? null : normalizeUrlProtocol(name);
@@ -141,7 +150,8 @@ function configuredProtocols(protocols: unknown): readonly string[] {
     throw new ExtensionConfigurationError("Link: protocols must be a list of schemes, such as ['https:']");
   }
   const cached = checkedProtocols.get(protocols);
-  if (cached) return cached;
+  if (cached?.values.length === protocols.length
+    && cached.values.every((value, index) => value === protocolValue(protocols[index]))) return cached.schemes;
   const schemes = (protocols as unknown[]).map(entry => {
     const scheme = protocolScheme(entry);
     if (scheme === null) {
@@ -152,7 +162,7 @@ function configuredProtocols(protocols: unknown): readonly string[] {
     }
     return scheme;
   });
-  checkedProtocols.set(protocols, schemes);
+  checkedProtocols.set(protocols, { values: protocols.map(protocolValue), schemes });
   return schemes;
 }
 

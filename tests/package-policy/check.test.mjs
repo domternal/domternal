@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import semver from 'semver';
 import {
   STYLE_IMPORT,
   discoverPublishablePackages,
@@ -28,6 +29,7 @@ import {
   exportTargets,
   preparePublishManifest,
   publishBlockers,
+  runtimeDependencyRange,
   versionRange,
 } from '../../scripts/prepare-publish-manifest.mjs';
 
@@ -215,6 +217,14 @@ test('the compatibility range keeps the minor floor and excludes the next major'
   assert.throws(() => versionRange('next'), /not a plain MAJOR\.MINOR\.PATCH/);
 });
 
+test('runtime dependency ranges require the coordinated patch while excluding the next major', () => {
+  assert.equal(runtimeDependencyRange('0.15.0'), '>=0.15.0 <1.0.0');
+  assert.equal(runtimeDependencyRange('0.12.1'), '>=0.12.1 <1.0.0');
+  assert.equal(runtimeDependencyRange('1.4.17'), '>=1.4.17 <2.0.0');
+  assert.equal(runtimeDependencyRange('2.3.4'), '>=2.3.4 <3.0.0');
+  assert.throws(() => runtimeDependencyRange('next'), /not a plain MAJOR\.MINOR\.PATCH/);
+});
+
 test('a prerelease is refused rather than reduced to its release part', () => {
   /* `1.0.0-rc.1` would otherwise derive `>=1.0.0 <2.0.0`, and semver ranges exclude
      prereleases: the whole workspace would publish at 1.0.0-rc.1 declaring a
@@ -224,6 +234,12 @@ test('a prerelease is refused rather than reduced to its release part', () => {
   assert.throws(() => versionRange('1.0.0-rc.1'), /decided by hand/);
   assert.throws(() => versionRange('2.0.0-0'), /decided by hand/);
   assert.throws(() => versionRange('0.16.0+build.5'), /decided by hand/);
+  for (const version of ['0.0.0-stage', '1.0.0-rc.1', '2.0.0-0', '0.16.0+build.5']) {
+    assert.throws(() => runtimeDependencyRange(version), /decided by hand/);
+    assert.throws(() => preparePublishManifest({
+      name: '@domternal/core', version, dependencies: { '@domternal/pm': 'workspace:*' },
+    }), /decided by hand/);
+  }
 });
 
 test('the transform drops devDependencies and pins only the workspace protocol', () => {
@@ -239,6 +255,32 @@ test('the transform drops devDependencies and pins only the workspace protocol',
     linkifyjs: '^4.3.2',
   });
   assert.deepEqual(changes, ['dropped devDependencies', 'pinned @domternal/pm to >=0.15.0 <1.0.0']);
+});
+
+test('a core patch cannot retain an older PM release while peer compatibility keeps its minor floor', () => {
+  const source = {
+    name: '@domternal/core',
+    version: '1.3.1',
+    dependencies: { '@domternal/pm': 'workspace:*', linkifyjs: '^4.3.2' },
+  };
+  const { prepared } = preparePublishManifest(source);
+  const range = prepared.dependencies['@domternal/pm'];
+  assert.equal(range, '>=1.3.1 <2.0.0');
+  assert.equal(semver.satisfies('1.3.0', range), false);
+  assert.equal(semver.satisfies('1.3.1', range), true);
+  assert.equal(semver.satisfies('1.4.0', range), true);
+  assert.equal(semver.satisfies('2.0.0', range), false);
+  assert.equal(prepared.dependencies.linkifyjs, '^4.3.2');
+  assert.equal(source.dependencies['@domternal/pm'], 'workspace:*');
+  assert.deepEqual(preparePublishManifest(prepared), { prepared, changes: [] });
+
+  const peer = preparePublishManifest({
+    name: '@domternal/extension-image', version: '1.3.1',
+    peerDependencies: { '@domternal/core': versionRange('1.3.1'), '@domternal/pm': versionRange('1.3.1') },
+  }).prepared;
+  assert.deepEqual(peer.peerDependencies, {
+    '@domternal/core': '>=1.3.0 <2.0.0', '@domternal/pm': '>=1.3.0 <2.0.0',
+  });
 });
 
 test('the transform strips the dev-source condition wherever it sits', () => {
