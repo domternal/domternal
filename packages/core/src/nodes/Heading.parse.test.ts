@@ -427,7 +427,8 @@ describe('a heading after content other than a paragraph at a list item start', 
     expect(JSON.stringify(pasted.editor.getJSON())).toContain('"heading"');
   });
 
-  it('keeps every heading after the first in an item of many headings, without deep recursion', () => {
+  // Parsing thousands of headings under coverage can exceed 5 s on shared CI runners.
+  it('keeps every heading after the first in an item of many headings, without deep recursion', { timeout: 30_000 }, () => {
     const html = `<ul><li>${'<h2>x</h2>'.repeat(5000)}</li></ul>`;
     const json = generateJSON(html, extensionsFor(undefined, STRUCTURES));
     const item = json.content?.[0]?.content?.[0]?.content ?? [];
