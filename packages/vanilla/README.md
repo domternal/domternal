@@ -22,10 +22,10 @@ Lit, Web Components, or plain HTML - anywhere without a framework runtime.
 pnpm add @domternal/core @domternal/theme @domternal/vanilla
 ```
 
-`@domternal/core` (>=1.2.0 <2.0.0) is a peer dependency. `@domternal/theme` supplies the editor
+`@domternal/core` (>=1.3.0 <2.0.0) is a peer dependency. `@domternal/theme` supplies the editor
 styles (import it once in your app).
 
-This package is part of the coordinated Domternal 1.2.0 release.
+This package is part of the coordinated Domternal 1.3.0 release.
 Upgrade installed `@domternal/*` packages together.
 
 ## Usage
@@ -73,6 +73,17 @@ The matching mount points:
 > Construction is browser-only: every constructor calls `assertBrowser()` and throws in
 > SSR. Module-scope imports stay SSR-safe, so gate instantiation behind a client-side
 > entry point (e.g. an Astro `<script>` block or `client:only`).
+
+### Clipboard cleanup
+
+The coordinated 1.3.0 release adds optional clipboard HTML cleanup through
+[`PasteCleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup).
+Add that extension to the `extensions` array in `DomternalEditor` options;
+the wrapper does not enable it automatically. The loaded document nodes and marks
+determine what formatting can be kept. The package README describes the supported
+Word and Google Docs clipboard paths, image handling, and `onPasteResult` reports.
+This handles pasted HTML, not `.docx` file import. Its built-in notice uses the
+coordinated `@domternal/theme` styles; no extra notice component is required.
 
 ## Options
 

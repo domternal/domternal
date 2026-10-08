@@ -29,7 +29,7 @@ pnpm add @domternal/theme
 
 This package has no peer dependencies.
 
-This package is part of the coordinated Domternal 1.2.0 release.
+This package is part of the coordinated Domternal 1.3.0 release.
 Upgrade installed `@domternal/*` packages together.
 
 ## Usage
@@ -142,9 +142,22 @@ A node view or decoration of your own that paints a kept background can add the 
 `surfaceToneAttributes(value)` from `@domternal/core`, and `surfaceTone(value)` reads the tone itself.
 Both are experimental: a minor release can read more color forms or report more tones.
 
+## Paste feedback
+
+The coordinated 1.3.0 theme includes `.dm-paste-feedback` styles for the optional
+`PasteCleanup` extension's built-in notice, including its status, expandable
+details, dismiss button, and keyboard focus indicators. Loading this stylesheet
+does not enable clipboard cleanup; register the extension in the editor to use it.
+
+On screens at least `30rem` tall, the notice sticks near the visible bottom of the
+editor. On shorter screens it follows the document, and it is hidden in print.
+It uses the editor's surface, text, border, and accent tokens in light and dark
+themes. Applications that set `feedback: 'application'` provide their own notice
+through `onPasteResult` instead of using this markup.
+
 ## Floating menu descriptions
 
-The 1.1 stylesheet supports the optional `FloatingMenuItem.description` rendered
+The stylesheet supports the optional `FloatingMenuItem.description` rendered
 by all four framework wrappers. Descriptions appear below the label, wrap long
 text, and use `--dm-muted` for their colour. Upgrade the theme with the wrapper
 so the menu markup and styles stay aligned.

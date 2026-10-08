@@ -29,8 +29,28 @@ the DOM, so it runs anywhere without it.
 pnpm add linkedom
 ```
 
-The 1.2.0 release installs `@domternal/pm` in the range `>=1.2.0 <2.0.0`.
-Upgrade installed `@domternal/*` packages together to 1.2.0.
+The 1.3.0 release installs `@domternal/pm` in the range `>=1.3.0 <2.0.0`.
+Upgrade installed Domternal Free packages together to 1.3.0.
+
+### Upgrading from 1.2
+
+- Office clipboard cleanup is a separate, opt-in package,
+  [`@domternal/extension-paste-cleanup`](../extension-paste-cleanup/README.md).
+  `StarterKit` does not install it. Its experimental clipboard coordination API
+  first ships on the `@domternal/core/clipboard` subpath in 1.3.0.
+- `Link` now allows relative links by default. Set `allowRelative: false` to keep
+  the previous restriction. The [URL policy](#url-policy) applies again when stored
+  content renders or a link opens, including content written by older clients.
+- [Style values](#style-values) are checked before rendering and by their commands.
+  Refused values already stored in a document are not rendered; rendering does not
+  rewrite the document.
+- Headings still default to levels 1 to 4. HTML and JSON loading now place other
+  levels at the nearest configured level of equal or lower importance, otherwise
+  the deepest configured level, with JSON diagnostics. Explicit list markers are retained separately from the theme's default markers.
+- Read [Content normalization](#content-normalization) before migrating stored or
+  collaborative content. Loading JSON and rendering an existing collaborative
+  document are different operations; a document-wide migration must use the same
+  heading, list and link policy as its other clients.
 
 ### One copy of the core, and of ProseMirror
 
@@ -228,7 +248,7 @@ editor, and binds `Mod-P` to `printDocument` while the caret is in the editor.
 ## Clipboard coordination (experimental)
 
 Extensions that cooperate on paste and copy, such as
-[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup) (in development)
+[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup)
 and the image extension, coordinate through the `@domternal/core/clipboard` subpath. Most
 applications never import it. A custom image node uses it to declare where pasted images may go:
 
@@ -282,6 +302,8 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   empty paragraphs or cells: Chrome exposes Word's picture of the selection as a file next to it.
   Only those first 8,192 characters are parsed: past them an image tag counts wherever it is
   written, since a browser's parser can take seconds over a few hundred kilobytes of crafted markup.
+  Metadata is read in a detached document without a browsing context, and its parsed nodes
+  never enter the live editor. This classification does not sanitize the pasted content.
   On a page whose Trusted Types refuse the browser's parser, as Chromium and WebKit do without a
   default policy, the rule reads the HTML as written instead, so text that names them counts there.
   Text a handler removed counts as text of its own when the handler says so (`removedText`), as
@@ -336,7 +358,8 @@ isValidUrl('https://example.com/');          // true
   other than an allowed image, credentials in a web, mail or phone address such as
   `https://google.com@evil.example/` (a user stays allowed where it is the standard form of a
   scheme `protocols` lists, such as `ssh://git@host/repo.git` or `ftp://anonymous@host/`), control
-  characters and bidi embeddings, overrides and isolates anywhere, invisible format characters
+  characters, unpaired UTF-16 surrogates, U+FFFE/U+FFFF and bidi embeddings, overrides
+  and isolates anywhere, invisible format characters
   (every Unicode `Cf` character, such as a zero-width joiner, a bidi mark, a soft hyphen or a tag
   character) in the scheme, the host or the address of a scheme without a host (such as
   `mailto:` or `tel:`, whose address is everything before the query, and for `mailto:` also the
@@ -450,6 +473,18 @@ isSafeCssValue('url(https://example.com/x)'); // false
 - Use `isSafeCssValue` before writing a stored style value into markup yourself, such as in an
   exporter. Like the URL policy, the rule can change in any release: a value accepted before can
   be refused once a new way to add a declaration or load a resource is known.
+
+## List markers
+
+Ordered lists retain `decimal`, `lower-alpha`, `upper-alpha`, `lower-roman` and
+`upper-roman`; bullet lists retain `disc`, `circle` and `square`. The persisted
+`listStyleType` is `null` when the theme should choose its depth-based marker.
+HTML `type` attributes and supported `list-style-type` values populate it. Task
+lists keep their checked state and do not gain this attribute. Core's list
+commands and [`SmartPaste`](../extension-block-controls/README.md) keep lists
+separate when their explicit markers differ; an explicit marker and `null` also
+remain distinct. Marker classes do not preserve a source application's
+exact glyph font, punctuation or indentation.
 
 ## Content normalization
 
@@ -605,7 +640,7 @@ the SSR helpers with an `ExtensionConfigurationError`. `updateAttributes`, `setB
 `toggleBlockType` refuse a level that is not a whole number from 1 to 6, and `setHeading` and
 `toggleHeading` accept only configured levels. HTML content parses every heading tag at the
 nearest configured level, as [Content normalization](#content-normalization) describes; with
-[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup) (in development),
+[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup),
 a pasted heading moves to the nearest supported level before parsing and is reported.
 
 ## SSR

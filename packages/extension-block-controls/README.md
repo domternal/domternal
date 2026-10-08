@@ -22,8 +22,8 @@ pnpm add @domternal/extension-block-controls
 `@domternal/core` and `@domternal/pm` are peer dependencies and are pulled in by any
 Domternal editor setup.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.3.0 <2.0.0`. Upgrade installed Domternal Free packages together to 1.3.0.
 
 ## Usage
 
@@ -127,6 +127,16 @@ values must be trusted application constants, never user-supplied content.
   top-level block.
 - **`FloatingMenu`** - the empty-line insert menu; `requireExplicitTrigger` gates it
   behind the `+` button for Notion mode.
+
+## PasteCleanup integration
+
+`SmartPaste` places the parsed content; it does not clean arbitrary HTML or enable
+Office cleanup by itself. Add [`PasteCleanup`](../extension-paste-cleanup/README.md)
+explicitly when that policy is wanted. The two cooperate on reconstructed ordered
+list starts and explicit marker classes. A pasted list with a different explicit
+marker, including an explicit marker pasted into a theme-default list, stays
+separate instead of being merged into the destination list. Source typography and
+unsupported-content notices belong to PasteCleanup's selected policy.
 
 ## Extension points
 

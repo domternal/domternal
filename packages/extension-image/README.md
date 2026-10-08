@@ -31,8 +31,14 @@ handles, so [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)
 equivalent CSS of your own, is what makes placement and resizing visible in the editor.
 Exported HTML carries its own inline styles either way.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.3.0 <2.0.0`. Upgrade installed Domternal Free packages together to 1.3.0.
+
+For an upgrade from 1.2, review `maxFiles`: 1.3 inserts at most the first ten
+accepted files per paste, drop or file choice by default. Use an explicit limit
+for your application; `0` removes that count limit. Stored image sources are also
+checked again when rendered, so an older document can retain a refused `src`
+without loading it. See [Image sources](#image-sources).
 
 ## Usage
 
@@ -105,6 +111,12 @@ or `images/Q&A.png`, keeps working.
   renders `src=""` in `getHTML()` and `generateHTML()`, and the node view does not load it.
 - `null` and `''` mean no source, as before.
 
+The [core URL policy](../core/README.md#url-policy) also rejects unpaired UTF-16
+surrogates and U+FFFE/U+FFFF. These checks do not validate the bytes a permitted
+server returns. Image's file MIME/size policy is separate from PasteCleanup's
+bounded raster inspection: enabling Image alone does not apply PasteCleanup's
+raster, input-length or node limits.
+
 ## Commands
 
 - `setImage(attributes: SetImageOptions)` - insert an image (`src` required; optional `alt`, `title`, `width`, `height`, `loading`, `crossorigin`, `float`, `align`).
@@ -143,7 +155,7 @@ The user-facing counterpart to the commands above:
 The image node registers its live policy (node type, `src` attribute, `inline`, `allowBase64`,
 `allowedMimeTypes` and `maxFileSize`) as the editor's clipboard image destination through the
 experimental `@domternal/core/clipboard` subpath. Clipboard preparation, such as
-[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup) (in development)
+[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup)
 with `imageAssets`, reads it to decide where pasted local images may go. The registration
 follows the plugin view and is removed when the editor is destroyed.
 

@@ -2,18 +2,32 @@
 
 Opt-in clipboard HTML cleanup for Domternal. MIT licensed and part of Free.
 
-**Development status:** unreleased. This package is not a DOCX importer and makes
-no claim of complete Word, Google Docs, or LibreOffice fidelity. Its behavior is
-verified with synthetic clipboard input and with reviewed native captures on
-macOS 26.5.2: Word 16.113.3 for Mac copied in Safari 26.5.2, Chrome 154 and
-Firefox 155, and Google Docs web copied in Chrome 153. Google Docs in Safari and
-Firefox is not yet captured; Word for Windows, Word on the web, LibreOffice and
-Collabora are unqualified. Strict inline Office list metadata, read
+**First release: 1.3.0.** This package handles clipboard HTML, not DOCX file
+import, and makes no claim of complete Word, Google Docs, or LibreOffice fidelity.
+Verification combines synthetic input with a historical reviewed native baseline
+on macOS 26.5.2: Word 16.113.3 for Mac copied in Safari 26.5.2, Chrome 154 and
+Firefox 155, and Google Docs web copied in Chrome 153. The committed English
+fixtures are authored synthetic variants of that baseline, not new native
+captures. Google Docs in Safari and Firefox is not yet captured; Word for Windows,
+Word on the web, LibreOffice and Collabora are unqualified. See
+[Current verification limits](#current-verification-limits) for the evidence boundary.
+
+Strict inline Office list metadata, read
 together with Word's list level definitions and marker fonts, and a bounded subset
 of inherited formatting are supported. Optional local image preparation supports
 image-only pastes and explicit application-supplied bindings. An explicit resolver
 mode can stage those raster assets in application-owned storage. Automatic Office
 image association and general stylesheet resolution remain subsequent work.
+
+## Install
+
+```bash
+pnpm add @domternal/extension-paste-cleanup
+```
+
+Version 1.3.0 requires `@domternal/core` and `@domternal/pm` in the range
+`>=1.3.0 <2.0.0`. Upgrade installed Domternal Free packages together to 1.3.0.
+The separate Pro DOCX importer remains unreleased; it is not installed by this package.
 
 ## Editor integration
 
@@ -32,10 +46,8 @@ const extensions = [
 ];
 ```
 
-The package has `@domternal/core` and `@domternal/pm` peer dependencies from the
-release that ships it up to, not including, 2.0.0: it needs the
-`@domternal/core/clipboard` subpath, which `@domternal/core` 1.2.0 does not have.
-It adds no toolbar or UI framework. Register it explicitly in
+The extension needs the `@domternal/core/clipboard` subpath introduced in 1.3.0;
+Core 1.2.0 cannot run it. It adds no toolbar or UI framework. Register it explicitly in
 the same extension list used by Vanilla, React, Vue, or Angular. Installations
 that do not import it do not load its parser or sanitizer.
 
@@ -640,10 +652,12 @@ Remote images are removed by default, with escaped alt text where available.
 Enabling `allowRemoteImages` retains HTTP(S) references: later rendering can then
 contact those hosts, and their dimensions/content are outside the local raster
 checks. Without explicit image preparation, local files, blob URLs and CID
-references are removed. SVG data images are always removed. The default behavior
-invokes no upload handler or resolver. Explicit resolver mode uses only the
-application adapter supplied in `imageAssets`; it does not call Image's
-`uploadHandler` or include a storage/network implementation.
+references are removed. SVG data images are always removed. The HTML normalizer
+itself invokes no upload handler or resolver. With
+`imageAssets: false`, an image-only paste can still be handed to the Image extension,
+which uses its configured `uploadHandler` or embedded-data path as described above.
+Explicit resolver mode uses only the application adapter supplied in `imageAssets`;
+it does not call Image's `uploadHandler` or include a storage/network implementation.
 
 PNG, JPEG, GIF and static WebP data images are bounded by declared dimensions,
 frame count, byte length and total pixels. APNG and animated WebP are not accepted.
@@ -1068,21 +1082,34 @@ the user to review the paste. Nothing unsafe is inserted.
 
 ## Current verification limits
 
-Synthetic fixtures test deterministic contracts and hostile input. They are not
-clipboard captures from a native Office application. Native Word, Google Docs,
-LibreOffice and real operating-system clipboard evidence are separate release
-requirements. This package has localized loss notices and optional host-owned
+Synthetic fixtures test deterministic contracts and hostile input. They do not
+qualify a new Office application, browser or operating-system clipboard path;
+that requires a separately reviewed native capture. This package has localized
+loss notices and optional host-owned
 feedback and optional image-preparation progress. It has no built-in preview or
 paste-choice dialog. Local image association still requires an explicit host
 mapping for mixed HTML; these fixtures do not prove native Office association.
-The repository's `e2e/native-office-capture` tooling holds reviewed native
-captures for four paths, Word 16.113.3 for Mac to Safari 26.5.2, to Chrome 154
-and to Firefox 155, and Google Docs web to Chrome 153: their routine envelope,
-text and inline formatting, alignment, spacing, indentation, hidden text, empty
-paragraph, list and table scenarios, and for Google Docs its links, checklists
-and data images, replayed in the real editor in three engines, qualify those
-paths with the limits their support matrix lists. They are synthetic events with the
-captured items, not native pastes into the editor. Chrome and Firefox deliver
+The [support matrix](../../e2e/native-office-capture/SUPPORT-MATRIX.md) retains
+historical qualification for four recorded paths: Word 16.113.3 for Mac to Safari
+26.5.2, Chrome 154 and Firefox 155, and Google Docs web to Chrome 153, on macOS
+26.5.2. The original captures and source documents remain unchanged in the owner's
+private baseline archive. Their review covers routine envelope, text and inline
+formatting, alignment, spacing, indentation, hidden text, empty paragraphs, lists
+and tables, and for Google Docs its links, checklists and data images, within the
+matrix's stated limits. Replay used synthetic events with captured items in the
+real editor, not native Office pastes into the editor.
+
+The repository now contains eighty-five authored English regression variants
+under `e2e/native-office-capture/fixtures`. Their current bytes and semantic
+expectations are synthetic test inputs. Each declares `origin: synthetic`,
+`nativeClipboardCaptured: false` and hashes identifying its archived source,
+capture and manifest. Word Chrome picture alternatives are synthetic PNG controls;
+Google Docs DOCX files are translated reference exports. These declarations do not
+authenticate the private archive, and historical results are not relabelled as
+results for translated bytes. See the [fixture provenance](../../e2e/native-office-capture/README.md#committed-english-regression-variants).
+
+The historical captures establish the following source-specific limits. Chrome
+and Firefox deliver
 Word's raw HTML, whose class rules cleanup does not resolve, so `preserve` keeps
 the formatting Word writes inline: fonts, sizes and colors applied to words, the
 highlight, alignment, line spacing other than the Normal style's and cell
@@ -1104,7 +1131,8 @@ spacing, also when it is empty, without a notice; the blocks after it and a
 heading keep their own. A
 `background-color` on a paragraph or heading has no place in the editor and is
 dropped without a notice, while the `background` shorthand Word writes for
-paragraph shading is reported. Large selections, own copies, images and every
-other source path are not qualified against native clipboard data.
+paragraph shading is reported. Large selections and own-copy workflows are not qualified against native clipboard
+data. Word image scenarios, Google Docs' large-image and image-limit scenarios, and
+every source path outside the four recorded rows remain unqualified.
 The current Core color parser does not retain alpha in RGBA text colors or
 partially transparent backgrounds. Exact transparency fidelity is not promised.

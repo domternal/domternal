@@ -29,8 +29,8 @@ also requires the `UniqueID` extension (from `@domternal/core`) to be loaded: it
 reads UniqueID's `id` attribute on headings as the navigation anchor and stays
 inert without it.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.3.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
 

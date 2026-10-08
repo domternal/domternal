@@ -22,8 +22,8 @@ pnpm add @domternal/extension-details
 
 `@domternal/core` and `@domternal/pm` are peer dependencies.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.3.0 <2.0.0`. Upgrade these packages together with this extension.
 
 ## Usage
 

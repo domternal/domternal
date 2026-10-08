@@ -25,6 +25,7 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **70+ extensions across core and 11 extension packages** - nodes, marks, and behavior extensions
 - **130+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar
+- **Office paste cleanup:** opt-in Word and Google Docs HTML normalization, preserve/adapt formatting, list reconstruction, and localized feedback about content the editor cannot keep
 - **Tree-shakeable JavaScript** - import only the JavaScript exports you use; the optional `@domternal/theme` deliberately ships one complete stylesheet
 - **~77 KiB minified and gzipped** (own code), [**~158 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies - see Packages for the full bundle breakdown
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
@@ -55,6 +56,33 @@ const editor = new Editor({
 The example above wires the minimum schema by hand to show the headless model; in practice use `StarterKit` for a batteries-included setup with headings, lists, code blocks, history, and more.
 
 > **[Getting Started Guide](https://domternal.dev/v1/getting-started)** - headless core, themed UI with toolbar, and Angular/React/Vue component setup
+
+### Word and Google Docs paste
+
+Add the optional `@domternal/extension-paste-cleanup` package alongside your editor:
+
+```bash
+pnpm add @domternal/extension-paste-cleanup
+```
+
+```ts
+import { Editor, StarterKit } from '@domternal/core';
+import { PasteCleanup } from '@domternal/extension-paste-cleanup';
+
+const editor = new Editor({
+  element: document.getElementById('editor')!,
+  extensions: [StarterKit, PasteCleanup.configure({ formatting: 'preserve' })],
+});
+```
+
+Register the same extension in Angular, React, Vue, or Vanilla. `preserve` keeps
+supported source formatting; `adapt` uses the receiving editor's formatting.
+Register Table, Image, and other extensions for content your editor should keep.
+The built-in notice and `onPasteResult` report losses, and the standalone `/html`
+entry normalizes HTML without a DOM. PasteCleanup is not part of StarterKit or
+the wrappers' default extensions. It handles clipboard HTML, not `.docx` files.
+See the [package README](packages/extension-paste-cleanup/README.md) for options,
+image handling, feedback, and source-specific limits.
 
 ## Localization
 
@@ -90,11 +118,20 @@ catalogs, formatting, and custom translation resolvers.
 
 ## Version compatibility
 
-The 1.2.0 minor release adds per-editor UI localization, live language changes, and
-optional German catalogs. Existing editor APIs and saved document formats remain
-compatible. Upgrade installed `@domternal/*` packages together to 1.2.0: wrappers
-require core `>=1.2.0 <2.0.0`, and extensions require both core and pm in that range.
-See [CHANGELOG.md](CHANGELOG.md) for the release contents.
+The 1.3.0 release introduces PasteCleanup, explicit list markers, content
+diagnostics, and coordinated clipboard handling. Upgrade installed `@domternal/*`
+packages together to 1.3.0: wrappers require core `>=1.3.0 <2.0.0`, and extensions
+require both core and pm in that range. New wrappers and extensions use APIs that
+core 1.2.0 does not provide.
+
+This release also changes content validation and transaction callbacks. Loading
+JSON normalizes unsupported heading levels, list markers and table spans, and
+removes links the configured URL policy refuses while keeping their text.
+Stored JSON, strict loaders and mixed-version collaborative documents may need
+migration. Review the [1.3.0 breaking changes](CHANGELOG.md#breaking) and the
+[Core migration guidance](packages/core/README.md) before upgrading; use
+`onContentDiagnostic` to observe repairs and `normalizeContentAttributes` for
+an explicit migration of a live document.
 
 ## Packages
 
@@ -112,16 +149,16 @@ See [CHANGELOG.md](CHANGELOG.md) for the release contents.
 | [`@domternal/extension-table`](https://www.npmjs.com/package/@domternal/extension-table)                             | Tables with 18 commands: merge, split, resize, cell styling, row/column controls                                                                                             |
 | [`@domternal/extension-math`](https://www.npmjs.com/package/@domternal/extension-math)                               | LaTeX math: inline and block equations with a pluggable renderer (KaTeX)                                                                                                     |
 | [`@domternal/extension-markdown`](https://www.npmjs.com/package/@domternal/extension-markdown)                       | GitHub-flavored Markdown import and export: markdown paste, `insertMarkdown`/`setMarkdownContent`, headless parser and serializer with fidelity warnings                     |
-| [`@domternal/extension-paste-cleanup`](packages/extension-paste-cleanup)                                            | In development: opt-in HTML paste normalization, formatting modes, and bounded diagnostics through the extension or standalone `/html` entry                               |
+| [`@domternal/extension-paste-cleanup`](https://www.npmjs.com/package/@domternal/extension-paste-cleanup)              | Opt-in Office HTML paste normalization, preserve/adapt formatting, and bounded diagnostics through the extension or standalone `/html` entry                                |
 | [`@domternal/extension-image`](https://www.npmjs.com/package/@domternal/extension-image)                             | Image with paste/drop upload, URL input, XSS protection, bubble menu                                                                                                         |
 | [`@domternal/extension-emoji`](https://www.npmjs.com/package/@domternal/extension-emoji)                             | Emoji picker panel and `:shortcode:` autocomplete                                                                                                                            |
 | [`@domternal/extension-mention`](https://www.npmjs.com/package/@domternal/extension-mention)                         | `@mention` autocomplete with multi-trigger and async support                                                                                                                 |
 | [`@domternal/extension-details`](https://www.npmjs.com/package/@domternal/extension-details)                         | Collapsible details/accordion blocks                                                                                                                                         |
 | [`@domternal/extension-code-block-lowlight`](https://www.npmjs.com/package/@domternal/extension-code-block-lowlight) | Syntax-highlighted code blocks powered by lowlight                                                                                                                           |
 
-The table above lists all 18 current MIT packages in this workspace, including the unreleased `@domternal/extension-paste-cleanup` package. npm search may still show `@domternal/extension-block-menu` as a historical, deprecated 0.x entry. It is not an additional current package. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
+The table above lists all 18 current MIT packages in this workspace, including `@domternal/extension-paste-cleanup`, introduced in 1.3.0. npm search may still show `@domternal/extension-block-menu` as a historical, deprecated 0.x entry. It is not an additional current package. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
 
-Paste cleanup is unreleased. It normalizes pasted HTML, rebuilds lists from explicit inline Office list metadata, and keeps a bounded set of inherited inline formatting. This behavior is verified with synthetic clipboard input and with reviewed native captures, for Word 16.113.3 for Mac copied in Safari 26.5.2, Chrome 154 and Firefox 155 and for Google Docs web copied in Chrome 153; Google Docs in Safari and Firefox is not yet captured, and Word for Windows, Word on the web and LibreOffice are unqualified. Pro DOCX file import is also unreleased.
+PasteCleanup normalizes pasted HTML, rebuilds lists from explicit Office list metadata, and keeps a bounded set of inherited inline formatting. Reviewed native captures qualify Word 16.113.3 for Mac copied in Safari 26.5.2, Chrome 154 and Firefox 155, and Google Docs web copied in Chrome 153 on macOS. Those captures were replayed through synthetic paste events; the current English regression fixtures are authored derivatives, not new native captures. Google Docs in Safari and Firefox, Word for Windows, Word on the web, LibreOffice and Collabora remain unqualified. See the [support matrix](e2e/native-office-capture/SUPPORT-MATRIX.md) for exact limits. Pro DOCX file import is a separate, unreleased feature.
 
 See [Packages & Bundle Size](https://domternal.dev/v1/packages) for a full breakdown of what each package includes and how tree-shaking works.
 

@@ -19,10 +19,10 @@ editor is created in `onMounted`. Requires Vue 3.3+ and the Composition API.
 pnpm add @domternal/vue @domternal/core @domternal/theme vue
 ```
 
-`vue` (>=3.3) and `@domternal/core` (>=1.2.0 <2.0.0) are peer dependencies. `@domternal/theme`
+`vue` (>=3.3) and `@domternal/core` (>=1.3.0 <2.0.0) are peer dependencies. `@domternal/theme`
 supplies the editor styles.
 
-This package is part of the coordinated Domternal 1.2.0 release.
+This package is part of the coordinated Domternal 1.3.0 release.
 Upgrade installed `@domternal/*` packages together.
 
 ## Usage
@@ -85,6 +85,17 @@ selector for a granular `ComputedRef`:
 ```ts
 const isBold = useEditorState(editor, (ed) => ed.isActive('bold'));
 ```
+
+### Clipboard cleanup
+
+The coordinated 1.3.0 release adds optional clipboard HTML cleanup through
+[`PasteCleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup).
+Add that extension to the `extensions` array passed to `<Domternal>` or `useEditor`;
+the wrapper does not enable it automatically. The loaded document nodes and marks
+determine what formatting can be kept. The package README describes the supported
+Word and Google Docs clipboard paths, image handling, and `onPasteResult` reports.
+This handles pasted HTML, not `.docx` file import. Its built-in notice uses the
+coordinated `@domternal/theme` styles; no Vue notice component is required.
 
 ## Options
 

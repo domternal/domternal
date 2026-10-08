@@ -19,14 +19,14 @@ and React 19.
 pnpm add @domternal/react @domternal/core @domternal/theme react react-dom
 ```
 
-`react` (>=18), `react-dom` (>=18), and `@domternal/core` (>=1.2.0 <2.0.0) are peer dependencies. Import the theme
+`react` (>=18), `react-dom` (>=18), and `@domternal/core` (>=1.3.0 <2.0.0) are peer dependencies. Import the theme
 ([`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)) in your entry CSS for default styling:
 
 ```css
 @import '@domternal/theme';
 ```
 
-This package is part of the coordinated Domternal 1.2.0 release.
+This package is part of the coordinated Domternal 1.3.0 release.
 Upgrade installed `@domternal/*` packages together.
 
 ## Usage
@@ -75,6 +75,17 @@ export default function Editor() {
   );
 }
 ```
+
+### Clipboard cleanup
+
+The coordinated 1.3.0 release adds optional clipboard HTML cleanup through
+[`PasteCleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup).
+Add that extension to the `extensions` array passed to `<Domternal>` or `useEditor`;
+the wrapper does not enable it automatically. The loaded document nodes and marks
+determine what formatting can be kept. The package README describes the supported
+Word and Google Docs clipboard paths, image handling, and `onPasteResult` reports.
+This handles pasted HTML, not `.docx` file import. Its built-in notice uses the
+coordinated `@domternal/theme` styles; no React notice component is required.
 
 ## Options
 

@@ -26,8 +26,8 @@ pnpm add @domternal/extension-table
 `@domternal/core` and `@domternal/pm` are peer dependencies and are already
 present in any Domternal editor setup.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.3.0 <2.0.0`. Upgrade installed Domternal Free packages together to 1.3.0.
 
 ## Usage
 
@@ -101,7 +101,7 @@ entry per spanned cell, so a span such as `colspan="100000000"` in pasted or
 loaded HTML would otherwise exhaust memory. Paste Cleanup refuses a pasted span
 above the same bound.
 
-Stored spans follow the same rule. Validation accepts any whole number from 1, so
+Stored spans follow the same rule. Validation accepts any positive safe integer, so
 `schema.nodeFromJSON`, `Node.check` and `Step.fromJSON` reject `0`, `-1`, `1.5`, `"2"` or `null`
 and accept `5000`. The JSON entry points of `@domternal/core` (initial content, `setContent`,
 `insertContent`, `createDocument`, the SSR helpers and `normalizeContent`) load an invalid span or
@@ -163,6 +163,22 @@ The package also exports the `TableView` node view, the `createTable` and
 `deleteTableWhenAllCellsSelected` helpers, and re-exports `CellSelection` and
 `TableMap` (which originate in `prosemirror-tables`) from `@domternal/pm/tables`,
 so you do not need a bare `prosemirror-tables` import.
+
+## Office paste cleanup
+
+[`PasteCleanup`](../extension-paste-cleanup/README.md) is optional and separate from
+Table. With it installed, bare copied rows and cells are normalized as table
+content. For complete table fragments, unconfirmed destination table support
+rejects the paste before insertion.
+Its default 20,000 expanded-cell budget applies across the pasted fragment; its
+input, node and depth limits apply as well. A span above 1,000 rejects that paste,
+where Table's ordinary HTML parser caps a span at 1,000. These are different entry
+points, not interchangeable limits.
+
+For stored documents, use the diagnostic and migration behavior above. Rendering
+or editing text in a table with unsupported stored spans does not silently migrate
+it. `normalizeContentAttributes({ codes: ['unsupported-table-span'] })` performs
+that repair explicitly, outside undo history.
 
 ## Keyboard shortcuts
 

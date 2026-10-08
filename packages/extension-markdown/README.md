@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-markdown.svg)](https://www.npmjs.com/package/@domternal/extension-markdown)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Bidirectional Markdown for the [Domternal](https://domternal.dev) editor: parse GitHub-flavored Markdown into the document and serialize the document back to Markdown, covering the full Notion-style schema.
+Bidirectional Markdown for the [Domternal](https://domternal.dev) editor: parse GitHub-flavored Markdown into the document and serialize the document back to Markdown, with mappings for the built-in Notion-style nodes and warnings for content Markdown cannot express.
 
 - **Import**: `insertMarkdown` / `setMarkdownContent` commands, plus automatic conversion of Markdown-looking plain-text pastes (opt-out).
 - **Export**: `getMarkdown(editor)` and a `downloadMarkdown` helper, with a warning channel for anything Markdown cannot express (alignment, colors, explicit list markers, merged table cells).
@@ -22,8 +22,8 @@ pnpm add @domternal/extension-markdown
 
 `@domternal/core` and `@domternal/pm` are peer dependencies.
 
-Version 1.2.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.2.0 <2.0.0`. Upgrade these packages together with this extension.
+Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
+`>=1.3.0 <2.0.0`. Upgrade installed Domternal Free packages together to 1.3.0.
 
 ## Usage
 
@@ -58,6 +58,12 @@ the level as written. A heading where one cannot stand, such as `- # Title` at t
 list item, whose first block is a paragraph, imports as that item's text, as HTML does, so the
 item holds no empty paragraph before a heading.
 
+With [`PasteCleanup`](../extension-paste-cleanup/README.md) installed, ordinary
+plain-text and source-Markdown pastes retain this routing. PasteCleanup's input
+and markup-token limits still run before Markdown expands the text; a rejected
+paste inserts nothing. Rich Office HTML follows the HTML cleanup path rather than
+being treated as Markdown. Neither Markdown nor PasteCleanup imports DOCX files.
+
 ## Options
 
 | Option | Default | Description |
@@ -90,7 +96,7 @@ With the extension loaded the editor already holds one of each at
 `editor.storage.markdown.parser` and `editor.storage.markdown.serializer`, so a
 companion package can reuse them instead of building its own.
 
-Custom nodes without a mapping degrade gracefully: content is preserved as plain text and a warning is reported instead of failing. Custom mappings plug in via `Markdown.configure({ specs })` or the `specs` option of `serializeMarkdown`.
+A custom node without a mapping reports `unsupported-node`: a non-leaf node's content is flattened, while a leaf node with no serializable content is omitted. Custom mappings plug in via `Markdown.configure({ specs })` or the `specs` option of `serializeMarkdown`.
 
 ## Links and images
 
@@ -140,7 +146,7 @@ the math nodes; a `math` fence becomes block math only when the schema has it.
 
 ## Fidelity notes
 
-Markdown cannot express everything the editor can. The serializer keeps the content and reports a warning for: text alignment and line height, an explicit list marker (`listStyleType`, such as `upper-roman` or `square`, written as `1.` or `-`), text and background colors, underline, merged table cells, multi-block table cells, table cell background and vertical alignment, image resize dimensions, toggle (details) structure, and mentions. Two cases drop the content instead of keeping it, each with its own warning: an image without a `src`, and a table of contents block (generated content). Round trips of the supported subset, which leaves out everything these warnings report, are exact and covered by tests.
+Markdown cannot express everything the editor can. The serializer keeps the content and reports a warning for: text alignment and line height, an explicit list marker (`listStyleType`, such as `upper-roman` or `square`, written as `1.` or `-`), text and background colors, underline, merged table cells, multi-block table cells, table cell background and vertical alignment, image resize dimensions, toggle (details) structure, and mentions. An image without an allowed `src`, a table of contents block (generated content), and an unmapped leaf node are omitted with an `unsupported-node` warning. Round trips of the supported subset, which leaves out everything these warnings report, are exact and covered by tests.
 
 ## License
 
