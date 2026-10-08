@@ -3,33 +3,40 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-mention.svg)](https://www.npmjs.com/package/@domternal/extension-mention)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Inline `@`-mention nodes for the [Domternal](https://domternal.dev) editor. Adds an
-atomic `mention` node that carries an `id` and `label`, plus a headless suggestion
-plugin that watches one or more trigger characters (`@`, `#`, ...), tracks the query,
-and fetches matching items from your own data source (sync or async). You supply the
-data and, optionally, the dropdown UI; a framework-free default renderer is included.
+Inline mentions for the [Domternal](https://domternal.dev) editor. Connect `@` users,
+`#` tags, or another trigger to your own data source. The extension stores each
+mention's `id`, `label`, and `type`, supports synchronous and asynchronous search,
+and includes a DOM dropdown renderer you can replace with your own UI.
 
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/nodes/mention)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+[Documentation](https://domternal.dev/v1/nodes/mention/) · [Live examples](https://domternal.dev/examples/)
 
 ## Install
 
+The package declares Node.js 22 or later for tooling.
+
 ```bash
-pnpm add @domternal/extension-mention
+pnpm add @domternal/core @domternal/pm @domternal/extension-mention @domternal/theme
 ```
 
-`@domternal/core` and `@domternal/pm` are peer dependencies and are already installed
-with the editor.
+Requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`.
+The theme styles mentions and the suggestion dropdown; custom styles are also supported.
 
-Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.3.0 <2.0.0`. Upgrade these packages together with this extension.
+## Quick start
 
-## Usage
+Add a host, then run the TypeScript after it is mounted in a browser app that
+supports CSS imports:
+
+```html
+<div class="dm-editor"><div id="editor"></div></div>
+```
 
 ```ts
-import { Editor, Document, Paragraph, Text } from '@domternal/core';
-import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-mention';
+import { Editor, StarterKit } from '@domternal/core';
+import {
+  Mention,
+  createMentionSuggestionRenderer,
+} from '@domternal/extension-mention';
+import '@domternal/theme';
 
 const users = [
   { id: '1', label: 'Alice Johnson' },
@@ -38,83 +45,71 @@ const users = [
 ];
 
 const editor = new Editor({
+  element: document.getElementById('editor')!,
   extensions: [
-    Document,
-    Paragraph,
-    Text,
+    StarterKit,
     Mention.configure({
       suggestion: {
         char: '@',
         name: 'user',
-        items: ({ query }) =>
-          users.filter((u) =>
-            u.label.toLowerCase().includes(query.toLowerCase()),
-          ),
+        items: ({ query }) => users.filter((user) =>
+          user.label.toLowerCase().includes(query.toLowerCase()),
+        ),
         render: createMentionSuggestionRenderer(),
       },
     }),
   ],
-  content: '<p>Type @ to mention someone!</p>',
+  content: '<p>Type @ to mention someone.</p>',
 });
 ```
 
-Type `@` to open the dropdown, navigate with arrow keys, press `Enter` to insert, and
-`Escape` to dismiss.
-`items` may also return a `Promise`, so suggestions can come from a remote API; pair
-that with `debounce` on the trigger to rate-limit calls.
-
-> The inserted `span.mention`, the underline on the `@query` range still being typed,
-> and the default dropdown (the `dm-mention-suggestion` classes) are all styled by
-> `@domternal/theme` (`_mention.scss`). Import the theme, or supply your own `render`
-> factory if you want fully custom markup.
+Type `@` to open suggestions, use arrow keys to navigate, `Enter` to insert, and
+`Escape` to dismiss. The trigger's `name` becomes the inserted mention's `type`.
+Call `editor.destroy()` when removing the editor.
 
 ## Commands and storage
 
-The extension registers two chainable commands:
-
 ```ts
-// Insert a mention at the current selection
-editor.commands.insertMention({ id: '1', label: 'Alice', type: 'user' });
+import type { MentionStorage } from '@domternal/extension-mention';
 
-// Delete by id, or the mention immediately before the cursor when no id is passed
+editor.chain().focus().insertMention({ id: '1', label: 'Alice', type: 'user' }).run();
 editor.commands.deleteMention('1');
-editor.commands.deleteMention();
+
+const mentionStorage = editor.storage.mention as MentionStorage;
+const mentions = mentionStorage.findMentions();
 ```
 
-It also exposes `editor.storage.mention.findMentions()`, which returns every mention
-in the document as `{ id, label, type, pos }`.
+`deleteMention(id)` removes the first matching mention. Without an ID it removes
+the mention immediately before the cursor. `findMentions()` returns the document's
+mentions as `{ id, label, type, pos }` objects.
 
-## Multiple triggers
+## Search configuration
 
-Pass a `triggers` array to mix, for example, `@` users and `#` tags. Each trigger has
-its own `name`, `items` source, and renderer:
+- `items` may return a `Promise<MentionItem[]>` for API-backed search. Set
+  `debounce` in milliseconds and `minQueryLength` to control when requests run.
+- `allowSpaces: true` allows multiword queries. It defaults to `false`.
+- `appendText` controls text inserted after a suggestion, defaulting to a space.
+- Suggestions automatically stay closed in code blocks and inline code.
+  `invalidNodes` excludes additional node types and defaults to an empty list.
+- Replace `render` with your own factory to integrate a framework dropdown.
 
-```ts
-Mention.configure({
-  triggers: [
-    { char: '@', name: 'user', items: fetchUsers, render: createMentionSuggestionRenderer() },
-    { char: '#', name: 'tag', items: fetchTags, render: createMentionSuggestionRenderer() },
-  ],
-});
-```
+For multiple sources, use `triggers` instead of `suggestion`. Each trigger requires
+its own unique `name`, character, item provider, and optional renderer. For example,
+add a `user` trigger for `@` and a `tag` trigger for `#`. A nonempty `triggers` array
+takes precedence over `suggestion`.
 
-## Options
+Backspace deletes a mention immediately before the cursor. Set
+`deleteTriggerWithBackspace: true` to also remove a matching trigger character
+immediately before that mention, if present. `renderHTML`, `renderText`, and
+`HTMLAttributes` customize how stored mentions are presented.
 
-Per-trigger options are `char`, `name`, `items`, `render`, `minQueryLength`,
-`allowSpaces`, `appendText` (default `' '`), `invalidNodes`, `debounce`,
-`decorationClass`, `decorationTag`, and `shouldShow`. Extension-level options, set
-alongside `suggestion` or `triggers`, are `deleteTriggerWithBackspace` (Backspace on a
-mention removes the trigger char with it, default `false`), `renderHTML`, `renderText`,
-and `HTMLAttributes`.
-
-For a custom picker, drive the headless plugin directly with
-`createMentionSuggestionPlugin` and close it with
-`dismissMentionSuggestion(view, triggerName)`. For full details and framework wrapper
-examples, see the [documentation](https://domternal.dev/v1/nodes/mention).
+See the [full reference](https://domternal.dev/v1/nodes/mention/) for multiple-trigger
+examples, async providers, rendering, and the exported headless plugin helpers.
 
 ## Localization
 
-This package exports `mentionMessages` for typed custom catalogs. Optional German UI
-messages are available from `@domternal/extension-mention/locales/de` as `deMessages` and
-`deSearchAliases`. Merge them with the core and other enabled feature catalogs. Missing
-entries fall back to English. Provider-supplied names and labels remain unchanged.
+`mentionMessages` provides typed message keys. German `deMessages` and
+`deSearchAliases` are exported from `@domternal/extension-mention/locales/de`.
+See the [localization guide](https://domternal.dev/v1/guides/i18n/) for combining
+catalogs. Missing messages fall back to English; provider-supplied names and labels
+remain unchanged.

@@ -3,23 +3,10 @@
 [![Version](https://img.shields.io/npm/v/@domternal/theme.svg)](https://www.npmjs.com/package/@domternal/theme)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Ready-made light and dark styles for the [Domternal](https://domternal.dev) editor,
-toolbar, bubble menu, floating menu, popovers, and every UI component. It is a
-CSS-only package (no JavaScript), built from Sass and shipped as a single compiled stylesheet. Every
-visual property is exposed as a CSS custom property, so you can rebrand colors,
-fonts, spacing, and borders by overriding a variable instead of touching the source.
-It also carries the paper layer: printing an editor produces the document rather than
-the screen, with the toolbar, menus, popovers, and hover affordances hidden, and that
-applies to the reader's own Ctrl/Cmd+P without any JavaScript. Colour is the one thing
-printing takes back: the whole light palette is re-emitted on `.dm-editor` with
-`!important`, so a dark document, and a custom palette with it, prints light. Hiding the host
-application's own chrome around the editor is the one part that takes code: that layer is
-gated behind the `dm-printing` class, which the `Print` extension in
-[`@domternal/core`](https://www.npmjs.com/package/@domternal/core) sets.
-
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/guides/theming)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+Default styles for the [Domternal](https://domternal.dev) editor, toolbar, menus,
+pickers, and document content. Includes light and dark themes, CSS custom
+properties for customization, and print styles. This package contains CSS and Sass
+source, with no JavaScript runtime.
 
 ## Install
 
@@ -27,62 +14,49 @@ gated behind the `dm-printing` class, which the `Print` extension in
 pnpm add @domternal/theme
 ```
 
-This package has no peer dependencies.
-
-This package is part of the coordinated Domternal 1.3.0 release.
-Upgrade installed `@domternal/*` packages together.
+The package declares Node.js 22 or later for tooling and has no peer dependencies. Keep the theme on the same Domternal release as
+your editor and framework wrapper so component markup and styles stay aligned.
 
 ## Usage
 
-Import the stylesheet once in your application entry point:
+Import once in your application's entry point:
 
 ```ts
-// JavaScript/TypeScript bundler (Vite, Webpack, esbuild)
 import '@domternal/theme';
 ```
 
+For a Sass pipeline, use the source entry point instead:
+
 ```scss
-// Sass pipeline (imports the SCSS source)
 @use '@domternal/theme/scss';
 ```
 
-```html
-<!-- Plain HTML link tag -->
-<link rel="stylesheet" href="node_modules/@domternal/theme/dist/domternal-theme.css" />
-```
+React, Vue, and Angular components add the editor's `.dm-editor` class. With
+`@domternal/core` or `@domternal/vanilla`, add that class to the host yourself.
 
-Light mode is the default. Toggle dark mode by adding a class to the editor or any
-ancestor element:
+## Light and dark mode
+
+Light is the default. Add a theme class to a common ancestor of the editor and its
+UI so sibling toolbars and menus receive the same palette:
 
 ```html
-<!-- Always dark -->
 <div class="dm-theme-dark">
   <div class="dm-toolbar">...</div>
   <div class="dm-editor">...</div>
 </div>
-
-<!-- Follow the system preference -->
-<div class="dm-theme-auto">...</div>
-
-<!-- Force light inside a dark context -->
-<div class="dm-theme-light">...</div>
 ```
 
-For a Notion-style look (borderless surface, centered narrow column), create the editor
-with `preset: 'notion'`, which paints the `dm-notion-mode` class on the `.dm-editor` host
-for you; adding the class by hand still works and is what the preset does. The reading
-measure is `--dm-notion-column-width` (default `44rem`) and sits on the content column, so
-the host itself stays full width. See the theming guide for details.
+Use `dm-theme-auto` to follow the system preference, or `dm-theme-light` to force a
+light palette. Toggle the class at runtime without recreating the editor.
+For a borderless document layout, create the editor with `preset: 'notion'`; see
+[Notion mode](https://domternal.dev/v1/guides/notion-mode/).
 
-Override any CSS custom property to customize the look, on screen. Print normalises the
-colour tokens (see the paper layer above); to keep a colour of your own on the page,
-redeclare it `!important` in your own `@media print` block loaded after this package.
-The defaults are declared on
-`.dm-editor` and `.dm-toolbar` themselves, and a declaration on the element beats one
-inherited from an ancestor, so target those elements rather than a wrapper alone:
+## Customize the theme
+
+Load overrides after the theme. Defaults live on the component elements, so target
+`.dm-editor` and `.dm-toolbar` rather than setting variables only on an ancestor:
 
 ```css
-/* Tokens the toolbar reads too */
 .my-app .dm-editor,
 .my-app .dm-toolbar {
   --dm-accent: #e11d48;
@@ -90,99 +64,39 @@ inherited from an ancestor, so target those elements rather than a wrapper alone
   --dm-accent-surface: rgba(225, 29, 72, 0.1);
 }
 
-/* Editor-only tokens */
 .my-app .dm-editor {
   --dm-editor-bg: #fefce8;
+  --dm-editor-border-radius: 0.5rem;
 }
 ```
 
-## Text on kept backgrounds
+The [theming guide](https://domternal.dev/v1/guides/theming/) covers custom palettes,
+separately mounted UI, scrolling, Sass, and the complete
+[CSS property reference](https://domternal.dev/v1/guides/theming/#css-custom-properties-reference).
 
-A highlight with its own color and a table cell with its own shading keep their background in every
-theme: yellow stays yellow in the dark theme, and Word's dark blue cell shading stays dark blue in the
-light one. The editor marks each of them in the view with the tone of that background
-(`data-dm-tone="light"` or `"dark"`, plus `mid` for a mid tone; never in `getHTML()`), and the theme
-draws on it:
+## Rendering and print behavior
 
-- Text without a color of its own is black on a light background and white on a dark one, in every
-  theme and in print, so it never falls below 4.58:1. The two colors are tokens on `.dm-editor`:
-  `--dm-on-light-text` (`#000000`) and `--dm-on-dark-text` (`#ffffff`).
-- Links, code, quotes, muted headings, mentions and form controls there take the palette of that
-  background: a dark background uses the dark palette, a light one the light palette where the editor
-  around it is dark. In the default light theme a light background changes no token, so your own light
-  palette stays.
-- On a mid-tone background (gray, teal, Word's blue accent) links, muted text, quotes and mentions take
-  the black or white of the text; links keep their underline.
-- A mention sits on a lift (the opposite of the text color at 40%), and rules, quote bars and details
-  borders are drawn from the text color, so they reach 3:1 on any kept background; a code chip's
-  outline is lighter.
-- Colors the author chose stay as chosen: an inline text color, a token color on the highlighted run
-  (resolved in the background's palette) and a color a block in the document sets for its content. A
-  `data-text-color` attribute on the page around the editor does not count.
-
-A value the browser does not paint, such as `rgb(0, 0, 50%)` (legacy syntax that mixes numbers and
-percentages) or a color followed by a no-break space, gets no mark, so its text keeps the theme's
-color. A value it paints but the editor cannot read itself, such as `var(--brand)`, `oklch()`,
-`color-mix()` or a system color, is marked `data-dm-tone="unknown"` with the value as
-`--dm-tone-surface`, and CSS computes pure black or white from the painted color (relative color
-syntax; engines without it keep the text color around it). A translucent color whose tone depends on
-what is behind it keeps the text color around it too.
-
-A dark theme of your own that does not use `dm-theme-dark` gets the light palette on light
-backgrounds through a style query on `--dm-color-scheme: dark` in Chromium and Safari; add the
-`dm-theme-dark` class as well for Firefox. To keep the theme's text color instead, set both tokens to
-`inherit`; separators then follow that text color. Highlights and shaded cells print with their
-background (`print-color-adjust: exact`).
-
-The marks exist only in a live editor view. To show stored HTML with readable text on kept backgrounds,
-render it in a read-only editor (`editable: false`) rather than inserting `getHTML()` output into the
-page.
-
-A node view or decoration of your own that paints a kept background can add the same mark with
-`surfaceToneAttributes(value)` from `@domternal/core`, and `surfaceTone(value)` reads the tone itself.
-Both are experimental: a minor release can read more color forms or report more tones.
-
-## Paste feedback
-
-The coordinated 1.3.0 theme includes `.dm-paste-feedback` styles for the optional
-`PasteCleanup` extension's built-in notice, including its status, expandable
-details, dismiss button, and keyboard focus indicators. Loading this stylesheet
-does not enable clipboard cleanup; register the extension in the editor to use it.
-
-On screens at least `30rem` tall, the notice sticks near the visible bottom of the
-editor. On shorter screens it follows the document, and it is hidden in print.
-It uses the editor's surface, text, border, and accent tokens in light and dark
-themes. Applications that set `feedback: 'application'` provide their own notice
-through `onPasteResult` instead of using this markup.
-
-## Floating menu descriptions
-
-The stylesheet supports the optional `FloatingMenuItem.description` rendered
-by all four framework wrappers. Descriptions appear below the label, wrap long
-text, and use `--dm-muted` for their colour. Upgrade the theme with the wrapper
-so the menu markup and styles stay aligned.
-
-## The hidden attribute
-
-`hidden` works on every element this theme styles, and on anything inside one:
-
-```js
-toolbar.hidden = true;   // the toolbar is gone, not merely emptied
-```
-
-Worth stating because it is not free. `[hidden] { display: none }` comes from the user agent
-stylesheet, and author styles beat the user agent stylesheet whatever their specificity, so any
-component rule that sets `display` disables the attribute for that element. `.dm-toolbar` sets
-`display: flex`, so a hidden toolbar used to leave an empty strip with the toolbar's background,
-border and padding, and nothing in the console. One scoped rule restores it for the whole theme.
-
-`hidden="until-found"` is deliberately left alone: it does not mean `display: none`, it means the
-element stays findable and the browser reveals it when find-in-page lands inside.
+- Print styles hide editor controls and use a light palette, including when the
+  screen theme is dark. To isolate the editor from your application's surrounding
+  UI, use the [Print extension](https://domternal.dev/v1/extensions/print/).
+  Color overrides for print need `!important` in a later `@media print` rule;
+  see [printing](https://domternal.dev/v1/guides/theming/#printing).
+- Highlights and shaded table cells retain authored backgrounds. In the live
+  editor, text without an authored color adapts to that background. This behavior
+  is not serialized into `getHTML()`; use a read-only editor to display saved
+  content with the same contrast handling. See
+  [text on kept backgrounds](https://domternal.dev/v1/guides/theming/#text-on-kept-backgrounds)
+  for custom themes, browser fallbacks, and experimental tone helpers.
+- The native `hidden` attribute hides themed elements;
+  [`hidden="until-found"` keeps its browser behavior](https://domternal.dev/v1/guides/theming/#hiding-an-element).
+- The stylesheet includes [PasteCleanup feedback](https://domternal.dev/v1/extensions/paste-cleanup/)
+  and [floating-menu descriptions](https://domternal.dev/v1/extensions/floating-menu/).
+  Load the corresponding extensions or components to enable those features.
 
 ## Entry points
 
-| Import | Resolves to | Description |
-|---|---|---|
-| `@domternal/theme` | `dist/domternal-theme.css` | Default: compiled CSS |
-| `@domternal/theme/css` | `dist/domternal-theme.css` | Explicit CSS import |
-| `@domternal/theme/scss` | `src/index.scss` | SCSS source for Sass pipelines |
+| Import | Contents |
+| --- | --- |
+| `@domternal/theme` | Compiled CSS, or Sass source with Sass-aware resolution |
+| `@domternal/theme/css` | Explicit compiled CSS |
+| `@domternal/theme/scss` | Sass source |

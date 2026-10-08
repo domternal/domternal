@@ -3,161 +3,139 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-block-controls.svg)](https://www.npmjs.com/package/@domternal/extension-block-controls)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Notion-style block controls for the [Domternal](https://domternal.dev) editor. Ships
-six coordinated extensions: `BlockHandle`, `BlockContextMenu`, `SlashCommand`,
-`SmartPaste`, `KeyboardReorder`, and `FloatingMenu` (each described under
-[Extensions](#extensions) below). They cooperate through DOM events, so opening one
-overlay closes the others.
+Block handles, drag reordering, context menus, slash commands, and block-aware paste
+for the [Domternal](https://domternal.dev) editor. Choose the extensions your app
+needs, or combine them for a Notion-style editing experience.
 
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/extensions/block-controls)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+[Documentation](https://domternal.dev/v1/extensions/block-controls/) · [Live examples](https://domternal.dev/examples/)
 
 ## Install
 
+The package declares Node.js 22 or later for tooling.
+
 ```bash
-pnpm add @domternal/extension-block-controls
+pnpm add @domternal/core @domternal/pm @domternal/extension-block-controls @domternal/vanilla @domternal/theme
 ```
 
-`@domternal/core` and `@domternal/pm` are peer dependencies and are pulled in by any
-Domternal editor setup.
+The extension requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`.
+The example uses `@domternal/vanilla` for the rendered insert menu and
+`@domternal/theme` for styling; both are optional if you provide your own UI.
 
-Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.3.0 <2.0.0`. Upgrade installed Domternal Free packages together to 1.3.0.
+## Quick start
 
-## Usage
+Add a host to your page, then run the TypeScript after it is mounted in a browser
+app that supports CSS imports:
 
-Add the extensions you want to your editor's extension list. Most apps use the full set
-together for the Notion experience:
+```html
+<div class="dm-editor">
+  <div id="editor"></div>
+  <div id="insert-menu"></div>
+</div>
+```
 
 ```ts
-import { Editor, StarterKit } from '@domternal/core';
+import { Editor, StarterKit, UniqueID } from '@domternal/core';
 import {
   BlockHandle,
   BlockContextMenu,
   SlashCommand,
   SmartPaste,
   KeyboardReorder,
-  FloatingMenu,
 } from '@domternal/extension-block-controls';
+import { DomternalFloatingMenu } from '@domternal/vanilla';
 import '@domternal/theme';
 
 const editor = new Editor({
   element: document.getElementById('editor')!,
   extensions: [
     StarterKit,
+    UniqueID,
     BlockHandle.configure({ nested: true }),
     BlockContextMenu,
     SlashCommand,
     SmartPaste,
     KeyboardReorder,
-    FloatingMenu.configure({
-      element: document.getElementById('floating-menu')!,
-      requireExplicitTrigger: true,
-    }),
   ],
+  content: '<p>Hover beside this block, or type / on a new line.</p>',
 });
+
+const insertMenu = new DomternalFloatingMenu(
+  document.getElementById('insert-menu')!,
+  { editor, requireExplicitTrigger: true },
+);
 ```
 
-The `SlashCommand` and `FloatingMenu` popups draw their items from
-`editor.floatingMenuItems` (collected from every extension's `addFloatingMenuItems()`
-hook), so installed extensions register their own insert actions automatically.
+Hover beside a block to reveal its handle. Click `+` to insert a paragraph and
+open the insert menu, click the drag handle for block actions, or drag it to reorder.
+Type `/` for the slash menu. `Mod-Shift-ArrowUp` and `Mod-Shift-ArrowDown` move the
+current top-level block (`Mod` is Command on macOS and Ctrl elsewhere).
 
-For custom slash-menu icons, pass an `IconSet` to `SlashCommand.configure({ icons })`.
-Its keys override `defaultIcons`; omitted keys keep their built-in SVG. Toolbar and
-floating-menu icon props are separate, so pass the same map to each surface that
-needs it. A custom `render` factory owns icon rendering; the exported
-`createSlashSuggestionRenderer(icons)` accepts the same optional map. Icon SVG
-values must be trusted application constants, never user-supplied content.
+When removing this editor, call `insertMenu.destroy()` before `editor.destroy()`.
 
-## Extensions
+## Choose your controls
 
-- **`BlockHandle`** - hover gutter with a `+` insert button and a drag handle. The `+`
-  button inserts an empty paragraph and opens the `FloatingMenu`; the drag handle opens
-  the context menu on click and reorders with a nesting-aware drop indicator on drag.
-  Two experimental extension points serve side-by-side layout extensions:
-  `dropZoneProviders` (claim pointer positions during a handle drag and own the drop)
-  and `nested.anchorContainers` (per-block handles inside listed containers, anchored
-  to the container's edge). They are two halves of one containment model: always ship
-  both together, or moves out of the container become irreversible.
-- **`BlockContextMenu`** - Delete / Duplicate / Turn into actions, opened from the drag
-  handle. Also shows a "Copy link" item when the block has an id (and `UniqueID` is
-  loaded), and a "Colors" section when the `BlockColor` extension is loaded; each is
-  toggleable via `turnIntoEnabled` / `copyLinkEnabled` / `blockColorEnabled`.
-  `turnIntoTargets` curates the block types offered by "Turn into", and `onCopyLink`
-  builds the URL written to the clipboard. A block type target is offered only when
-  the editor supports every attribute value it sets, so the default Heading 1 to 3
-  targets follow the `Heading` `levels` (levels `[2, 3]` offer Heading 2 and 3, as the
-  slash menu does), and the target a block already renders as is hidden: a heading
-  stored at a level the configuration lacks counts as the level it renders at. Other
-  extensions add their own entries through `addBlockMenuItems()` (see
-  [Extension points](#extension-points)).
-- **`SlashCommand`** - typing `/` opens a filtered, ranked popup of insertable blocks;
-  selecting one replaces the `/query` range and runs the item's command.
-- **`SmartPaste`** - keeps block-level formatting intact when pasting at an inline cursor.
-  It splits the caret's block, or its list item, only where both halves stay valid: a list
-  pasted into the middle of a heading or code block inside a list item lands at the caret
-  inside the item. A node that places pasted blocks elsewhere through
-  `@domternal/core/clipboard`, as Details puts blocks pasted into its summary in a new block at
-  the start of its content, which opens, gives SmartPaste the place to insert them, in one
-  transaction with that block. Any other paste into a textblock its blocks cannot leave,
-  whose parent takes no block beside it, is left to ProseMirror's own paste, so the parent is
-  not split in two, and ProseMirror joins the text of one paragraph or heading to it. Text copied from inside a list item, quote, table cell or
-  details summary joins the caret's textblock through ProseMirror's paste, as it does
-  without SmartPaste, though the copy records the container around it; before, it landed
-  beside the textblock in a list, quote, table or details of its own. Into a list, the list
-  rules still keep a copied item's list and its marker, and HTML from outside an editor,
-  without that record, still pastes its blocks as blocks. The record is the `data-pm-slice`
-  attribute of the first element that carries one, as ProseMirror reads it, so a page that shows
-  such a marker in its text, a comment or another attribute pastes its blocks as blocks too. On a page whose
-  Trusted Types refuse the browser's parser, where ProseMirror reads the record through a policy of its own,
-  SmartPaste reads it as written. It inserts whole blocks,
-  so a pasted slice that starts or ends inside a block first gets what its schema requires there: a list whose
-  first item starts with a nested list, as a browser copies a selection that starts inside
-  a nested item, keeps its nesting under an empty first item, and an empty item or quote
-  at either edge stays an empty item or quote. A slice it cannot complete goes through
-  ProseMirror's own paste. SmartPaste handles a caret or text selection inside a textblock
-  only: over the whole document (`Mod-A`) or a node selection, and in an editor without
-  SmartPaste, ProseMirror's own paste fits such a list instead. The nested list then loses
-  its depth and its first item can join the paragraph at the caret, the items after it
-  form a separate list, and a quote around the list is dropped. No text is lost. With
-  PasteCleanup, HTML from outside the editor gives such an item an empty label paragraph
-  first, which keeps the nesting there too, except in a paragraph with text.
-- **`KeyboardReorder`** - `Mod-Shift-ArrowUp` / `Mod-Shift-ArrowDown` move the current
-  top-level block.
-- **`FloatingMenu`** - the empty-line insert menu; `requireExplicitTrigger` gates it
-  behind the `+` button for Notion mode.
+| Extension | What it adds |
+| --- | --- |
+| `BlockHandle` | Hover handle, `+` button, drag reordering, and a drop indicator. `nested: true` enables individual list and task-item handles. |
+| `BlockContextMenu` | Delete, Duplicate, and Turn into actions. Copy link needs `UniqueID`; Colors needs the core `BlockColor` extension. |
+| `SlashCommand` | A searchable insert popup with a built-in DOM renderer. |
+| `SmartPaste` | Preserves block structure when pasting at a caret or text selection inside a textblock. |
+| `KeyboardReorder` | Keyboard shortcuts for moving top-level blocks. |
+| `FloatingMenu` | Visibility and positioning for an insert menu whose DOM you supply. |
 
-## PasteCleanup integration
+`DomternalFloatingMenu` in the example renders the menu and registers its positioning
+plugin. Do not also register `FloatingMenu` for that same menu. For a custom UI, use
+`FloatingMenu.configure({ element, requireExplicitTrigger: true })` and render the
+items yourself, or use the floating-menu component from your framework package.
 
-`SmartPaste` places the parsed content; it does not clean arbitrary HTML or enable
-Office cleanup by itself. Add [`PasteCleanup`](../extension-paste-cleanup/README.md)
-explicitly when that policy is wanted. The two cooperate on reconstructed ordered
-list starts and explicit marker classes. A pasted list with a different explicit
-marker, including an explicit marker pasted into a theme-default list, stays
-separate instead of being merged into the destination list. Source typography and
-unsupported-content notices belong to PasteCleanup's selected policy.
+Slash and floating-menu items come from installed extensions' `addFloatingMenuItems()`
+hooks. Registering a node such as Details or Math adds its insert action automatically.
 
-## Extension points
+## Common configuration
 
-- `addBlockMenuItems()` - any extension contributes entries to the block handle menu,
-  the same shape `addToolbarItems()` uses. An item declares `id`, `label`, `icon`,
-  `group` (`primary`, `colors`, `turnInto`, `collaboration`), an optional `order`, and
-  `run`; `isAvailable` hides it, `isEnabled` renders it inert with a reason. This
-  package builds the button, so a contributed entry keeps the menu's `role="menuitem"`,
-  roving tabindex, and arrow-key navigation. `BlockMenuItem`, `BlockMenuItemContext`,
-  and `BlockMenuItemGroup` are exported for the declaration; the full contract is in
-  the [documentation](https://domternal.dev/v1/extensions/block-controls/#contributed-items-addblockmenuitems).
-- `keepOnDuplicate: false` on a mark (`Mark.create()` in `@domternal/core`) drops that
-  mark from the copy Duplicate inserts, throughout the subtree. Set it on marks that
-  reference identity living outside the document, such as a comment thread anchor.
-- `dropZoneProviders` and `nested.anchorContainers` on `BlockHandle` are two more, both
-  experimental and described under [Extensions](#extensions).
+- Use `BlockHandle.configure({ disableDrag: true })` to retain the buttons while
+  disabling drag reordering.
+- Use `BlockContextMenu.configure({ copyLinkEnabled: false })` to hide Copy link.
+  `turnIntoTargets` curates conversion choices; `onCopyLink` builds the copied URL.
+- Use the `items` callback in `SlashCommand.configure()` to filter or reorder the
+  insert menu. See the [item contract](https://domternal.dev/v1/extensions/floating-menu/)
+  for available fields and commands.
+- Pass `icons` to `SlashCommand.configure()` to override the default popup's SVGs.
+  Icon values must be trusted application constants. Pass the same map separately
+  to your toolbar or floating-menu component when those surfaces need it too.
+
+## Paste behavior
+
+`SmartPaste` controls where parsed blocks are inserted. It keeps copied inline text
+inline, preserves list structure where the schema allows it, and respects nodes such
+as Details that redirect block pastes into their content. Selections whose start is outside a textblock, such as whole-document and
+block-node selections, use ProseMirror's default paste handling. See the
+[paste behavior reference](https://domternal.dev/v1/extensions/block-controls/#smartpaste)
+for list merging, nested selections, and fallback behavior.
+
+HTML cleanup is a separate, explicit choice. Add
+[`PasteCleanup`](https://domternal.dev/v1/extensions/paste-cleanup/) when you want its
+Office cleanup, typography, or unsupported-content policy. `SmartPaste` does not
+enable that policy. With both extensions, explicit list markers and ordered-list
+starts are preserved; incompatible explicit markers keep pasted lists separate.
+
+## Custom integrations
+
+Use [`addBlockMenuItems()`](https://domternal.dev/v1/extensions/block-controls/#contributed-items-addblockmenuitems)
+to contribute actions while retaining the menu's keyboard navigation. Marks that
+reference external identity can declare `keepOnDuplicate: false` to exclude them
+from duplicated blocks.
+
+Custom layout extensions can use the experimental `dropZoneProviders` and
+`nested.anchorContainers` options. Implement both sides of the containment model
+so blocks can move into and back out of the layout. See
+[drop zones](https://domternal.dev/v1/extensions/block-controls/#drop-zone-providers-experimental)
+and [anchor containers](https://domternal.dev/v1/extensions/block-controls/#anchor-containers-experimental).
 
 ## Localization
 
-This package exports `blockControlsMessages` for typed custom catalogs. Optional German
-UI messages are available from `@domternal/extension-block-controls/locales/de` as
-`deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
-catalogs. Missing entries fall back to English, while custom contributed item labels
-remain application-owned.
+`blockControlsMessages` provides typed message keys. German `deMessages` and
+`deSearchAliases` are exported from `@domternal/extension-block-controls/locales/de`.
+Merge them with the core catalog as described in the
+[localization guide](https://domternal.dev/v1/guides/i18n/). Missing messages fall
+back to English; labels for your custom items remain yours to translate.

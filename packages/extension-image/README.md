@@ -3,173 +3,146 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-image.svg)](https://www.npmjs.com/package/@domternal/extension-image)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-An image node for the [Domternal](https://domternal.dev) editor: corner-handle
-resizing, two placements (float, where text wraps beside the picture, and align, where
-the picture moves within the measure and the text stays below it, both taking `none`,
-`left`, `center`, `right`), paste and
-drag-and-drop file upload through your own `uploadHandler`, a markdown
-`![alt](src "title")` input rule, and defense-in-depth XSS validation on `src`
-(blocks `javascript:`, `vbscript:`, `file:`, and non-image `data:` URLs across
-parse, render, command, and input-rule layers). Block-level by default, optional
-`inline` mode.
+Images for the [Domternal](https://domternal.dev) editor, with resizing, alignment,
+text wrapping, alt text and file paste/drop support. Store files through your own
+upload handler or embed them as data URLs. Images are block nodes by default;
+inline images are optional.
 
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/nodes/image)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+[Documentation](https://domternal.dev/v1/nodes/image/) · [Examples](https://domternal.dev/examples)
 
 ## Install
 
+The package declares Node.js 22 or later for tooling.
+
 ```bash
-pnpm add @domternal/extension-image
+pnpm add @domternal/core @domternal/pm @domternal/extension-image @domternal/theme
 ```
 
-`@domternal/core` and `@domternal/pm` are peer dependencies (you already have
-them if you are building a Domternal editor).
+Core and pm are peers with the range `>=1.3.0 <2.0.0`. Keep Domternal packages on
+the same release. The optional theme provides the resize handles and placement
+styles; supply equivalent CSS if you omit it. Exported HTML includes placement
+styles independently of the theme.
 
-The node view only writes `data-float` / `data-align` attributes and bare corner
-handles, so [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme), or
-equivalent CSS of your own, is what makes placement and resizing visible in the editor.
-Exported HTML carries its own inline styles either way.
+## Quick start
 
-Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.3.0 <2.0.0`. Upgrade installed Domternal Free packages together to 1.3.0.
-
-For an upgrade from 1.2, review `maxFiles`: 1.3 inserts at most the first ten
-accepted files per paste, drop or file choice by default. Use an explicit limit
-for your application; `0` removes that count limit. Stored image sources are also
-checked again when rendered, so an older document can retain a refused `src`
-without loading it. See [Image sources](#image-sources).
-
-## Usage
+```html
+<div id="editor" class="dm-editor"></div>
+```
 
 ```ts
-import { Editor, Document, Paragraph, Text } from '@domternal/core';
+import { Editor, StarterKit } from '@domternal/core';
 import { Image } from '@domternal/extension-image';
 import '@domternal/theme';
 
 const editor = new Editor({
-  extensions: [
-    Document,
-    Paragraph,
-    Text,
-    Image.configure({
-      // Optional: enables paste/drop upload. Return the stored URL.
-      uploadHandler: async (file) => {
-        const form = new FormData();
-        form.append('file', file);
-        const res = await fetch('/api/upload', { method: 'POST', body: form });
-        const { url } = (await res.json()) as { url: string };
-        return url;
-      },
-    }),
-  ],
+  element: document.getElementById('editor')!,
+  extensions: [StarterKit, Image],
+  content: '<p>Paste an image or add one by URL.</p>',
 });
-
-// Insert an image
-editor.commands.setImage({ src: 'https://example.com/photo.jpg', alt: 'A photo' });
-
-// Wrap text around the selected image
-editor.commands.setImageFloat('left');
-
-// Or move it within the measure, with the text staying below it
-editor.commands.setImageAlign('center');
-
-// Remove the selected image
-editor.commands.deleteImage();
 ```
 
-## Options
+Add an image using a URL your application serves:
 
-`Image.configure({ ... })` accepts:
+```ts
+editor.chain().focus().setImage({
+  src: '/uploads/photo.jpg',
+  alt: 'A mountain reflected in a lake',
+}).run();
+```
 
-- `inline` (`boolean`, default `false`) - render images inline within paragraphs instead of as block nodes.
-- `placement` (`'float' | 'align'` or `null`, default `null`) - which placement set the bubble menu offers. `null` follows the editor: `preset: 'notion'` offers align, `'classic'` offers float.
-- `allowBase64` (`boolean`, default `true`) - permit `data:image/` URLs; when `false`, only non-data sources are allowed, and without an `uploadHandler` pasted, dropped and chosen files are not stored at all.
-- `uploadHandler` (`(file: File) => Promise<string>` or `null`, default `null`) - stores pasted, dropped and chosen image files and returns their URL; without it, files are read as `data:` URLs when `allowBase64` allows it.
-- `allowedMimeTypes` (`string[]`) - MIME types accepted for upload (defaults to `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml`, `image/avif`).
-- `maxFileSize` (`number`, default `0`) - max upload size in bytes; `0` means unlimited.
-- `maxFiles` (`number`, default `10`) - the most image files one paste, drop or file choice inserts: the first ones of an accepted type and size, in order; the others are left out. Every file is read or uploaded at once and, without an `uploadHandler`, stored in the document as a `data:` URL, so the limit keeps a dropped folder of photos from filling the document. `0` inserts every file.
-- `onUploadStart` / `onUploadError` - callbacks fired when an upload through `uploadHandler` begins, and when storing a file fails: an upload that rejects or throws, a file that cannot be read, or a returned source `setImage` would refuse, including none (a `RangeError`). `onUploadError` runs after the other images of the paste or drop are placed. An error either callback throws is reported through the editor's `error` event (`onError`) with the context `Image.onUploadStart` or `Image.onUploadError`, and never stops or holds back an image. An `uploadHandler` that returns the URL itself instead of a promise is read as `await` reads it.
-- `HTMLAttributes` (`Record<string, unknown>`) - attributes merged onto the rendered `<img>`.
+Call `editor.destroy()` when removing the editor. The extension contributes image
+controls to Domternal's toolbar and bubble menu when those UI components are
+mounted; a bare Core editor does not create those components.
 
-### Image sources
+## Upload files to your application
 
-Sources go through the core URL policy (`checkUrl` from `@domternal/core`) with the image profile,
-which reads an address the way a browser does: leading and trailing spaces and controls are
-stripped and tabs and line breaks removed before the scheme is judged. Any scheme is allowed except
-`javascript:`, `vbscript:`, `data:` other than an image with `allowBase64`, and `file:`; relative
-and network-path sources, `blob:` and custom schemes such as `app://` keep working. An address with
-credentials in a web address, a control character or bidi override anywhere, or a format
-character such as a zero-width joiner in its scheme or host is refused, and so is a relative source
-whose first segment holds a character reference, such as `&#106;avascript:x` or `javascript&colon;x`,
-which HTML that leaves `&` unescaped would decode into a scheme. A plain `&`, as in `R&D-chart.png`
-or `images/Q&A.png`, keeps working.
+Without an upload handler, accepted files are embedded in the document as data
+URLs. To store files elsewhere, replace `Image` in the extension array with a
+configured instance. This example expects your own `/api/upload` endpoint to
+return JSON containing a `url` string:
 
-- HTML parsing stores an allowed source in its cleaned spelling and a refused one as no source.
-- `setImage` and the Markdown input rule refuse a source the policy refuses.
-- A stored source, such as one loaded from JSON, renders in its cleaned spelling; a refused one
-  renders `src=""` in `getHTML()` and `generateHTML()`, and the node view does not load it.
-- `null` and `''` mean no source, as before.
+```ts
+Image.configure({
+  allowBase64: false,
+  allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  maxFileSize: 5 * 1024 * 1024,
+  maxFiles: 5,
+  uploadHandler: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch('/api/upload', { method: 'POST', body: form });
+    if (!response.ok) throw new Error('Image upload failed');
 
-The [core URL policy](../core/README.md#url-policy) also rejects unpaired UTF-16
-surrogates and U+FFFE/U+FFFF. These checks do not validate the bytes a permitted
-server returns. Image's file MIME/size policy is separate from PasteCleanup's
-bounded raster inspection: enabling Image alone does not apply PasteCleanup's
-raster, input-length or node limits.
+    const result = await response.json() as { url?: unknown };
+    if (typeof result.url !== 'string' || !result.url) {
+      throw new Error('The upload endpoint did not return an image URL');
+    }
+    return result.url;
+  },
+  onUploadError: (error) => {
+    console.error(error.message);
+  },
+});
+```
 
-## Commands
+The same MIME, size and count rules apply to pasted, dropped and file-picker
+images. Validate uploads on your server too. Files keep their insertion order
+while asynchronous uploads finish. Applications can style the
+`.domternal-image-uploading` placeholder; the theme does not give it a visible
+loading indicator. See [file insertion and undo](https://domternal.dev/v1/nodes/image/#how-files-are-inserted)
+for selection replacement, cancellation and collaborative edits.
 
-- `setImage(attributes: SetImageOptions)` - insert an image (`src` required; optional `alt`, `title`, `width`, `height`, `loading`, `crossorigin`, `float`, `align`).
-- `setImageFloat(float: ImageFloat)` - set wrapping on the selected image (`'none' | 'left' | 'right' | 'center'`).
-- `setImageAlign(align: ImageAlign)` - set alignment on the selected image (`'none' | 'left' | 'center' | 'right'`).
-- `deleteImage()` - delete the selected image.
+## Common options
 
-Float and align are one choice on a node, so setting either clears the other. Alignment
-serializes as `data-align` plus block margins, never a float, so exported HTML lands
-correctly with no theme loaded. `ImageFloat`, `ImageAlign`, `ImagePlacement`,
-`SetImageOptions`, and `ImageOptions` are exported, along with `imageUploadPluginKey`,
-whose plugin state is the `DecorationSet` of the placeholders of files being stored.
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `inline` | `false` | Place images inside text instead of as blocks. |
+| `placement` | `null` | Let the preset choose float or align controls; set `'float'` or `'align'` explicitly to override. |
+| `allowBase64` | `true` | Accept image data URLs and embed files when no upload handler is supplied. |
+| `uploadHandler` | `null` | Store a file and return its URL. |
+| `maxFileSize` | `0` | Maximum bytes per file; `0` leaves size unlimited. |
+| `maxFiles` | `10` | Maximum accepted files per operation; `0` removes the count limit. |
+| `allowedMimeTypes` | JPEG, PNG, GIF, WebP, SVG, AVIF | MIME types accepted for files. |
 
-## Alt text
+With `allowBase64: false` and no `uploadHandler`, files cannot be inserted.
+Remote image URLs can still be used. The [full option reference](https://domternal.dev/v1/nodes/image/#options)
+also covers HTML attributes and upload callbacks.
 
-A string describes the image. An empty string marks a decorative image, which assistive
-technology skips: it renders as `alt=""` in the editor, `getHTML()` and `generateHTML()`, and
-parses back as `''`. `null`, the default, means the image has no description yet and renders no
-`alt`, also after a resize or another update of the image. Typing `![](src)` and clearing the field
-in the Edit alt text menu store `null`; content with `alt=""`, `setImage({ src, alt: '' })` and
-`updateAttributes('image', { alt: '' })` store `''`. Applying the Edit alt text menu with its field
-unchanged changes nothing.
+## Commands and alt text
 
-## Editing UI
+| Command | Purpose |
+| --- | --- |
+| `setImage({ src, alt, ... })` | Insert an image with its attributes. |
+| `setImageFloat('left')` | Wrap text around the selected image. |
+| `setImageAlign('center')` | Align the selected image without text wrapping. |
+| `deleteImage()` | Remove the selected image. |
 
-The user-facing counterpart to the commands above:
+Float and align each accept `'none'`, `'left'`, `'center'` and `'right'`; setting
+one clears the other. Commands operate on the current selection.
 
-- Selecting an image opens a bubble menu with placement controls, an "Edit alt text" action, and Delete. The menu offers exactly one placement set: wrapping (Inline / Float left / Center / Float right) under the classic preset, alignment (Align left / Align center / Align right) under `preset: 'notion'`, or whichever the `placement` option pins.
-- The main toolbar and the slash (floating) menu both expose an "Image" action that opens a popover with a URL field and a button to browse for a local file. Alt text is set afterward: the bubble menu's "Edit alt text" action reopens the same popover with a single alt field, pre-filled from the image.
-- Pasted, dropped and chosen image files take one path. Every file of an accepted type and size gets a placeholder and is stored through `uploadHandler`, or read as a `data:` URL when `allowBase64` allows it. The placeholder is a widget decoration, an empty `div` with the class `domternal-image-uploading`, which `@domternal/theme` does not style, so it shows nothing until the application's CSS gives it a size and a loading indicator. The images replace their placeholders in the order the files came, however the stores finish; a block image moves out of the start or end of a textblock instead of splitting it, so no empty paragraphs appear, and splits it only in the middle; inside a code block it goes after the block instead of splitting the code. A paste replaces the selection, and over a cell selection clears the selected cells and places the images in the first of them; a block image pasted into a text-only block whose node places pasted blocks elsewhere through `@domternal/core/clipboard`, such as a details summary, goes where that node puts them, in the transaction that adds its placeholder; a drop inserts at the drop position, which follows edits made while the files are stored, and images join the undo history as they land: the replaced selection and the images that land within half a second after it undo together, also when a block image lands beside the textblock the selection was in, while an upload that takes longer, or an edit in between, makes its image a separate undo step; a paste over selected text whose every upload fails leaves the text deleted until undone. A file chosen with the popover's browse button goes where the URL field's `setImage` puts an image: in a list or task item's label, at the top level after the item, splitting the list, and never into a code block, where the button opens no file dialog. A file whose store fails is skipped and reported to `onUploadError`. An image is dropped when its placeholder was deleted by a change across it, such as a selection over it that is deleted; deleting the text right before or after it keeps it. In a shared document, a remote change that a collaboration binding such as y-prosemirror applies as one replace of the whole document leaves a placeholder in place wherever the content around it is unchanged.
-- A paste inserts the clipboard's image files only when the pasted content has no text of its own, the rule `pasteHasOwnText` of `@domternal/core/clipboard` decides: white space and invisible format characters do not count, nor a plain-text clipboard that only names its image files in order, as a file manager copies them: by name, path or `file:` URL, in any Unicode normalization form, such as the decomposed accents macOS writes. So a copied image (an `<img>` next to its file), a screenshot or a file copy inserts the file, while a copy from Word or Excel, which puts a picture of the selection next to its text, pastes the text; a Word or Excel copy that places no image, such as empty paragraphs or cells, keeps its content too, since the file Chrome exposes next to it is Word's picture of the selection. With one file and one image in the pasted content, the inserted image keeps that image's alt text when it is not empty, while an empty `alt`, which marks a decorative image, leaves it without one, and a one-line address that only names a copied image inserts the file instead of a link. A drop inserts its image files whatever else it carries, with the alt text of the one image the drop held for one file, when it is not empty. Paste Cleanup follows the same rule and hands over the files the same way, with the alt text it left in place of the one image it removed; Word's hidden text it left out counts as text, so a picture of the selection that can show it is never inserted.
-- With `allowBase64: false` and no `uploadHandler`, no file is stored: a paste or drop of files alone inserts nothing and is taken, so the browser inserts nothing either, and the popover hides its file button. A drop of image files alone that no configuration accepts is taken too, so the browser does not open the file.
+Use a descriptive `alt` for meaningful images. `alt: ''` marks an image as
+decorative and renders `alt=""`; `null` means no description has been supplied
+and omits the attribute. See [alt text editing](https://domternal.dev/v1/nodes/image/#editing-alt-text).
 
-## Clipboard image destination
+## Clipboard and source policy
 
-The image node registers its live policy (node type, `src` attribute, `inline`, `allowBase64`,
-`allowedMimeTypes` and `maxFileSize`) as the editor's clipboard image destination through the
-experimental `@domternal/core/clipboard` subpath. Clipboard preparation, such as
-[`@domternal/extension-paste-cleanup`](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup)
-with `imageAssets`, reads it to decide where pasted local images may go. The registration
-follows the plugin view and is removed when the editor is destroyed.
+A screenshot or image-only clipboard inserts image files. When copied content
+has text of its own, the HTML/text takes priority so Word's picture of a copied
+selection does not replace the actual content. Office HTML normalization is a
+separate opt-in [PasteCleanup](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup)
+feature; Image alone does not apply its raster or structural limits.
 
-A custom image-like node registers its own policy with `registerClipboardImageDestination`.
-Destinations form a latest-wins stack, so both can live in one schema: the latest active
-registration applies, disposing it restores the one registered before it, and disposing an
-earlier one leaves the latest in place. Plugin views register in extension priority order, so a
-node with a lower priority than the image node's default of 100, or the same priority and listed
-after it, registers later and takes precedence.
+Built-in parsing, commands and rendering apply Core's URL policy. A refused
+stored source remains in JSON but is not loaded by the node view. URL checks do
+not inspect remote response bytes. See [image security](https://domternal.dev/v1/guides/security/#image-security)
+and the [URL policy reference](https://github.com/domternal/domternal/blob/main/packages/core/docs/url-and-style-policy.md).
 
-## Localization
+## More documentation
 
-This package exports `imageMessages` for typed custom catalogs. Optional German UI
-messages and search aliases are available from `@domternal/extension-image/locales/de`
-as `deMessages` and `deSearchAliases`. Merge them with the core and other enabled feature
-catalogs. Missing entries fall back to English. Image URLs, titles, and authored alt text
-are never translated.
+- [Image guide](https://domternal.dev/v1/nodes/image/): inline mode, popovers, resizing, file handling and node views.
+- [Clipboard destinations](https://domternal.dev/v1/nodes/image/#clipboard-image-destination): cooperating with a custom image node.
+- [Localization](https://domternal.dev/v1/guides/i18n/): `imageMessages` and optional `@domternal/extension-image/locales/de` catalogs. Authored alt text is never translated.
+
+## License
+
+[MIT](https://github.com/domternal/domternal/blob/main/LICENSE).

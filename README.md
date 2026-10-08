@@ -16,7 +16,7 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 ## Features
 
 - **Headless core** - use with any framework or vanilla JS/TS
-- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (Angular 17.1+, signals, OnPush, zoneless-ready)
+- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (signals, OnPush, zoneless-ready)
 - **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
 - **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
 - **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
@@ -129,7 +129,7 @@ JSON normalizes unsupported heading levels, list markers and table spans, and
 removes links the configured URL policy refuses while keeping their text.
 Stored JSON, strict loaders and mixed-version collaborative documents may need
 migration. Review the [1.3.0 breaking changes](CHANGELOG.md#breaking) and the
-[Core migration guidance](packages/core/README.md) before upgrading; use
+[Core migration guidance](packages/core/docs/content.md) before upgrading; use
 `onContentDiagnostic` to observe repairs and `normalizeContentAttributes` for
 an explicit migration of a live document.
 
@@ -139,7 +139,7 @@ an explicit migration of a live document.
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`@domternal/core`](https://www.npmjs.com/package/@domternal/core)                                                   | Editor engine with 13 nodes, 9 marks, 28 extensions, toolbar controller, and 52 built-in icons                                                                               |
 | [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)                                                 | Light and dark themes with 150+ CSS custom properties                                                                                                                        |
-| [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular)                                             | Angular 17.1+ wrapper: 6 components (editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker)                                                         |
+| [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular)                                             | Angular wrapper: 6 components (editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker)                                                         |
 | [`@domternal/react`](https://www.npmjs.com/package/@domternal/react)                                                 | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views                                                  |
 | [`@domternal/vue`](https://www.npmjs.com/package/@domternal/vue)                                                     | Vue 3.3+ wrapper: composable component, composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views                                      |
 | [`@domternal/vanilla`](https://www.npmjs.com/package/@domternal/vanilla)                                             | Framework-free class-based wrapper for Astro, Svelte, Solid, plain HTML, and Web Components                                                                                  |

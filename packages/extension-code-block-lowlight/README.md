@@ -3,125 +3,112 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-code-block-lowlight.svg)](https://www.npmjs.com/package/@domternal/extension-code-block-lowlight)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Syntax highlighting for the [Domternal](https://domternal.dev) editor's code blocks,
-powered by [lowlight](https://github.com/wooorm/lowlight) (a lightweight highlight.js
-wrapper, 190+ languages). `CodeBlockLowlight` extends the core `CodeBlock` node with
-language auto-detection, Tab/Shift-Tab indentation, and incremental re-highlighting that
-only updates the blocks affected by an edit. It inherits every command, shortcut, toolbar
-item, and input rule from `CodeBlock`, so it is a drop-in replacement. Server-side and
-inline-style highlighting helpers (`generateHighlightedHTML`, `createCodeHighlighter`) are
-included for SSR and email rendering.
+Syntax-highlighted code blocks for the [Domternal](https://domternal.dev) editor,
+powered by lowlight. `CodeBlockLowlight` adds language detection and Tab indentation
+to the core `CodeBlock`, while retaining its commands, input rules, and toolbar actions.
+The package also includes HTML export helpers.
 
-## Links
-
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/extensions/code-block-lowlight)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+[Documentation](https://domternal.dev/v1/extensions/code-block-lowlight/) · [Live examples](https://domternal.dev/examples/)
 
 ## Install
 
+The package declares Node.js 22 or later for tooling.
+
 ```bash
-pnpm add @domternal/extension-code-block-lowlight lowlight
+pnpm add @domternal/core @domternal/pm @domternal/extension-code-block-lowlight lowlight@^3 @domternal/theme
 ```
 
-`lowlight` is a peer dependency (alongside `@domternal/core` and `@domternal/pm`). Install
-it yourself and pass a configured instance via the required `lowlight` option. For a
-smaller bundle, start from an empty `createLowlight()` and register only the languages you
-need with `lowlight.register(name, syntax)`.
+Requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`, plus `lowlight`
+`^3.0.0`. Supply a configured lowlight instance as shown below. The theme supplies
+syntax colors; you can use your own highlight.js-compatible stylesheet instead.
 
-Version 1.3.0 requires both `@domternal/core` and `@domternal/pm` in the range
-`>=1.3.0 <2.0.0`. Upgrade these packages together with this extension.
+## Quick start
 
-## Usage
+Add a host, then run the TypeScript after it is mounted in a browser app that
+supports CSS imports:
+
+```html
+<div class="dm-editor"><div id="editor"></div></div>
+```
 
 ```ts
-import { Editor, Document, Paragraph, Text } from '@domternal/core';
+import { Editor, StarterKit } from '@domternal/core';
 import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
 import { createLowlight, common } from 'lowlight';
+import '@domternal/theme';
 
-const lowlight = createLowlight(common); // ~37 common languages; use `all` for ~190
+const lowlight = createLowlight(common);
+const extensions = [
+  StarterKit.configure({ codeBlock: false }),
+  CodeBlockLowlight.configure({ lowlight }),
+];
 
 const editor = new Editor({
   element: document.getElementById('editor')!,
-  extensions: [
-    Document,
-    Paragraph,
-    Text,
-    CodeBlockLowlight.configure({
-      lowlight,
-      defaultLanguage: 'javascript',
-      autoDetect: true,
-      tabIndentation: true,
-      tabSize: 2,
-    }),
-  ],
+  extensions,
+  content: '<pre><code class="language-javascript">const answer = 42;</code></pre>',
 });
-
-// Inherited from CodeBlock
-editor.commands.toggleCodeBlock({ language: 'typescript' });
-
-// Languages registered on the lowlight instance.
-// Storage is keyed by the inherited `codeBlock` name, not `codeBlockLowlight`.
-editor.storage.codeBlock.listLanguages();
 ```
 
-> `CodeBlockLowlight` **replaces** the built-in `CodeBlock`. Do not register both. With
-> `StarterKit`, disable the core code block: `StarterKit.configure({ codeBlock: false })`.
+Disable `StarterKit`'s `codeBlock` as shown: both extensions use the `codeBlock`
+node name and must not be registered together. Call `editor.destroy()` when
+removing the editor.
 
-## Options
-
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `lowlight` | `Lowlight` | `null` (required) | The instance from `createLowlight()`. Without it the editor still builds, highlighting is skipped, and the failure surfaces as an `error` event (`onError`). |
-| `defaultLanguage` | `string \| null` | `null` | Language used when a block has none set. |
-| `autoDetect` | `boolean` | `true` | Detect the language via `highlightAuto()` when none is set. |
-| `tabIndentation` | `boolean` | `true` | Tab inserts spaces inside code blocks; Shift-Tab outdents. |
-| `tabSize` | `number` | `2` | Number of spaces per tab. |
-| `languageClassPrefix` | `string` | `'language-'` | Inherited from `CodeBlock`: class prefix for the language on the `<code>` element. |
-| `exitOnTripleEnter` | `boolean` | `true` | Inherited from `CodeBlock`: three consecutive Enter presses leave the block. |
-| `HTMLAttributes` | `Record<string, unknown>` | `{}` | Inherited from `CodeBlock`: attributes merged onto the rendered `<pre>`. |
-
-> The plugin adds highlight.js token classes (`hljs-keyword`, `hljs-string`, and the
-> rest) but ships no CSS. `@domternal/theme` (`_syntax.scss`) colors them, each token
-> reading a `--dm-syntax-*` variable you can override; without the theme, import any
-> highlight.js stylesheet instead.
-
-## Server-side highlighting
-
-`generateHighlightedHTML` renders JSON content to HTML with highlighted code blocks, and
-`createCodeHighlighter` produces a `codeHighlighter` callback for `inlineStyles()` (email,
-CMS, and Google Docs output). These are two independent paths: use whichever fits your
-pipeline. For `generateHighlightedHTML(json, extensions, lowlight)`, `extensions` must be
-the same array you used to build the editor and `json` is its document JSON (e.g.
-`editor.getJSON()`). The example below shows both helpers running over the same `html`:
+## Commands and languages
 
 ```ts
+import type { CodeBlockLowlightStorage } from '@domternal/extension-code-block-lowlight';
+
+editor.chain().focus().toggleCodeBlock({ language: 'typescript' }).run();
+editor.commands.setCodeBlock({ language: 'javascript' });
+
+const codeBlocks = editor.storage.codeBlock as CodeBlockLowlightStorage;
+const languages = codeBlocks.listLanguages();
+```
+
+Storage uses `codeBlock`, not `codeBlockLowlight`. The default `common` language set
+is a useful starting point. For a smaller bundle, call `createLowlight()` without a
+set and register only the languages you need with `lowlight.register(name, syntax)`.
+
+## Common options
+
+| Option | Default | Use |
+| --- | --- | --- |
+| `lowlight` | `null` | Required configured lowlight instance. Without it, highlighting is skipped and an editor error is reported. |
+| `defaultLanguage` | `null` | Language to use when the block has no language. |
+| `autoDetect` | `true` | Detect a language when no registered explicit or default language applies. |
+| `tabIndentation` | `true` | Tab inserts spaces and Shift-Tab removes leading spaces in code blocks. |
+| `tabSize` | `2` | Spaces per indentation step. |
+
+Core `CodeBlock` options such as `languageClassPrefix`, `exitOnTripleEnter`, and
+`HTMLAttributes` remain available. Highlighting emits `hljs-*` token classes;
+`@domternal/theme` colors them using overridable `--dm-syntax-*` variables.
+
+## Export highlighted HTML
+
+Editor decorations are not part of `editor.getHTML()`. For highlighted output, use
+one of these paths with the `editor`, `extensions`, and `lowlight` from the example:
+
+```ts
+import { inlineStyles } from '@domternal/core';
 import {
   generateHighlightedHTML,
   createCodeHighlighter,
 } from '@domternal/extension-code-block-lowlight';
-import { inlineStyles } from '@domternal/core';
-import { createLowlight, common } from 'lowlight';
 
-const lowlight = createLowlight(common);
+// HTML with syntax token classes for a page that loads syntax CSS.
+const html = generateHighlightedHTML(editor.getJSON(), extensions, lowlight);
 
-const html = generateHighlightedHTML(json, extensions, lowlight);
-
-const styled = inlineStyles(html, {
+// HTML with inline styles for an email or another destination without the theme.
+const styledHtml = inlineStyles(editor.getHTML(), {
   codeHighlighter: createCodeHighlighter(lowlight),
 });
 ```
 
-Both SSR helpers accept an optional options object as their last argument:
-`{ defaultLanguage?, autoDetect? }`, and for `generateHighlightedHTML` also `document`,
-forwarded to `generateHTML` for environments that supply their own DOM implementation. For SSR,
-`autoDetect` defaults to `false` (the opposite of the editor extension's `true`), so pass
-`{ autoDetect: true }` if you want detection during server rendering.
-
-`generateHighlightedHTML` reads the generated HTML as markup and highlights only real code blocks
-(`<pre><code>`): text inside an attribute, such as an image title that holds `<pre><code>`, is never
-rewritten. The code text is decoded once before highlighting, so code that contains `&lt;b&gt;`
-shows exactly that. Code blocks that are not highlighted are written byte for byte as
-`generateHTML` wrote them.
-
-## License
-
-MIT
+Both helpers accept `{ defaultLanguage?, autoDetect? }` as their final argument.
+Export auto-detection defaults to `false`; set it explicitly if you want detection
+outside the editor. `generateHighlightedHTML` also accepts `document` for a custom
+DOM implementation. Server rendering needs a DOM document, supplied explicitly or
+through the core's optional `linkedom` dependency. Use the same document schema for
+stored JSON. See the [export reference](https://domternal.dev/v1/extensions/code-block-lowlight/#utility-functions)
+for details.
