@@ -120,24 +120,13 @@ export function cleanUrl(value: string): string {
  * U+FFFE and U+FFFF, and unpaired surrogates: characters that hide or reorder
  * what a reader sees of an address wherever they stand.
  */
+// Unicode mode reads a valid surrogate pair as one astral code point, so the
+// surrogate range matches only unpaired units. The native scan avoids a JS
+// branch for every code unit in a large Unicode path, including under coverage.
+const HIDDEN_CHARACTER = /[\p{Cc}\u202a-\u202e\u2066-\u2069\ud800-\udfff\ufffe\uffff]/u;
+
 function hasHiddenCharacter(value: string): boolean {
-  for (let index = 0; index < value.length; index++) {
-    const code = value.charCodeAt(index);
-    if (code < 0x20 || (code >= 0x7f && code <= 0x9f) || (code >= 0x202a && code <= 0x202e)
-      || (code >= 0x2066 && code <= 0x2069) || code === 0xfffe || code === 0xffff) {
-      return true;
-    }
-    if (code >= 0xd800 && code <= 0xdbff) {
-      const next = value.charCodeAt(index + 1);
-      if (next >= 0xdc00 && next <= 0xdfff) {
-        index++;
-        continue;
-      }
-      return true;
-    }
-    if (code >= 0xdc00 && code <= 0xdfff) return true;
-  }
-  return false;
+  return HIDDEN_CHARACTER.test(value);
 }
 
 /**

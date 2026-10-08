@@ -616,7 +616,8 @@ export function xmpData(packet) {
   const text = packet.slice(0, MAX_INFLATED);
   for (const [category, properties] of XMP_PROPERTIES) {
     const named = properties.some((property) =>
-      [...text.matchAll(new RegExp(`<${property}(?=[\\s/>])[^>]*>([\\s\\S]*?)</${property}>`, 'gu'))].some((match) => /\S/u.test(match[1].replace(/<[^>]*>/gu, '')))
+      // Inspect text segments directly; the scanner never returns reconstructed markup.
+      [...text.matchAll(new RegExp(`<${property}(?=[\\s/>])[^>]*>([\\s\\S]*?)</${property}>`, 'gu'))].some((match) => match[1].split(/<[^>]*>/u).some((part) => /\S/u.test(part)))
       || [...text.matchAll(new RegExp(`[\\s"']${property}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'gu'))].some((match) => /\S/u.test(match[1] ?? match[2] ?? '')));
     if (named) categories.add(category);
   }

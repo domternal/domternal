@@ -247,11 +247,34 @@ describe('checkUrl', () => {
       });
     });
 
-    it('stays linear when a long value holds them', () => {
+    it('refuses every C0 and C1 control that URL cleaning leaves inside a path', () => {
+      const controls = [...Array.from({ length: 32 }, (_, index) => index), ...Array.from({ length: 33 }, (_, index) => index + 0x7f)];
+      for (const code of controls.filter(value => ![9, 10, 13].includes(value))) {
+        expect(checkUrl(`https://example.com/a${String.fromCharCode(code)}b`, LINK_PROFILE).status, `U+${code.toString(16)}`).toBe('unsafe');
+      }
+    });
+
+    it('accepts paired surrogates in a path and refuses unpaired units', () => {
+      for (const text of ['\u{10000}', '\u{1f600}', '\u{10ffff}', '\ud800\udc00\udbff\udfff']) {
+        const value = `https://example.com/${text}`;
+        expect(checkUrl(value, LINK_PROFILE)).toEqual({ status: 'allowed', url: value });
+      }
+      for (const text of ['\ud800', '\udbff', '\udc00', '\udfff', '\ud800x\udc00', '\udc00\ud800', '\ud800\ud800\udc00']) {
+        expect(checkUrl(`https://example.com/${text}`, LINK_PROFILE).status).toBe('unsafe');
+      }
+    });
+
+    it('checks Unicode paths and deceptive destinations at increasing sizes', () => {
+      const cases = [10_000, 100_000, 1_000_000].flatMap(size => {
+        const text = '\u200c'.repeat(size);
+        return [
+          { value: `https://example.com/${text}`, status: 'allowed' },
+          { value: `${text}:`, status: 'unsafe' },
+          { value: `https://${text}`, status: 'unsafe' },
+        ];
+      });
       const start = performance.now();
-      checkUrl(`https://example.com/${'\u200c'.repeat(1_000_000)}`, LINK_PROFILE);
-      checkUrl(`${'\u200c'.repeat(1_000_000)}:`, LINK_PROFILE);
-      checkUrl(`https://${'\u200c'.repeat(1_000_000)}`, LINK_PROFILE);
+      for (const { value, status } of cases) expect(checkUrl(value, LINK_PROFILE).status).toBe(status);
       expect(performance.now() - start).toBeLessThan(2000);
     });
   });
@@ -295,6 +318,19 @@ describe('checkUrl', () => {
   });
 
   describe('data images', () => {
+    it.each([
+      'data:text/html,<script>alert(1)</script>',
+      'data:application/xhtml+xml,<html/>',
+      'data:text/javascript,alert(1)',
+      'data:text/plain,image/png',
+      'data:;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==',
+      ' Da\tTa: Text/HTML;charset=utf-8,<script>alert(1)</script>',
+    ])('refuses a non-image data address under every profile: %s', value => {
+      for (const options of [LINK_PROFILE, ABSOLUTE_LINK_PROFILE, imageProfile(true), imageProfile(false), { protocols: ['data:'] }]) {
+        expect(checkUrl(value, options).status).toBe('unsafe');
+      }
+    });
+
     it('allows only image media types, compared without case and outer spaces', () => {
       const options = { protocols: 'any' as const, allowDataImages: true };
       expect(checkUrl('data:image/gif;base64,R0lGOD==', options).status).toBe('allowed');
@@ -552,12 +588,14 @@ describe('checkUrl', () => {
       expect(references).toBeGreaterThan(100);
     });
 
-    it('refuses every value the parser resolves to a script scheme, whatever the options', () => {
+    it('refuses every script and non-image data address the parser resolves, whatever the options', () => {
       const problems: string[] = [];
       const everything = [LINK_PROFILE, imageProfile(true), { protocols: 'any' as const, allowRelative: true, allowNetworkPath: true, allowDataImages: true }];
       for (const value of values) {
-        const protocol = resolve(value)?.protocol;
-        if (protocol !== 'javascript:' && protocol !== 'vbscript:') continue;
+        const resolved = resolve(value);
+        if (!resolved || !['javascript:', 'vbscript:', 'data:'].includes(resolved.protocol)) continue;
+        // Data images have their own profile-dependent oracle above and in the shared corpus.
+        if (resolved.protocol === 'data:' && /^\s*image\//i.test(resolved.pathname)) continue;
         for (const options of everything) if (checkUrl(value, options).status !== 'unsafe') problems.push(label(value));
       }
       expect(problems).toEqual([]);

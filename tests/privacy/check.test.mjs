@@ -89,10 +89,10 @@ test("this machine's names are found as whole words, in any letter case, and onl
 });
 
 test('escaped text is read decoded', () => {
-  const encoded = address.replace('@', '&#64;');
+  const encoded = address.replaceAll('@', '&#64;');
   assert.deepEqual(scanFile('a.html', Buffer.from(`<p>${encoded}</p>`), names).map((finding) => [finding.location, finding.category]), [['a.html#decoded', 'e-mail address']]);
-  assert.deepEqual(categories('a.css', `content: "${address.replace('@', '\\40 ')}";`), ['e-mail address']);
-  assert.deepEqual(categories('a.txt', address.replace('@', '%40')), ['e-mail address']);
+  assert.deepEqual(categories('a.css', `content: "${address.replaceAll('@', '\\40 ')}";`), ['e-mail address']);
+  assert.deepEqual(categories('a.txt', address.replaceAll('@', '%40')), ['e-mail address']);
 });
 
 test('Word packages, image text chunks and capture bundles are read inside', () => {
@@ -157,7 +157,7 @@ test('home folders are found in the forms JSON, JavaScript, WSL, MSYS and other 
 });
 
 test('an allowed match never hides a personal one that only its escapes show, in either order', () => {
-  const encoded = address.replace('@', '&#64;');
+  const encoded = address.replaceAll('@', '&#64;');
   const allowed = at('team', 'example.com');
   for (const text of [`${encoded} wrote to ${allowed}`, `${allowed} wrote to ${encoded}`]) {
     assert.deepEqual(categories('docs/a.md', text), ['e-mail address'], text);
@@ -507,6 +507,21 @@ test('XMP names a camera, a serial number, a position and an author as EXIF does
   const screenshot = '<exif:PixelXDimension>1986</exif:PixelXDimension><exif:UserComment>Screenshot</exif:UserComment><tiff:Orientation>1</tiff:Orientation>'
     + '<tiff:Make></tiff:Make><dc:creator><rdf:Seq><rdf:li/></rdf:Seq></dc:creator><aux:Lens> </aux:Lens>';
   assert.deepEqual(found('shot.png', pngOf([itxt('XML:com.adobe.xmp', xmpOf(screenshot))])), []);
+});
+
+test('XMP distinguishes empty markup from text, including malformed tag fragments', () => {
+  for (const [value, populated] of [
+    [' \n<rdf:Seq><rdf:li> \t </rdf:li></rdf:Seq> ', false],
+    ['<rdf:Seq><rdf:li data-note="Authored Person"/></rdf:Seq>', false],
+    ['<rdf:Seq><rdf:li>Authored Person</rdf:li></rdf:Seq>', true],
+    ['before<rdf:Seq/>', true],
+    ['<rdf:Seq/>after', true],
+    ['<script', true],
+    ['<<script>script>', true],
+  ]) {
+    const packet = xmpOf(`<dc:creator>${value}</dc:creator>`);
+    assert.deepEqual(found('shot.png', pngOf([itxt('XML:com.adobe.xmp', packet)])), populated ? ['shot.png#xmp image author'] : [], value);
+  }
 });
 
 test('a placeholder serial number names no unit: EDID\'s unused 0x01010101, which the standard ProPhoto RGB profile carries, and all ones', () => {

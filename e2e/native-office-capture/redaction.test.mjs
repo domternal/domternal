@@ -386,7 +386,7 @@ test('the privacy scan allows an e-mail address only at a domain reserved for do
   for (const domain of personal) {
     assert.deepEqual(scanText('other', `mail ${at('jane.doe', domain)}`, []).map(entry => entry.category), ['e-mail address'], domain);
   }
-  assert.deepEqual(scanText('encoded', `mail ${at('pisi', 'synthetic-mail.net').replace('@', '&#64;')}`, []).map(entry => entry.category), ['e-mail address']);
+  assert.deepEqual(scanText('encoded', `mail ${at('pisi', 'synthetic-mail.net').replaceAll('@', '&#64;')}`, []).map(entry => entry.category), ['e-mail address']);
   // Every address the fixture scan allows, the repository gate allows too.
   for (const domain of [...documentation, ...personal, 'synthetic-mail.net']) {
     const text = at('pisi', domain);
@@ -433,8 +433,8 @@ test('the privacy scan reads image metadata, people and custom properties, clipb
     ['docProps/custom.xml', Buffer.from(custom)],
   ]));
   await writeFile(join(base, 'source.docx'), docx);
-  const encoded = address.replace('@', '&#64;').replaceAll('.', '&#x2e;');
-  const html = `<p>${encoded}</p><p>${encodeURIComponent(home)}</p><p>${home.toLowerCase()}</p><img src="x" alt="${address.replace('@', '%40')}">`;
+  const encoded = address.replaceAll('@', '&#64;').replaceAll('.', '&#x2e;');
+  const html = `<p>${encoded}</p><p>${encodeURIComponent(home)}</p><p>${home.toLowerCase()}</p><img src="x" alt="${address.replaceAll('@', '%40')}">`;
   const payload = Buffer.from(`EXIF\u0000Artist\u0000${address}\u0000${home}`, 'latin1');
   const bundle = originalBundle('0'.repeat(64), html);
   bundle.payload.files = [{ itemIndex: 2, byteLength: payload.length, sha256: digest(payload), base64: payload.toString('base64') }];

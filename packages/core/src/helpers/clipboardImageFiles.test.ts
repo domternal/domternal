@@ -443,7 +443,7 @@ describe('the picture an Office application adds of its selection', () => {
   // The whole HTML parsed by the browser, and each conditional comment as a document of its own, let a crafted Office
   // copy of a few hundred kilobytes take seconds in Chromium and Firefox and minutes in WebKit.
   it('parses no more than the HTML\'s first 8,192 characters, once, and only when they name Word or Excel as written', () => {
-    const parse = vi.spyOn(window.DOMParser.prototype, 'parseFromString');
+    const parse = vi.spyOn(window.Document.prototype, 'write');
     const comments = '<!--[if gte mso 9]><xml><o:OfficeDocumentSettings></o:OfficeDocumentSettings></xml><![endif]-->'.repeat(1000);
     try {
       // A copied image or a screenshot names neither, and is not parsed at all.
@@ -452,7 +452,7 @@ describe('the picture an Office application adds of its selection', () => {
       expect(pasteHasOwnText(pasteEvent({ html: word(comments + EMPTY), files: [png()] }), Slice.empty)).toBe(true);
       expect(pasteHasOwnText(pasteEvent({ html: word(comments + PICTURE), files: [png()] }), Slice.empty)).toBe(false);
       expect(parse).toHaveBeenCalledTimes(2);
-      expect(parse.mock.calls.every(([html]) => html.length <= 8_192)).toBe(true);
+      expect(parse.mock.calls.every(([html]) => html !== undefined && html.length <= 8_192)).toBe(true);
     } finally {
       parse.mockRestore();
     }
@@ -465,10 +465,10 @@ describe('the picture an Office application adds of its selection', () => {
     expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty)).toBe(false);
   });
 
-  // Chromium and WebKit refuse DOMParser on a page that requires Trusted Types and has no default policy, where a Word
+  // Browsers refuse document.write on a page that requires Trusted Types and has no default policy, where a Word
   // copy of empty paragraphs then pasted Word's picture of the selection as an image.
   it('reads the HTML as written where the page\'s Trusted Types refuse the browser\'s parser, as before markup was parsed', () => {
-    const parse = vi.spyOn(window.DOMParser.prototype, 'parseFromString').mockImplementation(() => {
+    const parse = vi.spyOn(window.Document.prototype, 'write').mockImplementation(() => {
       throw new TypeError('This assignment requires a TrustedHTML');
     });
     try {
@@ -480,6 +480,42 @@ describe('the picture an Office application adds of its selection', () => {
       }
     } finally {
       parse.mockRestore();
+    }
+  });
+
+  it('reads root namespace metadata only in a detached document, without changing the live document', () => {
+    const create = vi.spyOn(document.implementation, 'createHTMLDocument');
+    const live = document.documentElement.outerHTML;
+    try {
+      const html = '<html xmlns:w="urn:schemas-microsoft-com:office:word"><head>'
+        + '<script>document.documentElement.setAttribute("data-paste-script", "ran")</script></head>'
+        + '<body onload="document.documentElement.setAttribute(\'data-paste-event\', \'ran\')"><p></p></body></html>';
+      expect(pasteHasOwnText(pasteEvent({ html, files: [png()] }), Slice.empty)).toBe(true);
+      expect(create).toHaveBeenCalledTimes(1);
+      const parsed = create.mock.results[0]?.value as globalThis.Document;
+      expect(parsed.defaultView).toBeNull();
+      expect(parsed.documentElement.getAttribute('xmlns:w')).toBe('urn:schemas-microsoft-com:office:word');
+      expect(parsed.querySelector('script')).not.toBeNull();
+      expect(document.documentElement.outerHTML).toBe(live);
+    } finally {
+      create.mockRestore();
+    }
+  });
+
+  it('refuses a document with a browsing context before opening or writing it', () => {
+    const create = vi.spyOn(document.implementation, 'createHTMLDocument').mockReturnValue(document);
+    const open = vi.spyOn(document, 'open');
+    const write = vi.spyOn(document, 'write');
+    const live = document.documentElement.outerHTML;
+    try {
+      expect(pasteHasOwnText(pasteEvent({ html: word(EMPTY), files: [png()] }), Slice.empty)).toBe(false);
+      expect(open).not.toHaveBeenCalled();
+      expect(write).not.toHaveBeenCalled();
+      expect(document.documentElement.outerHTML).toBe(live);
+    } finally {
+      create.mockRestore();
+      open.mockRestore();
+      write.mockRestore();
     }
   });
 

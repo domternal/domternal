@@ -4,11 +4,16 @@
  * of HTML a page's copy handler wrote. The Core unit matrix is packages/core/src/helpers/pasteSliceContext.test.ts.
  */
 import { expect, type Page, type Route } from '@playwright/test';
+import { resolve } from 'node:path';
 import type { Editor } from '@domternal/core';
+import type * as Core from '@domternal/core';
+import type * as BlockControls from '@domternal/extension-block-controls';
 import type { PasteOperationResult } from '@domternal/extension-paste-cleanup';
 import { test } from './native-clipboard.js';
 
 const BASE_URL = 'http://127.0.0.1:5895';
+const CORE_ENTRY = `/@fs${resolve(__dirname, '../packages/core/dist/index.js')}`;
+const BLOCK_CONTROLS_ENTRY = `/@fs${resolve(__dirname, '../packages/extension-block-controls/dist/index.js')}`;
 const FRAMEWORKS = ['vanilla', 'react', 'vue', 'angular'] as const;
 
 // Each of these made the paste throw before Core checked the context.
@@ -262,6 +267,64 @@ async function watchRequests(page: Page): Promise<{ requests: string[]; drain: (
     },
   };
 }
+
+test('SmartPaste metadata keeps copied list and table-fragment entities inert', async ({ page }) => {
+  await open(page, 'vanilla', false);
+  const watched = await watchRequests(page);
+  const result = await page.evaluate(async ({ coreEntry, controlsEntry }) => {
+    const core = await import(coreEntry) as typeof Core;
+    const { SmartPaste } = await import(controlsEntry) as typeof BlockControls;
+    const host = document.body.appendChild(document.createElement('div'));
+    const editor = new core.Editor({ element: host,
+      extensions: [core.Document, core.Paragraph, core.Text, core.BulletList, core.ListItem, SmartPaste],
+      content: '<ul><li><p>alpha Beta &amp; &lt;tag&gt;</p></li></ul>' });
+    const text = 'Beta & <tag>';
+    let from = -1;
+    editor.state.doc.descendants((node, position) => {
+      if (node.isText && node.text?.includes(text)) from = position + node.text.indexOf(text);
+    });
+    if (from < 0) throw new Error('The copied text was not found');
+    const slice = editor.state.doc.slice(from, from + text.length, true);
+    const copied = editor.view.serializeForClipboard(slice).dom.innerHTML;
+    const marker = /data-pm-slice="([^"]+)"/.exec(copied)?.[1];
+    if (!marker?.includes('&quot;bulletList&quot;')) throw new Error('The public copy must encode its list context');
+    const plugin = editor.state.plugins.find(candidate => candidate.props.handlePaste);
+    if (!plugin?.props.handlePaste) throw new Error('The public SmartPaste prop is missing');
+    const hostile = '<script>globalThis.__smartParserExecuted=true</script>'
+      + '<link rel="stylesheet" href="https://paste-probe.invalid/smart.css">'
+      + '<style>@import url(https://paste-probe.invalid/smart-import.css)</style>'
+      + '<iframe src="https://paste-probe.invalid/smart-frame"></iframe>'
+      + '<img src="https://paste-probe.invalid/smart.png" onerror="globalThis.__smartParserExecuted=true">'
+      + '<svg onload="globalThis.__smartParserExecuted=true"></svg>';
+    const outcomes = [];
+    try {
+      for (const tag of ['p', 'tr', 'td']) {
+        editor.setContent('<p>Before</p>', false);
+        editor.commands.focus('end');
+        const before = document.documentElement.outerHTML;
+        const data = new DataTransfer();
+        data.setData('text/html', `<${tag} data-pm-slice="${marker}" onclick="globalThis.__smartParserExecuted=true">Beta &amp; &lt;tag&gt;</${tag}>${hostile}`);
+        const event = new ClipboardEvent('paste', { clipboardData: data });
+        if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+        const handled = plugin.props.handlePaste.call(plugin, editor.view, event, slice);
+        outcomes.push({ tag, deferred: handled === false, unchanged: document.documentElement.outerHTML === before,
+          document: editor.state.doc.toString() });
+        // A copied inline selection is left to ProseMirror's default placement.
+        if (handled === false) editor.view.dispatch(editor.state.tr.replaceSelection(slice));
+        if (editor.state.doc.textContent !== `Before${text}`) throw new Error('Decoded copied text did not join the target paragraph');
+      }
+      return { outcomes, copiedText: slice.content.textBetween(0, slice.content.size),
+        executed: (globalThis as unknown as Record<string, unknown>)['__smartParserExecuted'] === true };
+    } finally { editor.destroy(); host.remove(); }
+  }, { coreEntry: CORE_ENTRY, controlsEntry: BLOCK_CONTROLS_ENTRY });
+  await watched.drain();
+  expect(result).toEqual({
+    outcomes: ['p', 'tr', 'td'].map(tag => ({ tag, deferred: true, unchanged: true, document: 'doc(paragraph("Before"))' })),
+    copiedText: 'Beta & <tag>', executed: false,
+  });
+  expect(await page.evaluate(() => (globalThis as unknown as Record<string, unknown>)['__smartParserExecuted'])).not.toBe(true);
+  expect(watched.requests).toEqual([]);
+});
 
 /** Seeds the editor, then pastes HTML a page copy handler wrote with trusted keyboard shortcuts. */
 async function keyboardPaste(page: Page, html: string, seed = '<p></p>'): Promise<void> {

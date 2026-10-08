@@ -13,11 +13,13 @@ loading and HTML output with the published 1.2.0, as described in their READMEs.
 
 ## Local release checks
 
-CI runs the unit suites and gates of `ci.yml` and three browser workflows:
-`paste-cleanup-e2e.yml` runs `pnpm test:e2e:paste-cleanup`, `i18n-e2e.yml` runs the
-`i18n*` specs and the ownership fixture, and `link-security-e2e.yml` runs the
-`link-security*` specs and the link security fixture. The suites
-below have no CI job, and no gate checks that anyone ran them. They stay local
+CI runs the unit suites and gates of `ci.yml` and the automatic browser workflows:
+`i18n-e2e.yml` runs the `i18n*` specs and the ownership fixture, and
+`link-security-e2e.yml` runs the `link-security*` specs and the link security fixture.
+`paste-cleanup-e2e.yml` is available only through manual `workflow_dispatch` and
+runs `pnpm test:e2e:paste-cleanup` when requested. It does not run on pushes, pull
+requests, merge groups or a schedule; the same command remains available locally.
+The suites below have no CI job, and no gate checks that anyone ran them. They stay local
 release checks: run each one on a build of the release commit before a release,
 keep its raw output in a log as the repository instructions describe, and record
 the result with the release verification.

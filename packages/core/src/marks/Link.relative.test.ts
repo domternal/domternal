@@ -16,7 +16,7 @@ import type { JSONContent } from '../types/Content.js';
 import type { ContentDiagnosticProps } from '../types/EditorEvents.js';
 import type { AnyExtension } from '../types/index.js';
 
-const RELATIVE = ['/path/page', './page', '../page', 'page.html', '?q=1', '#section', '/path#id'];
+const RELATIVE = ['/path/page', './page', '../page', 'page.html', '?q=1', '/search?first=1&second=2&third=3', '#section', '/path#id'];
 const extensions = (options: Partial<LinkOptions> = {}): AnyExtension[] => [Document, Paragraph, Text, Heading, Link.configure(options)];
 const doc = (href: string): JSONContent => ({ type: 'doc', content: [{ type: 'paragraph', content: [
   { type: 'text', text: 'go', marks: [{ type: 'link', attrs: { href } }] },
@@ -57,7 +57,7 @@ describe('relative links by default', () => {
     expect(hrefs(editor)).toEqual([href]);
     expect(reports).toEqual([]);
     expect(editor.view.dom.querySelector('a')?.getAttribute('href')).toBe(href);
-    expect(generateHTML(doc(href), extensions())).toContain(`href="${href.replace('&', '&amp;')}"`);
+    expect(generateHTML(doc(href), extensions())).toContain(`href="${href.replaceAll('&', '&amp;')}"`);
     editor.destroy();
     editor = new Editor({ extensions: extensions(), content: `<p><a href="${href}">go</a></p>` });
     expect(hrefs(editor)).toEqual([href]);

@@ -236,7 +236,8 @@ test('the full dedupe check is refused in CI however the step reaches it', () =>
   assert.deepEqual(localOnlyProblems(realManifest, commented), []);
 });
 
-test('the focused paste browser workflow executes the exact reviewed script and runner', () => {
+test('the focused paste browser workflow is manual only and keeps the exact reviewed runner', () => {
+  assert.deepEqual(parseWorkflow(realPasteCleanup).on, { workflow_dispatch: {} });
   assert.deepEqual(focusedBrowserWorkflowProblems(pasteCleanupManifest, realPasteCleanup), []);
 });
 
@@ -249,8 +250,13 @@ test('a focused browser classification cannot hide a removed workflow or changed
 });
 
 for (const [name, change] of [
-  ['removed pull-request trigger', parsed => { delete parsed.on.pull_request; }],
-  ['path-filtered pull requests', parsed => { parsed.on.pull_request.paths = ['unrelated/**']; }],
+  ['removed manual trigger', parsed => { delete parsed.on.workflow_dispatch; }],
+  ['automatic pushes', parsed => { parsed.on.push = { branches: ['main'] }; }],
+  ['automatic pull requests', parsed => { parsed.on.pull_request = { branches: ['main'] }; }],
+  ['path-filtered pull requests', parsed => { parsed.on.pull_request = { paths: ['unrelated/**'] }; }],
+  ['automatic merge groups', parsed => { parsed.on.merge_group = {}; }],
+  ['automatic schedule', parsed => { parsed.on.schedule = [{ cron: '7 5 * * 1' }]; }],
+  ['reusable workflow trigger', parsed => { parsed.on.workflow_call = {}; }],
   ['conditional job', parsed => { parsed.jobs['paste-cleanup-e2e'].if = 'false'; }],
   ['ignored job failure', parsed => { parsed.jobs['paste-cleanup-e2e']['continue-on-error'] = true; }],
   ['removed package build', parsed => {

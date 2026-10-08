@@ -1,14 +1,7 @@
 name: Paste cleanup browser tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  merge_group: {}
   workflow_dispatch: {}
-  schedule:
-    - cron: '7 5 * * 1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

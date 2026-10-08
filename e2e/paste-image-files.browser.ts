@@ -5,13 +5,16 @@
  * DataTransfers holding a real PNG; one trusted Chromium paste goes through the system clipboard.
  */
 import { expect, type Page } from '@playwright/test';
+import { resolve } from 'node:path';
 import type { Editor } from '@domternal/core';
+import type * as CoreClipboard from '../packages/core/dist/clipboard.js';
 import type { PasteOperationResult } from '@domternal/extension-paste-cleanup';
 import { test } from './native-clipboard.js';
 
 const BASE_URL = 'http://127.0.0.1:5895';
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
 const REMOTE = 'https://example.com/picture.png';
+const CORE_CLIPBOARD = `/@fs${resolve(__dirname, '../packages/core/dist/clipboard.js')}`;
 
 interface ProbeWindow {
   __pasteCleanup: {
@@ -209,6 +212,63 @@ function check(outcome: Outcome, expected: Expected, config: Config): void {
 }
 
 const CONFIGS: Config[] = ['off', 'upload', 'no-base64', 'cleanup', 'assets', 'assets-omit'];
+
+test('Office image classification parses hostile HTML without executing or loading it', async ({ page }) => {
+  await open(page, 'vanilla', 'off');
+  const requests: string[] = [];
+  const sentinel = 'https://paste-probe.invalid/__office_parser_drain__';
+  await page.route('https://paste-probe.invalid/**', route => {
+    if (route.request().url() === sentinel) return route.fulfill({ body: 'drained', headers: { 'access-control-allow-origin': '*' } });
+    requests.push(route.request().url());
+    return route.abort();
+  });
+  const result = await page.evaluate(async ({ entry, png, sentinel }) => {
+    const helpers = await import(entry) as typeof CoreClipboard;
+    const { editor } = (window as unknown as ProbeWindow).__pasteCleanup;
+    const policy = helpers.getClipboardImageDestination(editor.view);
+    if (!policy) throw new Error('The public clipboard entry must share the editor image registry');
+    const before = document.documentElement.outerHTML;
+    const delivered: string[][] = [];
+    const dispose = helpers.registerClipboardImageDestination(editor.view, () => policy, insertion => {
+      delivered.push(insertion.files.map(file => file.name));
+      return true;
+    });
+    const hostile = '<script>globalThis.__officeParserExecuted=true</script>'
+      + '<link rel="stylesheet" href="https://paste-probe.invalid/parser.css">'
+      + '<style>@import url(https://paste-probe.invalid/import.css)</style>'
+      + '<iframe src="https://paste-probe.invalid/frame"></iframe>'
+      + '<svg onload="globalThis.__officeParserExecuted=true"></svg>';
+    const body = `<body>${hostile}<p></p></body>`;
+    const values = [
+      `<html xmlns:w="urn:schemas-microsoft-com:office:word">${body}</html>`,
+      `<html><head><meta name="ProgId" content="Excel.Sheet"></head>${body}</html>`,
+      `<!-- <meta name="ProgId" content="Word.Document"> -->${body}`,
+      `<html xmlns:w="urn:schemas-microsoft-com:office:word">${body}<img src="https://paste-probe.invalid/image.png" onerror="globalThis.__officeParserExecuted=true"></html>`,
+    ];
+    const outcomes = [];
+    try {
+      for (const html of values) {
+        const data = new DataTransfer();
+        data.setData('text/html', html);
+        data.items.add(new File([Uint8Array.from(atob(png), value => value.charCodeAt(0))], 'pixel.png', { type: 'image/png' }));
+        const event = new ClipboardEvent('paste', { clipboardData: data });
+        if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+        const slice = editor.state.doc.slice(0, 0);
+        outcomes.push({ ownText: helpers.pasteHasOwnText(event, slice), filesHandled: helpers.pasteClipboardImageFiles(editor.view, event, slice) });
+      }
+    } finally { dispose(); }
+    await new Promise<void>(resolve => { requestAnimationFrame(() => { requestAnimationFrame(() => { resolve(); }); }); });
+    if (!(await fetch(sentinel)).ok) throw new Error('The parser request barrier failed');
+    return { outcomes, delivered, pageUnchanged: document.documentElement.outerHTML === before,
+      executed: (globalThis as unknown as Record<string, unknown>)['__officeParserExecuted'] === true };
+  }, { entry: CORE_CLIPBOARD, png: PNG, sentinel });
+  expect(result).toEqual({
+    outcomes: [{ ownText: true, filesHandled: false }, { ownText: true, filesHandled: false },
+      { ownText: false, filesHandled: true }, { ownText: false, filesHandled: true }],
+    delivered: [['pixel.png'], ['pixel.png']], pageUnchanged: true, executed: false,
+  });
+  expect(requests).toEqual([]);
+});
 
 for (const config of CONFIGS) {
   test.describe(`image files on paste (${config})`, () => {

@@ -329,8 +329,8 @@ export const NOT_GATES = new Set([
   'test:e2e:matrix',
 ]);
 
-// Focused browser jobs are checked against their complete reviewed workflow,
-// rather than silently excluded from the mandatory root gates.
+// The manual focused browser workflow is checked against its complete reviewed
+// definition, separately from the mandatory automatic root gates.
 export const FOCUSED_BROWSER_SCRIPTS = new Map([
   ['test:e2e:paste-cleanup', 'paste-cleanup-e2e.yml'],
 ]);
@@ -338,11 +338,7 @@ export const FOCUSED_BROWSER_SCRIPTS = new Map([
 const EXPECTED_PASTE_CLEANUP_WORKFLOW = {
   name: 'Paste cleanup browser tests',
   on: {
-    push: { branches: ['main'] },
-    pull_request: { branches: ['main'] },
-    merge_group: {},
     workflow_dispatch: {},
-    schedule: [{ cron: '7 5 * * 1' }],
   },
   concurrency: { group: '${{ github.workflow }}-${{ github.ref }}', 'cancel-in-progress': true },
   permissions: { contents: 'read' },
@@ -687,14 +683,14 @@ export function gateScripts(manifest) {
   return [...new Set([...tests, ...required])].sort();
 }
 
-/** The only focused browser exception must remain a real, unconditional CI run. */
+/** The focused browser exception must remain available only through a manual workflow. */
 export function focusedBrowserWorkflowProblems(manifest, workflow) {
   const problems = [];
   if (manifest.scripts?.['test:e2e:paste-cleanup'] !== 'playwright test --config e2e/paste-cleanup.config.ts') {
     problems.push('package.json must keep the reviewed test:e2e:paste-cleanup command');
   }
   if (workflow === undefined) {
-    return [...problems, 'paste-cleanup-e2e.yml is missing, so its focused browser script never runs'];
+    return [...problems, 'paste-cleanup-e2e.yml is missing, so its focused browser script cannot be dispatched manually'];
   }
   const parsed = structuredClone(parseWorkflow(workflow));
   const job = parsed.jobs['paste-cleanup-e2e'];

@@ -6,9 +6,10 @@
  * Into a list, SmartPaste's list rules still keep a copied item's list and marker, and HTML from
  * outside an editor, without that context, still pastes its blocks as blocks.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Blockquote, BulletList, Document, Editor, Heading, ListItem, Paragraph, TaskItem, TaskList, Text } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
+import { Fragment, Slice } from '@domternal/pm/model';
 import { SmartPaste } from './SmartPaste.js';
 
 const editors: Editor[] = [];
@@ -52,6 +53,17 @@ function paste(editor: Editor, html: string): void {
     value: { types: ['text/html'], files: [], items: [], getData: (type: string) => (type === 'text/html' ? html : '') },
   });
   editor.view.dom.dispatchEvent(event);
+}
+
+/** The public paste prop with an already parsed open list slice, isolating its clipboard metadata reader. */
+function handleCopiedList(editor: Editor, html: string): boolean | undefined {
+  const { schema } = editor;
+  const list = schema.node('bulletList', null, [schema.node('listItem', null, [schema.node('paragraph', null, [schema.text('beta')])])]);
+  const slice = new Slice(Fragment.from(list), 3, 3);
+  const event = new Event('paste') as ClipboardEvent;
+  Object.defineProperty(event, 'clipboardData', { value: { getData: () => html } });
+  const plugin = editor.state.plugins.find(candidate => candidate.spec.props?.handlePaste);
+  return plugin?.spec.props?.handlePaste?.call(plugin, editor.view, event, slice) as boolean | undefined;
 }
 
 describe('SmartPaste and text copied from inside a container', () => {
@@ -127,6 +139,62 @@ describe('SmartPaste and text copied from inside a container', () => {
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)));
       paste(editor, html);
       expect(editor.state.doc.toString(), html).toBe(`doc(paragraph("x"), bulletList(${items}))`);
+    }
+  });
+
+  it.each(['tr', 'td'])('reads decoded context on a leading %s without losing the table fragment', tag => {
+    const editor = mount('<p>x</p>');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)));
+    const before = editor.state.doc;
+    const html = `<${tag} data-pm-slice="1 1 [&quot;bulletList&quot;,null,&quot;listItem&quot;,null]">beta</${tag}>`;
+    expect(handleCopiedList(editor, html)).toBe(false);
+    expect(editor.state.doc.eq(before)).toBe(true);
+  });
+
+  it('reads only the first parsed slice marker, including an entity-encoded empty context', () => {
+    const editor = mount('<p>x</p>');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)));
+    const html = '<p data-pm-slice="1 1 &#91;&#93;"></p><p data-pm-slice="1 1 [&quot;bulletList&quot;,null]">beta</p>';
+    expect(handleCopiedList(editor, html)).toBe(true);
+    expect(editor.state.doc.toString()).toBe('doc(paragraph("x"), bulletList(listItem(paragraph("beta"))))');
+  });
+
+  it('creates the metadata template in a detached document and keeps its nodes out of the live DOM', () => {
+    const editor = mount('<p>x</p>');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)));
+    const detached = document.implementation.createHTMLDocument('');
+    const create = vi.spyOn(document.implementation, 'createHTMLDocument').mockReturnValue(detached);
+    const element = vi.spyOn(detached, 'createElement');
+    const live = document.documentElement.outerHTML;
+    try {
+      const html = '<script>document.documentElement.setAttribute("data-paste-script", "ran")</script>'
+        + '<p data-pm-slice="1 1 [&quot;bulletList&quot;,null]" onclick="document.body.remove()">beta</p>';
+      expect(handleCopiedList(editor, html)).toBe(false);
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(element).toHaveBeenCalledWith('template');
+      expect(detached.defaultView).toBeNull();
+      const template = element.mock.results[0]?.value as HTMLTemplateElement;
+      expect(template.ownerDocument).toBe(detached);
+      expect(template.content.querySelector('script')).not.toBeNull();
+      expect(document.documentElement.outerHTML).toBe(live);
+    } finally {
+      element.mockRestore();
+      create.mockRestore();
+    }
+  });
+
+  it('rejects a document with a browsing context before creating a metadata template', () => {
+    const editor = mount('<p>x</p>');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)));
+    const create = vi.spyOn(document.implementation, 'createHTMLDocument').mockReturnValue(document);
+    const element = vi.spyOn(document, 'createElement');
+    try {
+      expect(handleCopiedList(editor, '<p data-pm-slice="1 1 [&quot;bulletList&quot;,null]">beta</p>')).toBe(true);
+      expect(element.mock.calls.some(([tag]) => tag === 'template')).toBe(false);
+      expect(editor.state.doc.toString()).toBe('doc(paragraph("x"), bulletList(listItem(paragraph("beta"))))');
+    } finally {
+      element.mockRestore();
+      create.mockRestore();
     }
   });
 });

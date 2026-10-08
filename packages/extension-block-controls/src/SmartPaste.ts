@@ -259,8 +259,11 @@ function sliceContext(html: string): string | undefined {
   const written = SLICE_CONTEXT.exec(html)?.[1];
   if (written === undefined) return undefined;
   try {
-    // A template's content is inert, and keeps a copy that starts with table rows or cells, as ProseMirror wraps them.
-    const template = document.createElement('template');
+    const detached = document.implementation.createHTMLDocument('');
+    if (detached.defaultView !== null) return undefined;
+    // Read metadata only in a document without a browsing context; these nodes never enter the live DOM.
+    // A template keeps a copy that starts with table rows or cells, as ProseMirror wraps them.
+    const template = detached.createElement('template');
     template.innerHTML = html;
     return SLICE_DATA.exec(template.content.querySelector('[data-pm-slice]')?.getAttribute('data-pm-slice') ?? '')?.[1];
   } catch {

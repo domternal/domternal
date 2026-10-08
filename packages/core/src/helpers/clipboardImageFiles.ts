@@ -124,10 +124,18 @@ const CONDITIONAL = /^\[if[\t\n\f\r ]/i;
 // The start tag of an image: img, or image, which the HTML parser builds as an img, or a VML shape's image data.
 const IMAGE_TAG = /<(?:img|image|v:imagedata)\b/i;
 
-/** HTML as the browser parses it, in an inert document, or nothing where it cannot be parsed. */
-function parseHTML(html: string): Document | undefined {
+/** Parsed metadata, no result if parsing is refused, or null if the document is not detached. */
+function parseHTML(html: string): Document | null | undefined {
   try {
-    return new DOMParser().parseFromString(html, 'text/html');
+    const parsed = document.implementation.createHTMLDocument('');
+    if (parsed.defaultView !== null) return null;
+    // No browsing context can execute this markup. Only metadata is read; its nodes never enter the live DOM.
+    parsed.open();
+    // Native full-document parsing preserves root attributes, only in the checked document without a browsing context.
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    parsed.write(html);
+    parsed.close();
+    return parsed;
   } catch {
     return undefined;
   }
@@ -170,6 +178,7 @@ function officeSelectionPicture(data: DataTransfer | null | undefined): boolean 
   if (!WRITTEN_NAMESPACE.test(written)
     && !Array.from(written.matchAll(WRITTEN_META)).some(([tag]) => WRITTEN_PROG_ID.test(tag) && WRITTEN_OFFICE_PROG_ID.test(tag))) return false;
   const head = parseHTML(written);
+  if (head === null) return false;
   // A page whose Trusted Types refuse the parser has the HTML read as written, as before the markup was parsed.
   if (head === undefined) return !IMAGE_TAG.test(html);
   const office = Array.from(head.querySelectorAll('*')).some(element =>

@@ -152,7 +152,7 @@ describe('the markup each application writes still names it', () => {
     ['an unquoted id in capitals', '<DIV ID=DOCS-INTERNAL-GUID-1>%</DIV>'],
   ])('reads Google Docs from its copy wrapper on %s', (_name, html) => {
     // Docs writes its default spacing, 1.15, as 1.38 on every block, which plain HTML keeps.
-    const result = clean(html.replace('%', '<p style="line-height:1.38">Spaced</p>'));
+    const result = clean(html.replaceAll('%', '<p style="line-height:1.38">Spaced</p>'));
     expect(result.source).toBe('google-docs');
     expect(result.html).not.toContain('line-height');
   });

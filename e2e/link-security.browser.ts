@@ -122,14 +122,18 @@ test.describe('the URL policy in the browser', () => {
     expect(problems).toEqual([]);
   });
 
-  test('refuses as unsafe every spelling the browser reads as a script address', async ({ page }) => {
+  test('refuses every script and non-image data address the browser reads', async ({ page }) => {
     await open(page);
     const values = [...URL_CORPUS.filter(row => row.script).map(row => row.value as string), ...fuzzUrls(7, 3000)];
     const found = await page.evaluate(({ encoded, profiles }) => {
       const probe = (window as unknown as FixtureWindow).__linkSecurity;
       const values = encoded.map(item => (globalThis as unknown as Decoding).__decode(item) as string);
-      const script = values.filter(value => ['javascript:', 'vbscript:'].includes(probe.resolve(value).protocol)
-        || /^data:\s*text\/html/i.test(probe.resolve(value).href));
+      const script = values.filter(value => {
+        const resolved = probe.resolve(value);
+        if (!['javascript:', 'vbscript:', 'data:'].includes(resolved.protocol)) return false;
+        // The image profile intentionally permits data images; its independent oracle is tested below.
+        return resolved.protocol !== 'data:' || !/^data:\s*image\//i.test(resolved.href);
+      });
       return {
         script: script.length,
         notUnsafe: script.filter(value => profiles.some(options => probe.checkUrl(value, options).status !== 'unsafe')),
@@ -138,6 +142,26 @@ test.describe('the URL policy in the browser', () => {
     // The corpus rows alone give ten script spellings; the check is not met vacuously.
     expect(found.script).toBeGreaterThanOrEqual(10);
     expect(found.notUnsafe).toEqual([]);
+  });
+
+  test('refuses non-image data media types and keeps data images profile-dependent', async ({ page }) => {
+    await open(page);
+    const refused = [
+      'data:text/html,<script>alert(1)</script>',
+      'data:application/xhtml+xml,<html/>',
+      'data:text/javascript,alert(1)',
+      'data:text/plain,image/png',
+      'data:;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==',
+      ' Da\tTa: Text/HTML;charset=utf-8,<script>alert(1)</script>',
+    ];
+    const images = ['data:image/png;base64,AAAA', 'data: Image/WebP,xx', 'data:image/svg+xml,<svg/>'];
+    const actual = await page.evaluate(({ values, profiles }) => values.map(value => Object.fromEntries(
+      Object.entries(profiles).map(([name, options]) => [name, (window as unknown as FixtureWindow).__linkSecurity.checkUrl(value, options).status]),
+    )), { values: [...refused, ...images], profiles: PROFILES });
+    expect(actual).toEqual([
+      ...refused.map(() => ({ link: 'unsafe', absolute: 'unsafe', imageWithData: 'unsafe', imageWithoutData: 'unsafe' })),
+      ...images.map(() => ({ link: 'unsafe', absolute: 'unsafe', imageWithData: 'allowed', imageWithoutData: 'unsafe' })),
+    ]);
   });
 
   test('decides every fuzzed value as Node does, whatever the engine\'s URL parser tolerates', async ({ page }) => {
