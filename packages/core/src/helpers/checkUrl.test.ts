@@ -255,12 +255,42 @@ describe('checkUrl', () => {
     });
 
     it('accepts paired surrogates in a path and refuses unpaired units', () => {
-      for (const text of ['\u{10000}', '\u{1f600}', '\u{10ffff}', '\ud800\udc00\udbff\udfff']) {
+      for (const text of ['\u{10000}', '\u{1f600}', '\u{10ffff}', '\ud800\udc00\udbff\udfff',
+        '\ud800\udc00\ufeff', '\ufeff\udbff\udfff', '\ud800\udc00\ufeff\udbff\udfff']) {
         const value = `https://example.com/${text}`;
         expect(checkUrl(value, LINK_PROFILE)).toEqual({ status: 'allowed', url: value });
       }
-      for (const text of ['\ud800', '\udbff', '\udc00', '\udfff', '\ud800x\udc00', '\udc00\ud800', '\ud800\ud800\udc00']) {
+      for (const text of ['\ud800', '\udbff', '\udc00', '\udfff', '\ud800x\udc00', '\udc00\ud800', '\ud800\ud800\udc00',
+        '\ud800\ufeff', '\udbff\ufeff', '\ufeff\udc00', '\ufeff\udfff', '\ud800\udc00\udfff', '\ud800\udc00\ufeff\udfff']) {
         expect(checkUrl(`https://example.com/${text}`, LINK_PROFILE).status).toBe('unsafe');
+      }
+    });
+
+    it('refuses the lone-surrogate and byte-order-mark values reported by WebKit', () => {
+      for (const value of ['&\ud800\ufeff:9', 'example.com&#106;\ud800\ufeff-']) {
+        for (const options of [LINK_PROFILE, ABSOLUTE_LINK_PROFILE, imageProfile(true), imageProfile(false)]) {
+          expect(checkUrl(value, options)).toEqual({ status: 'unsafe' });
+        }
+      }
+    });
+
+    it('matches a UTF-16 pairing oracle for short paths around surrogate and format boundaries', () => {
+      const alphabet = ['a', '\u200c', '\ufeff', '\ud800', '\udbff', '\udc00', '\udfff'];
+      let texts = [''];
+      for (let length = 1; length <= 4; length++) {
+        texts = texts.flatMap(prefix => alphabet.map(unit => prefix + unit));
+        for (const text of texts) {
+          let paired = true;
+          for (let index = 0; index < text.length; index++) {
+            const code = text.charCodeAt(index);
+            if (code >= 0xd800 && code <= 0xdbff) {
+              const next = text.charCodeAt(++index);
+              if (!(next >= 0xdc00 && next <= 0xdfff)) paired = false;
+            } else if (code >= 0xdc00 && code <= 0xdfff) paired = false;
+          }
+          const value = `https://example.com/${text}`;
+          expect(checkUrl(value, LINK_PROFILE), JSON.stringify(text)).toEqual(paired ? { status: 'allowed', url: value } : { status: 'unsafe' });
+        }
       }
     });
 

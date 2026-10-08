@@ -221,21 +221,16 @@ interface BlockContextMenuOpenDetail {
 }
 
 /**
- * Selector to re-locate an anchor button if its DOM identity changes (e.g.
- * the bubble menu rebuilding buttons via `replaceChildren`). Returns `null`
- * for anchors we can't reliably re-resolve (e.g. the BlockHandle drag button,
- * keyed by absolute position, not class).
+ * Matches a replacement anchor after the bubble menu rebuilds its buttons.
+ * Stable classes take priority over an exact label match. Labels stay plain
+ * attribute values and never become selector syntax.
  */
-function matchingSelectorFor(anchor: HTMLElement): string | null {
+function buttonMatcherFor(anchor: HTMLElement): ((button: HTMLButtonElement) => boolean) | null {
   for (const className of ['dm-bcm-trigger', 'dm-block-handle-drag']) {
-    if (anchor.classList.contains(className)) return `button.${className}`;
+    if (anchor.classList.contains(className)) return button => button.classList.contains(className);
   }
   const ariaLabel = anchor.getAttribute('aria-label');
-  if (ariaLabel) {
-    const escaped = ariaLabel.replace(/"/g, '\\"');
-    return `button[aria-label="${escaped}"]`;
-  }
-  return null;
+  return ariaLabel ? button => button.getAttribute('aria-label') === ariaLabel : null;
 }
 
 /**
@@ -931,7 +926,7 @@ export function createBlockContextMenuPlugin(
     // recomputes against a zero rect and the menu flies to the corner.
     let anchorEl: HTMLElement = detail.anchorElement;
     const bubbleMenuRef = anchorEl.closest<HTMLElement>('.dm-bubble-menu');
-    const matchingSelector = matchingSelectorFor(anchorEl);
+    const matchesAnchor = buttonMatcherFor(anchorEl);
     let lastRect = anchorEl.getBoundingClientRect();
     const virtualRef: { getBoundingClientRect: () => DOMRect } = {
       getBoundingClientRect: () => {
@@ -941,8 +936,8 @@ export function createBlockContextMenuPlugin(
         }
         // Anchor disconnected: find an equivalent in the same bubble menu so
         // the menu tracks live DOM instead of pinning to the stale rect.
-        if (matchingSelector && bubbleMenuRef?.isConnected) {
-          const fresh = bubbleMenuRef.querySelector<HTMLElement>(matchingSelector);
+        if (matchesAnchor && bubbleMenuRef?.isConnected) {
+          const fresh = Array.from(bubbleMenuRef.querySelectorAll<HTMLButtonElement>('button')).find(matchesAnchor);
           if (fresh) {
             anchorEl = fresh;
             lastRect = fresh.getBoundingClientRect();

@@ -97,21 +97,16 @@ describe('linkPastePlugin', () => {
       const result = handler(view, event);
       expect(result).toBe(true);
 
-      // Check that text was inserted with link mark
-      const docText = view.state.doc.textContent;
-      expect(docText).toContain('https://example.com');
-
-      // Check link mark exists
-      let hasLink = false;
-      view.state.doc.descendants((node) => {
-        if (node.isText && node.text?.includes('https://example.com')) {
-          const linkMark = node.marks.find(
-            (m) => m.type === schema.marks.link
-          );
-          if (linkMark) hasLink = true;
-        }
+      expect(view.state.doc.toJSON()).toEqual({
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'hello ' },
+            { type: 'text', text: 'https://example.com', marks: [{ type: 'link', attrs: { href: 'https://example.com' } }] },
+          ],
+        }],
       });
-      expect(hasLink).toBe(true);
     });
 
     it('wraps selected text in link when URL is pasted', () => {

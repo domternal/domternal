@@ -164,6 +164,44 @@ test.describe('the URL policy in the browser', () => {
     ]);
   });
 
+  test('keeps UTF-16 surrogate boundaries consistent around format characters', async ({ page }) => {
+    await open(page);
+    const refused = ['&\ud800\ufeff:9', 'example.com&#106;\ud800\ufeff-'];
+    const exact = await page.evaluate(({ encoded, profiles }) => encoded.map(item => profiles.map(options =>
+      (window as unknown as FixtureWindow).__linkSecurity.checkUrl((globalThis as unknown as Decoding).__decode(item), options),
+    )), { encoded: refused.map(encode), profiles: Object.values(PROFILES) });
+    expect(exact).toEqual(refused.map(() => Object.keys(PROFILES).map(() => ({ status: 'unsafe' }))));
+
+    const alphabet = ['a', '\u200c', '\ufeff', '\ud800', '\udbff', '\udc00', '\udfff'];
+    let texts = [''];
+    const rows: { value: string; expected: UrlCheck }[] = [];
+    for (let length = 1; length <= 4; length++) {
+      texts = texts.flatMap(prefix => alphabet.map(unit => prefix + unit));
+      for (const text of texts) {
+        // This code-unit oracle does not use the production regular expressions or URL parser.
+        let paired = true;
+        for (let index = 0; index < text.length; index++) {
+          const code = text.charCodeAt(index);
+          if (code >= 0xd800 && code <= 0xdbff) {
+            const next = text.charCodeAt(++index);
+            if (!(next >= 0xdc00 && next <= 0xdfff)) paired = false;
+          } else if (code >= 0xdc00 && code <= 0xdfff) paired = false;
+        }
+        const value = `https://example.com/${text}`;
+        rows.push({ value, expected: paired ? { status: 'allowed', url: value } : { status: 'unsafe' } });
+      }
+    }
+    const actual = await page.evaluate(({ encoded, options }) => encoded.map(item =>
+      (window as unknown as FixtureWindow).__linkSecurity.checkUrl((globalThis as unknown as Decoding).__decode(item), options),
+    ), { encoded: rows.map(row => encode(row.value)), options: LINK_PROFILE });
+    const differences = rows.flatMap(({ value, expected }, index) => {
+      const received = actual[index];
+      return received?.status === expected.status && (expected.status !== 'allowed' || (received.status === 'allowed' && received.url === expected.url))
+        ? [] : [JSON.stringify({ value, expected, received })];
+    });
+    expect(differences).toEqual([]);
+  });
+
   test('decides every fuzzed value as Node does, whatever the engine\'s URL parser tolerates', async ({ page }) => {
     await open(page);
     const values = [...fuzzUrls(424242, 4000), ...URL_CORPUS.map(row => row.value).filter((value): value is string => typeof value === 'string')];
