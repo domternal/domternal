@@ -17,9 +17,10 @@ export function isHeadingLevel(value: unknown): value is number {
 const configured = new WeakMap<readonly unknown[], { entries: readonly unknown[]; levels: readonly number[] }>();
 
 /**
- * Checks the Heading `levels` option, a non-empty list of heading levels in any
+ * Checks the Heading `levels` option, a list of heading levels in any
  * order, and returns the levels it offers: each level once, at its first
- * position, so the first stays the default. The option itself is never changed.
+ * position, so the first stays the default. An empty list disables heading
+ * parsing and commands, as in 1.2. The option itself is never changed.
  */
 export function configuredHeadingLevels(levels: unknown): readonly number[] {
   // Rendering asks once per heading. A list read before with the same entries was
@@ -29,8 +30,8 @@ export function configuredHeadingLevels(levels: unknown): readonly number[] {
   // An application may change its option list in place; the copy notices.
   if (list !== undefined && cached?.entries.length === list.length
     && cached.entries.every((entry, index) => entry === list[index])) return cached.levels;
-  if (!Array.isArray(levels) || levels.length === 0 || ![...levels as unknown[]].every(isHeadingLevel)) {
-    throw new ExtensionConfigurationError('Heading: levels must be a non-empty list of whole numbers from 1 to 6');
+  if (!Array.isArray(levels) || ![...levels as unknown[]].every(isHeadingLevel)) {
+    throw new ExtensionConfigurationError('Heading: levels must be a list of whole numbers from 1 to 6');
   }
   const option = levels as readonly number[];
   const unique = Object.freeze([...new Set(option)]);
@@ -232,9 +233,9 @@ export function headingLevelAttribute(levels: readonly number[]): Pick<Attribute
   registerAttributeNormalizer(validate, {
     code: 'unsupported-heading-level',
     invalid,
-    unsupported: value => invalid(value) || !levels.includes(value as number),
+    unsupported: value => invalid(value) || (levels.length === 0 ? value !== 1 : !levels.includes(value as number)),
     replacement: value => resolveHeadingLevel(value, levels),
   });
-  // Content and commands without a level get the first configured one.
-  return { default: levels[0], validate };
+  // Content without a level gets the first configured one, or the legacy fallback when disabled.
+  return { default: levels[0] ?? 1, validate };
 }

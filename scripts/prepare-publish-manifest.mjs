@@ -12,7 +12,7 @@ import { refuseUnlessReleasable } from './release-readiness.mjs';
 const SOURCE_CONDITION = '@domternal/source';
 
 /**
- * The compatibility range a published package declares:
+ * The peer compatibility range a published package declares:
  * `>=MAJOR.MINOR.0 <NEXT_MAJOR.0.0`.
  *
  * A prerelease is refused rather than reduced to its release part, because the
@@ -24,6 +24,20 @@ const SOURCE_CONDITION = '@domternal/source';
  * make deliberately rather than to inherit from a regex.
  */
 export function versionRange(version) {
+  const match = releaseVersion(version);
+  const nextMajor = String(Number(match[1]) + 1);
+  return `>=${match[1]}.${match[2]}.0 <${nextMajor}.0.0`;
+}
+
+/** Internal runtime dependencies must include the fixes from this coordinated patch release. */
+export function runtimeDependencyRange(version) {
+  const match = releaseVersion(version);
+  const nextMajor = String(Number(match[1]) + 1);
+  return `>=${match[1]}.${match[2]}.${match[3]} <${nextMajor}.0.0`;
+}
+
+/** Both ranges require a stable version; neither silently reduces a prerelease to a release. */
+function releaseVersion(version) {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
   if (match === null) {
     throw new Error(
@@ -32,8 +46,7 @@ export function versionRange(version) {
         'a >=X.Y.0 <NEXT_MAJOR.0.0 range.'
     );
   }
-  const nextMajor = String(Number(match[1]) + 1);
-  return `>=${match[1]}.${match[2]}.0 <${nextMajor}.0.0`;
+  return match;
 }
 
 /** Strips the dev-source condition wherever it appears in an exports map. */
@@ -83,7 +96,7 @@ export function preparePublishManifest(manifest) {
   }
 
   if (prepared.dependencies !== undefined) {
-    const range = versionRange(prepared.version);
+    const range = runtimeDependencyRange(prepared.version);
     const rewritten = {};
     const named = [];
     for (const [name, specifier] of Object.entries(prepared.dependencies)) {

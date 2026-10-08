@@ -176,6 +176,22 @@ declare module '@domternal/core' {
 }
 // Every built-in definition must retain its public parameter augmentation in dist.
 type PublishedCoreMessages = core.CompleteMessages<typeof core.coreMessages>;
+// A 1.2 catalog can opt into partial overrides or add the new 1.3 translation.
+declare const legacyCoreCatalog: Omit<PublishedCoreMessages, 'core.linkPopover.invalidUrl'>;
+const compatibleCoreCatalog: core.Messages = legacyCoreCatalog;
+const extendedCoreCatalog: PublishedCoreMessages = {
+  ...legacyCoreCatalog, 'core.linkPopover.invalidUrl': 'This link is not allowed.',
+};
+declare const completeCoreCatalog: PublishedCoreMessages;
+const completeOldTranslation: core.MessageValue<undefined> = completeCoreCatalog['core.toolbar.bold'];
+const completeNewTranslation: core.MessageValue<undefined> = completeCoreCatalog['core.linkPopover.invalidUrl'];
+declare const incompleteLegacyCoreCatalog: Omit<PublishedCoreMessages, 'core.toolbar.bold'>;
+// @ts-expect-error Previously required messages remain required in a complete catalog.
+const incompleteCoreCatalog: PublishedCoreMessages = incompleteLegacyCoreCatalog;
+// @ts-expect-error Complete catalogs also guarantee the new translation is present.
+const incompleteNewCoreCatalog: PublishedCoreMessages = legacyCoreCatalog;
+// @ts-expect-error New translations require text or a correctly typed callback.
+const invalidNewTranslation: PublishedCoreMessages = { ...legacyCoreCatalog, 'core.linkPopover.invalidUrl': 123 };
 const builtinTranslations: core.Messages = {
   'core.toolbar.italic': 'Kursiv',
   'core.group.insert': 'Einfügen',
@@ -296,3 +312,32 @@ blockControls.BlockHandle.configure({
   dropZoneProviders: [provider],
   nested: { allowedNodes: ['paragraph'], anchorContainers: ['column'] },
 });
+
+// The published 1.3 option types remain writable across configuration forms.
+let configurableLink = core.Link.configure({ protocols: null });
+configurableLink = core.Link.configure({ protocols: ['https:'] }).configure({ openOnClick: false });
+configurableLink.options.protocols = [{ scheme: 'https' }];
+configurableLink.options.protocols = null;
+let configurablePopover = core.LinkPopover.configure({ protocols: null });
+configurablePopover = core.LinkPopover.configure({ protocols: ['https:'] }).configure({}).clone();
+configurablePopover.options.protocols = [{ scheme: 'https' }];
+configurablePopover.options.protocols = null;
+const defaultLinkOptions = core.Link.clone();
+defaultLinkOptions.options.protocols = null;
+const defaultPopoverOptions = core.LinkPopover.clone();
+defaultPopoverOptions.options.protocols = [{ scheme: 'https' }];
+const extendedLinkOptions: typeof core.Link = core.Link.extend({});
+const extendedPopoverOptions: typeof core.LinkPopover = core.LinkPopover.extend({});
+const readonlyProtocolInput = [{ scheme: 'https' }] as const;
+core.Link.configure({ protocols: readonlyProtocolInput }).clone();
+core.LinkPopover.configure({ protocols: readonlyProtocolInput }).clone();
+// @ts-expect-error A popover configuration must be an options object.
+core.LinkPopover.configure(123);
+// @ts-expect-error Unknown popover options remain rejected.
+core.LinkPopover.configure({ unknownOption: true });
+// @ts-expect-error Unknown Link options remain rejected.
+core.Link.configure({ openOnClick: false, unknownOption: true });
+// @ts-expect-error A Link configuration must be an options object.
+core.Link.configure(123);
+// @ts-expect-error A function is not a Link options object.
+core.Link.configure(() => 1);

@@ -190,7 +190,7 @@
     "prosemirror-state": "^1.4.4",
     "prosemirror-tables": "^1.7.0",
     "prosemirror-transform": "^1.10.5",
-    "prosemirror-view": "^1.41.5"
+    "prosemirror-view": "^1.42.3"
   },
   "keywords": [
     "prosemirror",

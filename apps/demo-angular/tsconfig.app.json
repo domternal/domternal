@@ -14,6 +14,9 @@
       "path": "../../packages/extension-table"
     },
     {
+      "path": "../../packages/extension-paste-cleanup"
+    },
+    {
       "path": "../../packages/extension-mention"
     },
     {

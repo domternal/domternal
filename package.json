@@ -78,7 +78,7 @@
       "prosemirror-state": "^1.4.4",
       "prosemirror-tables": "^1.8.5",
       "prosemirror-transform": "^1.12.0",
-      "prosemirror-view": "^1.42.2",
+      "prosemirror-view": "^1.42.3",
       "@arethetypeswrong/core>fflate": "0.7.4",
       "minimatch@3": "^3.1.5",
       "minimatch@9": "^9.0.9",

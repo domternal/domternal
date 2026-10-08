@@ -19,8 +19,10 @@ pnpm add @domternal/core
 ```
 
 Core has no framework dependency and includes `@domternal/pm`. Keep installed
-Domternal packages on the same release; 1.3.x uses the compatibility range
-`>=1.3.0 <2.0.0`. Import ProseMirror primitives from `@domternal/pm/*` to keep
+Domternal packages on the same release. Their 1.3.x peer compatibility range is
+`>=1.3.0 <2.0.0`; Core's runtime dependency on PM starts at Core's full version,
+including the patch, so updates include its dependency fixes.
+Import ProseMirror primitives from `@domternal/pm/*` to keep
 [one shared copy](https://domternal.dev/v1/guides/single-prosemirror-copy/).
 
 For ready-made editor styling, also install `@domternal/theme` and import it from

@@ -30,9 +30,10 @@ declare module '@domternal/core' {
 
 export interface HeadingOptions {
   /**
-   * The heading levels this editor offers: a non-empty list of whole numbers
+   * The heading levels this editor offers: a list of whole numbers
    * from 1 to 6. The first one is the default level. A repeated level counts
-   * once, at its first position.
+   * once, at its first position. An empty list disables heading parsing and
+   * commands; stored headings still render as h1.
    */
   levels: number[];
   HTMLAttributes: Record<string, unknown>;
@@ -60,7 +61,7 @@ export const Heading = Node.create<HeadingOptions>({
         // Every heading tag parses at the level it renders at, as JSON content loads it.
         parseHTML: (element: HTMLElement) => {
           const match = /^H([1-6])$/i.exec(element.tagName);
-          return match?.[1] ? resolveHeadingLevel(parseInt(match[1], 10), levels) : levels[0];
+          return match?.[1] ? resolveHeadingLevel(parseInt(match[1], 10), levels) : levels[0] ?? 1;
         },
         renderHTML: () => {
           // Level is used in the tag name, not as an attribute
@@ -81,6 +82,7 @@ export const Heading = Node.create<HeadingOptions>({
     // out of its list item, summary or preformatted block, which would split the
     // list or empty the summary.
     const levels = configuredHeadingLevels(this.options.levels);
+    if (levels.length === 0) return [];
     const unconfigured = [1, 2, 3, 4, 5, 6].filter((level) => !levels.includes(level));
     // The schema is read at parse time: whether a list item, summary or code block can hold the
     // heading depends on the nodes it holds.
@@ -354,6 +356,7 @@ export const Heading = Node.create<HeadingOptions>({
     }
 
     const levels = configuredHeadingLevels(options.levels);
+    if (levels.length === 0) return [];
     const maxLevel = Math.max(...levels);
     return [
       textblockTypeInputRule({

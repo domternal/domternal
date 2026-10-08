@@ -9,6 +9,7 @@ import semver from 'semver';
 import {
   preparePublishManifest,
   publishBlockers,
+  runtimeDependencyRange,
   versionRange,
 } from '../../scripts/prepare-publish-manifest.mjs';
 
@@ -344,7 +345,8 @@ export function packageFailures({ directory, name, manifest }, names, rootLicens
   }
 
   // A runtime dependency on a sibling is always workspace:*, and the publish
-  // transform turns it into the compatibility range. Anything else here is
+  // transform gives it the full release version as its floor, including the
+  // patch, so updating core cannot retain a PM release missing its fixes. Anything else here is
   // either a mistake or the residue of a publish that died before postpublish restored the file.
   for (const [dependency, range] of Object.entries(manifest.dependencies ?? {})) {
     if (!dependency.startsWith(SCOPE)) continue;
@@ -488,7 +490,8 @@ function main() {
 
   const version = manifests[0]?.version ?? 'unknown';
   console.log(
-    `[package-policy] OK - ${String(packages.length)} packages at ${version}, ranges at ${versionRange(version)}, ` +
+    `[package-policy] OK - ${String(packages.length)} packages at ${version}, peer ranges at ${versionRange(version)}, ` +
+      `runtime ranges at ${runtimeDependencyRange(version)}, ` +
       `node ${nodeFloor}, manifests publishable`
   );
 }

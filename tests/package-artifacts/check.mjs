@@ -20,6 +20,7 @@ import {
   exportTargets,
   preparePublishManifest,
   publishBlockers,
+  runtimeDependencyRange,
 } from '../../scripts/prepare-publish-manifest.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -188,6 +189,15 @@ export function manifestFailures(source, packed, files) {
   // publish hook runs, then judged against what the tarball actually holds.
   const { prepared } = preparePublishManifest(packed);
   failures.push(...publishBlockers(prepared));
+  // pnpm pack resolves workspace:* to this exact version. A prepared publish
+  // manifest carries the runtime range instead; neither may retain an older patch.
+  for (const [name, range] of Object.entries(prepared.dependencies ?? {})) {
+    if (!name.startsWith('@domternal/') || (typeof range === 'string' && range.startsWith('workspace:'))) continue;
+    const expected = runtimeDependencyRange(source.version);
+    if (range !== source.version && range !== expected) {
+      failures.push(`dependencies.${name} is "${range}", expected "${expected}" or the packed version "${source.version}"`);
+    }
+  }
   const present = new Set(files);
   for (const target of new Set(exportTargets(prepared.exports ?? {}))) {
     if (!target.startsWith('./')) continue;

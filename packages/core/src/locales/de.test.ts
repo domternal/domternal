@@ -2,12 +2,29 @@ import { describe, expect, it, vi } from 'vitest';
 import { Editor } from '../Editor.js';
 import { StarterKit } from '../extensions/StarterKit.js';
 import { I18nService } from '../i18n/I18nService.js';
+import type { Messages } from '../i18n/types.js';
 import { coreMessages } from '../messages/core.js';
 import { deMessages, deSearchAliases } from './de.js';
 
 const { colorTextSwatch, colorBackgroundSwatch, emojiItemName, headingLevel, ...staticMessages } = coreMessages;
 
 describe('German core messages', () => {
+  it('accepts a 1.2 catalog as partial overrides and falls back for a newly added message', () => {
+    const { 'core.linkPopover.invalidUrl': addedMessage, ...legacyMessages } = deMessages;
+    const compatibleMessages: Messages = legacyMessages;
+    const i18n = new I18nService({ locale: 'de', messages: compatibleMessages });
+    try {
+      expect(i18n.resolve(coreMessages.bold)).toEqual({ text: 'Fett', source: 'messages', language: 'de' });
+      expect(i18n.resolve(coreMessages.linkInvalidUrl)).toEqual({
+        text: 'This address cannot be used as a link.', source: 'default', language: 'en',
+      });
+      i18n.set({ locale: 'de', messages: { ...compatibleMessages, 'core.linkPopover.invalidUrl': addedMessage } });
+      expect(i18n.resolve(coreMessages.linkInvalidUrl)).toEqual({
+        text: addedMessage, source: 'messages', language: 'de',
+      });
+    } finally { i18n.destroy(); }
+  });
+
   it('covers exactly the owned catalog and freezes all shared translation data', () => {
     expect(Object.keys(deMessages).sort()).toEqual(Object.values(coreMessages).map(({ id }) => id).sort());
     expect(Object.isFrozen(deMessages)).toBe(true);

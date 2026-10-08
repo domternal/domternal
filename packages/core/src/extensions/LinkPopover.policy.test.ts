@@ -317,8 +317,8 @@ describe('LinkPopover options', () => {
     expect(input().getAttribute('aria-invalid')).toBeNull();
   });
 
-  it('defaults protocols to null, so the Link decides', () => {
-    expect(LinkPopover.options.protocols).toBeNull();
+  it('exposes readable default protocols and preserves explicit narrowing', () => {
+    expect(LinkPopover.options.protocols).toEqual(['http:', 'https:', 'mailto:', 'tel:']);
     expect(LinkPopover.configure({ protocols: ['https:'] }).options.protocols).toEqual(['https:']);
   });
 });

@@ -83,7 +83,7 @@ describe('heading level rule', () => {
 });
 
 describe('configured heading levels', () => {
-  it.each([[[1, 2, 3, 4]], [[4, 2]], [[6]], [[1, 2, 3, 4, 5, 6]]])('accepts %j', levels => {
+  it.each([[[]], [[1, 2, 3, 4]], [[4, 2]], [[6]], [[1, 2, 3, 4, 5, 6]]])('accepts %j', levels => {
     expect(configuredHeadingLevels(levels)).toEqual(levels);
   });
 
@@ -91,9 +91,9 @@ describe('configured heading levels', () => {
     expect(configuredHeadingLevels([1, 1, 2])).toEqual([1, 2]);
   });
 
-  it.each([[[]], [[0]], [[7]], [['3']], [[1.5]], [[1, Number.NaN]], [[1, null]], ['1,2'], [undefined], [null], [{ 0: 1, length: 1 }]])('refuses %j', levels => {
+  it.each([[[0]], [[7]], [['3']], [[1.5]], [[1, Number.NaN]], [[1, null]], ['1,2'], [undefined], [null], [{ 0: 1, length: 1 }]])('refuses %j', levels => {
     expect(() => configuredHeadingLevels(levels)).toThrow(ExtensionConfigurationError);
-    expect(() => configuredHeadingLevels(levels)).toThrow('Heading: levels must be a non-empty list of whole numbers from 1 to 6');
+    expect(() => configuredHeadingLevels(levels)).toThrow('Heading: levels must be a list of whole numbers from 1 to 6');
   });
 });
 
@@ -111,7 +111,9 @@ describe('configuredHeadingLevels with repeated levels', () => {
     option.push(2);
     expect(configuredHeadingLevels(option)).toEqual([3, 1, 2]);
     option.length = 0;
-    expect(() => configuredHeadingLevels(option)).toThrow(ExtensionConfigurationError);
+    expect(configuredHeadingLevels(option)).toEqual([]);
+    option.push(4);
+    expect(configuredHeadingLevels(option)).toEqual([4]);
   });
 
   it('refuses an option changed in place to an invalid entry after it was read', () => {

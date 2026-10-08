@@ -43,7 +43,7 @@ describe('LinkPopover', () => {
 
     it('has default options', () => {
       expect(LinkPopover.options).toEqual({
-        protocols: null,
+        protocols: ['http:', 'https:', 'mailto:', 'tel:'],
       });
     });
 
