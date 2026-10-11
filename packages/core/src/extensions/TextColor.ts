@@ -29,6 +29,8 @@ import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import { TextStyle } from '../marks/TextStyle.js';
 import { isBlankStyleValue, isSafeCssValue } from '../helpers/isSafeCssValue.js';
+import { textColorReadabilityPlugin } from '../utils/textColorReadability.js';
+import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -75,6 +77,14 @@ export interface TextColorOptions {
    * @default 5
    */
   columns: number;
+
+  /**
+   * `auto` adjusts hard-to-read literal colors in the live editor using the measured background. Requires the theme's
+   * readability styles. Stored content, serialization, clipboard HTML and print keep the authored color. Token colors,
+   * translucent text and paint this policy cannot measure are unchanged. Custom mark views take precedence.
+   * @default 'original'
+   */
+  contrast?: 'original' | 'auto';
 }
 
 export const TextColor = Extension.create<TextColorOptions>({
@@ -86,7 +96,19 @@ export const TextColor = Extension.create<TextColorOptions>({
     return {
       colors: DEFAULT_TEXT_COLORS,
       columns: 5,
+      contrast: 'original',
     };
+  },
+
+  onBeforeCreate() {
+    const contrast: unknown = this.options.contrast;
+    if (contrast !== undefined && contrast !== 'original' && contrast !== 'auto') {
+      throw new ExtensionConfigurationError("TextColor contrast must be 'original' or 'auto'.");
+    }
+  },
+
+  addProseMirrorPlugins() {
+    return this.options.contrast === 'auto' ? [textColorReadabilityPlugin()] : [];
   },
 
   addGlobalAttributes() {

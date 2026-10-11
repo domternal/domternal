@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Add opt-in `TextColor.configure({ contrast: 'auto' })` with matching theme styles to improve the screen contrast of literal text colors against measurable backgrounds. The default remains `'original'`; stored colors, document HTML, collaboration, undo history and print output remain unchanged. Custom themes can use the rule documented in the Core README.
+
 ## 1.3.1 (2026-10-08)
 
 ### Fixes
