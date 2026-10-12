@@ -35,11 +35,12 @@ async function open(page: Page, mode: 'light' | 'dark' | 'auto', automatic = tru
     'theme-mode': mode, ...(automatic ? { 'text-contrast': 'auto' } : {}), 'text-style-order': order });
   await page.goto(`http://127.0.0.1:5895/?${query.toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
-  await page.evaluate(content => {
+  // Serialize the fixture so Playwright does not recursively unwrap JSONContent's type.
+  await page.evaluate(json => {
     const editor = (window as unknown as ProbeWindow).__pasteCleanup.editor;
-    if (!editor.setContent(content, false)) throw new Error('The readability document was refused');
+    if (!editor.setContent(JSON.parse(json) as JSONContent, false)) throw new Error('The readability document was refused');
     editor.view.dom.blur();
-  }, CONTENT);
+  }, JSON.stringify(CONTENT));
   await page.evaluate(installContrastTools);
 }
 
