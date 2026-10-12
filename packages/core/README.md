@@ -185,6 +185,15 @@ const text = generateText(content, [StarterKit]);
 automatically; browser calls use the browser document. See
 [server-side utilities](https://domternal.dev/v1/guides/editor-api/#server-side-utilities).
 
+## Localization
+
+Custom translation catalogs use `CompleteMessages<typeof definitions>`. Existing
+definitions remain required. A definition marked `optionalTranslation: true` may
+fall back to its English default until the application translates it, so additive
+messages need not break existing catalogs. Use
+`Required<CompleteMessages<typeof definitions>>` to require every current message
+in a maintained language pack. Runtime `i18n.messages` overrides remain partial.
+
 ## Guides
 
 - [Editor API](https://domternal.dev/v1/guides/editor-api/): commands, events, lifecycle and DOM adoption.

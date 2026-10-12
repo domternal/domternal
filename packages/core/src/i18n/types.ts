@@ -33,6 +33,8 @@ export interface MessageDefinition<Id extends MessageId = MessageId> {
   readonly description: string;
   readonly owner: string;
   readonly allowEmpty?: boolean;
+  /** An additive message may use its default until a custom catalog translates it. Literal true makes CompleteMessages optional. */
+  readonly optionalTranslation?: boolean;
   readonly searchAliases?: readonly string[];
   readonly technicalAliases?: readonly string[];
 }
@@ -95,7 +97,16 @@ export interface ResolvedMessage {
   readonly source: 'messages' | 'resolver' | 'default';
 }
 
-/** A complete catalog is checked only against the explicitly selected definitions. */
+type RequiredCatalogMessageIds<Definitions extends Readonly<Record<string, { readonly id: MessageId }>>> = {
+  [Key in keyof Definitions]: Definitions[Key] extends { readonly optionalTranslation: true } ? never : Definitions[Key]['id'];
+}[keyof Definitions];
+
+/**
+ * Checks the selected definitions. Only a literal optionalTranslation: true permits an omitted translation.
+ * Use Required<CompleteMessages<Definitions>> when a maintained locale must translate every current definition.
+ */
 export type CompleteMessages<Definitions extends Readonly<Record<string, { readonly id: MessageId }>>> = {
-  readonly [Id in Definitions[keyof Definitions]['id']]: MessageValue<MessageParameters[Id]>;
+  readonly [Id in RequiredCatalogMessageIds<Definitions>]: MessageValue<MessageParameters[Id]>;
+} & {
+  readonly [Id in Exclude<Definitions[keyof Definitions]['id'], RequiredCatalogMessageIds<Definitions>>]?: MessageValue<MessageParameters[Id]>;
 };
