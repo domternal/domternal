@@ -1,9 +1,15 @@
 import type { MessageDefinition, MessageId } from './types.js';
 
 /** Defines an immutable message without registering global runtime state. */
+export function defineMessage<const Id extends MessageId>(definition: MessageDefinition<Id> & { readonly optionalTranslation: true }):
+  MessageDefinition<Id> & { readonly optionalTranslation: true };
+export function defineMessage<const Id extends MessageId>(definition: MessageDefinition<Id>): MessageDefinition<Id>;
 export function defineMessage<const Id extends MessageId>(definition: MessageDefinition<Id>): MessageDefinition<Id> {
   if (!definition.id.includes('.') || !definition.owner || !definition.description) {
     throw new TypeError('Messages require a namespaced ID, owner and description.');
+  }
+  if (definition.optionalTranslation !== undefined && typeof definition.optionalTranslation !== 'boolean') {
+    throw new TypeError('optionalTranslation must be a boolean.');
   }
   if (typeof definition.defaultValue !== 'string' && typeof definition.defaultValue !== 'function') {
     throw new TypeError('A message default must be a string or function.');

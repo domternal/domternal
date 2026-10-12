@@ -44,6 +44,7 @@ const themed = query.get('theme') === '1';
 const themeMode = ['dark', 'auto', 'light'].includes(query.get('theme-mode') ?? '') ? query.get('theme-mode') : null;
 // Inline code, block colors, task lists and rules, for the contrast checks on kept backgrounds.
 const contrast = query.get('contrast') === '1';
+const readableText = query.get('text-contrast') === 'auto';
 // Core paste without PasteCleanup, for behavior applications see without the extension.
 const withoutPasteCleanup = query.get('paste-cleanup') === 'off';
 // ProseMirror's own paste placement, without SmartPaste's block routing.
@@ -291,7 +292,10 @@ const tableExtensions = [Table, TableRow, TableCell, TableHeader];
 // Each wrapper supplies Document, Paragraph, Text, BaseKeymap and History.
 // The optional extension list is identical across all four integrations.
 const extensions = [
-  Bold, Italic, Underline, Strike, httpsLinks ? Link.configure({ protocols: ['https:'] }) : Link, TextStyle, TextColor, Highlight,
+  Bold, Italic, Underline, Strike, httpsLinks ? Link.configure({ protocols: ['https:'] }) : Link, TextStyle,
+  ...(query.get('text-style-order') === 'highlight-first'
+    ? [Highlight, readableText ? TextColor.configure({ contrast: 'auto' }) : TextColor]
+    : [readableText ? TextColor.configure({ contrast: 'auto' }) : TextColor, Highlight]),
   FontFamily, FontSize, TextAlign,
   capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : headingLevels ? Heading.configure({ levels: [2, 3] }) : Heading,
   ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),

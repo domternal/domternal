@@ -1,0 +1,7 @@
+// TextColor's explicit opt-in editor presentation. The original inline color remains on the mark view and is what
+// serialization and print use. Only measured, adjusted runs receive this screen-only override.
+@media screen {
+  .dm-editor .ProseMirror [data-dm-text-contrast='adjusted'] {
+    color: var(--dm-readable-color) !important;
+  }
+}

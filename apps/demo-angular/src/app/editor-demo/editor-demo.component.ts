@@ -97,7 +97,7 @@ export class EditorDemoComponent implements OnDestroy {
     BulletList, OrderedList, TaskList,
     ...demoPasteCleanupExtensions,
     // Text styling (TextColor/FontSize/FontFamily auto-include TextStyle)
-    TextAlign, TextColor, FontSize, FontFamily, LineHeight,
+    TextAlign, TextColor.configure({ contrast: 'auto' }), FontSize, FontFamily, LineHeight,
     // Table (auto-includes TableRow, TableCell, TableHeader)
     Table.configure({ constrainToContainer: this.constrainTable, resizeBehavior: this.resizeBehavior }),
     // Details / Accordion (auto-includes DetailsSummary, DetailsContent)

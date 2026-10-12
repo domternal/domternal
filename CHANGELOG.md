@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Add opt-in `TextColor.configure({ contrast: 'auto' })` with matching theme styles to improve the screen contrast of literal text colors against measurable backgrounds. The default remains `'original'`; stored colors, document HTML, collaboration, undo history and print output remain unchanged. Custom themes can use the rule documented in the Core README.
+- Allow message definitions to mark additive translations as optional. `CompleteMessages` still requires existing mandatory messages and checks callback parameter types; new optional messages can use their built-in fallback. `Required<CompleteMessages<typeof messages>>` checks a translation for every current message.
+
 ## 1.3.1 (2026-10-08)
 
 ### Fixes

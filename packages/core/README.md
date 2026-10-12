@@ -100,6 +100,43 @@ Only imported extensions enter your JavaScript bundle. `preset: 'notion'` select
 the Notion presentation and behavior; it does not install optional extensions.
 See the [configuration guide](https://domternal.dev/v1/guides/configuration/).
 
+### Readable literal colors
+
+The upcoming release adds an optional display policy for literal text colors.
+It is not available in Core or theme 1.3.1. With matching updated Core and theme
+packages, enable it explicitly:
+
+```ts
+TextColor.configure({ contrast: 'auto' });
+```
+
+The default, `original`, keeps authored colors. `auto` measures the live editor's
+background and adjusts an opaque literal color only when its contrast is below
+4.5:1. It mixes the color toward black or white rather than replacing every color
+with the theme's text color. Readable colors and named color tokens stay unchanged.
+This also works for saved documents in a read-only editor; it is not specific to
+Word import.
+
+The adjustment affects screen presentation only. JSON, HTML, clipboard HTML,
+export, print and shared document data retain the original color. Theme changes
+recalculate the presentation without editing the document. Transparent backgrounds
+are composited when the complete solid background is known. Translucent text,
+unresolved or unsupported color spaces, image or gradient backgrounds, painted
+pseudo-elements and compositing effects are left unchanged. A custom textStyle
+mark view of higher priority also takes precedence. This is a bounded readability
+aid, not an accessibility guarantee for arbitrary application CSS.
+
+Core produces view attributes and the matching theme supplies their screen styles.
+Applications with their own styles can use the same narrowly scoped rule:
+
+```css
+@media screen {
+  .dm-editor .ProseMirror [data-dm-text-contrast='adjusted'] {
+    color: var(--dm-readable-color) !important;
+  }
+}
+```
+
 ## Content and validation
 
 Use JSON for structured storage and HTML or plain text when your application needs
@@ -147,6 +184,15 @@ const text = generateText(content, [StarterKit]);
 `generateText` does not need a DOM. CommonJS can load installed `linkedom`
 automatically; browser calls use the browser document. See
 [server-side utilities](https://domternal.dev/v1/guides/editor-api/#server-side-utilities).
+
+## Localization
+
+Custom translation catalogs use `CompleteMessages<typeof definitions>`. Existing
+definitions remain required. A definition marked `optionalTranslation: true` may
+fall back to its English default until the application translates it, so additive
+messages need not break existing catalogs. Use
+`Required<CompleteMessages<typeof definitions>>` to require every current message
+in a maintained language pack. Runtime `i18n.messages` overrides remain partial.
 
 ## Guides
 

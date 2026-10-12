@@ -84,7 +84,7 @@ const buildExtensions = (): AnyExtension[] => [
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
   ...demoPasteCleanupExtensions,
-  TextAlign, TextColor, FontSize, FontFamily, LineHeight,
+  TextAlign, TextColor.configure({ contrast: 'auto' }), FontSize, FontFamily, LineHeight,
   Table.configure({ constrainToContainer: constrainTable, resizeBehavior }),
   Details,
   Image,

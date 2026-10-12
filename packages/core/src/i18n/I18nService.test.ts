@@ -286,6 +286,51 @@ describe('message definitions and types', () => {
     expect(() => defineMessage({ id: 'test.unsafe', defaultValue: 'Valid', owner: '', description: 'Name' })).toThrow();
   });
 
+  it('keeps existing translations required and allows explicitly additive definitions to use their English fallback', () => {
+    const added = defineMessage({ id: 'test.replies', owner: 'test', description: 'Added reply count', optionalTranslation: true,
+      defaultValue: ({ count }, context) => `${context.number(count)} ${context.plural(count) === 'one' ? 'reply' : 'replies'}` });
+    const definitions = { bold, added };
+    const previous: CompleteMessages<typeof definitions> = { 'test.bold': 'Fett' };
+    const complete: Required<CompleteMessages<typeof definitions>> = {
+      'test.bold': 'Fett', 'test.replies': ({ count }, context) => `${context.number(count)} Antworten`,
+    };
+    const marker: true = added.optionalTranslation;
+    expect(marker).toBe(true);
+    expect(Object.isFrozen(added)).toBe(true);
+    const service = new I18nService({ locale: 'de', messages: previous });
+    expect(service.t(bold)).toBe('Fett');
+    expect(service.resolve(definitions.added, { count: 1 })).toMatchObject({ text: '1 reply', language: 'en', source: 'default' });
+    service.set({ messages: complete });
+    expect(service.t(added, { count: 2 })).toBe('2 Antworten');
+    // @ts-expect-error An additive ID does not make the original ID optional.
+    const missingOriginal: CompleteMessages<typeof definitions> = {};
+    // @ts-expect-error Maintained catalogs can still require every current translation.
+    const missingAdded: Required<CompleteMessages<typeof definitions>> = { 'test.bold': 'Fett' };
+    // @ts-expect-error Optional callbacks retain the declared parameter shape.
+    const wrongParameter: CompleteMessages<typeof definitions> = { 'test.bold': 'Fett', 'test.replies': ({ value }: { value: string }) => value };
+    // @ts-expect-error Unknown message IDs are still refused.
+    const unknown: CompleteMessages<typeof definitions> = { 'test.bold': 'Fett', 'test.unknown': 'Unknown' };
+    expect([missingOriginal, missingAdded, wrongParameter, unknown]).toHaveLength(4);
+  });
+
+  it('requires an ID when any selected definition requires its translation, or the marker is not literal true', () => {
+    const optional = defineMessage({ id: 'test.bold', defaultValue: 'Bold', owner: 'test', description: 'Optional label', optionalTranslation: true });
+    const explicitRequired = defineMessage({ id: 'test.description', defaultValue: 'Description', owner: 'test', description: 'Required label', optionalTranslation: false });
+    const definitions = { bold, optional, explicitRequired };
+    // @ts-expect-error A duplicate optional definition cannot weaken a required definition with the same ID.
+    const missing: CompleteMessages<typeof definitions> = { 'test.description': 'Description' };
+    // @ts-expect-error False does not opt a definition into optional translation.
+    const missingFalse: CompleteMessages<typeof definitions> = { 'test.bold': 'Bold' };
+    const dynamic = defineMessage({ id: 'test.bold', defaultValue: 'Bold', owner: 'test', description: 'Dynamic marker', optionalTranslation: Boolean('true') });
+    // @ts-expect-error A general boolean cannot promise that an omitted translation is accepted.
+    const missingDynamic: CompleteMessages<{ dynamic: typeof dynamic }> = {};
+    expect([missing, missingFalse, missingDynamic]).toHaveLength(3);
+    expect(definitions.optional.optionalTranslation).toBe(true);
+    expect(dynamic.optionalTranslation).toBe(true);
+    expect(() => defineMessage({ id: 'test.bold', defaultValue: 'Bold', owner: 'test', description: 'Invalid marker',
+      optionalTranslation: 'true' as unknown as boolean })).toThrow('optionalTranslation must be a boolean');
+  });
+
   it('keeps custom IDs and parameter shapes checked without a string index signature', () => {
     const partial: Messages = { 'test.replies': ({ count }) => String(count) };
     const complete: CompleteMessages<{ bold: typeof bold; replies: typeof replies }> = { 'test.bold': 'Bold', 'test.replies': ({ count }) => String(count) };
