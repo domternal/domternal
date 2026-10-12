@@ -17,9 +17,9 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core @domternal/pm @domternal/extension-math katex @domternal/theme
 ```
 
-Requires `@domternal/core` and `@domternal/pm` `>=1.3.0 <2.0.0`, plus the declared
+Requires `@domternal/core` and `@domternal/pm` `>=1.4.0 <2.0.0`, plus the declared
 KaTeX peer `^0.16.0 || ^0.17.0`. The package does not import the engine itself.
-Use version 1.3.1 for all installed Domternal packages.
+Use version 1.4.0 for all installed Domternal Free packages.
 `@domternal/theme` styles editor controls; KaTeX's separate stylesheet renders
 math glyphs and must also be imported.
 

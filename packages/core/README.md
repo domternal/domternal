@@ -18,10 +18,10 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core
 ```
 
-Core has no framework dependency and includes `@domternal/pm`. Use version 1.3.1
-for all installed Domternal packages. Their 1.3.x peer compatibility range remains
-`>=1.3.0 <2.0.0`; Core 1.3.1 requires PM `>=1.3.1 <2.0.0` at runtime so its
-dependency fixes are included.
+Core has no framework dependency and includes `@domternal/pm`. Use version 1.4.0
+for all installed Domternal Free packages. Wrappers and extensions require Core
+`>=1.4.0 <2.0.0`; extensions also require PM in that range. Core 1.4.0 requires
+PM `>=1.4.0 <2.0.0` at runtime.
 Import ProseMirror primitives from `@domternal/pm/*` to keep
 [one shared copy](https://domternal.dev/v1/guides/single-prosemirror-copy/).
 
@@ -102,12 +102,18 @@ See the [configuration guide](https://domternal.dev/v1/guides/configuration/).
 
 ### Readable literal colors
 
-The upcoming release adds an optional display policy for literal text colors.
-It is not available in Core or theme 1.3.1. With matching updated Core and theme
-packages, enable it explicitly:
+Core and theme 1.4.0 add an optional display policy for literal text colors.
+Enable it explicitly by adding the configured extension to your editor:
 
 ```ts
-TextColor.configure({ contrast: 'auto' });
+import { StarterKit, TextStyle, TextColor } from '@domternal/core';
+import '@domternal/theme';
+
+const extensions = [
+  StarterKit,
+  TextStyle,
+  TextColor.configure({ contrast: 'auto' }),
+];
 ```
 
 The default, `original`, keeps authored colors. `auto` measures the live editor's
@@ -187,10 +193,10 @@ automatically; browser calls use the browser document. See
 
 ## Localization
 
-Custom translation catalogs use `CompleteMessages<typeof definitions>`. Existing
-definitions remain required. A definition marked `optionalTranslation: true` may
-fall back to its English default until the application translates it, so additive
-messages need not break existing catalogs. Use
+Custom translation catalogs use `CompleteMessages<typeof definitions>`. In Core
+1.4.0, definitions without `optionalTranslation: true` remain required. A definition
+marked `optionalTranslation: true` may fall back to its English default until the
+application translates it, so additive messages need not break existing catalogs. Use
 `Required<CompleteMessages<typeof definitions>>` to require every current message
 in a maintained language pack. Runtime `i18n.messages` overrides remain partial.
 

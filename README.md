@@ -31,6 +31,7 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
 - **17,000+ automated test executions** - unit coverage and a Playwright matrix across four demo apps
 - **Light and dark theme** - 150+ CSS custom properties for full visual control
+- **Optional text contrast:** improve literal text colors on supported backgrounds while preserving authored colors in stored content, HTML, clipboard output and print
 - **Per-editor UI localization:** replace labels at creation or runtime, keep English fallback text, and opt into complete German catalogs
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
@@ -116,16 +117,22 @@ your application chooses when to pass a new configuration. See the
 [localization guide](https://domternal.dev/v1/guides/i18n) for wrapper examples, partial
 catalogs, formatting, and custom translation resolvers.
 
+In 1.4.0, message authors can mark additive definitions with `optionalTranslation: true`.
+`CompleteMessages` keeps existing unmarked messages required while allowing those new
+translations to use the built-in fallback. Use `Required<CompleteMessages<...>>` to
+check a translation for every current message.
+
 ## Version compatibility
 
-Upgrade installed `@domternal/*` packages together to **1.3.1** for compatibility
-and dependency fixes. Wrappers require core `>=1.3.0 <2.0.0`, and extensions
-require both core and pm as peers in that range. Core 1.3.1 requires pm
-`>=1.3.1 <2.0.0` at runtime so its dependency fixes are included.
+Upgrade installed `@domternal/*` packages together to **1.4.0**. Wrappers require
+core `>=1.4.0 <2.0.0`, and extensions require both core and pm as peers in that
+range. Core 1.4.0 requires pm `>=1.4.0 <2.0.0` at runtime.
 
-PasteCleanup, explicit list markers, content diagnostics, and coordinated
-clipboard handling were introduced in 1.3.0. Keep 1.3.x wrappers and extensions
-with 1.3.x core; new APIs are unavailable in core 1.2.0.
+Version 1.4.0 adds opt-in literal text contrast and optional translation definitions.
+Use matching Core and theme packages for automatic contrast; the default preserves
+authored colors. PasteCleanup, explicit list markers, content diagnostics, and
+coordinated clipboard handling were introduced in 1.3.0. Their APIs remain available
+in 1.4.0; Core 1.2.0 lacks them.
 
 The migration requirements for content validation and transaction callbacks
 introduced in 1.3.0 still apply. Loading JSON normalizes unsupported heading levels,
@@ -162,13 +169,13 @@ an explicit migration of a live document.
 
 The table above lists all 18 current MIT packages in this workspace, including `@domternal/extension-paste-cleanup`, introduced in 1.3.0. npm search may still show `@domternal/extension-block-menu` as a historical, deprecated 0.x entry. It is not an additional current package. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
 
-PasteCleanup normalizes pasted HTML, rebuilds lists from explicit Office list metadata, and keeps a bounded set of inherited inline formatting. Reviewed native captures qualify Word 16.113.3 for Mac copied in Safari 26.5.2, Chrome 154 and Firefox 155, and Google Docs web copied in Chrome 153 on macOS. Those captures were replayed through synthetic paste events; the current English regression fixtures are authored derivatives, not new native captures. Google Docs in Safari and Firefox, Word for Windows, Word on the web, LibreOffice and Collabora remain unqualified. See the [support matrix](e2e/native-office-capture/SUPPORT-MATRIX.md) for exact limits. Pro DOCX file import is a separate, unreleased feature.
+PasteCleanup normalizes pasted HTML, rebuilds lists from explicit Office list metadata, and keeps a bounded set of inherited inline formatting. Reviewed native captures qualify Word 16.113.3 for Mac copied in Safari 26.5.2, Chrome 154 and Firefox 155, and Google Docs web copied in Chrome 153 on macOS. Those captures were replayed through synthetic paste events; the current English regression fixtures are authored derivatives, not new native captures. Google Docs in Safari and Firefox, Word for Windows, Word on the web, LibreOffice and Collabora remain unqualified. See the [support matrix](e2e/native-office-capture/SUPPORT-MATRIX.md) for exact limits. DOCX file import is available separately in [Domternal Pro](https://domternal.dev/v1/pro/import/).
 
 See [Packages & Bundle Size](https://domternal.dev/v1/packages) for a full breakdown of what each package includes and how tree-shaking works.
 
 ## Domternal Pro
 
-[Domternal Pro](https://domternal.dev/pro) adds the collaborative layer on top of these MIT packages, published as `@domternal-pro/*` on the public npm registry under a commercial license: real-time [collaboration](https://domternal.dev/v1/pro/collaboration) with live carets and presence, [comments](https://domternal.dev/v1/pro/comments), [version history](https://domternal.dev/v1/pro/version-history), an [AI assistant](https://domternal.dev/v1/pro/ai), [columns](https://domternal.dev/v1/pro/columns), [Word and PDF export](https://domternal.dev/v1/pro/export), and a [self-hosted collaboration server](https://domternal.dev/v1/pro/self-hosting).
+[Domternal Pro](https://domternal.dev/pro) adds the collaborative layer on top of these MIT packages, published as `@domternal-pro/*` on the public npm registry under a commercial license: real-time [collaboration](https://domternal.dev/v1/pro/collaboration) with live carets and presence, [comments](https://domternal.dev/v1/pro/comments), [version history](https://domternal.dev/v1/pro/version-history), an [AI assistant](https://domternal.dev/v1/pro/ai), [columns](https://domternal.dev/v1/pro/columns), [Word document import](https://domternal.dev/v1/pro/import), [Word and PDF export](https://domternal.dev/v1/pro/export), and a [self-hosted collaboration server](https://domternal.dev/v1/pro/self-hosting).
 
 - [Installation and licensing](https://domternal.dev/v1/pro/licensing) - install from npm, evaluate without a key, activate with a Commercial Key
 - [Pricing](https://domternal.dev/pricing) - plans and what each one includes

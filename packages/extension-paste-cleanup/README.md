@@ -5,7 +5,7 @@
 
 Clean clipboard HTML before it enters a [Domternal](https://domternal.dev) editor. Keep supported source formatting or adapt it to your editor's theme, with notices when content is removed or a paste is blocked.
 
-Part of **Domternal Free**, introduced in **1.3.0**. Add it explicitly alongside StarterKit; it works with Vanilla, React, Vue and Angular editors. It handles clipboard HTML, including supported Word and Google Docs shapes. It does not import DOCX files or promise full source-document fidelity. The separate Pro DOCX importer remains unreleased.
+Part of **Domternal Free**, introduced in **1.3.0**. Add it explicitly alongside StarterKit; it works with Vanilla, React, Vue and Angular editors. It handles clipboard HTML, including supported Word and Google Docs shapes. It does not import DOCX files or promise full source-document fidelity. DOCX file import is available separately in [Domternal Pro](https://domternal.dev/v1/pro/import/).
 
 [Documentation](https://domternal.dev/v1/extensions/paste-cleanup/) · [Source](https://github.com/domternal/domternal/tree/main/packages/extension-paste-cleanup/src) · [Support matrix](https://github.com/domternal/domternal/blob/main/e2e/native-office-capture/SUPPORT-MATRIX.md)
 
@@ -19,7 +19,7 @@ For a new editor:
 pnpm add @domternal/core @domternal/pm @domternal/theme @domternal/extension-paste-cleanup
 ```
 
-For an existing editor, add `@domternal/extension-paste-cleanup` and use version 1.3.1 for all installed Domternal Free packages. It requires `@domternal/core` and `@domternal/pm` peers in `>=1.3.0 <2.0.0`; Core 1.2.0 lacks the clipboard API it needs.
+For an existing editor, add `@domternal/extension-paste-cleanup` and use version 1.4.0 for all installed Domternal Free packages. It requires `@domternal/core` and `@domternal/pm` peers in `>=1.4.0 <2.0.0`; Core 1.2.0 lacks the clipboard API it needs.
 
 ## Quick start
 
