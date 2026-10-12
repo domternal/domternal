@@ -15,7 +15,7 @@ pnpm add @domternal/theme
 ```
 
 The package declares Node.js 22 or later for tooling and has no peer dependencies.
-Use version 1.3.1 for the theme, editor and framework wrapper so component markup
+Use version 1.4.0 for the theme, editor and framework wrapper so component markup
 and styles stay aligned.
 
 ## Usage
@@ -88,8 +88,8 @@ separately mounted UI, scrolling, Sass, and the complete
   content with the same contrast handling. See
   [text on kept backgrounds](https://domternal.dev/v1/guides/theming/#text-on-kept-backgrounds)
   for custom themes, browser fallbacks, and experimental tone helpers.
-- The upcoming Core and theme release adds `TextColor.configure({ contrast: 'auto' })`
-  for literal text colors. It is not available in 1.3.1 and is off by default.
+- Core and theme 1.4.0 add `TextColor.configure({ contrast: 'auto' })`
+  for literal text colors. It is off by default; enable it in the Core extension.
   The live editor adjusts an opaque literal color only when its measured contrast
   is below 4.5:1 on a known solid background. The original color remains in stored
   content, HTML, clipboard output, export and print. Tokens, translucent text and
