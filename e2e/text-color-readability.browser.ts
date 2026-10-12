@@ -157,6 +157,7 @@ test('moving an unchanged editor between equally sized surfaces remeasures its t
   });
   await expect.poll(async () => (await reading(page, 'Dark ink')).adjusted).not.toBe('');
   const bounds = await page.locator('.ProseMirror').boundingBox();
+  if (!bounds) throw new Error('Missing editor bounds before moving');
   await page.evaluate(() => {
     const light = document.getElementById('readability-light');
     const frame = document.querySelector('.dm-editor');
@@ -165,7 +166,10 @@ test('moving an unchanged editor between equally sized surfaces remeasures its t
   });
   await expect.poll(async () => (await reading(page, 'Dark ink')).adjusted).toBe('');
   const moved = await page.locator('.ProseMirror').boundingBox();
-  expect({ width: moved?.width, height: moved?.height }).toEqual({ width: bounds?.width, height: bounds?.height });
+  if (!moved) throw new Error('Missing editor bounds after moving');
+  // Moving between page positions can change the last floating-point bits of a browser's bounding rectangle.
+  expect(moved.width).toBeCloseTo(bounds.width, 3);
+  expect(moved.height).toBeCloseTo(bounds.height, 3);
   expect(await snapshot(page)).toEqual(before);
 });
 
