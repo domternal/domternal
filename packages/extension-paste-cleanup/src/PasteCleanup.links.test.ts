@@ -133,17 +133,13 @@ describe('destination link schemes', () => {
     expect(getUnsupportedDestinationFeatures(editor.schema, document, ['link-https', 'link-tel'])).toEqual(['link-https', 'link-tel']);
   });
 
-  it('probes with constant HTML in a detached container', () => {
+  it('probes with constant DOM nodes in a detached document', () => {
     const editor = new Editor({ extensions: [...base, Link] });
     editors.push(editor);
-    const created: HTMLElement[] = [];
-    // A document that records every element the probe creates.
-    const recording = { createElement: (tag: string): HTMLElement => {
-      const element = document.createElement(tag);
-      created.push(element);
-      return element;
-    } } as unknown as Document;
+    const recording = document.implementation.createHTMLDocument('');
+    const createElement = vi.spyOn(recording, 'createElement');
     expect(getUnsupportedDestinationFeatures(editor.schema, recording, ['link-http', 'link-https', 'link-mailto', 'link-tel'])).toEqual([]);
+    const created = createElement.mock.results.map(result => result.value as HTMLElement);
     expect(created.length).toBeGreaterThan(0);
     for (const element of created) expect(element.isConnected).toBe(false);
     expect(created.map(element => element.innerHTML)).toEqual(expect.arrayContaining([
