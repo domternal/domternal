@@ -67,11 +67,19 @@ interface Attempt {
 
 interface DOMTraversal { attempt: Attempt | undefined }
 
+interface DropScope {
+  event: Event | undefined;
+  readonly generation: number;
+  readonly scoped: boolean;
+  closed: boolean;
+}
+
 interface ViewPreparation {
   generation: number;
   registration: Registration | undefined;
   readonly attempts: Attempt[];
   readonly domTraversals: DOMTraversal[];
+  readonly drops: DropScope[];
   pending: PendingPreparation | undefined;
   permit: { readonly event: ClipboardEvent } | undefined;
 }
@@ -134,12 +142,36 @@ function closeAttempt(state: ViewPreparation, attempt: Attempt): void {
   attempt.pending = undefined;
 }
 
+function closeDrop(state: ViewPreparation, drop: DropScope): void {
+  drop.closed = true;
+  drop.event = undefined;
+  const index = state.drops.indexOf(drop);
+  if (index >= 0) state.drops.splice(index, 1);
+}
+
+/** A drop hides older paste frames, while a real paste started inside it gets its own newer frame. */
+function activeDropGeneration(view: EditorView, state: ViewPreparation): number | undefined {
+  for (let index = state.drops.length - 1; index >= 0; index--) {
+    const drop = state.drops[index];
+    if (drop === undefined) continue;
+    let active = drop.scoped;
+    if (!active) {
+      try { active = drop.event?.currentTarget === view.dom && drop.event.eventPhase !== 0; }
+      catch { active = false; }
+    }
+    if (drop.closed || !active) closeDrop(state, drop);
+    else return drop.generation;
+  }
+  return undefined;
+}
+
 function currentAttempt(view: EditorView, state: ViewPreparation): Attempt | undefined {
+  const dropGeneration = activeDropGeneration(view, state);
   for (let index = state.attempts.length - 1; index >= 0; index--) {
     const attempt = state.attempts[index];
     if (attempt === undefined) continue;
     if (attempt.closed || (!attempt.scoped && !liveNative(view, attempt))) closeAttempt(state, attempt);
-    else return attempt;
+    else return dropGeneration !== undefined && attempt.generation <= dropGeneration ? undefined : attempt;
   }
   return undefined;
 }
@@ -156,6 +188,7 @@ export function getClipboardPasteAttemptEvent(view: EditorView): ClipboardEvent 
  * Nested attempts have distinct identities; their return restores the active outer identity.
  * Closed attempts, views without a preparation registration and destroyed views return undefined.
  * A deferred replay starts a new attempt and receives a different identity.
+ * A drop hides an outer paste identity; an actual paste inside that drop still gets its own identity.
  */
 export function getClipboardPasteAttemptIdentity(view: EditorView): ClipboardPasteAttemptIdentity | undefined {
   const state = preparations.get(view);
@@ -201,6 +234,33 @@ export function runClipboardPasteAttempt<T>(view: EditorView, event: ClipboardEv
   if (state === undefined || (state.registration === undefined && state.attempts.length === 0)) return run();
   const attempt = openAttempt(view, state, event, true, origin);
   try { return run(); } finally { closeAttempt(state, attempt); }
+}
+
+function openDrop(state: ViewPreparation, event: Event, scoped: boolean): DropScope {
+  const drop: DropScope = { event, generation: state.generation, scoped, closed: false };
+  state.drops.push(drop);
+  queueMicrotask(() => { if (!drop.closed) closeDrop(state, drop); });
+  return drop;
+}
+
+/** @internal Scope a public drop dispatch without observing it as a paste or changing its insertion. */
+export function runClipboardDropScope<T>(view: EditorView, event: Event, run: () => T): T {
+  const state = preparations.get(view);
+  if (state === undefined || (state.registration === undefined && state.attempts.length === 0)) return run();
+  const drop = openDrop(state, event, true);
+  try { return run(); } finally { closeDrop(state, drop); }
+}
+
+/** @internal Core's native drop handler identifies the complete synchronous DOM drop lifetime. */
+export function beginNativeClipboardDropScope(view: EditorView, event: Event): void {
+  const state = preparations.get(view);
+  if (state === undefined || (state.registration === undefined && state.attempts.length === 0)) return;
+  const current = state.drops.at(-1);
+  if (current?.event === event && current.scoped && !current.closed) return;
+  // Unrelated prop queries cannot create an active native scope outside a DOM dispatch.
+  try { if (event.currentTarget !== view.dom || event.eventPhase === 0) return; }
+  catch { return; }
+  openDrop(state, event, false);
 }
 
 /** @internal Called by Core's direct native paste handler before plugin DOM handlers. */
@@ -380,7 +440,7 @@ export function registerClipboardHTMLPreparation(view: EditorView, gate: Clipboa
   // whichever extension registered last.
   if (state?.registration !== undefined) throw new Error('This view already has a clipboard HTML preparation');
   if (state === undefined) {
-    state = { generation: 0, registration: undefined, attempts: [], domTraversals: [], pending: undefined, permit: undefined };
+    state = { generation: 0, registration: undefined, attempts: [], domTraversals: [], drops: [], pending: undefined, permit: undefined };
     preparations.set(view, state);
   }
   const registration = { identity: Object.freeze({}), gate, onAttempt };

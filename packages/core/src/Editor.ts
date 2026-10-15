@@ -25,7 +25,7 @@ import { normalizeColor } from './helpers/normalizeColor.js';
 import {
   ClipboardEditorView, claimClipboardPasteTransaction, clearPendingClipboardPasteTransaction, recordNativeClipboardEvent,
 } from './helpers/clipboardPasteTransaction.js';
-import { beginNativeClipboardPasteAttempt } from './helpers/clipboardHTMLPreparation.js';
+import { beginNativeClipboardPasteAttempt, beginNativeClipboardDropScope } from './helpers/clipboardHTMLPreparation.js';
 import { repairSliceContext } from './utils/sliceContext.js';
 import { I18nService } from './i18n/index.js';
 import { coreMessages } from './messages/core.js';
@@ -962,6 +962,7 @@ export class Editor extends EventEmitter<EditorEvents> {
         },
         drop: (view, event) => {
           recordNativeClipboardEvent(view, event);
+          beginNativeClipboardDropScope(view, event);
           return false;
         },
         focus: (_view, event) => {
