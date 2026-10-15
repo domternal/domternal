@@ -5,12 +5,22 @@ import { undo } from '@domternal/pm/history';
 import { TextSelection } from '@domternal/pm/state';
 import { copySelection, pasteClipboard } from '@domternal/tests-clipboard-slices';
 import { BulletList, Document, Editor, generateJSON, History, ListItem, OrderedList, Paragraph, TaskItem, TaskList, Text } from '../index.js';
+import type { AnyExtension } from '../index.js';
 
 const editors: Editor[] = [];
 afterEach(() => { for (const editor of editors.splice(0)) editor.destroy(); });
 function mount(content = '<p></p>'): Editor {
   const editor = new Editor({ element: document.body.appendChild(document.createElement('div')), content,
     extensions: [Document, Paragraph, Text, BulletList, OrderedList, ListItem, TaskList, TaskItem, History] });
+  editor.view.setProps({ handleScrollToSelection: () => true });
+  editors.push(editor);
+  return editor;
+}
+const renamedExtensions = (): AnyExtension[] => [Document, Paragraph, Text, BulletList, OrderedList, ListItem,
+  TaskList.extend({ name: 'todoList', content: 'todoItem+' }).configure({ itemTypeName: 'todoItem' }),
+  TaskItem.extend({ name: 'todoItem' }), History];
+function mountRenamed(content = '<p></p>'): Editor {
+  const editor = new Editor({ element: document.body.appendChild(document.createElement('div')), content, extensions: renamedExtensions() });
   editor.view.setProps({ handleScrollToSelection: () => true });
   editors.push(editor);
   return editor;
@@ -68,5 +78,42 @@ describe('nested-list-first items without PasteCleanup', () => {
     const pasted = mount();
     pasteClipboard(pasted.view, source);
     expect(pasted.state.doc.toString()).toBe('doc(bulletList(listItem(paragraph("beta")), listItem(paragraph("next"))))');
+  });
+
+  it('keeps inherited task wrappers after the item and list types are renamed', () => {
+    const html = '<ul data-type="todoList"><li data-type="todoItem" data-checked="true"><label contenteditable="false"><input type="checkbox" checked></label><div><ul><li>nested</li></ul></div></li><li data-type="todoItem"><p>last</p></li></ul>';
+    const expected = 'doc(todoList(todoItem(paragraph, bulletList(listItem(paragraph("nested")))), todoItem(paragraph("last"))))';
+    const loaded = mountRenamed(html);
+    expect(loaded.state.doc.toString()).toBe(expected);
+    expect(loaded.state.doc.firstChild?.firstChild?.attrs['checked']).toBe(true);
+    loaded.state.doc.check();
+    for (const owner of [document, parseHTML('<html><body></body></html>').document]) {
+      expect(generateJSON(html, renamedExtensions(), { document: owner })).toEqual(loaded.getJSON());
+    }
+    const editor = mountRenamed();
+    const before = editor.state.doc;
+    pasteClipboard(editor.view, { html, text: 'nested\nlast' });
+    expect(editor.state.doc.toString()).toBe(expected);
+    expect(editor.state.doc.firstChild?.firstChild?.attrs['checked']).toBe(true);
+    expect(undo(editor.state, editor.view.dispatch)).toBe(true);
+    expect(editor.state.doc.eq(before)).toBe(true);
+  });
+
+  it('leaves a native partial copy of renamed nested tasks open at the original depth', () => {
+    const editor = mountRenamed('<ul data-type="todoList"><li data-type="todoItem"><p>parent</p><ul data-type="todoList"><li data-type="todoItem" data-checked="true"><p>alpha beta</p></li><li data-type="todoItem"><p>next</p></li></ul></li><li data-type="todoItem"><p>last</p></li></ul>');
+    let from = 0;
+    let to = 0;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'alpha beta') from = pos + 6;
+      if (node.isText && node.text === 'next') to = pos + 4;
+    });
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from, to)));
+    const source = copySelection(editor.view);
+    const pasted = mountRenamed();
+    pasteClipboard(pasted.view, source);
+    expect(pasted.state.doc.toString()).toBe('doc(todoList(todoItem(paragraph("beta")), todoItem(paragraph("next"))))');
+    expect(pasted.state.doc.firstChild?.firstChild?.attrs['checked']).toBe(true);
+    expect(pasted.state.doc.firstChild?.lastChild?.attrs['checked']).toBe(false);
+    pasted.state.doc.check();
   });
 });

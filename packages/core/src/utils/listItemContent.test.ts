@@ -55,4 +55,23 @@ describe('list item content recovery', () => {
     repaired.querySelectorAll<HTMLElement>('li').forEach(child => { expect(listItemContent(child)).toBe(child); });
     expect(original.querySelectorAll('p')).toHaveLength(0);
   });
+
+  it('recovers only the configured task wrapper and preserves its nested task identities', () => {
+    const original = item('<li data-type="todoItem"><label contenteditable="false"><input type="checkbox"></label><div><ul data-type="todoList"><li data-type="todoItem"><label contenteditable="false"><input type="checkbox"></label><div><ol><li>nested</li></ol></div></li></ul></div></li>');
+    const before = original.outerHTML;
+    expect(listItemContent(original)).toBe(original);
+    const repaired = listItemContent(original, 'todoItem');
+    expect(repaired).not.toBe(original);
+    expect(original.outerHTML).toBe(before);
+    expect(repaired.querySelectorAll('[data-type="todoItem"]')).toHaveLength(1);
+    expect(repaired.querySelectorAll('div > p')).toHaveLength(2);
+    expect(repaired.querySelector('label input')?.getAttribute('type')).toBe('checkbox');
+    expect(repaired.textContent).toBe('nested');
+    expect(listItemContent(repaired, 'todoItem')).toBe(repaired);
+  });
+
+  it('keeps an ordinary div wrapper outside task recovery even when a task name is configured', () => {
+    const ordinary = item('<li><label contenteditable="false">Label</label><div><ul><li>nested</li></ul></div></li>');
+    expect(listItemContent(ordinary, 'todoItem')).toBe(ordinary);
+  });
 });

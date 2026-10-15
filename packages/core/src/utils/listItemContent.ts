@@ -35,8 +35,8 @@ function leading(parent: HTMLElement, task: boolean): ChildNode | undefined {
   return undefined;
 }
 
-function labelTarget(item: HTMLElement): HTMLElement | undefined {
-  const task = item.getAttribute('data-type') === 'taskItem' || item.classList.contains('task-list-item');
+function labelTarget(item: HTMLElement, taskItemName: string): HTMLElement | undefined {
+  const task = item.getAttribute('data-type') === taskItemName || item.classList.contains('task-list-item');
   let parent = item;
   let first = leading(parent, task);
   // The task item's own HTML puts its content in a div after the non-editable checkbox label.
@@ -47,8 +47,8 @@ function labelTarget(item: HTMLElement): HTMLElement | undefined {
   return first?.nodeType === 1 && ['ul', 'ol'].includes((first as HTMLElement).localName) ? parent : undefined;
 }
 
-export function listItemContent(item: HTMLElement): HTMLElement {
-  if (labelTarget(item) === undefined || openStart(item)) return item;
+export function listItemContent(item: HTMLElement, taskItemName = 'taskItem'): HTMLElement {
+  if (labelTarget(item, taskItemName) === undefined || openStart(item)) return item;
   const copy = item.cloneNode(true) as HTMLElement;
   // Repair the detached subtree once, propagating open-start depths instead of repeatedly
   // walking every nested item's ancestors. Collect targets before adding any new elements.
@@ -60,7 +60,7 @@ export function listItemContent(item: HTMLElement): HTMLElement {
     const { element } = entry;
     const remaining = declaredOpen(element) ?? entry.remaining;
     if (element.localName === 'li' && remaining < 1) {
-      const target = labelTarget(element);
+      const target = labelTarget(element, taskItemName);
       if (target !== undefined) targets.push(target);
     }
     for (let child = element.lastElementChild; child !== null; child = child.previousElementSibling) {

@@ -82,7 +82,7 @@ export const TaskItem = Node.create<TaskItemOptions>({
       {
         tag: `li[data-type="${this.name}"]`,
         priority: 51,
-        contentElement: listItemContent,
+        contentElement: element => listItemContent(element, this.name),
       },
       // GFM / markdown task lists: `<li class="task-list-item">` carries no
       // data-type. Priority 51 keeps it ahead of the generic `li` (listItem,
@@ -91,7 +91,7 @@ export const TaskItem = Node.create<TaskItemOptions>({
       {
         tag: 'li.task-list-item',
         priority: 51,
-        contentElement: listItemContent,
+        contentElement: element => listItemContent(element, this.name),
       },
     ];
   },
