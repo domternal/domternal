@@ -79,10 +79,13 @@ mark with exactly the probe's href, which follows the `Link` extension's `protoc
 and URL policy and also finds a link mark with another name. A link whose scheme the
 editor lacks, for example every link when the editor has no `Link` extension or
 `StarterKit.configure({ link: false, linkPopover: false })`, keeps its text and formatting and is reported
-once with `link-removed`. Links never add `destination-formatting-unconfirmed`. Every
-address `safeLink` keeps is also one the core URL policy allows, so the destination
-`Link` stores it unchanged. The standalone `/html` entry has no destination and keeps
-every sanitized link.
+once with `link-removed`. The built-in `Link` shares the normalizer's Core URL
+policy. The later bounded actual-value parser and serializer check can add
+`destination-formatting-unconfirmed` when a custom destination accepts the
+reference address but drops a particular sanitized address, or when its probe
+budget is exhausted. That advisory check does not remove or rewrite the address;
+the receiving parser still decides what reaches the document. The standalone
+`/html` entry has no destination and keeps every sanitized link.
 
 A link or image `title` longer than 512 characters is dropped and reported with
 `unsupported-formatting`. `target`, `rel` and `name` are dropped without a diagnostic:
@@ -92,8 +95,9 @@ bookmark for every table of contents entry.
 ## Trusted Types
 
 The normalizer parses HTML without the DOM, so cleanup itself needs no Trusted
-Types policy. Destination capability probes build constant elements, attributes
-and text nodes with DOM APIs before running the editor's parse rules. They do not
+Types policy. Destination capability probes build bounded elements and constant
+text with DOM APIs before running the editor's parse rules. Actual-value probes
+set sanitized style values and link attributes through those APIs. They do not
 assign raw HTML or require a default Trusted Types policy. Image probes stay in
 an isolated document without a window or resource loading. The Table extension
 also constructs its controls and SVG icons with DOM APIs so rendering a pasted
