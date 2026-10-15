@@ -272,6 +272,28 @@ export function resolveInlineInheritance(
     || !Number.isSafeInteger(maxStyleLength) || maxStyleLength < 1 || maxStyleLength > 2_000_000) {
     throw new RangeError('Invalid inline inheritance limits');
   }
+  // Repeated Word runs share declarations. Cache only their context-free parse facts for this pass,
+  // never inherited state, generated wrappers, source positions or diagnostics. Every caller gets its own mutable map.
+  type StyleFacts = ReturnType<typeof readInheritanceStyles>;
+  const styleFacts = new Map<string, { tag: string; label: string | undefined; facts: StyleFacts }>();
+  let cachedCharacters = 0;
+  const routineLineHeights = options.routineLineHeights;
+  const wordSource = options.wordSource;
+  const defaultTextColor = options.defaultTextColor;
+  const readStyles = (value: unknown, tag: string, label: string | undefined): StyleFacts => {
+    const retained = typeof value === 'string' ? styleFacts.get(value) : undefined;
+    if (retained?.tag === tag && retained.label === label) {
+      return { ...retained.facts, styles: new Map(retained.facts.styles), removedNames: [...retained.facts.removedNames] };
+    }
+    const facts = readInheritanceStyles(value, tag === 'img', tag, routineLineHeights, wordSource, defaultTextColor, label);
+    // Bound retained input and facts even when every source run has a different attribute.
+    if (typeof value === 'string' && value.length > 0 && value.length <= 2048
+      && (retained !== undefined || styleFacts.size < 128) && cachedCharacters + (retained === undefined ? value.length : 0) <= 65_536) {
+      if (retained === undefined) cachedCharacters += value.length;
+      styleFacts.set(value, { tag, label, facts: { ...facts, styles: new Map(facts.styles), removedNames: [...facts.removedNames] } });
+    }
+    return facts;
+  };
   let generatedStyleLength = 0;
   let nodes = 0;
   const pending: { node: RootContent; depth: number }[] = tree.children.map(node => ({ node, depth: 1 }));
@@ -330,8 +352,7 @@ export function resolveInlineInheritance(
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
       const label = readHTMLListLabel(child.properties, tag);
-      const { styles, removedNames, defaultColor, defaultSize } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.routineLineHeights, options.wordSource,
-        options.defaultTextColor, label === null ? undefined : listLabelStyleName(label));
+      const { styles, removedNames, defaultColor, defaultSize } = readStyles(styleToRead(child), tag, label === null ? undefined : listLabelStyleName(label));
       // Typography that adapt removes anyway is that policy's adaptation, not a loss; in preserve every declaration not kept is.
       let unsupported = removedNames.some(name => preserve || !adaptedTypography(name));
       // One adapted finding per discarded source property, reported on its declaring element.

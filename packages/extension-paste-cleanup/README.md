@@ -169,6 +169,8 @@ The output is editor input, still subject to your destination schema, not a gene
 
 HTML limits can be lowered, not raised. Plain text and Markdown also have a conservative markup-token budget before conversion. A resource rejection inserts nothing; HTML is never truncated to fit. Cleanup is synchronous, and these ceilings are not memory or latency guarantees.
 
+Repeated inline style declarations reuse bounded parse results within one cleanup pass. Inherited values and diagnostics are still evaluated for each source element; clipboard content is not retained between pastes.
+
 For configuration details, see [local clipboard images](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/images.md), [persistent image resolvers](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/image-resolver.md), and [limits, links and security](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/limits-and-security.md).
 
 ## Tested source boundaries
