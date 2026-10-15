@@ -185,6 +185,9 @@ The extension installs scoped companion CSS while the editor is alive. Set
 `nonce` for the application's CSP policy, or `injectCSS: false` when the host
 provides that CSS. `getListLabelStyleSheet(json)` supplies the companion stylesheet
 for rendered HTML. HTML without it retains ordinary list fallbacks.
+The pure `@domternal/core/list-labels` entry exposes the validator, formatter,
+stylesheet collector and label types for workers and server code without loading
+the editor runtime.
 
 All collaborative writers must enable the same list-label schema. An older
 writer without the extension can remove the unknown attribute when it edits a

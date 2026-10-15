@@ -24,6 +24,7 @@
  */
 import core = require('@domternal/core');
 import clipboard = require('@domternal/core/clipboard');
+import listLabels = require('@domternal/core/list-labels');
 import blockControls = require('@domternal/extension-block-controls');
 import lowlight = require('@domternal/extension-code-block-lowlight');
 import details = require('@domternal/extension-details');
@@ -348,3 +349,8 @@ import listLabelCore = require('@domternal/core');
 const listLabelCSS: string = listLabelCore.getListLabelStyleSheet(listJSON);
 const listLabelText: string | null = listLabelCore.formatListLabel(listLabel, 0);
 listLabelCore.ListLabels.configure({ nonce: 'host-nonce' });
+
+// The pure subpath also exposes its own CommonJS declarations.
+const pureLabel: listLabels.ListLabel | null = listLabels.readListLabel({ kind: 'text', text: '✓' });
+const pureMarker: string | null = listLabels.formatListLabel(pureLabel);
+const pureStyles: string = listLabels.getListLabelStyleSheet({ type: 'bulletList', attrs: { listLabel: pureLabel } });

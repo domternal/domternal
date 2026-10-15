@@ -50,11 +50,11 @@ export default defineConfig({
   // dist/index.* runs index.bundle.ts, which adds the clipboard bindings that
   // dist/clipboard.* re-exports. The declarations come from index.ts, so the main
   // entry does not declare them.
-  entry: { index: 'src/index.bundle.ts', clipboard: 'src/clipboard.ts', ...locales },
+  entry: { index: 'src/index.bundle.ts', clipboard: 'src/clipboard.ts', 'list-labels': 'src/list-labels.ts', ...locales },
   format: ['esm', 'cjs'],
   target: 'es2022',
   dts: {
-    entry: { index: 'src/index.ts', clipboard: 'src/clipboard.ts', ...locales },
+    entry: { index: 'src/index.ts', clipboard: 'src/clipboard.ts', 'list-labels': 'src/list-labels.ts', ...locales },
     resolve: true,
     compilerOptions: {
       composite: false,

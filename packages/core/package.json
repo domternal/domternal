@@ -35,6 +35,17 @@
         "default": "./dist/clipboard.cjs"
       }
     },
+    "./list-labels": {
+      "@domternal/source": "./src/list-labels.ts",
+      "import": {
+        "types": "./dist/list-labels.d.ts",
+        "default": "./dist/list-labels.js"
+      },
+      "require": {
+        "types": "./dist/list-labels.d.cts",
+        "default": "./dist/list-labels.cjs"
+      }
+    },
     "./locales/de": {
       "@domternal/source": "./src/locales/de.ts",
       "import": {
@@ -111,6 +122,9 @@
     "*": {
       "clipboard": [
         "dist/clipboard.d.ts"
+      ],
+      "list-labels": [
+        "dist/list-labels.d.ts"
       ],
       "locales/*": [
         "dist/locales/*"

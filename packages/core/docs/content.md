@@ -81,6 +81,12 @@ alphabetic, Roman or bullet fallback. Custom prefixes and bullets are therefore
 not promised in an external clipboard consumer that discards the metadata or
 stylesheet. Fonts supplied by the application still determine glyph appearance.
 
+Workers and server code can import `readListLabel`, `formatListLabel`,
+`getListLabelStyleSheet` and the label types from `@domternal/core/list-labels`.
+This pure entry loads no editor, ProseMirror runtime or DOM code. The main entry
+keeps the same helpers for editor consumers; the pure entry contains independent,
+stateless functions, so their function identities across entries are not a contract.
+
 This first contract represents one counter per ordered list or a literal bullet.
 It does not represent compound counters such as `1.2.3`, picture bullets,
 source-specific marker fonts or layout geometry. Office conversion adapters and

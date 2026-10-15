@@ -1,3 +1,4 @@
+import { readListLabel as readPureListLabel, formatListLabel as formatPureListLabel, getListLabelStyleSheet as pureListLabelStyleSheet, type ListLabel as PureListLabel } from '@domternal/core/list-labels';
 /**
  * Type-checks against the BUILT @domternal/core dist (not source) to
  * verify every RawCommands augmentation reaches an external consumer.
@@ -632,3 +633,8 @@ const unknownLabelFormat: CounterListLabel = { kind: 'counter', format: 'url(x)'
 const unknownLabelProperty: TextListLabel = { kind: 'text', text: 'x', url: 'https://example.test/' };
 
 const nodeLabel: ListLabel | null = getNodeListLabel(editor.state.doc);
+
+// Pure list label helpers have their own Node and worker declaration graph.
+const pureListLabel: PureListLabel | null = readPureListLabel({ kind: 'text', text: '✓' });
+const pureMarker: string | null = formatPureListLabel(pureListLabel);
+const pureStyles: string = pureListLabelStyleSheet({ type: 'bulletList', attrs: { listLabel: pureListLabel } });
