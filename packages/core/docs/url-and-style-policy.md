@@ -175,6 +175,9 @@ isSafeCssValue('url(https://example.com/x)'); // false
 - Alignment renders any safe value as stored, such as the `-webkit-center` Chrome writes for
   centered content. `setTextAlign` also needs the value in `alignments`.
 - A line height stored as a finite number, such as `1.5`, renders as that number.
+- HTML parsing retains the alpha component of translucent text colors and highlights.
+  Opaque integer RGB values normalize to hex; translucent values keep the browser's
+  CSS spelling so saving and reloading does not make them opaque.
 - A font family list is written with each name that holds a space quoted, and quotes in the stored
   value are dropped first, so `"Times New Roman", serif` renders as `'Times New Roman', serif`.
 - `LineHeight` renders only its configured `lineHeights`; with an empty list, any safe value.
