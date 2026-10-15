@@ -71,7 +71,7 @@ describe('LinkPopover', () => {
         content: '<p>Hello</p>',
       });
       const popover = document.querySelector('.dm-link-popover')!;
-      expect(popover.querySelector('input[type="url"]')).not.toBeNull();
+      expect(popover.querySelector('input[inputmode="url"]')).not.toBeNull();
       expect(popover.querySelector<HTMLButtonElement>('.dm-link-popover-apply')).not.toBeNull();
       expect(popover.querySelector<HTMLButtonElement>('.dm-link-popover-remove')).not.toBeNull();
     });
