@@ -67,6 +67,26 @@ describe('Editor DOM adoption', () => {
     expect(onAdopt).toHaveBeenCalledTimes(1);
   });
 
+  it('notices an unchanged shadow root adopted into another document only once', () => {
+    const shadowHost = document.createElement('div'); document.body.append(shadowHost); hosts.push(shadowHost);
+    const shadow = shadowHost.attachShadow({ mode: 'open' });
+    const mount = document.createElement('div'); shadow.append(mount);
+    editor = new Editor({ extensions, element: mount, content: '<p>Kept</p>' });
+    const view = editor.view; const state = editor.state;
+    const onAdopt = vi.fn(); editor.on('adopt', onAdopt);
+    editor.adoptDom(mount); expect(onAdopt).not.toHaveBeenCalled();
+    const frame = document.createElement('iframe'); document.body.append(frame); hosts.push(frame);
+    const other = frame.contentDocument;
+    if (!other) throw new Error('Missing frame document');
+    other.body.append(other.adoptNode(shadowHost));
+    expect(view.dom.getRootNode()).toBe(shadow);
+    editor.adoptDom(mount);
+    expect(onAdopt).toHaveBeenCalledTimes(1);
+    expect(view.dom.ownerDocument).toBe(other);
+    expect(editor.view).toBe(view); expect(editor.state).toBe(state);
+    editor.adoptDom(mount); expect(onAdopt).toHaveBeenCalledTimes(1);
+  });
+
   it('transfers owned preset classes and preserves caller-owned classes', () => {
     const first = makeHost();
     const second = makeHost();
