@@ -208,8 +208,12 @@ export function positionFloatingOnce(
 ): () => void {
   const placementOpt = options?.placement ?? 'bottom';
   const middleware = buildMiddleware(options, placementOpt);
+  let active = true;
+  let measurement = 0;
 
   const update = (): void => {
+    if (!active) return;
+    const currentMeasurement = ++measurement;
     void computePosition(
       reference as Element,
       floating,
@@ -219,6 +223,7 @@ export function positionFloatingOnce(
         middleware,
       },
     ).then(({ x, y }) => {
+      if (!active || currentMeasurement !== measurement) return;
       Object.assign(floating.style, {
         left: '0',
         top: '0',
@@ -231,8 +236,13 @@ export function positionFloatingOnce(
   // are stable across scrolls - only flip/shift decisions change (discrete
   // jump, not continuous jitter).
   const trackScroll = options?.trackScroll ?? true;
-  return autoUpdate(reference, floating, update, {
+  const dispose = autoUpdate(reference, floating, update, {
     ancestorScroll: trackScroll,
     layoutShift: false,
   });
+  return () => {
+    if (!active) return;
+    active = false;
+    dispose();
+  };
 }

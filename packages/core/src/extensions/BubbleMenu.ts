@@ -126,6 +126,13 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
 
   const updatePosition = (view: EditorView, from: number, to: number): void => {
     cleanupFloating?.();
+    cleanupFloating = null;
+    if (view.isDestroyed || view.state.selection.from !== from || view.state.selection.to !== to) {
+      element.removeAttribute('data-show');
+      return;
+    }
+    const document = view.state.doc;
+    let active = true;
 
     // For NodeSelection (images, HRs, etc.), use the actual DOM element
     // for precise alignment. coordsAtPos gives paragraph-wide coords
@@ -138,6 +145,9 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
     }
     reference ??= {
       getBoundingClientRect: () => {
+        // Floating UI can measure after a later transaction or after disposal.
+        if (!active || view.isDestroyed || view.state.doc !== document
+          || view.state.selection.from !== from || view.state.selection.to !== to) return new DOMRect();
         const start = view.coordsAtPos(from);
         const end = view.coordsAtPos(to);
         return new DOMRect(
@@ -149,10 +159,14 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
       },
     };
 
-    cleanupFloating = positionFloatingOnce(reference, element, {
+    const disposePosition = positionFloatingOnce(reference, element, {
       placement,
       offsetValue: offset,
     });
+    cleanupFloating = () => {
+      active = false;
+      disposePosition();
+    };
 
     element.setAttribute('data-show', '');
   };
