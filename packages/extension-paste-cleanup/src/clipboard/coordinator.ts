@@ -6,6 +6,8 @@ import type { EditorView } from '@domternal/pm/view';
 import { DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
 import type { normalizeClipboardHTML } from '../html/normalize.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from '../html/types.js';
+import { firstParagraphFormat } from '../html/firstParagraph.js';
+import type { FirstParagraphFormat } from '../html/firstParagraph.js';
 import { officeListCapabilities } from '../listCapabilities.js';
 import { isOwnCopyNonce } from './ownCopy.js';
 import { claimClipboardSlot } from './ownership.js';
@@ -120,6 +122,7 @@ interface ReplayEntry {
   readonly view: EditorView;
   readonly asset: AssetOperation;
   readonly preserveOrderedListStart: boolean;
+  readonly firstParagraph: Readonly<FirstParagraphFormat> | undefined;
   attemptSeen: boolean;
   gateUsed: boolean;
   normalizationUsed: boolean;
@@ -138,6 +141,7 @@ export interface ClipboardReplayNormalization {
   readonly html: string;
   readonly rejected: boolean;
   readonly preserveOrderedListStart: boolean;
+  readonly firstParagraph: Readonly<FirstParagraphFormat> | undefined;
 }
 
 export interface ClipboardReplayHandling {
@@ -398,6 +402,7 @@ export function createClipboardAssetCoordinator(
     const event = replayEvent(view, html);
     const entry: ReplayEntry = { view, asset,
       preserveOrderedListStart: asset.preparation?.preserveOrderedListStart === true,
+      firstParagraph: firstParagraphFormat(normalization),
       attemptSeen: false, gateUsed: replay !== undefined, normalizationUsed: false };
     replays.set(event, entry);
     asset.applying = true;
@@ -639,7 +644,7 @@ export function createClipboardAssetCoordinator(
       const rejected = own.normalizationUsed || own.asset.done;
       own.normalizationUsed = true;
       return { operation: own.asset.operation, html: rejected ? '' : html, rejected,
-        preserveOrderedListStart: own.preserveOrderedListStart };
+        preserveOrderedListStart: own.preserveOrderedListStart, firstParagraph: rejected ? undefined : own.firstParagraph };
     },
     handleReplay(event, slice) {
       const own = replays.get(event);

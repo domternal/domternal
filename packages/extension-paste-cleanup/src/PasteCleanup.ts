@@ -9,6 +9,9 @@ import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './html
 import { normalizeClipboardHTML } from './html/normalize.js';
 import { imageStandIns, imageStandInAlts } from './html/imageStandIns.js';
 import { removedText } from './html/removedText.js';
+import { firstParagraphFormat } from './html/firstParagraph.js';
+import type { FirstParagraphFormat } from './html/firstParagraph.js';
+import { createFirstParagraphPreserver } from './firstParagraph.js';
 import { officeListCapabilities } from './listCapabilities.js';
 import { getUnsupportedDestinationFeatures } from './destinationCapabilities.js';
 import { pasteCleanupKey, receiptStateField } from './operations.js';
@@ -75,7 +78,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
     // state clears. Empty slices must never bypass a current rejection.
     // standIns: the alt text cleanup left in place of the images it removed. removedText: cleanup removed text the
     // content held, Word's hidden text, so the clipboard's picture of the selection, which can show it, is no paste.
-    let pending: { rejected: boolean; preserveOrderedListStart: boolean; operation?: PendingPasteOperation; standIns?: readonly string[]; standInAlts?: readonly (string | null)[]; removedText?: boolean } = {
+    const firstParagraph = createFirstParagraphPreserver();
+    let pending: { rejected: boolean; preserveOrderedListStart: boolean; operation?: PendingPasteOperation; standIns?: readonly string[]; standInAlts?: readonly (string | null)[]; removedText?: boolean; firstParagraph?: Readonly<FirstParagraphFormat> | undefined } = {
       rejected: false, preserveOrderedListStart: false,
     };
     const tooComplex = (text: string, code: boolean): boolean => {
@@ -123,6 +127,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
     return [new Plugin({
       key: pasteCleanupKey,
       state: receiptStateField,
+      appendTransaction: (transactions, _previous, state) => firstParagraph.append(transactions, state),
       filterTransaction: transaction => coordinator?.filterTransaction(transaction) ?? true,
       view: view => {
         // Claim Core's single clipboard slots before any other setup, so a refused claim
@@ -221,7 +226,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           const owned = coordinator?.replayHTML(html);
           startAttempt();
           if (owned !== undefined) {
-            pending = { rejected: owned.rejected, preserveOrderedListStart: owned.preserveOrderedListStart, operation: owned.operation };
+            pending = { rejected: owned.rejected, preserveOrderedListStart: owned.preserveOrderedListStart,
+              operation: owned.operation, firstParagraph: owned.firstParagraph };
             return owned.html;
           }
           const prepared = coordinator?.ordinaryHTML(html);
@@ -236,7 +242,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           const operation = report(result);
           void tracking.finish(view, operation, rejected, destinationRejected ? { reason: 'unsupported-content' } : {});
           // A host observer can synchronously paste again. Restore this operation after it returns.
-          pending = { rejected, preserveOrderedListStart, operation, standIns: imageStandIns(result), standInAlts: imageStandInAlts(result), removedText: removedText(result) };
+          pending = { rejected, preserveOrderedListStart, operation, standIns: imageStandIns(result), standInAlts: imageStandInAlts(result),
+            removedText: removedText(result), firstParagraph: rejected ? undefined : firstParagraphFormat(result) };
           return cleaned;
         },
         handleDrop(view, event, slice, moved) {
@@ -252,6 +259,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
         handlePaste(view, event, slice) {
           const owned = coordinator?.handleReplay(event, slice);
           if (owned !== undefined) {
+            const format = pending.firstParagraph;
             pending = { rejected: false, preserveOrderedListStart: false };
             setClipboardPasteBehavior(view, event, { assetsAlreadyHandled: true,
               preserveOrderedListStart: !owned.blocked && owned.preserveOrderedListStart });
@@ -259,6 +267,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
             else {
               disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: owned.operation.operationId });
               tracking.recordSlice(owned.operation, slice);
+              firstParagraph.remember(owned.operation.operationId, slice, view.state, format);
             }
             return owned.blocked;
           }
@@ -282,6 +291,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           }
           const rejected = pending.rejected;
           const operation = pending.operation;
+          const format = pending.firstParagraph;
           // An empty cleaned slice must not delete the user's current selection.
           const empty = operation !== undefined && slice.content.size === 0;
           const block = rejected || empty;
@@ -297,6 +307,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
               disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: operation.operationId });
               // A heading finding follows the slice's headings into the document.
               tracking.recordSlice(operation, slice);
+              firstParagraph.remember(operation.operationId, slice, view.state, format);
             }
           }
           if (block) event.preventDefault();

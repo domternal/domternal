@@ -14,6 +14,7 @@ import { assertOutputTreeBounds } from './treeBounds.js';
 import { collectDestinationDemand } from './destinationDemand.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
 import { adaptHeadingLevels, HEADING_LEVEL_FEATURES, HEADING_TEXT_FEATURES, recordHeadingOutline } from './headingLevels.js';
+import { recordFirstParagraphFormat } from './firstParagraph.js';
 import type { HeadingPlacement } from './headingLevels.js';
 import { recordImageStandIns } from './imageStandIns.js';
 import { LINK_FEATURES, unwrapLinks } from './links.js';
@@ -453,6 +454,7 @@ export function normalizeClipboardHTML(
       }
       if (remaining.length > 0) report('destination-formatting-unconfirmed');
     }
+    if (!own && (options.formatting ?? 'preserve') === 'preserve') recordFirstParagraphFormat(result, sanitized);
     if (preparation === undefined) result.html = toHtml(sanitized);
     else preparation.retainTree(sanitized, pixels);
   } catch (error: unknown) {

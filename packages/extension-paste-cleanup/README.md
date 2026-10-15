@@ -70,6 +70,8 @@ PasteCleanup.configure({
 });
 ```
 
+When an external Preserve paste fills a completely empty paragraph, its first paragraph keeps explicit supported alignment and line spacing. This also applies to an empty paragraph inside a list item or table cell. Pasting into existing text or a heading keeps the destination insertion behavior, and unstyled content does not reset the destination format.
+
 Neither policy reproduces page layout or arbitrary stylesheets. Recognized copies between PasteCleanup editors on the same page retain editor formatting in both modes. See [HTML and formatting](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md) and [lists](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/lists.md) for supported shapes and fallbacks.
 
 ## Observe the result

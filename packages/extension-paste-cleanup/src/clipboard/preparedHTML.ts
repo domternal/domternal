@@ -4,6 +4,7 @@ import { normalizeClipboardHTML, DEFAULT_PASTE_HTML_LIMITS, retainDiagnostic } f
 import type { ClipboardDestinationCheck, ClipboardOwnCopyCheck } from '../html/normalize.js';
 import { safeImage } from '../html/urls.js';
 import { copyHeadingOutline } from '../html/headingLevels.js';
+import { copyFirstParagraphFormat } from '../html/firstParagraph.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic } from '../html/types.js';
 import type { OfficeListReconstructionOptions } from '../html/officeLists.js';
 import type { ClipboardImageReference } from './references.js';
@@ -54,6 +55,7 @@ export function readPreparedClipboardHTMLNormalization(handle: PreparedClipboard
   if (state === undefined) return undefined;
   const normalization = { ...state.result, html: '', diagnostics: state.result.diagnostics.map(diagnostic => ({ ...diagnostic })) };
   copyHeadingOutline(state.result, normalization);
+  copyFirstParagraphFormat(state.result, normalization);
   return normalization;
 }
 
@@ -355,6 +357,7 @@ function materializeImages(
     }
     const normalization = { ...state.result, html, diagnostics, diagnosticsTruncated };
     copyHeadingOutline(state.result, normalization);
+    copyFirstParagraphFormat(state.result, normalization);
     return Object.freeze({ status: 'materialized', normalization });
   } catch (error) {
     return Object.freeze({ status: 'rejected', reason: error instanceof PreparedOutputLimit ? 'output-limit' : 'invalid-resolution' });
