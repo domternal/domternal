@@ -5,6 +5,7 @@ import { toHtml } from 'hast-util-to-html';
 import { listSourceOrdinal, parseBoundedHTML, StructureLimitError } from './parse.js';
 import { adaptedTypography, readSafeStyles, serializeStyles, styleToRead } from './styles.js';
 import { listStyleFromType } from './listStyles.js';
+import { listLabelStyleName, readHTMLListLabel } from './listLabels.js';
 import { safeImage, safeLink } from './urls.js';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
 import { confirmSliceAnchor, readSliceOrigin, sliceAnchorContext } from './sliceOrigin.js';
@@ -286,14 +287,17 @@ export function normalizeClipboardHTML(
         // classes. Each is a first level heading, as Pro's DOCX import reads every Title paragraph.
         if (!own && result.source === 'word' && child.tagName === 'p' && Array.isArray(original.className)
           && original.className.some(name => typeof name === 'string' && WORD_TITLE.test(name))) child.tagName = 'h1';
-        const clean: Properties = cleanMetadata(original);
+        const clean: Properties = cleanMetadata(original, child.tagName);
+        const label = readHTMLListLabel(clean, child.tagName);
+        if (original['dataDmListLabel'] !== undefined && label === null) report('unsupported-formatting', child);
         const anchorContext = sliceAnchorContext(child);
         if (anchorContext !== undefined) {
           const context = cleanSliceContext(anchorContext, droppedContext);
           if (context !== undefined) clean['dataPmSlice'] = context;
           if (context !== anchorContext) report('formatting-adapted', child, 'info');
         }
-        const { styles, removedNames } = readSafeStyles(styleToRead(child), child.tagName === 'img', child.tagName, own);
+        const { styles, removedNames } = readSafeStyles(styleToRead(child), child.tagName === 'img', child.tagName, own,
+          label === null ? undefined : listLabelStyleName(label));
         // Typography that adapt removes anyway is its adaptation there, as in the inheritance pass.
         if (removedNames.some(name => !adapt || !adaptedTypography(name))) report('unsupported-formatting', child);
         else if (removedNames.length > 0) report('formatting-adapted', child, 'info');

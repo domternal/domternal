@@ -25,6 +25,27 @@ moved to it or a reconstructed Office list, also stays separate from a destinati
 list without one: pasting it inside such a list splits that list around it, and in
 a numbered list the items after the paste number from 1 again.
 
+## Optional custom labels
+
+When the editor includes Core's `ListLabels`, cleanup retains bounded
+`data-dm-list-label` records and matching labels in internal slice context.
+Nested labels, nullable marker defaults and ordered starts survive an editor
+copy in both formatting modes. SmartPaste and block movement keep lists with
+different labels separate. No visible marker text is inserted into the document.
+
+Only the exact companion CSS variable compiled from the validated label is
+retained, with a native fallback from the existing marker vocabulary. Unknown
+variables, incompatible list kinds, task-list labels and invalid records are
+removed; invalid HTML records report `unsupported-formatting`. Arbitrary source
+CSS, custom counter-style definitions and picture assets are not accepted.
+
+The standalone HTML entry validates and retains the same metadata without
+loading the editor runtime. Rendering custom labels still requires an opted-in
+editor or the companion stylesheet from `@domternal/core/list-labels`.
+A destination without `ListLabels` keeps ordinary semantic lists without the
+optional attribute or duplicated marker text. This metadata support alone does
+not reconstruct custom Word level text from visible clipboard markers.
+
 ## Office list reconstruction
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading

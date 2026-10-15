@@ -1,5 +1,6 @@
 import type { Element } from 'hast';
 import { validListStyle } from './listStyles.js';
+import { readCompanionListStyle } from './listLabels.js';
 
 const color = /^(?:#[\da-f]{3,8}|[a-z]{1,24}|rgba?\([\d.% ,]+\)|hsla?\([\d.% ,]+\))$/i;
 const length = /^(?:0|\d{1,4}(?:\.\d{1,3})?(?:px|pt|em|rem|%))$/i;
@@ -211,7 +212,7 @@ export interface SafeStyles {
  * A deliberately small CSS value grammar: no functions that can load resources. A verified own copy (`own`) keeps
  * the line height the editor wrote, `normal` included: LineHeight writes it when the host lists it.
  */
-export function readSafeStyles(value: unknown, imagePlacement = false, tag = '', own = false): SafeStyles {
+export function readSafeStyles(value: unknown, imagePlacement = false, tag = '', own = false, labelStyleName?: string): SafeStyles {
   const styles = new Map<string, string>();
   const removedNames: string[] = [];
   const cleared = new Set<string>();
@@ -227,7 +228,11 @@ export function readSafeStyles(value: unknown, imagePlacement = false, tag = '',
     if (name === 'list-style-type') {
       const marker = content.toLowerCase();
       if (validListStyle(tag, marker)) keep(name, marker);
-      else removedNames.push(name);
+      else {
+        const companion = readCompanionListStyle(content, tag, labelStyleName);
+        if (companion === undefined) removedNames.push(name);
+        else keep(name, companion);
+      }
       continue;
     }
     const placement = ownRule(imagePlacementRules, name);

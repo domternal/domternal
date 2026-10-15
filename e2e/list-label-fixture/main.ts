@@ -3,16 +3,22 @@ import type { AnyExtension, JSONContent } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { splitListItem } from '@domternal/pm/schema-list';
 import { SmartPaste, KeyboardReorder } from '@domternal/extension-block-controls';
+import { PasteCleanup } from '@domternal/extension-paste-cleanup';
+import type { NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup';
 const controls = new URLSearchParams(location.search).has('controls');
+const cleanup = new URLSearchParams(location.search).has('cleanup');
+const pasteResults: NormalizePasteHTMLResult[] = [];
 
 const extensions = (labels = true, hosted = false): AnyExtension[] => [Document, Paragraph, Text, OrderedList, BulletList, History, BaseKeymap,
-  ...(labels ? [ListLabels.configure({ injectCSS: !hosted, nonce: 'list-label-test' })] : []), ...(controls ? [SmartPaste, KeyboardReorder] : [])];
+  ...(labels ? [ListLabels.configure({ injectCSS: !hosted, nonce: 'list-label-test' })] : []), ...(controls ? [SmartPaste, KeyboardReorder] : []),
+  ...(cleanup ? [PasteCleanup.configure({ onResult: result => { pasteResults.push(result); } })] : [])];
 const sample = document.querySelector<HTMLElement>('#sample');
 if (!sample) throw new Error('Missing editor mount');
 const editor = new Editor({ element: sample, extensions: extensions(), content: '<p>Ready</p>' });
 let shadowEditor: Editor | undefined;
 const probe = {
   editor,
+  pasteResults,
   set(json: string) { editor.setContent(JSON.parse(json) as JSONContent, false); editor.view.dom.blur(); },
   snapshot() { return { json: JSON.stringify(editor.getJSON()), html: editor.getHTML(), text: editor.getText() }; },
   roundtrip() {

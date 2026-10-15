@@ -1,6 +1,7 @@
 import type { Element, Properties } from 'hast';
 import { readSafeStyles } from './styles.js';
 import { validListStyle } from './listStyles.js';
+import { listLabelForTag, readHTMLListLabel } from './listLabels.js';
 
 const identifier = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
 /**
@@ -36,6 +37,10 @@ function color(value: unknown): value is string {
 }
 
 function contextAttribute(key: string, value: unknown, nodeName?: string): boolean {
+  if (key === 'listLabel') {
+    const tag = nodeName === 'orderedList' ? 'ol' : nodeName === 'bulletList' ? 'ul' : '';
+    return tag !== '' && (value === null || listLabelForTag(tag, value) !== null);
+  }
   if (key === 'listStyleType') {
     const tag = nodeName === 'orderedList' ? 'ol' : nodeName === 'bulletList' ? 'ul' : '';
     return tag !== '' && (value === null || validListStyle(tag, value));
@@ -111,8 +116,10 @@ export function cleanSliceContext(value: unknown, drop?: ReadonlySet<string>, ta
  * Preserve supported editor semantics through validation, including external lookalikes.
  * Slice context is not copied here: only the verified anchor receives it again.
  */
-export function cleanMetadata(original: Properties): Properties {
+export function cleanMetadata(original: Properties, tag = ''): Properties {
   const clean: Properties = {};
+  const label = readHTMLListLabel(original, tag);
+  if (label !== null) clean['dataDmListLabel'] = JSON.stringify(label);
   if (safeID(original.id)) clean.id = original.id;
   if (typeof original.dataType === 'string' && types.has(original.dataType)) clean.dataType = original.dataType;
   if (original['dataDetailsContent'] !== undefined) clean['dataDetailsContent'] = '';

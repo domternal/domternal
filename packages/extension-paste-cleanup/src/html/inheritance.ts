@@ -1,5 +1,6 @@
 import type { Element, ElementContent, Properties, Root, RootContent, Text } from 'hast';
 import { adaptedTypography, readSafeStyles, serializeStyles, styleToRead } from './styles.js';
+import { listLabelStyleName, readHTMLListLabel } from './listLabels.js';
 import { envelopeTags } from './envelope.js';
 
 export interface InlineInheritanceOptions {
@@ -188,7 +189,7 @@ function lineHeightRatio(value: string, fontSize: string | undefined): string | 
  * also writes on each run whose size differs from its paragraph's. A later declaration wins, a reset to
  * the initial value included. The names of the declarations not kept are returned for the caller's policy.
  */
-function readInheritanceStyles(value: unknown, image: boolean, tag: string, routineLineHeights?: ReadonlySet<string>, wordSource = false, defaultTextColor?: string): { styles: Map<string, string>; removedNames: string[]; defaultColor: boolean; defaultSize: boolean } {
+function readInheritanceStyles(value: unknown, image: boolean, tag: string, routineLineHeights?: ReadonlySet<string>, wordSource = false, defaultTextColor?: string, labelStyleName?: string): { styles: Map<string, string>; removedNames: string[]; defaultColor: boolean; defaultSize: boolean } {
   const styles = new Map<string, string>();
   const removedNames: string[] = [];
   let defaultColor = false;
@@ -211,7 +212,7 @@ function readInheritanceStyles(value: unknown, image: boolean, tag: string, rout
         text = `line-height:${ratio}`;
       }
     }
-    const parsed = readSafeStyles(text, image, tag);
+    const parsed = readSafeStyles(text, image, tag, false, labelStyleName);
     removedNames.push(...parsed.removedNames);
     for (const key of parsed.cleared) styles.delete(key);
     for (const [key, entry] of parsed.styles) {
@@ -328,8 +329,9 @@ export function resolveInlineInheritance(
       const state: State = { ...inherited };
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
+      const label = readHTMLListLabel(child.properties, tag);
       const { styles, removedNames, defaultColor, defaultSize } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.routineLineHeights, options.wordSource,
-        options.defaultTextColor);
+        options.defaultTextColor, label === null ? undefined : listLabelStyleName(label));
       // Typography that adapt removes anyway is that policy's adaptation, not a loss; in preserve every declaration not kept is.
       let unsupported = removedNames.some(name => preserve || !adaptedTypography(name));
       // One adapted finding per discarded source property, reported on its declaring element.

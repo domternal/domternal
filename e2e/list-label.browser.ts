@@ -153,3 +153,31 @@ test('keyboard block movement does not join adjacent lists with different labels
   expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.undo())).toBe(true);
   expect((await snapshot(page)).json).toBe(before.json);
 });
+
+for (const own of [false, true]) test(`PasteCleanup preserves nested list labels and history, own copy=${String(own)}`, async ({ page }) => {
+  const content = doc({ ...list(27, 'upper-alpha', 'Section ', ') ', 1), content: [item('Outer', {
+    type: 'bulletList', attrs: { listLabel: { kind: 'text', text: '✓' } }, content: [item('Inner')],
+  })] });
+  await open(page, content, '?controls=1&cleanup=1');
+  const expected = await snapshot(page);
+  if (own) {
+    const copied = await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.pasteCopy());
+    expect(copied.text).not.toContain('Section');
+  } else {
+    await page.evaluate(() => {
+      const { editor } = (window as unknown as ProbeWindow).__listLabels;
+      editor.setContent('<p>Before</p>', false); editor.commands.selectAll();
+    });
+    expect(await page.evaluate(json => (window as unknown as ProbeWindow).__listLabels.paste(json), JSON.stringify(content))).toBe(true);
+  }
+  expect((await snapshot(page)).json).toBe(expected.json);
+  const reports = await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.pasteResults.map(result => result.diagnostics));
+  expect(reports).toEqual([[]]);
+  const rendered = await page.locator('#sample').screenshot();
+  await oracle(page, ['Section AA) ', '✓ ']);
+  expect((await page.locator('#sample').screenshot()).equals(rendered)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.undo())).toBe(true);
+  expect((await snapshot(page)).text).toBe('Before');
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.redo())).toBe(true);
+  expect((await snapshot(page)).json).toBe(expected.json);
+});
