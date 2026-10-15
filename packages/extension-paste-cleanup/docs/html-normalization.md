@@ -137,6 +137,17 @@ break a browser ends a copy of a page with, `<br class="Apple-interchange-newlin
 after the copied content, as Chrome ends its Google Docs copies, marks where the
 selection ended and is no line of it: the editor's paste ignores it, and cleanup leaves it out for every source.
 
+Explicit empty paragraphs are different from a terminal hard break. Word's
+`<p><o:p>&nbsp;</o:p></p>` stays an empty paragraph, without a stored nonbreaking
+space. A bare break between blocks or at the end of a recognized Google Docs copy
+wrapper becomes an empty paragraph, including the paragraph after a final table.
+These paragraphs are retained in Preserve and Adapt. When pasting into the middle
+of existing text, the last pasted paragraph receives the destination's remaining
+text; preceding empty paragraphs stay empty. A final newline in the clipboard's
+plain-text flavor does not establish an additional empty paragraph: Word also
+writes it after a nonempty final paragraph. Cleanup therefore does not invent
+paragraphs from that newline when HTML is present.
+
 Inline content after a top-level block, including content inside a wrapper that
 holds blocks, gets a `<div>` wrapper when it contains a whitespace-only text node
 between words. This keeps the space during clipboard parsing. Inline images stay
