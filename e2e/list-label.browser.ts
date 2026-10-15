@@ -117,3 +117,39 @@ test('a nonce permits companion CSS under the host style policy', async ({ page 
   await oracle(page, ['Allowed 0) ', 'Allowed 1) ']);
   expect((await page.locator('#sample').screenshot({ path: test.info().outputPath('light.png') })).equals(image)).toBe(true);
 });
+
+for (const same of [false, true]) test(`SmartPaste keeps list label boundaries, matching=${String(same)}`, async ({ page }) => {
+  await open(page, doc({ ...list(4, 'decimal', 'Section ', ') ', 1), content: [item('BeforeAfter')] }), '?controls=1');
+  const before = await snapshot(page);
+  await page.evaluate(() => { (window as unknown as ProbeWindow).__listLabels.select('BeforeAfter', 6); });
+  const pasted = { ...list(7, 'decimal', same ? 'Section ' : 'Article ', ') ', 1), content: [item('Imported')] };
+  expect(await page.evaluate(json => (window as unknown as ProbeWindow).__listLabels.paste(json), JSON.stringify(doc(pasted)))).toBe(true);
+  const result = await snapshot(page);
+  const tree = JSON.parse(result.json) as JSONContent;
+  expect(tree.content?.length).toBe(same ? 1 : 3);
+  const prefixes = tree.content?.map(node => (node.attrs?.['listLabel'] as { prefix: string }).prefix);
+  expect(prefixes).toEqual(same ? ['Section '] : ['Section ', 'Article ', 'Section ']);
+  expect(result.text).toBe('Before\n\nImported\n\nAfter');
+  const image = await page.locator('#sample').screenshot();
+  await oracle(page, same ? ['Section 4) ', 'Section 5) ', 'Section 6) '] : ['Section 4) ', 'Article 7) ', 'Section 4) ']);
+  expect((await page.locator('#sample').screenshot()).equals(image)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.undo())).toBe(true);
+  expect((await snapshot(page)).json).toBe(before.json);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.redo())).toBe(true);
+  expect((await snapshot(page)).json).toBe(result.json);
+});
+
+test('keyboard block movement does not join adjacent lists with different labels', async ({ page }) => {
+  const content = doc({ ...list(4, 'decimal', 'Section ', ') ', 1), content: [item('First')] },
+    { type: 'paragraph', content: [{ type: 'text', text: 'Gap' }] },
+    { ...list(7, 'decimal', 'Article ', ') ', 1), content: [item('Second')] });
+  await open(page, content, '?controls=1'); const before = await snapshot(page);
+  await page.evaluate(() => { (window as unknown as ProbeWindow).__listLabels.select('Gap', 0); });
+  await page.keyboard.press('ControlOrMeta+Shift+ArrowDown');
+  const moved = await snapshot(page); const tree = JSON.parse(moved.json) as JSONContent;
+  expect(tree.content?.map(node => node.type)).toEqual(['orderedList', 'orderedList', 'paragraph']);
+  expect(tree.content?.slice(0, 2).map(node => (node.attrs?.['listLabel'] as { prefix: string }).prefix)).toEqual(['Section ', 'Article ']);
+  expect(moved.text).toBe('First\n\nSecond\n\nGap');
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.undo())).toBe(true);
+  expect((await snapshot(page)).json).toBe(before.json);
+});

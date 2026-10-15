@@ -45,7 +45,9 @@ characters, bidirectional formatting controls, line separators and unpaired
 surrogates are refused. Natural text, combining characters and emoji joiners are
 allowed. Records cannot supply extra properties, HTML, CSS, a font, an image or
 an executable callback. `readListLabel` validates a value and returns a frozen
-copy, or `null`.
+copy, or `null`. `getNodeListLabel(node)` additionally checks that the node
+uses the registered `ListLabels` attribute contract; an unrelated custom
+attribute with the same name is not treated as a label.
 
 With the extension enabled, invalid JSON labels become `null` with the
 `unsupported-list-label` diagnostic. Unsupported HTML labels fall back to the

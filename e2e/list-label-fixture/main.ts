@@ -2,9 +2,11 @@ import { Editor, Document, Paragraph, Text, OrderedList, BulletList, ListLabels,
 import type { AnyExtension, JSONContent } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { splitListItem } from '@domternal/pm/schema-list';
+import { SmartPaste, KeyboardReorder } from '@domternal/extension-block-controls';
+const controls = new URLSearchParams(location.search).has('controls');
 
 const extensions = (labels = true, hosted = false): AnyExtension[] => [Document, Paragraph, Text, OrderedList, BulletList, History, BaseKeymap,
-  ...(labels ? [ListLabels.configure({ injectCSS: !hosted, nonce: 'list-label-test' })] : [])];
+  ...(labels ? [ListLabels.configure({ injectCSS: !hosted, nonce: 'list-label-test' })] : []), ...(controls ? [SmartPaste, KeyboardReorder] : [])];
 const sample = document.querySelector<HTMLElement>('#sample');
 if (!sample) throw new Error('Missing editor mount');
 const editor = new Editor({ element: sample, extensions: extensions(), content: '<p>Ready</p>' });
@@ -16,6 +18,19 @@ const probe = {
   roundtrip() {
     const content = editor.getJSON(); const html = generateHTML(content, extensions());
     return { json: JSON.stringify(generateJSON(html, extensions())), html, css: getListLabelStyleSheet(content) };
+  },
+  select(text: string, offset: number) {
+    let position = -1;
+    editor.state.doc.descendants((node, pos) => { if (position === -1 && node.isTextblock && node.textContent === text) position = pos + 1 + offset; });
+    if (position === -1) throw new Error('Missing selected paragraph');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, position))); editor.view.focus();
+  },
+  paste(json: string) {
+    const html = generateHTML(JSON.parse(json) as JSONContent, extensions());
+    const data = new DataTransfer(); data.setData('text/html', html); data.setData('text/plain', 'Imported');
+    const event = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: data });
+    editor.view.dom.dispatchEvent(event); return event.defaultPrevented;
   },
   pasteCopy() {
     editor.commands.selectAll(); const copied = editor.view.serializeForClipboard(editor.state.selection.content());
