@@ -114,6 +114,11 @@ or remove the link that carries it, instead of failing the whole document, and r
 
 - An invalid optional list label becomes `null` when `ListLabels` is installed (`unsupported-list-label`).
 - An unknown list marker becomes `null`, the default marker (`unknown-list-marker`).
+- With Table installed, invalid column widths become automatic widths
+  (`unsupported-table-width`). The table keeps its cell text and structure.
+  Rendering shared content uses the same safe sizing without changing the stored
+  value; `normalizeContentAttributes({ codes: ['unsupported-table-width'] })`
+  explicitly migrates it. See the Table README for the accepted width contract.
 - A heading level moves to the nearest configured level of equal or lower importance, otherwise
   to the deepest configured level (`unsupported-heading-level`), so a heading is never promoted
   while a deeper level exists and the outline keeps its order. With levels 1 to 4, `5` and `6`

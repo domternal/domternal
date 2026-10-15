@@ -492,6 +492,7 @@ const describeDiagnostic = (diagnostic: ContentDiagnostic): string => {
     case 'unknown-list-marker':
     case 'unsupported-heading-level':
     case 'unsupported-table-span':
+    case 'unsupported-table-width':
       return diagnostic.nodeType;
     default:
       // The list of codes is open: a minor release can add one.

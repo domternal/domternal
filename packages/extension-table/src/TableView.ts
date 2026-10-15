@@ -37,6 +37,7 @@ import { tableMessages } from './messages.js';
 import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 import { resolveSpan } from './helpers/cellAttributes.js';
 import { tableHoldsUnsupportedSpan } from './helpers/guardedTableEditing.js';
+import { resolveColumnWidths } from './helpers/columnWidths.js';
 
 import {
   DOTS_H, DOTS_V, CHEVRON_DOWN,
@@ -1005,12 +1006,12 @@ export class TableView implements NodeView {
       const cell = firstRow.child(i);
       // A stored span loading would replace draws as its replacement, at most 1,000 columns.
       const colspan = resolveSpan(cell.attrs['colspan']);
-      const colwidth = cell.attrs['colwidth'] as number[] | null;
+      const colwidth = resolveColumnWidths(cell.attrs['colwidth']);
 
       for (let j = 0; j < colspan; j++) {
         const hasWidth = colwidth?.[j];
         const cssWidth = hasWidth ? String(hasWidth) + 'px' : '';
-        totalWidth += hasWidth ?? this.defaultCellMinWidth;
+        totalWidth += hasWidth === 0 || hasWidth === undefined ? this.defaultCellMinWidth : hasWidth;
         if (!hasWidth) fixedWidth = false;
 
         if (!nextDOM) {

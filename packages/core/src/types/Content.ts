@@ -72,13 +72,16 @@ export interface Range {
  *   a whole number from 1, or that is above 1,000, became the span a browser
  *   draws for it: a number is rounded down into 1 to 1,000, a string is read
  *   as an HTML span attribute, and anything else is 1.
+ * - `unsupported-table-width`: an invalid table cell `colwidth` became null,
+ *   allowing automatic widths. Widths must be an array of at most 1,000 finite
+ *   non-negative numbers no larger than Number.MAX_SAFE_INTEGER, or null.
  *
  * The list of codes is open: a minor release can add one when the editor
  * learns to normalize another attribute, so keep a default branch when you
  * switch on `code`.
  */
 export interface ContentDiagnostic {
-  readonly code: 'unknown-list-marker' | 'unsupported-list-label' | 'unsupported-heading-level' | 'unsafe-url' | 'unsupported-url' | 'unsupported-table-span';
+  readonly code: 'unknown-list-marker' | 'unsupported-list-label' | 'unsupported-heading-level' | 'unsafe-url' | 'unsupported-url' | 'unsupported-table-span' | 'unsupported-table-width';
   /** The node that holds the value, or that carries the removed mark, such as `text`. */
   readonly nodeType: string;
   /** The type of the removed mark, such as `link`; absent when a node's value was replaced. */

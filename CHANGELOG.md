@@ -10,6 +10,7 @@
 
 ### Fixes
 
+- Keep table content editable after unsupported remote spans invalidate a cell selection, guard explicit table repair, and normalize malformed column widths with a content diagnostic.
 - Let the Link URL policy own input validity, so supported relative addresses and bare hosts are not incorrectly marked invalid by native absolute-URL validation.
 - Warn when retained pasted formatting values cannot be confirmed by the receiving parser and serializer, including configured font and line-height restrictions. The bounded advisory check leaves content, intentional Adapt behavior and undo history unchanged.
 - Notify adoption listeners when the same shadow editor moves to another document, so owned UI and styles can move with it.

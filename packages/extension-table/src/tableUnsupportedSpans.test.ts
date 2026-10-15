@@ -86,6 +86,74 @@ function pasteHTML(editor: Editor, html: string): void {
   editor.view.pasteHTML(html, new Event('paste', { cancelable: true }) as ClipboardEvent);
 }
 
+describe('a table that becomes unsupported while cells are selected', () => {
+  it('keeps all cell content and moves to text editing without building an unsupported map', () => {
+    const editor = mount(1);
+    editor.commands.setCellSelection({ anchorCell: cellPos(editor, 'a'), headCell: cellPos(editor, 'e') });
+    expect(editor.state.selection).toBeInstanceOf(CellSelection);
+    const at = cellPos(editor, 'b');
+    const cell = editor.state.doc.nodeAt(at)!;
+    expect(() => { editor.view.dispatch(editor.state.tr.setNodeMarkup(at, undefined, { ...cell.attrs, colspan: 1_000_000 })); }).not.toThrow();
+    expect(words(editor)).toBe('a|b|c|d|e|f|after');
+    expect(editor.state.selection).toBeInstanceOf(TextSelection);
+    expect(mapped).toEqual([]);
+  });
+
+  it('refuses explicit table repair wherever the caret is until unsupported spans are normalized', () => {
+    const editor = mount(1_000_000);
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, editor.state.doc.content.size - 1)));
+    const before = editor.state.doc;
+    expect(editor.can().fixTables()).toBe(false);
+    expect(editor.commands.fixTables()).toBe(false);
+    expect(editor.state.doc).toBe(before);
+    expect(mapped).toEqual([]);
+  });
+
+  it('resolves an existing cell bookmark safely after a remote span change', () => {
+    const editor = mount(1);
+    editor.commands.setCellSelection({ anchorCell: cellPos(editor, 'e'), headCell: cellPos(editor, 'a') });
+    const bookmark = editor.state.selection.getBookmark();
+    const at = cellPos(editor, 'b');
+    const cell = editor.state.doc.nodeAt(at)!;
+    const tr = editor.state.tr.setNodeMarkup(at, undefined, { ...cell.attrs, rowspan: -1 });
+    const selected = bookmark.map(tr.mapping).resolve(tr.doc);
+    expect(selected).toBeInstanceOf(TextSelection);
+    expect(selected.$from.parent.textContent).toBe('a');
+    expect(mapped).toEqual([]);
+  });
+
+  it.each(['row', 'column'] as const)('preserves a %s selection on valid updates and falls back on an unsupported remote span', kind => {
+    const editor = mount(1);
+    const anchor = editor.state.doc.resolve(cellPos(editor, 'a'));
+    const head = editor.state.doc.resolve(cellPos(editor, kind === 'row' ? 'c' : 'd'));
+    const selection = kind === 'row' ? CellSelection.rowSelection(anchor, head) : CellSelection.colSelection(anchor, head);
+    editor.view.dispatch(editor.state.tr.setSelection(selection));
+    const at = cellPos(editor, 'b');
+    editor.view.dispatch(editor.state.tr.setNodeMarkup(at, undefined, { ...editor.state.doc.nodeAt(at)!.attrs, background: '#eee' }));
+    const current = editor.state.selection;
+    expect(current).toBeInstanceOf(CellSelection);
+    expect(kind === 'row' ? (current as CellSelection).isRowSelection() : (current as CellSelection).isColSelection()).toBe(true);
+    expect(() => { editor.view.dispatch(editor.state.tr.setNodeMarkup(at, undefined, { ...editor.state.doc.nodeAt(at)!.attrs, colspan: 1_000_000 })); }).not.toThrow();
+    expect(editor.state.selection).toBeInstanceOf(TextSelection);
+    expect(words(editor)).toBe('a|b|c|d|e|f|after');
+    expect(mapped).toEqual([]);
+  });
+
+  it('retains ordinary cell selections across edits, bookmark restoration and deletion of the table', () => {
+    const editor = mount(1);
+    editor.commands.setCellSelection({ anchorCell: cellPos(editor, 'a'), headCell: cellPos(editor, 'e') });
+    const bookmark = editor.state.selection.getBookmark();
+    const at = cellPos(editor, 'b');
+    editor.view.dispatch(editor.state.tr.setNodeMarkup(at, undefined, { ...editor.state.doc.nodeAt(at)!.attrs, background: '#eee' }));
+    expect(editor.state.selection).toBeInstanceOf(CellSelection);
+    expect(bookmark.resolve(editor.state.doc).toJSON()).toEqual(editor.state.selection.toJSON());
+    expect(editor.commands.deleteTable()).toBe(true);
+    expect(editor.state.selection).toBeInstanceOf(TextSelection);
+    expect(words(editor)).toBe('after');
+    expect(mapped).toEqual([]);
+  });
+});
+
 describe.each(SPANS)('a table whose cell holds a colspan of %s', (_name, colspan) => {
   it('pastes copied cells as their content at the caret, deleting no cell and building no table map', () => {
     for (const target of ['a', 'd', 'f']) {
