@@ -3,6 +3,7 @@ import { EditorDemo } from './EditorDemo.js';
 import { NotionDemo } from './NotionDemo.js';
 import { MultiEditorDemo } from './MultiEditorDemo.js';
 import { TabIndentDemo } from './TabIndentDemo.js';
+import { demoPasteFormatting } from './demo-paste-cleanup.js';
 
 type Mode = 'default' | 'custom' | 'notion' | 'notion-scrollable' | 'multi' | 'tab';
 
@@ -94,6 +95,7 @@ export class App {
       this.#modeButtons.set(m.id, btn);
     }
     demo.appendChild(modeToggle);
+    if (demoPasteFormatting !== undefined) demo.appendChild(demoPasteFormatting.element);
 
     // Demo mount point - replaced on mode switch
     const mount = document.createElement('div');
@@ -118,6 +120,7 @@ export class App {
     if (mode === this.#mode) return;
     const prev = this.#mode;
     this.#mode = mode;
+    if (demoPasteFormatting !== undefined) demoPasteFormatting.element.hidden = mode === 'tab';
 
     // Preserve editor state on default ↔ custom toggle: only swap the
     // toolbar's layout, do NOT destroy + recreate the editor. Matches

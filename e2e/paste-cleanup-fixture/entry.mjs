@@ -14,10 +14,14 @@ import { Mention } from '@domternal/extension-mention';
 import { SmartPaste } from '@domternal/extension-block-controls';
 import { PasteCleanup, getPasteAffectedReferences } from '@domternal/extension-paste-cleanup';
 import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
+import { createPasteFormattingControl } from '../../apps/demo-vanilla/src/paste-formatting-control.ts';
 
 const query = new URLSearchParams(location.search);
 const framework = query.get('framework') ?? 'vanilla';
 const formatting = query.get('formatting') === 'adapt' ? 'adapt' : 'preserve';
+const formattingControl = query.get('formatting-choice') === 'on' ? createPasteFormattingControl() : undefined;
+if (formattingControl !== undefined) document.body.prepend(formattingControl.element);
+let formattingChoices = 0;
 const lifecycle = query.get('lifecycle');
 const feedback = query.get('feedback') === 'application' ? 'application' : 'default';
 const embeddedAssets = query.get('assets') === 'embedded';
@@ -353,6 +357,7 @@ const extensions = [
   ...(formattingNormalizer === null ? [] : [FormattingNormalizer]),
   PasteCleanup.configure({
     formatting,
+    ...(formattingControl === undefined ? {} : { formattingForPaste: () => { formattingChoices++; return formattingControl.formatting; } }),
     feedback,
     ...(query.get('source-data') === 'forbid' ? { allowDataImages: false } : {}),
     ...(limits === undefined && query.get('diagnostics') !== 'one' ? {} : {
@@ -440,6 +445,7 @@ window.__pasteCleanup = {
   get wrapper() { return wrapper; },
   get framework() { return framework; },
   get results() { return results; },
+  get formattingChoices() { return formattingChoices; },
   get wrapperCalls() { return wrapperCalls; },
   get angularForm() {
     const control = wrapper?.components?.[0]?.instance?.control;
