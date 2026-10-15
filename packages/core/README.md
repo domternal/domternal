@@ -143,6 +143,25 @@ Applications with their own styles can use the same narrowly scoped rule:
 }
 ```
 
+### Full block backgrounds
+
+`BlockColor` keeps explicit hex, `rgb()` and `rgba()` fills in its existing
+`bgColor` node attribute. A paragraph or heading with an inline
+`background-color` therefore keeps a fill across the block, including an empty
+paragraph. Named CSS colors in HTML become literal hex values; `transparent`
+becomes a transparent `rgba()` fill. Nested inline highlights remain independent.
+Alpha values are retained.
+
+Palette tokens such as `red` and `gray` retain their theme meaning and take
+precedence over an inline background when `data-bg-color` is present. The palette
+commands still accept only their configured choices. Literal fills serialize as
+`background-color`; tokens continue to serialize as `data-bg-color`.
+
+View-only tone attributes let the matching theme keep default text readable on
+known light or dark fills without changing the document. An unresolved translucent
+fill does not receive a guessed tone. Explicit text colors retain the selected
+`TextColor` contrast policy described above.
+
 ## Content and validation
 
 Use JSON for structured storage and HTML or plain text when your application needs
