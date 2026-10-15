@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +12,9 @@ for (const format of ['js', 'cjs']) {
   test(`the built ${format} list label entry needs no editor, DOM or runtime dependency`, () => {
     const directory = mkdtempSync(join(tmpdir(), 'domternal-list-labels-'));
     try {
+      // Workspace project references require declarations without generated sibling chunks.
+      const declaration = readFileSync(join(root, `packages/core/dist/list-labels.d.${format === 'cjs' ? 'cts' : 'ts'}`), 'utf8');
+      assert.doesNotMatch(declaration, /(?:import|export)[^\n]*\bfrom\s+['"]/u);
       // No sibling bundle or node_modules is available to this isolated published file.
       writeFileSync(join(directory, 'package.json'), '{"type":"module"}');
       copyFileSync(join(root, `packages/core/dist/list-labels.${format}`), join(directory, `labels.${format}`));

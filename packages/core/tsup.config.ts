@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { localeEntries } from '../../scripts/locale-build.mjs';
-import { defineConfig } from 'tsup';
+import { build, defineConfig } from 'tsup';
 import type { Options } from 'tsup';
 
 type EsbuildPlugin = NonNullable<Options['esbuildPlugins']>[number];
@@ -54,7 +54,7 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   target: 'es2022',
   dts: {
-    entry: { index: 'src/index.ts', clipboard: 'src/clipboard.ts', 'list-labels': 'src/list-labels.ts', ...locales },
+    entry: { index: 'src/index.ts', clipboard: 'src/clipboard.ts', ...locales },
     resolve: true,
     compilerOptions: {
       composite: false,
@@ -64,6 +64,12 @@ export default defineConfig({
   splitting: false,
   treeshake: true,
   esbuildPlugins: [reexportMainBundle(['src/clipboard.ts'])],
+  async onSuccess() {
+    // Separate declaration rollup keeps both entries self-contained. Shared hashed declarations
+    // cannot be redirected to source by TypeScript workspace project references.
+    await build({ config: false, entry: { 'list-labels': 'src/list-labels.ts' }, format: ['esm', 'cjs'],
+      dts: { only: true, compilerOptions: { composite: false } }, clean: false });
+  },
   external: [
     '@domternal/pm/commands',
     '@domternal/pm/dropcursor',

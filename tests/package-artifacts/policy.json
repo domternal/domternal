@@ -63,7 +63,7 @@
   "@domternal/core": {
     "maxPackedBytes": 1178000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
-    "allowedPatterns": ["^dist/(index|clipboard|list-labels)\\.(js|cjs)(\\.map)?$", "^dist/(index|clipboard|list-labels)\\.d\\.(ts|cts)$", "^dist/list-labels-[A-Za-z0-9_-]{8}\\.d\\.(ts|cts)$"],
+    "allowedPatterns": ["^dist/(index|clipboard|list-labels)\\.(js|cjs)(\\.map)?$", "^dist/(index|clipboard|list-labels)\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 24000
   },
   "@domternal/extension-block-controls": {
