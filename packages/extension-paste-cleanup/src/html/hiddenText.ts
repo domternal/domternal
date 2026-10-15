@@ -65,7 +65,7 @@ const mentionsHiding = /display|mso-hide/i;
  * nothing, a comment is no text, `!important` marks its declaration, and a declaration without a valid name or
  * colon, or with a string a line break ends, is dropped while the others stay. Bounded to the first 256.
  */
-export function readDeclarations(text: string): Declaration[] {
+export function readDeclarations(text: string, maximum = maxDeclarations): Declaration[] {
   const found: Declaration[] = [];
   let current = '';
   let quote = '';
@@ -75,7 +75,7 @@ export function readDeclarations(text: string): Declaration[] {
     const piece = current;
     const broken = invalid;
     current = ''; invalid = false;
-    if (broken || found.length >= maxDeclarations) return;
+    if (broken || found.length >= maximum) return;
     const colon = piece.indexOf(':');
     if (colon < 0) return;
     const name = piece.slice(0, colon).replace(cssSpace, '').toLowerCase();

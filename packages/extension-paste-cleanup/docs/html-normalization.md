@@ -76,9 +76,22 @@ Inherited inline font family, size, color, bold and italic resolve through sourc
 wrappers, including descendant bold/italic resets. Relative `em` and `%` font
 sizes resolve only when the source provides a known absolute base. Inline text
 decoration and highlight retain supported source semantics; a block or cell fill
-does not become text highlighting. Apart from [Word list level definitions](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/lists.md#office-list-reconstruction), stylesheet rules, CSS variables, the browser's computed
-styles and arbitrary CSS inheritance are not resolved. The destination
-schema determines which retained styles become document attributes.
+does not become text highlighting. Word copies also recover `font-family`, `font-size`
+and `color` from simple type, class and type-plus-class stylesheet selectors, including
+comma-separated selectors. Rules and inline declarations are compared by importance,
+specificity and source order before inherited typography is resolved. Font resources
+are never downloaded; rendering still depends on fonts available in the host application.
+
+This is a bounded Word typography reader, not a general CSS engine. Complex selectors,
+conditional rules, imports, CSS variables, font shorthands and ambiguous or incomplete
+syntax prevent partial stylesheet recovery and produce `unsupported-formatting` in
+Preserve, or an informational adaptation in Adapt. Direct inline formatting still goes
+through the ordinary sanitizer. The reader handles at most 1,024 typography selectors,
+8,192 characters per rule prelude/body and 256 declarations per rule, and bounds generated
+style text with the input allowance. Nested style elements retain document order.
+[Word list level definitions](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/lists.md#office-list-reconstruction)
+are handled separately. Browser-computed styles and arbitrary CSS inheritance are not
+resolved. The destination schema determines which retained styles become document attributes.
 
 Supported inline marks and effective typography are materialized around both text
 and hard breaks, including break-only runs. The original `<br>` remains a void

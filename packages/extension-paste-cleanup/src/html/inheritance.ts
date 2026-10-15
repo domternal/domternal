@@ -69,7 +69,7 @@ const namedColors = new Set((
 ).split(' '));
 
 /** Validate only the legacy color forms already admitted by readSafeStyles. */
-function validColor(value: string): boolean {
+export function validColor(value: string): boolean {
   if (namedColors.has(value.toLowerCase()) || /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(value)) return true;
   const match = /^(rgb|rgba|hsl|hsla)\(([^)]+)\)$/i.exec(value);
   if (match === null) return false;
@@ -91,7 +91,7 @@ function fullyTransparent(value: string): boolean {
   return match !== null && Number.parseFloat(match[1] ?? '') === 0;
 }
 
-function validFamily(value: string): boolean {
+export function validFamily(value: string): boolean {
   if (cssWide.has(value.toLowerCase())) return false;
   const parts: string[] = [];
   let quote: string | undefined;

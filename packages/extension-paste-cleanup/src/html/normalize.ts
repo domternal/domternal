@@ -35,6 +35,7 @@ import {
   googleDocsChecklists, googleDocsCopyWrappers, googleDocsEmptyParagraphs, googleDocsImageParagraphs, googleDocsLineHeights, googleDocsListLevels,
 } from './googleDocs.js';
 import { wordHiddenText } from './hiddenText.js';
+import { applyWordTypography } from './wordTypography.js';
 import { recordRemovedText } from './removedText.js';
 import { clipboardMarkup } from './markup.js';
 import type {
@@ -222,6 +223,10 @@ export function normalizeClipboardHTML(
       // The break a browser ends a copy of a page with, as Chrome ends a Google Docs copy, marks where the selection ended, no line of the content.
       dropInterchangeNewline(tree);
       const hidden = result.source === 'word' ? wordHiddenText(tree) : undefined;
+      if (result.source === 'word') applyWordTypography(tree, limits, node => {
+        if (options.formatting === 'adapt') report('formatting-adapted', node, 'info');
+        else report('unsupported-formatting', node);
+      });
       // Only where the markup declares an Office list: the text of a page that names the property opens no list pass.
       if (officeLists) {
         // A list item Word hides is not pasted, so an item cleanup cannot rebuild is no finding when it is hidden.

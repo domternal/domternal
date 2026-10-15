@@ -9,6 +9,8 @@ import type { PasteDiagnostic } from './types.js';
  * word-table-text and word-alignment-spacing). The links Word writes to its local temporary files are left out.
  */
 const policies = ['preserve', 'adapt'] as const;
+const normalFont = 'font-family:&#x22;Aptos&#x22;,sans-serif;font-size:12pt';
+const sized = (text: string): string => `<span style="${normalFont}">${text}</span>`;
 const warnings = (diagnostics: readonly PasteDiagnostic[]): string[] => diagnostics.filter(entry => entry.severity !== 'info').map(entry => entry.code);
 const markup = (html: string): string => html.replace(/>[\t\n\f\r ]+</gu, '><').trim();
 
@@ -38,12 +40,13 @@ describe('Word table cells in Chrome and Firefox', () => {
     const result = normalizePasteHTML(TABLE, { formatting });
     expect(warnings(result.diagnostics)).toEqual([]);
     expect(result.html).not.toContain('line-height');
-    expect(markup(result.html)).toContain('<td style="width:150.25pt"><p>T02 Column A</p></td><td style="width:150.25pt"><p>T03 Column B</p></td>'
-      + '<td style="width:150.25pt"><p>T04 Column C</p></td>');
+    const text = (value: string): string => formatting === 'preserve' ? sized(value) : value;
+    expect(markup(result.html)).toContain(`<td style="width:150.25pt"><p>${text('T02 Column A')}</p></td><td style="width:150.25pt"><p>${text('T03 Column B')}</p></td>`
+      + `<td style="width:150.25pt"><p>${text('T04 Column C')}</p></td>`);
   });
 
   it('keeps the shading of a cell and the text color Word writes on its run', () => {
-    expect(markup(normalizePasteHTML(TABLE).html)).toMatch(/<td data-background="#D9D9D9" style="[^"]*background-color:#D9D9D9"><p><span><span style="color:black">T05 Gray cell<\/span><\/span><\/p><\/td>/u);
+    expect(markup(normalizePasteHTML(TABLE).html)).toContain(`<td data-background="#D9D9D9" style="width:150.25pt;background-color:#D9D9D9"><p><span><span style="${normalFont};color:black">T05 Gray cell</span></span></p></td>`);
   });
 });
 
@@ -70,7 +73,7 @@ describe('Word line spacing written as a percentage', () => {
   it('becomes the ratio LineHeight renders, as Safari\'s computed 24px already does', () => {
     const result = normalizePasteHTML(SPACING);
     expect(warnings(result.diagnostics)).toEqual([]);
-    expect(markup(result.html)).toContain('<p style="line-height:1.5">B12 Paragraph with 1.5 line spacing.</p>');
+    expect(markup(result.html)).toContain(`<p style="line-height:1.5">${sized('B12 Paragraph with 1.5 line spacing.')}</p>`);
     expect(result.html).not.toContain('%');
   });
 
