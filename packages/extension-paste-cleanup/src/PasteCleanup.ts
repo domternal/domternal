@@ -224,8 +224,9 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
             pending = { rejected: owned.rejected, preserveOrderedListStart: owned.preserveOrderedListStart, operation: owned.operation };
             return owned.html;
           }
+          const prepared = coordinator?.ordinaryHTML(html);
           if (coordinator?.ordinaryAttempt() === false) { pending = { rejected: true, preserveOrderedListStart: false }; return ''; }
-          const { result, preserveOrderedListStart, destinationRejected } = normalizeClipboardHTML(
+          const { result, preserveOrderedListStart, destinationRejected } = prepared ?? normalizeClipboardHTML(
             html, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }),
             undefined, features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features),
             isOwnCopyNonce,

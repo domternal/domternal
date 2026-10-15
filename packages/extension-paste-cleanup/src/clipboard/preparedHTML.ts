@@ -57,6 +57,26 @@ export function readPreparedClipboardHTMLNormalization(handle: PreparedClipboard
   return normalization;
 }
 
+/**
+ * Consume ordinary HTML without image replacements, with the same serialization as normalization.
+ * Keep its result identity so private heading, removed-text and image-description records survive.
+ * Image replacement output budgets do not apply to the ordinary synchronous HTML route.
+ */
+export function consumePreparedClipboardHTMLWithoutAssets(handle: PreparedClipboardHTML): NormalizePasteHTMLResult | undefined {
+  const state = states.get(handle);
+  if (state?.slots.length !== 0) return undefined;
+  states.delete(handle);
+  try { state.result.html = toHtml(state.tree); }
+  catch {
+    state.result.status = 'rejected';
+    state.result.html = '';
+    if (retainDiagnostic(state.result.diagnostics, { code: 'parse-failed', severity: 'error' }, state.maxDiagnostics)) {
+      state.result.diagnosticsTruncated = true;
+    }
+  }
+  return state.result;
+}
+
 export type ClipboardHTMLPreparationResult =
   | { readonly status: 'rejected'; readonly normalization: NormalizePasteHTMLResult;
       readonly destinationRejected?: true;

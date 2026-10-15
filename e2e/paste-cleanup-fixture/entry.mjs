@@ -321,7 +321,7 @@ const extensions = [
   ...(lifecycle === 'veto' ? [PasteVeto] : []),
   ...(lifecycle === 'destroy-before-observe' ? [DestroyBeforeReceiptObserver] : []),
   ...(['nested-interception', 'nested-empty-interception'].includes(lifecycle) ? [ConsumeNestedPaste, ConsumeOuterAndNest] : []),
-  ...(coordinatedAssets ? [AssetHookObserver] : []),
+  ...(coordinatedAssets && query.get('asset-hooks') !== 'off' ? [AssetHookObserver] : []),
   ...(characterLimit === null ? [] : [CharacterCount.configure({ limit: characterLimit })]),
   ...(lifecycle === 'append-doc' ? [AppendDocument] : []),
   PasteCleanup.configure({

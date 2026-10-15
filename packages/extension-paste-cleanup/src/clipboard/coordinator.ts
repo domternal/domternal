@@ -4,6 +4,7 @@ import type { Slice } from '@domternal/pm/model';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
+import type { normalizeClipboardHTML } from '../html/normalize.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from '../html/types.js';
 import { officeListCapabilities } from '../listCapabilities.js';
 import { isOwnCopyNonce } from './ownCopy.js';
@@ -20,8 +21,9 @@ import { resolveClipboardAssetLimits } from './limits.js';
 import type { ClipboardAssetLimits } from './limits.js';
 import { prepareClipboardBlobAssets, prepareClipboardEmbeddedAssets } from './localAssets.js';
 import type { ClipboardEmbeddedRejection } from './localAssets.js';
-import { discardPreparedClipboardHTML, materializeClipboardHTML, materializeResolvedClipboardHTML, prepareClipboardHTML, readPreparedClipboardHTMLNormalization } from './preparedHTML.js';
+import { consumePreparedClipboardHTMLWithoutAssets, discardPreparedClipboardHTML, materializeClipboardHTML, materializeResolvedClipboardHTML, prepareClipboardHTML, readPreparedClipboardHTMLNormalization } from './preparedHTML.js';
 import type { ClipboardHTMLPreparationResult } from './preparedHTML.js';
+import { isFirstHTMLTransformer, mayContainImageMarkup } from './preparedHTMLPassthrough.js';
 import { resolveClipboardImageBindings } from './references.js';
 import type { ClipboardImageBinding, ClipboardImageReference, ClipboardReferenceLimits } from './references.js';
 import { createClipboardResolverOperation } from './resolverLifecycle.js';
@@ -123,6 +125,14 @@ interface ReplayEntry {
   normalizationUsed: boolean;
 }
 
+interface HTMLPassthrough {
+  readonly html: string;
+  readonly event: ClipboardEvent;
+  readonly preparation: Prepared;
+  readonly target: CaptureEntry;
+  readonly state: EditorState;
+}
+
 export interface ClipboardReplayNormalization {
   readonly operation: PendingPasteOperation;
   readonly html: string;
@@ -148,6 +158,8 @@ export interface ClipboardAssetCoordinator {
   capture(event: ClipboardEvent): boolean;
   /** Cancel an older operation when a normal text or HTML attempt starts. */
   ordinaryAttempt(): boolean;
+  /** Consume only this synchronous attempt's unchanged, image-free preflight result. */
+  ordinaryHTML(html: string): ReturnType<typeof normalizeClipboardHTML> | undefined;
   replayHTML(html: string): ClipboardReplayNormalization | undefined;
   handleReplay(event: ClipboardEvent, slice: Slice): ClipboardReplayHandling | undefined;
   /**
@@ -252,6 +264,12 @@ export function createClipboardAssetCoordinator(
   let active: AssetOperation | undefined;
   let destroyed = false;
   let generation = 0;
+  let passthrough: HTMLPassthrough | undefined;
+  const discardPassthrough = (): void => {
+    if (passthrough === undefined) return;
+    discardPreparedClipboardHTML(passthrough.preparation.handle);
+    passthrough = undefined;
+  };
   const readDestination = (): ClipboardImageDestination | undefined => {
     const policy = getClipboardImageDestination(view);
     if (policy === undefined) return undefined;
@@ -291,6 +309,7 @@ export function createClipboardAssetCoordinator(
   };
   const supersede = (): void => { if (active !== undefined) stop(active, 'superseded'); };
   const begin = (): number => {
+    discardPassthrough();
     const ownGeneration = ++generation;
     supersede();
     return ownGeneration;
@@ -533,10 +552,22 @@ export function createClipboardAssetCoordinator(
       return { onDeferred() { /* The source changed after its synchronous capture. */ } };
     }
     handledAssets.add(sourceEvent);
+    const preparationState = view.state;
     const result = prepare(html);
     if (result.status === 'prepared' && result.references.length === 0 && result.inlineAssets.placements.length === 0
       && !(assetOptions.mode === 'resolver' && readDestination()?.allowEmbedded === false && result.hasRemovedImages)) {
-      discardPreparedClipboardHTML(result.handle); return undefined;
+      // An earlier host transform may change schema behavior or own-copy identity even when
+      // returning identical HTML. Keep that route's second normalization. An omitted event
+      // also lacks the Core attempt identity needed to bind this private result safely.
+      if (context.event !== undefined && getClipboardPasteAttemptEvent(view) === context.event
+        && current(ownGeneration) && view.state === preparationState && targetMatches(captured)
+        && !result.hasRemovedImages && !mayContainImageMarkup(html) && isFirstHTMLTransformer(view)) {
+        discardPassthrough();
+        const entry: HTMLPassthrough = { html, event: context.event, preparation: result, target: captured, state: preparationState };
+        passthrough = entry;
+        queueMicrotask(() => { if (passthrough === entry) discardPassthrough(); });
+      } else discardPreparedClipboardHTML(result.handle);
+      return undefined;
     }
     const asset = makeOperation(result, captured);
     const references = result.status === 'prepared' ? result.references : Object.freeze([]);
@@ -586,6 +617,20 @@ export function createClipboardAssetCoordinator(
       const event = getClipboardPasteAttemptEvent(view);
       if (event !== undefined) ordinaryAttempts.set(event, ownGeneration);
       return current(ownGeneration);
+    },
+    ordinaryHTML(html) {
+      const entry = passthrough;
+      passthrough = undefined;
+      if (entry === undefined) return undefined;
+      if (entry.html !== html || entry.event !== getClipboardPasteAttemptEvent(view)
+        || !current(entry.target.generation) || view.state !== entry.state || !targetMatches(entry.target)
+        || !isFirstHTMLTransformer(view)) {
+        discardPreparedClipboardHTML(entry.preparation.handle);
+        return undefined;
+      }
+      const result = consumePreparedClipboardHTMLWithoutAssets(entry.preparation.handle);
+      return result === undefined ? undefined : { result,
+        preserveOrderedListStart: result.status !== 'rejected' && entry.preparation.preserveOrderedListStart };
     },
     replayHTML(html) {
       const event = getClipboardPasteAttemptEvent(view);
@@ -647,8 +692,8 @@ export function createClipboardAssetCoordinator(
     },
     assetsHandled: event => handledAssets.has(event) || replays.has(event),
     observe: () => { sessions.observe(); if (active?.session?.signal.aborted === true) stop(active, cancellationReason(active.session.cancellation)); },
-    adopt: () => { generation++; if (active !== undefined) stop(active, 'target-changed'); },
-    destroy() { destroyed = true; if (active !== undefined) stop(active, 'target-changed'); sessions.destroy(); unregister(); },
+    adopt: () => { discardPassthrough(); generation++; if (active !== undefined) stop(active, 'target-changed'); },
+    destroy() { discardPassthrough(); destroyed = true; if (active !== undefined) stop(active, 'target-changed'); sessions.destroy(); unregister(); },
     filterTransaction(transaction) {
       const asset = applyingOperation(transaction);
       if (asset === undefined) return true;
