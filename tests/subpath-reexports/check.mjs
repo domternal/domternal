@@ -35,6 +35,10 @@
  *    are documented as separate, and a `globalThis` join between copies would
  *    be the wrong fix for the duplicate problem, so it must stay visible.
  *
+ * Explicit standalone entries have a separate qualification contract. The
+ * list-labels data helpers are checked without sibling files, dependencies or
+ * DOM globals, using the same built-file probe as the SSR gate.
+ *
  * `--core <directory>` checks another built copy of the package, which is how
  * the negative control (a naive separate entry) is run.
  */
@@ -44,6 +48,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkListLabelBundle } from '../ssr-import/list-labels.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
@@ -57,11 +62,16 @@ export const SUBPATHS = [
   { package: '@domternal/core', directory: 'packages/core', subpath: './clipboard', experimental: true },
 ];
 
+/** Independently qualified data helpers; these entries do not share clipboard registries. */
+export const STANDALONE_SUBPATHS = [
+  { package: '@domternal/core', directory: 'packages/core', subpath: './list-labels' },
+];
+
 /**
  * Other subpaths a declared package may publish as bundles of their own. A
  * locale entry holds only a frozen message catalog with no runtime import, so
- * it cannot carry a second copy of any registry. Any other new subpath of these
- * packages must be declared above, so it cannot duplicate state unnoticed.
+ * it cannot carry a second copy of any registry. Other entries must be declared
+ * as a re-export or explicitly qualified standalone bundle, scoped to a package.
  */
 export const OWN_BUNDLE_SUBPATHS = /^\.\/locales\//;
 
@@ -137,8 +147,9 @@ export function resolveSubpath(manifest, subpath) {
 /** Subpaths of a declared package that are neither declared here nor allowed their own bundle. */
 export function undeclaredSubpaths(manifest, declared) {
   const exportsMap = manifest.publishConfig?.exports ?? manifest.exports ?? {};
+  const standalone = new Set(STANDALONE_SUBPATHS.filter(item => item.package === manifest.name).map(item => item.subpath));
   return Object.keys(exportsMap)
-    .filter((key) => key !== '.' && !declared.has(key) && !OWN_BUNDLE_SUBPATHS.test(key))
+    .filter((key) => key !== '.' && !declared.has(key) && !standalone.has(key) && !OWN_BUNDLE_SUBPATHS.test(key))
     .sort();
 }
 
@@ -392,7 +403,7 @@ function checkSubpath(declared, packageDirectory, log) {
   const manifest = JSON.parse(readFileSync(join(packageDirectory, 'package.json'), 'utf8'));
   const undeclared = undeclaredSubpaths(manifest, new Set(SUBPATHS.filter((item) => item.package === declared.package).map((item) => item.subpath)));
   for (const key of undeclared) {
-    problems.push(`${declared.package}: exports["${key}"] is neither a declared re-export subpath nor a locale entry, so nothing proves it shares state`);
+    problems.push(`${declared.package}: exports["${key}"] is neither a declared re-export, a qualified standalone subpath nor a locale entry`);
   }
   const { problems: resolveProblems, main, files } = resolveSubpath(manifest, declared.subpath);
   problems.push(...resolveProblems.map((problem) => `${declared.package}: ${problem}`));
@@ -467,6 +478,23 @@ function checkSubpath(declared, packageDirectory, log) {
 function main() {
   const argv = process.argv.slice(2);
   const problems = [];
+  for (const declared of STANDALONE_SUBPATHS) {
+    const directory = parseCoreArgument(argv, join(repoRoot, declared.directory));
+    for (const format of ['js', 'cjs']) {
+      const label = `${declared.package}${declared.subpath.slice(1)} (${format})`;
+      try {
+        const declarations = declarationExports(checkListLabelBundle(directory, format));
+        const expected = ['formatListLabel', 'getListLabelStyleSheet', 'readListLabel'];
+        if (!same(declarations.values, expected) || declarations.stars !== 0
+          || !same(declarations.types, ['CounterListLabel', 'ListLabel', 'ListLabelFormat', 'TextListLabel'])) {
+          throw new Error('standalone declarations do not match the qualified public API');
+        }
+        console.log(`ok   ${label}: isolated bundle, declarations and data helper behavior`);
+      } catch (error) {
+        problems.push(`${label}: ${error.message}`);
+      }
+    }
+  }
   for (const declared of SUBPATHS) {
     const directory = declared.package === '@domternal/core'
       ? parseCoreArgument(argv, join(repoRoot, declared.directory))
@@ -478,9 +506,11 @@ function main() {
     for (const problem of problems) console.error(`  - ${problem}`);
     console.error('\nA re-export subpath must stay a thin re-export of its main bundle. A second bundled');
     console.error('copy keeps its own registries, so registrations made through it never reach the Editor.');
+    console.error('A declared standalone data entry must pass its isolated bundle and declaration checks.');
     process.exit(1);
   }
-  console.log(`\n[subpath-reexports] OK - ${String(SUBPATHS.length)} subpath shares its main bundle's state in ESM and in CommonJS; mixed formats stay separate`);
+  console.log(`\n[subpath-reexports] OK - ${String(SUBPATHS.length)} re-export subpath shares its main bundle's state; ` +
+    `${String(STANDALONE_SUBPATHS.length)} standalone subpath passes isolated checks; mixed formats stay separate`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
