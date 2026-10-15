@@ -215,13 +215,28 @@ whose headings differ from the cleaned HTML, every warning stays. `onResult`
 describes the cleanup, so it still lists every moved heading. A drop has no paste
 receipt, so its result stays `untracked` with every warning.
 
-These are built-in reference capability checks, not a comparison of each source
-word or style with the final editor document. Custom renamed nodes, custom clipboard
-parsers, later transforms, insertion fitting, individual style values and runtime
-rendering options can still change the result. In particular, paragraph alignment
-and line-height probes do not establish every heading/cell context or a configured
-LineHeight rendering allowlist. The standalone `/html` entry has no schema and
-does not run these editor checks.
+After these reference checks, the editor integration also checks actual retained
+font family, font size, text color, inline background, paragraph background,
+alignment, line spacing, link destination and semantic emphasis values. It uses
+small detached parser and serializer probes in the source paragraph, heading
+level or preformatted block. This catches, for example, a custom font parser that
+accepts the reference sizes but drops the pasted size, a configured `LineHeight`
+rendering allowlist or alignment enabled only for paragraphs. A missing value,
+failed custom parser or exhausted probe budget adds the same
+`destination-formatting-unconfirmed` warning. It never blocks or rewrites the
+paste. Intentional Adapt removal is checked after adaptation and does not produce
+this warning.
+
+This check reuses each distinct value and block context within one normalization
+pass. It allows at most 128 distinct probes and 16,384 combined key code units;
+a single value is limited to 1,024 code units. The probes use constant text in an
+inert document, never source text, image elements or resource-loading HTML. No
+style or URL value is copied into a diagnostic. They do not reconstruct a whole
+source document, every list or table context, combinations of marks, arbitrary
+custom nodes or the actual insertion position. A custom clipboard parser, later
+HTML or slice transform, insertion fitting and runtime CSS can still change the
+result. This is advisory schema evidence, not proof of final visual fidelity.
+The standalone `/html` entry has no schema and does not run these editor checks.
 
 For an accepted paste, the integration also reports
 `destination-formatting-removed` when it can prove that appended editor processing

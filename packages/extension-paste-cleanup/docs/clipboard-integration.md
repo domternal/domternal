@@ -110,6 +110,13 @@ accepted appended processing demonstrably removes known formatting from an
 identified insertion. This bounded check starts after parsing and does not prove
 complete source fidelity. Equal-text replacements and other ambiguous changes
 remain unverified, as [destination checks](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md#destination-checks) describe.
+Before insertion, the integration also probes bounded actual formatting values
+against the destination parser and serializer. For example, a font size or line
+height refused by a custom parser or rendering allowlist produces
+`destination-formatting-unconfirmed` in both callbacks. This advisory warning
+does not block the content and is different from the proven post-insertion
+removal warning. Later custom HTML or slice transforms remain outside that
+source-value proof.
 Callback exceptions cannot revoke an accepted paste or disable cleanup.
 
 | Status | Meaning |

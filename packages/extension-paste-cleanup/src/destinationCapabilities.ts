@@ -1,4 +1,7 @@
+import { confirmDestinationValues } from './destinationValues.js';
+import type { ClipboardDestinationCheck } from './html/normalize.js';
 import { DOMParser, DOMSerializer } from '@domternal/pm/model';
+import type { Root } from 'hast';
 import type { DOMOutputSpec, Node as PMNode, Schema } from '@domternal/pm/model';
 import type { PasteDestinationFeature } from './html/destinationDemand.js';
 import { officeListCapabilities } from './listCapabilities.js';
@@ -222,4 +225,11 @@ export function getUnsupportedDestinationFeatures(
     catch { return true; }
   });
   return Object.freeze(unsupported);
+}
+
+/** One normalization owns its actual-value probe budget and does not retain private source values. */
+export function createDestinationCheck(schema: Schema, document: Document): ClipboardDestinationCheck {
+  return Object.assign((features: readonly PasteDestinationFeature[]) => getUnsupportedDestinationFeatures(schema, document, features), {
+    confirmValues: (tree: Root): boolean => confirmDestinationValues(schema, document, tree),
+  });
 }

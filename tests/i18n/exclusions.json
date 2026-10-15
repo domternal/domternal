@@ -142,5 +142,13 @@
     "text": "A",
     "occurrences": 1,
     "reason": "Typography color sample glyph. The surrounding control has a separately localized accessible name; this glyph is not a word label."
+  },
+  {
+    "file": "packages/extension-paste-cleanup/src/destinationValues.ts",
+    "context": "confirmDestinationValues.probe",
+    "sink": "dom:textContent",
+    "text": "x",
+    "occurrences": 1,
+    "reason": "Detached destination parser and serializer probe. The constant text keeps a synthetic block nonempty, never includes clipboard text and never reaches the editor or user interface."
   }
 ]

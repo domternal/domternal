@@ -34,6 +34,14 @@ const imageUpload = query.get('image-upload') === 'on';
 const tableFirst = query.get('extension-order') === 'table-first';
 const capabilityMinimal = query.get('schema') === 'capability-minimal';
 const capabilityFull = query.get('schema') === 'capability-full';
+// Custom host constraints whose ordinary reference values remain supported.
+const actualValues = query.get('destination-values') === 'restricted';
+const restrictedFontSize = FontSize.extend({ addGlobalAttributes() {
+  return this.parent().map(group => ({ ...group, attributes: { ...group.attributes, fontSize: {
+    ...group.attributes.fontSize,
+    parseHTML: element => ['18px', '22px'].includes(element.style.fontSize) ? element.style.fontSize : null,
+  } } }));
+} });
 // Levels two and three only, as an application that reserves h1 for its page title.
 const headingLevels = query.get('schema') === 'heading-levels';
 const lists = query.get('schema') !== 'no-lists';
@@ -326,9 +334,9 @@ const extensions = [
   ...(query.get('text-style-order') === 'highlight-first'
     ? [Highlight, readableText ? TextColor.configure({ contrast: 'auto' }) : TextColor]
     : [readableText ? TextColor.configure({ contrast: 'auto' }) : TextColor, Highlight]),
-  FontFamily, FontSize, TextAlign,
+  FontFamily, actualValues ? restrictedFontSize : FontSize, actualValues ? TextAlign.configure({ types: ['paragraph'] }) : TextAlign,
   capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : headingLevels ? Heading.configure({ levels: [2, 3] }) : Heading,
-  ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),
+  ...(capabilityFull ? [Subscript, Superscript, actualValues ? LineHeight.configure({ lineHeights: ['1.5'] }) : LineHeight] : []),
   ...(lists ? [...markerLists, ListItem] : []),
   ...((listMarkers || contrast) && taskLists ? [TaskList, TaskItem] : []),
   ...(contrast ? [Code, BlockColor, HorizontalRule] : []),

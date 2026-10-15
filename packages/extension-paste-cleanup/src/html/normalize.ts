@@ -147,7 +147,9 @@ export interface ClipboardImagePreparationSink {
 }
 
 /** Private editor adapter. The standalone HTML entry never supplies a schema. */
-export type ClipboardDestinationCheck = (features: readonly PasteDestinationFeature[]) => readonly PasteDestinationFeature[];
+export type ClipboardDestinationCheck = ((features: readonly PasteDestinationFeature[]) => readonly PasteDestinationFeature[]) & {
+  readonly confirmValues?: (tree: Root) => boolean;
+};
 
 /**
  * Private editor verifier for a Domternal copy nonce issued in this page. The standalone HTML
@@ -476,6 +478,8 @@ export function normalizeClipboardHTML(
       if (adaptParagraphBackgrounds(sanitized, destination, node => { report('destination-formatting-unconfirmed', node); })) {
         assertOutputTreeBounds(sanitized, limits.maxNodes, limits.maxDepth);
       }
+      if (!result.diagnostics.some(diagnostic => diagnostic.code === 'destination-formatting-unconfirmed')
+        && destination.confirmValues?.(sanitized) === false) report('destination-formatting-unconfirmed');
     }
     if (!own && (options.formatting ?? 'preserve') === 'preserve') recordFirstParagraphFormat(result, sanitized);
     if (preparation === undefined) result.html = toHtml(sanitized);

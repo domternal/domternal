@@ -14,7 +14,7 @@ import type { FirstParagraphFormat } from './html/firstParagraph.js';
 import { createFirstParagraphPreserver } from './firstParagraph.js';
 import { createPasteContentWitness } from './contentWitness.js';
 import { officeListCapabilities } from './listCapabilities.js';
-import { getUnsupportedDestinationFeatures } from './destinationCapabilities.js';
+import { createDestinationCheck } from './destinationCapabilities.js';
 import { pasteCleanupKey, receiptStateField } from './operations.js';
 import type { PasteNormalizationContext, PasteOperationResult } from './operations.js';
 import { createPasteTracking } from './tracking.js';
@@ -251,7 +251,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           if (coordinator?.ordinaryAttempt() === false) { pending = { rejected: true, preserveOrderedListStart: false }; return ''; }
           const { result, preserveOrderedListStart, destinationRejected } = prepared ?? normalizeClipboardHTML(
             html, { ...options, formatting: formattingPolicy.read(getClipboardPasteAttemptIdentity(view)).formatting }, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true, preserveLabels: true }),
-            undefined, features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features),
+            undefined, createDestinationCheck(view.state.schema, view.dom.ownerDocument),
             isOwnCopyNonce,
           );
           const rejected = result.status === 'rejected';

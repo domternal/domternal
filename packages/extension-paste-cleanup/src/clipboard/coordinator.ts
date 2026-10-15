@@ -12,7 +12,7 @@ import type { FirstParagraphFormat } from '../html/firstParagraph.js';
 import { officeListCapabilities } from '../listCapabilities.js';
 import { isOwnCopyNonce } from './ownCopy.js';
 import { claimClipboardSlot } from './ownership.js';
-import { getUnsupportedDestinationFeatures } from '../destinationCapabilities.js';
+import { createDestinationCheck } from '../destinationCapabilities.js';
 import { pasteCleanupKey, pasteDocumentRevision } from '../operations.js';
 import type { PasteOperationRejectionReason } from '../operations.js';
 import type { createPasteTracking, PendingPasteOperation } from '../tracking.js';
@@ -365,7 +365,7 @@ export function createClipboardAssetCoordinator(
       ? { destination, assetLimits, sourceAllowDataImages: htmlOptions.allowDataImages !== false } : undefined;
     return prepareClipboardHTML(html, preparationLimits, { ...htmlOptions, formatting: formatting.formatting },
       () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true, preserveLabels: true }), inline,
-      features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features), isOwnCopyNonce);
+      createDestinationCheck(view.state.schema, view.dom.ownerDocument), isOwnCopyNonce);
   };
   const makeOperation = (result: ClipboardHTMLPreparationResult, entry: CaptureEntry): AssetOperation => {
     const normalization = result.status === 'prepared'
