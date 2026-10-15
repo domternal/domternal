@@ -13,8 +13,8 @@ node views as React components.
 pnpm add @domternal/react @domternal/core @domternal/theme react react-dom
 ```
 
-The package declares Node.js 22 or later for tooling. Requires React and React DOM 18 or later, and `@domternal/core >=1.4.0 <2.0.0`.
-Use version 1.4.0 for all installed Domternal Free packages. The theme supplies default
+The package declares Node.js 22 or later for tooling. Requires React and React DOM 18 or later, and `@domternal/core >=1.5.0 <2.0.0`.
+Use version 1.5.0 for all installed Domternal Free packages. The theme supplies default
 styles; import it once in your application entry point.
 
 ## Quick start
@@ -96,6 +96,16 @@ for component props, selectors, custom node views, and additional menus.
   normalized content values. See [content diagnostics](https://domternal.dev/v1/guides/editor-api/#content-diagnostics)
   and [event behavior](https://domternal.dev/v1/guides/editor-api/#transaction-flow).
 - Custom `icons` contain raw SVG. Supply trusted, developer-authored constants.
+
+## Office paste and custom list labels
+
+Register [`PasteCleanup`](../extension-paste-cleanup/README.md) in your editor's
+`extensions` to normalize supported Word and Google Docs clipboard HTML. It is
+not enabled by the wrapper. In 1.5.0, `formattingForPaste` lets your application
+choose Preserve or Adapt for each paste without recreating the editor.
+Add the corresponding formatting, Table and Image extensions for content you
+want to retain. Use [`ListLabels`](../core/README.md#optional-list-labels) for
+supported custom markers, with the same schema on every collaborative writer.
 
 ## Further reading
 

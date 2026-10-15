@@ -13,8 +13,8 @@ editor state, and custom node views written as Vue components.
 pnpm add @domternal/vue @domternal/core @domternal/theme vue
 ```
 
-The package declares Node.js 22 or later for tooling. Requires Vue 3.3 or later and `@domternal/core >=1.4.0 <2.0.0`.
-Use version 1.4.0 for all installed Domternal Free packages. Import the theme once in
+The package declares Node.js 22 or later for tooling. Requires Vue 3.3 or later and `@domternal/core >=1.5.0 <2.0.0`.
+Use version 1.5.0 for all installed Domternal Free packages. Import the theme once in
 your application for default styling.
 
 ## Quick start
@@ -85,6 +85,16 @@ See the [composable example](https://domternal.dev/v1/guides/vue/#composable-hoo
   documents callback options; the [Editor API](https://domternal.dev/v1/guides/editor-api/#content-diagnostics)
   explains diagnostics.
 - Custom `icons` contain raw SVG. Supply trusted, developer-authored constants.
+
+## Office paste and custom list labels
+
+Register [`PasteCleanup`](../extension-paste-cleanup/README.md) in your editor's
+`extensions` to normalize supported Word and Google Docs clipboard HTML. It is
+not enabled by the wrapper. In 1.5.0, `formattingForPaste` lets your application
+choose Preserve or Adapt for each paste without recreating the editor.
+Add the corresponding formatting, Table and Image extensions for content you
+want to retain. Use [`ListLabels`](../core/README.md#optional-list-labels) for
+supported custom markers, with the same schema on every collaborative writer.
 
 ## Further reading
 

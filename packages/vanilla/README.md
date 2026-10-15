@@ -14,8 +14,8 @@ integrations for Astro, Svelte, Solid, Lit, and Web Components.
 pnpm add @domternal/vanilla @domternal/core @domternal/theme
 ```
 
-The package declares Node.js 22 or later for tooling. Requires `@domternal/core >=1.4.0 <2.0.0`.
-Use version 1.4.0 for all installed Domternal Free packages. The theme supplies the default styles.
+The package declares Node.js 22 or later for tooling. Requires `@domternal/core >=1.5.0 <2.0.0`.
+Use version 1.5.0 for all installed Domternal Free packages. The theme supplies the default styles.
 
 ## Quick start
 
@@ -96,6 +96,16 @@ documents getters, methods, options, and each component's events.
   construction. Provide callbacks to receive them; event listeners added afterward
   receive only later reports. See [content diagnostics](https://domternal.dev/v1/guides/editor-api/#content-diagnostics).
 - Custom `icons` contain raw SVG. Supply trusted, developer-authored constants.
+
+## Office paste and custom list labels
+
+Register [`PasteCleanup`](../extension-paste-cleanup/README.md) in your editor's
+`extensions` to normalize supported Word and Google Docs clipboard HTML. It is
+not enabled by the wrapper. In 1.5.0, `formattingForPaste` lets your application
+choose Preserve or Adapt for each paste without recreating the editor.
+Add the corresponding formatting, Table and Image extensions for content you
+want to retain. Use [`ListLabels`](../core/README.md#optional-list-labels) for
+supported custom markers, with the same schema on every collaborative writer.
 
 ## Further reading
 

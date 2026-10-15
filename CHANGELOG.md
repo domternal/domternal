@@ -1,16 +1,22 @@
 # Changelog
 
-## Unreleased
+## 1.5.0 (2026-10-15)
 
 ### Features
 
 - Add optional `ListLabels` for literal bullets and native ordered counters with bounded text prefixes and suffixes. It preserves labels through Core editing, HTML and clipboard metadata, with companion CSS for standalone HTML and explicit schema requirements for collaborative writers. Existing schemas stay unchanged when the extension is omitted.
 - Preserve optional list labels through Paste Cleanup and block controls. With `ListLabels`, Word paste can retain supported single-counter prefixes, suffixes and Unicode text bullets after proving the exact receiving parser and serializer; unsupported markers remain literal with a diagnostic.
+- Preserve Word font families, sizes and colors from bounded simple stylesheet selectors, including inline and `!important` precedence and Unicode font names. Unsupported stylesheet constructs are reported; arbitrary stylesheets and full Word layout remain outside the supported scope.
+- Preserve literal paragraph and heading backgrounds through `BlockColor`, including empty blocks and translucent fills, with matching theme styles for readable default text on known backgrounds. Existing palette tokens keep their theme meaning; inline highlights remain separate.
+- Add `PasteCleanup.configure({ formattingForPaste })` to choose Preserve or Adapt synchronously for each paste without recreating the editor. The choice stays fixed through asynchronous image preparation and appears in result callbacks; the demo apps include an application-owned selector.
+- Expose opaque clipboard paste-attempt identities through `@domternal/core/clipboard`, allowing registered preparation coordinators to associate work with the active paste without retaining its clipboard event.
 - Show a localized, accessible loading indicator while image files are being stored, with theme, reduced-motion and print styles.
 
 ### Fixes
 
-- Announce accepted image preparation once, provide configurable keyboard access to Paste Cleanup notices, and name each notice from its owning editor without adding extra landmarks.
+- Preserve supported alignment, line spacing and block backgrounds on the first external pasted paragraph when it fills a completely empty paragraph, including one inside a list item or table cell. Existing text and heading destinations retain their insertion behavior.
+- Preserve zero-based ordered-list starts through HTML, editing and paste, and keep meaningful trailing hard breaks in verified same-page editor copies without turning external clipboard placeholders into extra lines.
+- Report known pasted formatting removed by appended editor processing through bounded content tracking. Intentional adaptation and cases without a reliable content match do not produce a false loss claim.
 - Preserve whole nested-list-first items during HTML load, paste and drop without Paste Cleanup, while retaining native partial-copy boundaries and task state.
 - Keep a Details disclosure intact when HTML or Markdown replaces a selection across its summary and body, and place dropped blocks at the body start in one undoable transaction.
 - Recover bare clipboard rows and cells inside HTML fragment envelopes, preserve text between row groups, and keep orphan column tags from consuming following content.
@@ -18,9 +24,20 @@
 - Let the Link URL policy own input validity, so supported relative addresses and bare hosts are not incorrectly marked invalid by native absolute-URL validation.
 - Warn when retained pasted formatting values cannot be confirmed by the receiving parser and serializer, including configured font and line-height restrictions. The bounded advisory check leaves content, intentional Adapt behavior and undo history unchanged.
 - Notify adoption listeners when the same shadow editor moves to another document, so owned UI and styles can move with it.
+- Retire stale bubble-menu positioning callbacks when an editor is adopted or destroyed.
 - Keep supported paste formatting, lists, links and tables available under strict Trusted Types enforcement without a default policy. Destination probes and table control icons use DOM construction; the host still permits ProseMirror's clipboard policy.
 - Preserve an explicit empty image alt attribute through clipboard cleanup and file upload without using another image's description.
 - Preserve alpha in translucent text colors and highlights when reading HTML, including paste, clipboard serialization and save/reload. Opaque RGB colors continue to normalize to hex.
+- Avoid repeated normalization of unchanged image-free clipboard preparation and reuse bounded style parsing within a cleanup pass, without retaining clipboard content between pastes.
+
+### Accessibility
+
+- Announce accepted image preparation once, provide configurable keyboard access to Paste Cleanup notices, and name each notice from its owning editor without adding extra landmarks.
+- Update pending image status text and language in place when the locale changes, keeping the upload, selection and document history intact. Loading animations respect reduced motion and do not appear in print.
+
+### Docs
+
+- Document the supported Word stylesheet and list-label boundaries, block backgrounds, per-paste formatting, destination diagnostics and current automated coverage separately from historical native Office qualification. Update all package installation guidance for the coordinated 1.5.0 release.
 
 ## 1.4.0 (2026-10-12)
 
