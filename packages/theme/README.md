@@ -15,7 +15,7 @@ pnpm add @domternal/theme
 ```
 
 The package declares Node.js 22 or later for tooling and has no peer dependencies.
-Use version 1.4.0 for the theme, editor and framework wrapper so component markup
+Use version 1.5.0 for the theme, editor and framework wrapper so component markup
 and styles stay aligned.
 
 ## Usage
@@ -88,6 +88,13 @@ separately mounted UI, scrolling, Sass, and the complete
   content with the same contrast handling. See
   [text on kept backgrounds](https://domternal.dev/v1/guides/theming/#text-on-kept-backgrounds)
   for custom themes, browser fallbacks, and experimental tone helpers.
+- Core and theme 1.5.0 also preserve literal full-width paragraph and heading
+  fills through `BlockColor`, including empty blocks. Default text uses a readable
+  tone on known backgrounds; explicit text colors follow the selected contrast
+  policy. See [block backgrounds](../core/README.md#full-block-backgrounds).
+- Pending image files show a localized loading status with reduced-motion
+  support. The indicator is view-only and hidden in print. Custom themes should
+  style `.domternal-image-uploading` and its `__spinner` and `__label` children.
 - Core and theme 1.4.0 add `TextColor.configure({ contrast: 'auto' })`
   for literal text colors. It is off by default; enable it in the Core extension.
   The live editor adjusts an opaque literal color only when its measured contrast

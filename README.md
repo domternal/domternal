@@ -26,6 +26,7 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **130+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar
 - **Office paste cleanup:** opt-in Word and Google Docs HTML normalization, preserve/adapt formatting, list reconstruction, and localized feedback about content the editor cannot keep
+- **Optional custom list labels:** native counters with text prefixes and suffixes, or literal Unicode bullets, with matching collaborative schemas and companion CSS for standalone HTML
 - **Tree-shakeable JavaScript** - import only the JavaScript exports you use; the optional `@domternal/theme` deliberately ships one complete stylesheet
 - **~86 KiB minified and gzipped** (own code), [**~167 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies: see Packages for the full bundle breakdown
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
@@ -124,15 +125,20 @@ check a translation for every current message.
 
 ## Version compatibility
 
-Upgrade installed `@domternal/*` packages together to **1.4.0**. Wrappers require
-core `>=1.4.0 <2.0.0`, and extensions require both core and pm as peers in that
-range. Core 1.4.0 requires pm `>=1.4.0 <2.0.0` at runtime.
+Upgrade installed `@domternal/*` packages together to **1.5.0**. Wrappers require
+core `>=1.5.0 <2.0.0`, and extensions require both core and pm as peers in that
+range. Core 1.5.0 requires pm `>=1.5.0 <2.0.0` at runtime.
 
-Version 1.4.0 adds opt-in literal text contrast and optional translation definitions.
-Use matching Core and theme packages for automatic contrast; the default preserves
-authored colors. PasteCleanup, explicit list markers, content diagnostics, and
-coordinated clipboard handling were introduced in 1.3.0. Their APIs remain available
-in 1.4.0; Core 1.2.0 lacks them.
+Version 1.5.0 adds optional `ListLabels`, bounded Word stylesheet typography,
+literal block backgrounds and a formatting choice for each paste. Use matching
+Core and theme packages for block fills and image upload feedback. `ListLabels`
+is not part of StarterKit: enable the same extension on all collaborative writers
+before storing custom labels. Existing schemas remain unchanged when it is omitted.
+
+The opt-in text contrast and optional translation definitions introduced in 1.4.0
+remain available; the default contrast policy preserves authored colors.
+PasteCleanup, explicit list markers, content diagnostics and coordinated clipboard
+handling were introduced in 1.3.0; Core 1.2.0 lacks those APIs.
 
 The migration requirements for content validation and transaction callbacks
 introduced in 1.3.0 still apply. Loading JSON normalizes unsupported heading levels,
@@ -148,7 +154,7 @@ an explicit migration of a live document.
 
 | Package                                                                                                              | Description                                                                                                                                                                  |
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core)                                                   | Editor engine with 13 nodes, 9 marks, 28 extensions, toolbar controller, and 52 built-in icons                                                                               |
+| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core)                                                   | Editor engine with built-in nodes and marks, optional behavior extensions, list-label helpers, toolbar controller and icons                                                                               |
 | [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)                                                 | Light and dark themes with 150+ CSS custom properties                                                                                                                        |
 | [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular)                                             | Angular wrapper: 6 components (editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker)                                                         |
 | [`@domternal/react`](https://www.npmjs.com/package/@domternal/react)                                                 | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views                                                  |

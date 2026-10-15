@@ -18,10 +18,10 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core
 ```
 
-Core has no framework dependency and includes `@domternal/pm`. Use version 1.4.0
+Core has no framework dependency and includes `@domternal/pm`. Use version 1.5.0
 for all installed Domternal Free packages. Wrappers and extensions require Core
-`>=1.4.0 <2.0.0`; extensions also require PM in that range. Core 1.4.0 requires
-PM `>=1.4.0 <2.0.0` at runtime.
+`>=1.5.0 <2.0.0`; extensions also require PM in that range. Core 1.5.0 requires
+PM `>=1.5.0 <2.0.0` at runtime.
 Import ProseMirror primitives from `@domternal/pm/*` to keep
 [one shared copy](https://domternal.dev/v1/guides/single-prosemirror-copy/).
 
@@ -145,7 +145,7 @@ Applications with their own styles can use the same narrowly scoped rule:
 
 ### Full block backgrounds
 
-`BlockColor` keeps explicit hex, `rgb()` and `rgba()` fills in its existing
+Since 1.5.0, `BlockColor` keeps explicit hex, `rgb()` and `rgba()` fills in its existing
 `bgColor` node attribute. A paragraph or heading with an inline
 `background-color` therefore keeps a fill across the block, including an empty
 paragraph. Named CSS colors in HTML become literal hex values; `transparent`
@@ -164,8 +164,8 @@ fill does not receive a guessed tone. Explicit text colors retain the selected
 
 ### Optional list labels
 
-Add `ListLabels` beside `StarterKit` to retain a bounded custom bullet or an
-ordered counter with a text prefix and suffix. It is not included in StarterKit.
+Available since 1.5.0, `ListLabels` can be added beside `StarterKit` to retain a
+bounded custom bullet or an ordered counter with a text prefix and suffix. It is not included in StarterKit.
 Existing schemas and stored JSON stay unchanged when this extension is omitted.
 
 ```ts

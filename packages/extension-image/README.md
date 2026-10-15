@@ -18,9 +18,9 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core @domternal/pm @domternal/extension-image @domternal/theme
 ```
 
-Core and pm are peers with the range `>=1.4.0 <2.0.0`. Use version 1.4.0 for all
-installed Domternal Free packages. The optional theme provides the resize handles and
-placement styles; supply equivalent CSS if you omit it. Exported HTML includes
+Core and pm are peers with the range `>=1.5.0 <2.0.0`. Use version 1.5.0 for all
+installed Domternal Free packages. The optional theme provides the resize handles,
+placement styles and upload indicator; supply equivalent CSS if you omit it. Exported HTML includes
 placement styles independently of the theme.
 
 ## Quick start
