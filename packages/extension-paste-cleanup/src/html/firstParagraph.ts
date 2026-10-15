@@ -4,6 +4,7 @@ import type { Element, Root, RootContent } from 'hast';
 export interface FirstParagraphFormat {
   readonly textAlign: string | undefined;
   readonly lineHeight: string | undefined;
+  readonly bgColor?: string;
   readonly text: string;
 }
 
@@ -42,7 +43,8 @@ export function recordFirstParagraphFormat(result: object, tree: Root): void {
   }));
   const textAlign = properties.get('text-align');
   const lineHeight = properties.get('line-height');
-  if (textAlign === undefined && lineHeight === undefined || paragraph === undefined) return;
+  const bgColor = properties.get('background-color');
+  if (textAlign === undefined && lineHeight === undefined && bgColor === undefined || paragraph === undefined) return;
   const text: string[] = [];
   const stack: RootContent[] = [...paragraph.children].reverse();
   while (stack.length > 0) {
@@ -56,7 +58,7 @@ export function recordFirstParagraphFormat(result: object, tree: Root): void {
       }
     }
   }
-  formats.set(result, Object.freeze({ textAlign, lineHeight, text: paragraphTextIdentity(text.join('')) }));
+  formats.set(result, Object.freeze({ textAlign, lineHeight, ...(bgColor === undefined ? {} : { bgColor }), text: paragraphTextIdentity(text.join('')) }));
 }
 
 /** HTML and ProseMirror collapse ordinary inline whitespace while retaining nonbreaking spaces. */

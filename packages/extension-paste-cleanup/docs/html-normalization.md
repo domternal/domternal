@@ -253,8 +253,7 @@ span that only draws the box of the one image it holds (no border, `inline-block
 margin, padding, `hspace`, `vspace` or border attribute, and no comment, escape or
 `!important` in either style), as can occur around copied images. Nonzero horizontal indentation outside lists
 and tables, borders outside tables, background shorthands with more than one
-color or an image, a background shorthand that paints a block other than a table
-cell, which no block keeps, background images, an image box that crops, pads or
+color or an image, a background shorthand on unsupported containers such as divisions or list items, background images, an image box that crops, pads or
 offsets its image, an element a page hides outside a Word source (below), the
 `font` shorthand, wider letter spacing, case transforms, small caps and other
 unsupported declarations still report `unsupported-formatting`. In `adapt`, which removes typography anyway, an
@@ -312,7 +311,7 @@ page gives its text: in `preserve` it pastes as that color and can read poorly i
 a light editor (a light blue about 1.8:1 on white), while `adapt` removes text
 colors. A
 background shorthand that paints one color, as Word writes a highlight
-(`background: yellow`) or cell shading, is read as that background color. A line
+(`background: yellow`), paragraph or heading fill, or cell shading, is read as that background color. A line
 height becomes the ratio of the font size a LineHeight destination renders,
 rounded to two places: a percentage, as Word's raw HTML in Chrome and Firefox
 writes 150 %, or a plain number by itself, and a length in pixels or points as a
@@ -436,6 +435,6 @@ editor; [Clipboard ownership](https://github.com/domternal/domternal/blob/main/p
 
 Word HTML from Chrome and Firefox keeps class-based formatting that general cleanup does not resolve. Preserve mode retains supported inline formatting, without reconstructing the Normal and heading styles' fonts, sizes and colors. Safari writes more computed typography inline, although its Word list fonts also remain in class rules.
 
-The first open paragraph normally joins the destination paragraph and keeps its alignment and line spacing. An external Preserve paste into a completely empty paragraph instead retains the first source paragraph's explicit supported alignment and line spacing, including inside a list item or table cell. When the first paragraph joins the empty target, it keeps that block's identity and unspecified destination properties. SmartPaste still replaces whole blocks when its existing image or mixed-block insertion rules apply. Existing text, headings, recognized own copies, Adapt and dropped HTML keep their existing insertion behavior. Later host transforms and accepted transaction normalizers retain precedence. Later pasted blocks and headings keep their own properties. A paragraph or heading `background-color` has no destination attribute and is dropped without a notice; unsupported `background` shorthand is reported. Core does not retain alpha in RGBA text colors or partially transparent backgrounds.
+The first open paragraph normally joins the destination paragraph and keeps its alignment and line spacing. An external Preserve paste into a completely empty paragraph instead retains the first source paragraph's explicit supported alignment, line spacing and a paragraph background, including inside a list item or table cell. When the first paragraph joins the empty target, it keeps that block's identity and unspecified destination properties. SmartPaste still replaces whole blocks when its existing image or mixed-block insertion rules apply. Existing text, headings, recognized own copies, Adapt and dropped HTML keep their existing insertion behavior. Later host transforms and accepted transaction normalizers retain precedence. Later pasted blocks and headings keep their own properties. Paragraph and heading backgrounds stay on their block and use `BlockColor` to paint the full width, including an empty paragraph. Nested inline highlights remain independent. Destination checks verify each final paragraph or heading level. When its full-width fill cannot be represented, cleanup reports `destination-formatting-unconfirmed` and keeps an inline highlight if supported. A destination with neither capability keeps the content without its fill. Adapt removes both kinds of background. Supported RGBA colors retain their alpha value; no opaque replacement is inferred.
 
 These rules do not qualify every application or clipboard path. The [support matrix](https://github.com/domternal/domternal/blob/main/e2e/native-office-capture/SUPPORT-MATRIX.md) records tested versions, provenance and remaining source limits.

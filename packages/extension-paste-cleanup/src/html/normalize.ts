@@ -15,6 +15,7 @@ import { collectDestinationDemand } from './destinationDemand.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
 import { adaptHeadingLevels, HEADING_LEVEL_FEATURES, HEADING_TEXT_FEATURES, recordHeadingOutline } from './headingLevels.js';
 import { recordFirstParagraphFormat } from './firstParagraph.js';
+import { adaptParagraphBackgrounds, PARAGRAPH_BACKGROUND_FEATURES } from './paragraphBackgrounds.js';
 import type { HeadingPlacement } from './headingLevels.js';
 import { recordImageStandIns } from './imageStandIns.js';
 import { LINK_FEATURES, unwrapLinks } from './links.js';
@@ -440,7 +441,7 @@ export function normalizeClipboardHTML(
       // A link whose scheme the destination lacks keeps its text, one report each.
       const refusedLinks = unconfirmed.filter(feature => LINK_FEATURES.includes(feature));
       if (refusedLinks.length > 0) unwrapLinks(sanitized, refusedLinks, node => { report('link-removed', node); });
-      let remaining = unconfirmed.filter(feature => !LINK_FEATURES.includes(feature));
+      let remaining = unconfirmed.filter(feature => !LINK_FEATURES.includes(feature) && !PARAGRAPH_BACKGROUND_FEATURES.includes(feature));
       if (remaining.some(feature => HEADING_LEVEL_FEATURES.includes(feature))) {
         // A heading keeps its meaning at the nearest level the destination supports. Only a level
         // that every answer confirmed counts, and without one the destination makes paragraphs.
@@ -463,6 +464,10 @@ export function normalizeClipboardHTML(
         }
       }
       if (remaining.length > 0) report('destination-formatting-unconfirmed');
+      // Test the final heading tag after level adaptation, rather than treating one supported paragraph as every block.
+      if (adaptParagraphBackgrounds(sanitized, destination, node => { report('destination-formatting-unconfirmed', node); })) {
+        assertOutputTreeBounds(sanitized, limits.maxNodes, limits.maxDepth);
+      }
     }
     if (!own && (options.formatting ?? 'preserve') === 'preserve') recordFirstParagraphFormat(result, sanitized);
     if (preparation === undefined) result.html = toHtml(sanitized);

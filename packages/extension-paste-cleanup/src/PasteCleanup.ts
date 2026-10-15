@@ -267,7 +267,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
             else {
               disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: owned.operation.operationId });
               tracking.recordSlice(owned.operation, slice);
-              firstParagraph.remember(owned.operation.operationId, slice, view.state, format);
+              firstParagraph.remember(owned.operation.operationId, slice, view.state, format, view.dom.ownerDocument);
             }
             return owned.blocked;
           }
@@ -307,7 +307,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
               disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: operation.operationId });
               // A heading finding follows the slice's headings into the document.
               tracking.recordSlice(operation, slice);
-              firstParagraph.remember(operation.operationId, slice, view.state, format);
+              firstParagraph.remember(operation.operationId, slice, view.state, format, view.dom.ownerDocument);
             }
           }
           if (block) event.preventDefault();

@@ -5,11 +5,14 @@ import { cleanSliceContext } from './metadata.js';
 import { listStyleFromType, validListStyle } from './listStyles.js';
 import type { PasteHTMLLimits } from './types.js';
 import { linkFeature } from './links.js';
+import { PARAGRAPH_BACKGROUNDS, PARAGRAPH_BACKGROUND_FEATURES } from './paragraphBackgrounds.js';
 
 export type PasteDestinationFeature =
   | 'bold' | 'italic' | 'underline' | 'strike' | 'subscript' | 'superscript'
   | 'heading-1' | 'heading-2' | 'heading-3' | 'heading-4' | 'heading-5' | 'heading-6'
   | 'font-family' | 'font-size' | 'text-color' | 'highlight' | 'text-align' | 'line-height'
+  | 'paragraph-background' | 'heading-1-background' | 'heading-2-background' | 'heading-3-background'
+  | 'heading-4-background' | 'heading-5-background' | 'heading-6-background'
   | 'table' | 'table-header' | 'ordered-list' | 'bullet-list' | 'nested-list'
   | 'ordered-list-style' | 'bullet-list-style'
   // A task list whose items keep their checked state; without one the editor parses it as a bullet list.
@@ -25,6 +28,7 @@ const featureOrder: readonly PasteDestinationFeature[] = Object.freeze([
   'bold', 'italic', 'underline', 'strike', 'subscript', 'superscript',
   'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6',
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
+  ...PARAGRAPH_BACKGROUND_FEATURES,
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
   'ordered-list-style', 'bullet-list-style', 'task-list',
   'link-http', 'link-https', 'link-mailto', 'link-tel',
@@ -75,6 +79,8 @@ function elementDemand(node: Element, hasInlineContent: boolean, nestedList: boo
   if (paragraph) {
     if (styles.has('text-align')) features.add('text-align');
     if (styles.has('line-height')) features.add('line-height');
+    const backgroundFeature = Object.hasOwn(PARAGRAPH_BACKGROUNDS, tag) ? PARAGRAPH_BACKGROUNDS[tag] : undefined;
+    if (backgroundFeature !== undefined && styles.has('background-color') && node.properties['dataBgColor'] === undefined) features.add(backgroundFeature);
   }
   if (!hasInlineContent) return;
 

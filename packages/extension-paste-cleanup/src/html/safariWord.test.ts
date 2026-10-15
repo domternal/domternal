@@ -255,17 +255,28 @@ describe('Safari copies of Word: what the native fixture review found', () => {
   });
 
   it.each([
-    ['a paragraph', '<p class=MsoNormal style=\'background:#D9D9D9\'>Shaded</p>'],
-    ['a Safari heading', '<h1 style="background: rgb(240, 240, 240)">Shaded</h1>'],
     ['a division', '<div style="background:#eeeeee">Shaded</div>'],
     ['a list item', '<ul><li style="background:#eee">Shaded</li></ul>'],
-  ])('reports the shading of %s, which no block keeps, in preserve and adapts it quietly', (_name, block) => {
+  ])('reports the shading of %s, which has no supported fill owner, in preserve and adapts it quietly', (_name, block) => {
     const preserve = normalizePasteHTML(block);
     expect(warnings(preserve.diagnostics)).toEqual(['unsupported-formatting']);
     expect(preserve.html).not.toContain('background');
     const adapt = normalizePasteHTML(block, { formatting: 'adapt' });
     expect(warnings(adapt.diagnostics)).toEqual([]);
     expect(adapt.html).not.toContain('background');
+    expect(adapt.diagnostics.some(entry => entry.code === 'formatting-adapted')).toBe(true);
+  });
+
+  it.each([
+    ['<p class=MsoNormal style=\'background:#D9D9D9\'>Shaded</p>', '<p style="background-color:#D9D9D9">Shaded</p>'],
+    ['<h1 style="background: rgb(240, 240, 240)">Shaded</h1>', '<h1 style="background-color:rgb(240, 240, 240)">Shaded</h1>'],
+  ])('retains a paragraph or heading fill in preserve and removes it in adapt: %s', (block, expected) => {
+    const preserve = normalizePasteHTML(block);
+    expect(preserve.html).toBe(expected);
+    expect(preserve.diagnostics).toEqual([]);
+    const adapt = normalizePasteHTML(block, { formatting: 'adapt' });
+    expect(adapt.html).not.toContain('background');
+    expect(warnings(adapt.diagnostics)).toEqual([]);
     expect(adapt.diagnostics.some(entry => entry.code === 'formatting-adapted')).toBe(true);
   });
 

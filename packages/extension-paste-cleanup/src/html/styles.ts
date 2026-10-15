@@ -85,8 +85,8 @@ function smallTracking(value: string): boolean {
 }
 
 const backgroundInitials = new Set(['none', 'repeat', 'scroll', '0', '0%', 'left', 'top', 'auto', 'padding-box', 'border-box', 'initial']);
-// Where a painted background has a home: a run's highlight, or a table cell's background. A block keeps none.
-const backgroundOwners = new Set(['', 'span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'a', 'code', 'sub', 'sup', 'font', 'td', 'th']);
+// A fill belongs to its paragraph, heading or cell. Inline fills remain text highlights, never inherited block fills.
+const backgroundOwners = new Set(['', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'a', 'code', 'sub', 'sup', 'font', 'td', 'th']);
 
 /** A background shorthand of initial values and transparent only, such as `transparent none repeat scroll 0% 0%`: it paints nothing. */
 function paintsNothing(value: string): boolean {

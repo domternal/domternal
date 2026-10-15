@@ -3,11 +3,13 @@ import type { DOMOutputSpec, Node as PMNode, Schema } from '@domternal/pm/model'
 import type { PasteDestinationFeature } from './html/destinationDemand.js';
 import { officeListCapabilities } from './listCapabilities.js';
 import { bulletListStyles, orderedListStyles } from './html/listStyles.js';
+import { PARAGRAPH_BACKGROUNDS, PARAGRAPH_BACKGROUND_FEATURES } from './html/paragraphBackgrounds.js';
 
 const FEATURES: readonly PasteDestinationFeature[] = Object.freeze([
   'bold', 'italic', 'underline', 'strike', 'subscript', 'superscript',
   'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6',
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
+  ...PARAGRAPH_BACKGROUND_FEATURES,
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
   'ordered-list-style', 'bullet-list-style', 'task-list',
   'link-http', 'link-https', 'link-mailto', 'link-tel',
@@ -116,6 +118,15 @@ export function getUnsupportedDestinationFeatures(
   };
   let lists: ReturnType<typeof officeListCapabilities> | undefined;
   const supports = (feature: PasteDestinationFeature): boolean => {
+    if (PARAGRAPH_BACKGROUND_FEATURES.includes(feature)) {
+      const tag = Object.entries(PARAGRAPH_BACKGROUNDS).find(([, value]) => value === feature)?.[0];
+      if (tag === undefined) return false;
+      const values = ['#123456', '#654321'];
+      const nodes = parse(values.map((value, index): DOMOutputSpec => [tag, { style: `background-color:${value}` }, String(index)]));
+      return nodes.length === 2 && nodes.every((node, index) => node.type.name === (tag === 'p' ? 'paragraph' : 'heading')
+        && (tag === 'p' || node.attrs['level'] === Number(tag.slice(1))) && node.attrs['bgColor'] === values[index]
+        && node.childCount === 1 && node.firstChild?.isText === true && node.textContent === String(index));
+    }
     if (feature === 'ordered-list-style' || feature === 'bullet-list-style') {
       const ordered = feature === 'ordered-list-style';
       const tag = ordered ? 'ol' : 'ul';

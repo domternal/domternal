@@ -53,6 +53,8 @@ This provides paragraphs, headings, lists and basic marks. Add the corresponding
 
 The default nonmodal notice reports warnings and blocked input, with details and dismissal. The theme styles it. Clean pastes and intentional formatting adaptation stay quiet. Markdown, Link, SmartPaste and history keep their normal insertion behavior; plain text and code-block pastes keep their interpretation, subject to the limits below.
 
+Paragraph and heading fills use `BlockColor` to paint the full block width, including empty paragraphs. Inline highlights remain separate. Without the corresponding block capability, cleanup keeps an inline highlight when supported and reports the lost full-width fill. Adapt removes both background styles.
+
 ## Preserve or adapt formatting
 
 | Policy | Behavior |
@@ -70,7 +72,7 @@ PasteCleanup.configure({
 });
 ```
 
-When an external Preserve paste fills a completely empty paragraph, its first paragraph keeps explicit supported alignment and line spacing. This also applies to an empty paragraph inside a list item or table cell. Pasting into existing text or a heading keeps the destination insertion behavior, and unstyled content does not reset the destination format.
+When an external Preserve paste fills a completely empty paragraph, its first paragraph keeps explicit supported alignment, line spacing and a paragraph background. This also applies to an empty paragraph inside a list item or table cell. Pasting into existing text or a heading keeps the destination insertion behavior, and unstyled content does not reset the destination format.
 
 Word copies can also retain font family, size and color from bounded simple stylesheet selectors, with inline and `!important` precedence. Unsupported stylesheet constructs are reported; fonts are not downloaded. Neither policy reproduces page layout or arbitrary stylesheets. Recognized copies between PasteCleanup editors on the same page retain editor formatting in both modes. See [HTML and formatting](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md) and [lists](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/lists.md) for supported shapes and fallbacks.
 
