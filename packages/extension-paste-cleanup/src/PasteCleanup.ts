@@ -1,11 +1,11 @@
 import { Extension, ExtensionConfigurationError } from '@domternal/core';
-import { setClipboardPasteBehavior, armClipboardPasteTransaction, registerClipboardCopyAnnotation, pasteClipboardImageFiles, dropClipboardImageFiles } from '@domternal/core/clipboard';
+import { setClipboardPasteBehavior, armClipboardPasteTransaction, registerClipboardCopyAnnotation, registerClipboardHTMLPreparation, getClipboardPasteAttemptIdentity, pasteClipboardImageFiles, dropClipboardImageFiles } from '@domternal/core/clipboard';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { closeHistory } from '@domternal/pm/history';
 import { Slice } from '@domternal/pm/model';
 import { normalizePasteHTML, DEFAULT_PASTE_HTML_LIMITS } from './html/index.js';
-import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './html/index.js';
+import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteFormatting } from './html/index.js';
 import { normalizeClipboardHTML } from './html/normalize.js';
 import { imageStandIns, imageStandInAlts } from './html/imageStandIns.js';
 import { removedText } from './html/removedText.js';
@@ -26,8 +26,12 @@ import type { ClipboardAssetCoordinator } from './clipboard/coordinator.js';
 import type { ClipboardImageAssetOptions, PastePreparationProgress } from './clipboard/types.js';
 import { annotateOwnCopy, isOwnCopyNonce } from './clipboard/ownCopy.js';
 import { claimClipboardSlot } from './clipboard/ownership.js';
+import { createPasteFormattingPolicy } from './pasteFormatting.js';
+import type { PasteFormattingResolver } from './pasteFormatting.js';
 
 export interface PasteCleanupOptions extends NormalizePasteHTMLOptions {
+  /** Choose Preserve or Adapt synchronously once per paste. Undefined or a failed callback keeps the configured default. */
+  formattingForPaste?: PasteFormattingResolver;
   /** Opt in to bounded local raster preparation with explicit rich-HTML bindings. */
   imageAssets?: false | ClipboardImageAssetOptions;
   /** Observe a cancellable preparation before any document mutation. */
@@ -55,6 +59,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
       normalizePasteHTML('', options);
       imageAssets = resolveClipboardImageAssets(options.imageAssets);
       if (options.onPasteProgress !== undefined && typeof options.onPasteProgress !== 'function') throw new RangeError('onPasteProgress must be a function');
+      if (options.formattingForPaste !== undefined && typeof options.formattingForPaste !== 'function') throw new RangeError('formattingForPaste must be a function');
     }
     catch (error) { throw new ExtensionConfigurationError(`PasteCleanup: ${error instanceof Error ? error.message : 'Invalid normalization options'}`); }
     if (options.feedback !== 'default' && options.feedback !== 'application') {
@@ -69,6 +74,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
     let coordinator: ClipboardAssetCoordinator | undefined;
     let latestOperationId: string | undefined;
     let disarm: (() => void) | undefined;
+    const formattingPolicy = createPasteFormattingPolicy(options.formatting ?? 'preserve', options.formattingForPaste);
     const startAttempt = (): void => { disarm?.(); disarm = undefined; };
     const tracking = createPasteTracking(options.formatting ?? 'preserve', result => {
       try { if (latestOperationId === result.operationId) feedback?.update(result); } catch { /* Presentation failures do not suppress the host observer. */ }
@@ -94,8 +100,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
       }
       return false;
     };
-    const createOperation = (result?: NormalizePasteHTMLResult): PendingPasteOperation => {
-      const operation = tracking.create(result);
+    const createOperation = (result?: NormalizePasteHTMLResult, formatting?: PasteFormatting): PendingPasteOperation => {
+      const operation = tracking.create(result, formatting ?? formattingPolicy.read(getClipboardPasteAttemptIdentity(editor.view)).formatting);
       latestOperationId = operation.operationId;
       return operation;
     };
@@ -135,15 +141,25 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
         // fails editor setup with guidance and leaves nothing of PasteCleanup behind.
         // Copies from this editor carry a same-page nonce that makes them recognizable own copies.
         const disposeCopyAnnotation = claimClipboardSlot('copy-annotation', () => registerClipboardCopyAnnotation(view, annotateOwnCopy));
+        let disposeFormatting: (() => void) | undefined;
         if (imageAssets !== undefined) {
           try {
             coordinator = createClipboardAssetCoordinator(view, imageAssets, options, {
-              create: createOperation, notify, tracking,
+              create: createOperation, notify, tracking, formatting: formattingPolicy,
               progress: progress => {
                 feedback?.preparing(progress.operationId, progress.cancel);
                 options.onPasteProgress?.(progress);
               },
             });
+          } catch (error) {
+            disposeCopyAnnotation();
+            throw error;
+          }
+        } else if (options.formattingForPaste !== undefined) {
+          try {
+            disposeFormatting = claimClipboardSlot('html-preparation', () => registerClipboardHTMLPreparation(view, () => undefined, context => {
+              formattingPolicy.capture(context.attempt, context.origin);
+            }));
           } catch (error) {
             disposeCopyAnnotation();
             throw error;
@@ -156,7 +172,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
         return {
           update: updatedView => { tracking.observe(updatedView); coordinator?.observe(); refresh(); },
           destroy: () => {
-            startAttempt(); disposeCopyAnnotation(); coordinator?.destroy(); coordinator = undefined;
+            startAttempt(); disposeCopyAnnotation(); disposeFormatting?.(); coordinator?.destroy(); coordinator = undefined;
             editor.off('adopt', adopt); feedback?.dispose(); feedback = undefined;
           },
         };
@@ -234,7 +250,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           const prepared = coordinator?.ordinaryHTML(html);
           if (coordinator?.ordinaryAttempt() === false) { pending = { rejected: true, preserveOrderedListStart: false }; return ''; }
           const { result, preserveOrderedListStart, destinationRejected } = prepared ?? normalizeClipboardHTML(
-            html, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }),
+            html, { ...options, formatting: formattingPolicy.read(getClipboardPasteAttemptIdentity(view)).formatting }, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }),
             undefined, features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features),
             isOwnCopyNonce,
           );

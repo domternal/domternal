@@ -35,6 +35,8 @@ PasteCleanupOptions
 PasteDiagnostic
 PasteDiagnosticCode
 PasteFormatting
+PasteFormattingContext
+PasteFormattingResolver
 PasteHTMLLimits
 PasteNormalizationContext
 PasteOperationRejectionReason

@@ -96,7 +96,7 @@ export function createPasteTracking(
   onPasteResult: ((result: PasteOperationResult) => void) | undefined,
   maxDiagnostics = DEFAULT_PASTE_HTML_LIMITS.maxDiagnostics,
 ): {
-  create: (result?: NormalizePasteHTMLResult) => PendingPasteOperation;
+  create: (result?: NormalizePasteHTMLResult, chosenFormatting?: PasteFormatting) => PendingPasteOperation;
   context: (operation: PendingPasteOperation) => PasteNormalizationContext;
   observe: (view: EditorView) => void;
   /** Installed acceptance survives reference expiry, Undo, destruction, and terminal delivery. */
@@ -127,10 +127,10 @@ export function createPasteTracking(
   const waiting = new Map<string, Waiting>();
   const completions = new WeakMap<PendingPasteOperation, { promise: Promise<PasteOperationResult>; entry: Waiting }>();
   return {
-    create(result) {
+    create(result, chosenFormatting = formatting) {
       const operation: PendingPasteOperation = Object.freeze({
         operationId: `paste-${String(scope)}-${String(++sequence)}`,
-        source: result?.source ?? 'plain-text', formatting,
+        source: result?.source ?? 'plain-text', formatting: chosenFormatting,
         diagnostics: Object.freeze((result?.diagnostics ?? []).map(diagnostic => Object.freeze({ ...diagnostic }))),
         diagnosticsTruncated: result?.diagnosticsTruncated ?? false,
       });

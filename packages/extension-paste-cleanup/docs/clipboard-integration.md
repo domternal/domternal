@@ -6,7 +6,7 @@ Use this reference when integrating custom paste handlers, application feedback 
 
 PasteCleanup registers single clipboard slots from the experimental
 `@domternal/core/clipboard` subpath on each editor it is installed in: the copy
-annotation always, and the HTML preparation when `imageAssets` is enabled. Core
+annotation always, and the HTML preparation when `imageAssets` or `formattingForPaste` is enabled. Core
 accepts one registration per editor for each slot, and whichever registers second
 fails:
 
@@ -24,9 +24,32 @@ fails:
   the constructor with Core's error, and the teardown releases PasteCleanup as well.
 
 To resolve a conflict, remove the other registration from that editor or leave
-PasteCleanup out of it. For the HTML preparation, `imageAssets: false` leaves the
-slot to the other registration, and `imageAssets` with `mode: 'resolver'` stages
+PasteCleanup out of it. For the HTML preparation, `imageAssets: false` with no
+`formattingForPaste` leaves the slot to the other registration. `imageAssets` with `mode: 'resolver'` stages
 pasted images in application storage without a separate preparation.
+
+## Choose formatting for one paste
+
+`formattingForPaste(context)` lets an application-owned control choose `preserve` or
+`adapt` when a paste starts. The frozen context contains only `defaultFormatting`
+and `origin`, either `native` or `programmatic`. It does not expose source HTML,
+text, browser events, files or image metadata. Return synchronously; `undefined`,
+an exception, an invalid value or a Promise retains the configured `formatting`
+default. Rejected Promises are contained and never disable cleanup.
+
+The choice is captured before clipboard preparation and host HTML transforms. It
+belongs to that attempt, including event-free `view.pasteHTML(...)` and
+`view.pasteText(...)` calls. A nested paste chooses independently. A deferred image
+operation and its authorized replay retain their original choice even if the UI
+changes while preparation is pending. `onResult` and `onPasteResult` report this
+same policy; cancellation, Undo and Redo do not invoke the selector again.
+
+An empty, intercepted or code-block paste can call the selector without producing
+an HTML-cleanup result. The callback does not change routing: plain text, Markdown,
+code blocks and recognized same-page own copies retain their existing semantics.
+Drops, direct transform calls outside a paste and the standalone `/html` API use
+the static `formatting` option. The control should be available before pasting;
+this API does not retain the clipboard to offer a second-format paste afterward.
 
 ## Built-in notice
 

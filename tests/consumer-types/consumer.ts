@@ -37,6 +37,7 @@ import '@domternal/extension-math';
 import '@domternal/extension-mention';
 import { PasteCleanup, pasteCleanupMessages, getPasteAffectedReferences, normalizePasteHTML as normalizePasteFromMain } from '@domternal/extension-paste-cleanup';
 import type { NormalizePasteHTMLResult as MainPasteHTMLResult } from '@domternal/extension-paste-cleanup';
+import type { PasteFormattingContext, PasteFormattingResolver } from '@domternal/extension-paste-cleanup';
 import { DEFAULT_CLIPBOARD_ASSET_LIMITS, MAX_CLIPBOARD_ASSET_LIMITS } from '@domternal/extension-paste-cleanup';
 import type { ClipboardAssetLimits, ClipboardImageBinding, ClipboardImageMatchContext, PastePreparationProgress } from '@domternal/extension-paste-cleanup';
 import type { ClipboardResolverAdapter, ClipboardCreatedResource, ClipboardAssetRecoveryReport } from '@domternal/extension-paste-cleanup';
@@ -135,6 +136,19 @@ type SubpathWriteToClipboard = typeof clipboardEntry.writeToClipboard;
 
 // Both published entries retain the same typed conversion contract.
 PasteCleanup.configure({ formatting: 'adapt' });
+const choosePasteFormatting: PasteFormattingResolver = (context: Readonly<PasteFormattingContext>) => {
+  const origin: 'native' | 'programmatic' = context.origin;
+  // @ts-expect-error Policy contexts never expose live clipboard data.
+  context.clipboardData;
+  // @ts-expect-error The context is immutable for the active attempt.
+  context.defaultFormatting = 'adapt';
+  return context.defaultFormatting;
+};
+PasteCleanup.configure({ formattingForPaste: choosePasteFormatting });
+// @ts-expect-error Per-paste choices are synchronous; asynchronous UI must choose before pasting.
+PasteCleanup.configure({ formattingForPaste: async () => 'adapt' });
+// @ts-expect-error Only the existing Preserve and Adapt policies are accepted.
+PasteCleanup.configure({ formattingForPaste: () => 'source' });
 const assetLimits: Readonly<ClipboardAssetLimits> = DEFAULT_CLIPBOARD_ASSET_LIMITS;
 const maximumAssetBytes: number = MAX_CLIPBOARD_ASSET_LIMITS.maxTotalFileBytes;
 PasteCleanup.configure({ imageAssets: {

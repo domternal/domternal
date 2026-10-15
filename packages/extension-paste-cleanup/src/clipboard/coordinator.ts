@@ -1,11 +1,12 @@
-import { getClipboardImageDestination, getClipboardPasteAttemptEvent, pasteHasOwnText, registerClipboardHTMLPreparation } from '@domternal/core/clipboard';
+import { getClipboardImageDestination, getClipboardPasteAttemptEvent, getClipboardPasteAttemptIdentity, pasteHasOwnText, registerClipboardHTMLPreparation } from '@domternal/core/clipboard';
 import type { ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay } from '@domternal/core/clipboard';
 import type { Slice } from '@domternal/pm/model';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
 import type { normalizeClipboardHTML } from '../html/normalize.js';
-import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from '../html/types.js';
+import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteFormatting } from '../html/types.js';
+import type { createPasteFormattingPolicy, PasteFormattingSnapshot } from '../pasteFormatting.js';
 import { firstParagraphFormat } from '../html/firstParagraph.js';
 import type { FirstParagraphFormat } from '../html/firstParagraph.js';
 import { officeListCapabilities } from '../listCapabilities.js';
@@ -95,6 +96,7 @@ type Tracking = ReturnType<typeof createPasteTracking>;
 type Prepared = Extract<ClipboardHTMLPreparationResult, { status: 'prepared' }>;
 
 interface CaptureEntry {
+  readonly formatting: Readonly<PasteFormattingSnapshot>;
   readonly capture: ClipboardCaptureResult;
   readonly generation: number;
   readonly document: EditorState['doc'];
@@ -151,7 +153,8 @@ export interface ClipboardReplayHandling {
 }
 
 interface CoordinatorHooks {
-  readonly create: (result: NormalizePasteHTMLResult) => PendingPasteOperation;
+  readonly create: (result: NormalizePasteHTMLResult, formatting?: PasteFormatting) => PendingPasteOperation;
+  readonly formatting: ReturnType<typeof createPasteFormattingPolicy>;
   readonly notify: (result: NormalizePasteHTMLResult, operation: PendingPasteOperation) => void;
   readonly progress: (progress: PastePreparationProgress) => void;
   readonly tracking: Tracking;
@@ -329,6 +332,7 @@ export function createClipboardAssetCoordinator(
   };
   const capture = (event: ClipboardEvent, html?: string): CaptureEntry => {
     const ownGeneration = generation;
+    const formatting = hooks.formatting.read(getClipboardPasteAttemptIdentity(view));
     const state = view.state;
     const ownerDocument = view.dom.ownerDocument;
     const revision = pasteDocumentRevision(view);
@@ -343,7 +347,7 @@ export function createClipboardAssetCoordinator(
       } as DataTransfer;
       result = captureClipboard(input, captureLimits);
     } catch { result = { status: 'rejected', reason: 'unreadable-payload' }; }
-    return { capture: result, generation: ownGeneration, document: state.doc, selection: state.selection, schema: state.schema, revision, ownerDocument };
+    return { capture: result, formatting, generation: ownGeneration, document: state.doc, selection: state.selection, schema: state.schema, revision, ownerDocument };
   };
   const targetMatches = (entry: CaptureEntry): boolean => !view.isDestroyed && view.state.doc === entry.document &&
     view.state.schema === entry.schema && view.state.selection.eq(entry.selection) &&
@@ -351,22 +355,22 @@ export function createClipboardAssetCoordinator(
   const rejectCapture = (entry: CaptureEntry): void => {
     const limited = entry.capture.status === 'rejected' && entry.capture.reason === 'input-limit';
     const normalization = emptyResult(limited ? 'input-limit' : 'parse-failed');
-    const operation = hooks.create(normalization);
+    const operation = hooks.create(normalization, entry.formatting.formatting);
     void hooks.tracking.finish(view, operation, true, { reason: limited ? 'asset-limit' : 'assets-unavailable', normalization });
     hooks.notify(normalization, operation);
   };
-  const prepare = (html: string): ClipboardHTMLPreparationResult => {
+  const prepare = (html: string, formatting: Readonly<PasteFormattingSnapshot>): ClipboardHTMLPreparationResult => {
     const destination = readDestination();
     const inline = assetOptions.mode === 'resolver' && destination?.allowEmbedded === false
       ? { destination, assetLimits, sourceAllowDataImages: htmlOptions.allowDataImages !== false } : undefined;
-    return prepareClipboardHTML(html, preparationLimits, htmlOptions,
+    return prepareClipboardHTML(html, preparationLimits, { ...htmlOptions, formatting: formatting.formatting },
       () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }), inline,
       features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features), isOwnCopyNonce);
   };
   const makeOperation = (result: ClipboardHTMLPreparationResult, entry: CaptureEntry): AssetOperation => {
     const normalization = result.status === 'prepared'
       ? readPreparedClipboardHTMLNormalization(result.handle) ?? emptyResult('parse-failed') : result.normalization;
-    const operation = hooks.create(normalization);
+    const operation = hooks.create(normalization, entry.formatting.formatting);
     const targetReady = current(entry.generation) && targetMatches(entry);
     const destinationRejected = result.status === 'rejected' && result.destinationRejected === true;
     const started = targetReady && !destinationRejected ? sessions.start(operation.operationId) : undefined;
@@ -558,7 +562,7 @@ export function createClipboardAssetCoordinator(
     }
     handledAssets.add(sourceEvent);
     const preparationState = view.state;
-    const result = prepare(html);
+    const result = prepare(html, captured.formatting);
     if (result.status === 'prepared' && result.references.length === 0 && result.inlineAssets.placements.length === 0
       && !(assetOptions.mode === 'resolver' && readDestination()?.allowEmbedded === false && result.hasRemovedImages)) {
       // An earlier host transform may change schema behavior or own-copy identity even when
@@ -589,9 +593,11 @@ export function createClipboardAssetCoordinator(
       const own = context.event === undefined ? undefined : replays.get(context.event);
       if (own?.view === view && !own.attemptSeen && !own.asset.done) {
         own.attemptSeen = true;
+        hooks.formatting.inherit(context.attempt, own.asset.target.formatting);
         return;
       }
       const ownGeneration = begin();
+      if (current(ownGeneration)) hooks.formatting.capture(context.attempt, context.origin);
       if (current(ownGeneration) && context.origin === 'native' && context.event !== undefined) {
         nativeAttempts.set(context.event, ownGeneration);
       }
@@ -682,7 +688,7 @@ export function createClipboardAssetCoordinator(
       // One file stands for the one image the pasted content held and keeps its alt text.
       const alt = files.length === 1 ? singleImageAlt(slice, readDestination()?.nodeTypeName, standIns, sourceAlts) : undefined;
       const altAttribute = alt === undefined ? '' : ` alt="${escapeAttribute(alt)}"`;
-      const result = prepare(files.map(item => `<img src="cid:clipboard-item-${String(item.itemIndex)}"${altAttribute}>`).join(''));
+      const result = prepare(files.map(item => `<img src="cid:clipboard-item-${String(item.itemIndex)}"${altAttribute}>`).join(''), entry.formatting);
       const asset = makeOperation(result, entry);
       if (result.status !== 'prepared') return true;
       // Each source File is the explicitly selected image in this HTML-free route.
