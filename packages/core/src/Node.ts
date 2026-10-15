@@ -251,6 +251,7 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
           consuming?: boolean;
           context?: string;
           preserveWhitespace?: boolean | 'full';
+          contentElement?: TagParseRule['contentElement'];
           getAttrs?: (
             node: HTMLElement | string
           ) => Record<string, unknown> | false | null;
@@ -261,6 +262,7 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
         if (rule.priority !== undefined) parseRule.priority = rule.priority;
         if (rule.consuming !== undefined) parseRule.consuming = rule.consuming;
         if (rule.context) parseRule.context = rule.context;
+        if (rule.contentElement !== undefined) parseRule.contentElement = rule.contentElement;
         if (rule.preserveWhitespace !== undefined)
           parseRule.preserveWhitespace = rule.preserveWhitespace;
 

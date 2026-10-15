@@ -194,6 +194,12 @@ writer without the extension can remove the unknown attribute when it edits a
 list. See the [list-label contract](docs/content.md#optional-list-labels) for
 supported records, diagnostics, serialization and rendering limits.
 
+Whole HTML list items that begin with a nested list receive an empty paragraph
+label during parsing, so their outer numbering, checked state and later siblings
+stay together. This works on load, paste, drop and server-side HTML conversion
+without Paste Cleanup. Native partial copies keep their open slice boundaries;
+the original DOM and already valid list items are unchanged.
+
 ## Content and validation
 
 Use JSON for structured storage and HTML or plain text when your application needs

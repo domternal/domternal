@@ -16,6 +16,7 @@
  * Tab / Shift-Tab sink / lift the item; Mod-Enter toggles checked state.
  */
 import { Node } from '../Node.js';
+import { listItemContent } from '../utils/listItemContent.js';
 import { splitListItem, liftListItem, sinkListItem } from '@domternal/pm/schema-list';
 import { Selection } from '@domternal/pm/state';
 import { splitBlock } from '@domternal/pm/commands';
@@ -81,6 +82,7 @@ export const TaskItem = Node.create<TaskItemOptions>({
       {
         tag: `li[data-type="${this.name}"]`,
         priority: 51,
+        contentElement: listItemContent,
       },
       // GFM / markdown task lists: `<li class="task-list-item">` carries no
       // data-type. Priority 51 keeps it ahead of the generic `li` (listItem,
@@ -89,6 +91,7 @@ export const TaskItem = Node.create<TaskItemOptions>({
       {
         tag: 'li.task-list-item',
         priority: 51,
+        contentElement: listItemContent,
       },
     ];
   },

@@ -5,7 +5,7 @@
  * for creating ProseMirror node extensions.
  */
 
-import type { Node as PMNode, DOMOutputSpec, NodeType } from '@domternal/pm/model';
+import type { Node as PMNode, DOMOutputSpec, NodeType, TagParseRule } from '@domternal/pm/model';
 import type { EditorState, Plugin } from '@domternal/pm/state';
 import type { EditorView, NodeViewConstructor } from '@domternal/pm/view';
 import type { I18nService } from '../i18n/index.js';
@@ -92,6 +92,9 @@ export interface NodeParseRule {
   getAttrs?:
     | ((node: HTMLElement) => Record<string, unknown> | null | undefined)
     | null;
+
+  /** Read child content from a selector, element or standard ProseMirror content-element callback. */
+  contentElement?: TagParseRule['contentElement'];
 
   /**
    * Get content from the matched element

@@ -5,7 +5,7 @@ import { readListLabel as readPureListLabel, formatListLabel as formatPureListLa
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
-import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation, writeToClipboard, PluginKey } from '@domternal/core';
+import { Node, coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation, writeToClipboard, PluginKey } from '@domternal/core';
 import type { CompleteMessages, Messages, MessageValue } from '@domternal/core';
 import type * as mainEntry from '@domternal/core';
 // Clipboard coordination is published only on the experimental subpath.
@@ -46,6 +46,12 @@ import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
 import type { PasteHTMLLimits, NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup/html';
 import '@domternal/extension-table';
 import '@domternal/extension-toc';
+
+// Standard ProseMirror content-element rules remain available through Node.create.
+Node.create({ name: 'consumerContent', group: 'block', content: 'block+',
+  parseHTML: () => [{ tag: 'article', contentElement: element => element.querySelector<HTMLElement>('section') ?? element }],
+  renderHTML: () => ['article', 0],
+});
 
 declare const editor: Editor;
 declare const clipboardEvent: ClipboardEvent;

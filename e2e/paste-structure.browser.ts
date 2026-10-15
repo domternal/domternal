@@ -446,12 +446,12 @@ const LABELS: Record<string, { html: string; doc: string }> = {
   },
 };
 for (const framework of FRAMEWORKS) {
-  test(`${framework} keeps a nested list that starts a list item in its item with PasteCleanup`, async ({ page }) => {
-    for (const query of [{}, { 'smart-paste': 'off' }] as Record<string, string>[]) {
+  test(`${framework} keeps a nested list that starts a list item with and without PasteCleanup`, async ({ page }) => {
+    for (const query of [{}, { 'smart-paste': 'off' }, { 'paste-cleanup': 'off' }, { 'paste-cleanup': 'off', 'smart-paste': 'off' }] as Record<string, string>[]) {
       await open(page, framework, query);
       for (const [name, { html, doc }] of Object.entries(LABELS)) {
         expect(await paste(page, '<p></p>', { html, text: 'fallback' }), `${name} ${JSON.stringify(query)}`)
-          .toEqual({ doc, valid: true, status: ['applied'] });
+          .toEqual({ doc, valid: true, status: query['paste-cleanup'] === 'off' ? [] : ['applied'] });
       }
     }
   });
@@ -503,6 +503,52 @@ for (const framework of FRAMEWORKS) {
         return { doc: probe.editor.state.doc.toString(), codes: probe.results.flatMap(result => result.diagnostics.map(diagnostic => diagnostic.code)) };
       }), name).toEqual({ doc: before, codes: [] });
       await expect(page.locator('.dm-paste-feedback'), name).toBeHidden();
+    }
+  });
+}
+for (const framework of FRAMEWORKS) {
+  test(`${framework} loads and drops nested-list-first items without cleanup`, async ({ page }) => {
+    await open(page, framework, { 'paste-cleanup': 'off', 'smart-paste': 'off', 'unique-id': 'off', 'list-markers': '1' });
+    const cases = [
+      ['<ol start="3" type="a"><li><ul><li>nested</li></ul></li><li>last</li></ol>', 'doc(orderedList(listItem(paragraph, bulletList(listItem(paragraph("nested")))), listItem(paragraph("last"))))'],
+      ['<ul><li><ol start="0"><li>nested</li></ol></li><li>last</li></ul>', 'doc(bulletList(listItem(paragraph, orderedList(listItem(paragraph("nested")))), listItem(paragraph("last"))))'],
+      ['<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><label contenteditable="false"><input type="checkbox" checked></label><div><ul><li>nested</li></ul></div></li><li data-type="taskItem"><p>last</p></li></ul>', 'doc(taskList(taskItem(paragraph, bulletList(listItem(paragraph("nested")))), taskItem(paragraph("last"))))'],
+    ];
+    for (const [html, expected] of cases) {
+      const result = await page.evaluate(html => {
+        const probe = (window as unknown as ProbeWindow & { __pasteCleanup: { closeHistory: () => void } }).__pasteCleanup;
+        const { editor } = probe;
+        // A drop before the empty destination paragraph retains that paragraph.
+        editor.setContent(`${html ?? ''}<p></p>`, false);
+        const loaded = editor.state.doc.toString();
+        const original = JSON.stringify(editor.state.doc.toJSON());
+        editor.setContent('<p></p>', false);
+        probe.select(1);
+        probe.closeHistory();
+        const before = JSON.stringify(editor.state.doc.toJSON());
+        const data = new DataTransfer();
+        data.setData('text/html', html ?? '');
+        data.setData('text/plain', 'nested\nlast');
+        const box = editor.view.dom.getBoundingClientRect();
+        const event = new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true,
+          clientX: box.left + 5, clientY: box.top + 5 });
+        editor.view.dom.dispatchEvent(event);
+        editor.state.doc.check();
+        const dropped = editor.state.doc.toString();
+        const kept = JSON.stringify(editor.state.doc.toJSON());
+        const undo = editor.commands.undo();
+        const restored = JSON.stringify(editor.state.doc.toJSON());
+        const redo = editor.commands.redo();
+        return { loaded, dropped, original, kept, handled: event.defaultPrevented, undo, redo, before, restored,
+          replayed: JSON.stringify(editor.state.doc.toJSON()) };
+      }, html);
+      const withDestinationParagraph = `${(expected ?? '').slice(0, -1)}, paragraph)`;
+      expect(result.loaded).toBe(withDestinationParagraph);
+      expect(result.dropped).toBe(withDestinationParagraph);
+      expect(result.kept).toBe(result.original);
+      expect(result).toMatchObject({ handled: true, undo: true, redo: true });
+      expect(result.restored).toBe(result.before);
+      expect(result.replayed).toBe(result.kept);
     }
   });
 }

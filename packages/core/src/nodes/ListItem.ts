@@ -14,6 +14,7 @@
  * Tab / Shift-Tab handled by the ListKeymap extension.
  */
 import { Node } from '../Node.js';
+import { listItemContent } from '../utils/listItemContent.js';
 import { splitListItem } from '@domternal/pm/schema-list';
 import { hasMarkerLiftConflict, liftListItemWithMarker as liftListItem } from '../utils/listMarkerCommands.js';
 import { Selection } from '@domternal/pm/state';
@@ -42,7 +43,7 @@ export const ListItem = Node.create<ListItemOptions>({
   },
 
   parseHTML() {
-    return [{ tag: 'li' }];
+    return [{ tag: 'li', contentElement: listItemContent }];
   },
 
   renderHTML({ HTMLAttributes }) {

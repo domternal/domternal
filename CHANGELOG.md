@@ -10,6 +10,7 @@
 
 ### Fixes
 
+- Preserve whole nested-list-first items during HTML load, paste and drop without Paste Cleanup, while retaining native partial-copy boundaries and task state.
 - Keep a Details disclosure intact when HTML or Markdown replaces a selection across its summary and body, and place dropped blocks at the body start in one undoable transaction.
 - Recover bare clipboard rows and cells inside HTML fragment envelopes, preserve text between row groups, and keep orphan column tags from consuming following content.
 - Keep table content editable after unsupported remote spans invalidate a cell selection, guard explicit table repair, and normalize malformed column widths with a content diagnostic.
