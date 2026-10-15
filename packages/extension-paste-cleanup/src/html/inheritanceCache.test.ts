@@ -5,6 +5,7 @@ import * as styles from './styles.js';
 import { parseBoundedHTML } from './parse.js';
 import { resolveInlineInheritance } from './inheritance.js';
 import type { InlineInheritanceOptions } from './inheritance.js';
+import { listLabelStyleName } from './listLabels.js';
 
 const limits = { maxInputLength: 2_000_000, maxNodes: 30_000, maxDepth: 128, maxDiagnostics: 100,
   maxTableCells: 20_000, maxImages: 200, maxImagePixels: 50_000_000 };
@@ -51,6 +52,17 @@ describe('per-pass inheritance parse reuse', () => {
     expect(resolve(input, { wordSource: true }).html).not.toContain('color:');
     expect(resolve(input).html.match(/color:#123456/g)).toHaveLength(2);
     expect(resolve(input, { defaultTextColor: '#123456' }).html).not.toContain('color:');
+  });
+
+  it('does not share a compiled marker allowance with another list using the same style text', () => {
+    const label = { kind: 'counter', format: 'decimal', prefix: 'Part ', suffix: ') ' } as const;
+    const name = listLabelStyleName(label);
+    const metadata = JSON.stringify(label).replaceAll('"', '&quot;');
+    const list = (valid: boolean): string => `<ol${valid ? ` data-dm-list-label="${metadata}"` : ''} style="list-style-type:var(--${name}, decimal)"><li><p>Item</p></li></ol>`;
+    const result = resolve(list(true) + list(false) + list(true));
+    expect(result.html.split(`var(--${name}, decimal)`).length - 1).toBe(2);
+    expect(result.unsupported).toHaveLength(1);
+    expect(result.unsupported[0]?.properties['dataDmListLabel']).toBeUndefined();
   });
 
   it('keeps many distinct styles and long uncached attributes correct', () => {
