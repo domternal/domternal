@@ -24,6 +24,7 @@ import type { Command as PMCommand } from '@domternal/pm/state';
 import type { AnyExtension } from './types/EditorOptions.js';
 import type { CommandMap } from './types/Commands.js';
 import type { GlobalAttributes, GlobalAttributeSpec } from './types/ExtensionConfig.js';
+import { buildProseMirrorAttrs } from './helpers/specBuilder.js';
 import type { ToolbarItem } from './types/Toolbar.js';
 import type { FloatingMenuItem } from './types/FloatingMenu.js';
 /* A value import, not a type one: `instanceof` is what tells an extension this
@@ -512,10 +513,7 @@ export class ExtensionManager {
     extraAttrs: Record<string, GlobalAttributeSpec>,
   ): void {
     // 1. Convert global attrs to PM attrs and merge
-    const convertedAttrs: Record<string, { default?: unknown }> = {};
-    for (const [attrName, attrSpec] of Object.entries(extraAttrs)) {
-      convertedAttrs[attrName] = { default: attrSpec.default };
-    }
+    const convertedAttrs = buildProseMirrorAttrs(extraAttrs);
     spec.attrs = { ...spec.attrs, ...convertedAttrs };
 
     // 2. Wrap parseDOM handlers to include global attribute parsing
