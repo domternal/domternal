@@ -134,8 +134,15 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
     const placeholder = editor.locator('.domternal-image-uploading');
     const images = editor.locator('img:not(.ProseMirror-separator)');
     await expect(placeholder).toHaveCount(1);
+    await expect(placeholder).toBeVisible();
+    await expect(placeholder).toHaveAttribute('role', 'status');
+    await expect(placeholder).toHaveAttribute('aria-live', 'polite');
+    await expect(placeholder).toHaveAttribute('aria-atomic', 'true');
+    await expect(placeholder).toHaveText('Loading image...');
+    await expect(placeholder).toHaveAttribute('lang', 'en');
     await expect(images).toHaveCount(0);
-    await expect(editor).toHaveText('Upload anchor');
+    // The visible status belongs to the widget, never to the document or its serialized content.
+    expect(await page.evaluate(() => (window as unknown as AsyncWindow).__i18nOwnership.editor.state.doc.textContent)).toBe('Upload anchor');
     expect(await page.evaluate(() => (window as unknown as AsyncWindow).__i18nOwnership.editor.getHTML())).toBe('<p>Upload anchor</p>');
     const indicator = await placeholder.evaluateHandle(node => node);
     await settle(page);
@@ -149,7 +156,11 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
     });
     await page.evaluate(() => {
       (window as unknown as AsyncWindow).__i18nOwnership.replace({
-        locale: 'fr', messages: { 'core.editor.label': 'Éditeur avec téléversement', 'image.toolbar.insert': 'Insérer une image' },
+        locale: 'fr', messages: {
+          'core.editor.label': 'Éditeur avec téléversement',
+          'image.toolbar.insert': 'Insérer une image',
+          'image.upload.loading': 'Chargement de l’image...',
+        },
       });
     });
     await expect(editor).toHaveAttribute('aria-label', 'Éditeur avec téléversement');
@@ -157,6 +168,8 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
     await expect(editor).toBeFocused();
     // The replacement keeps the pending upload's own placeholder element and adds no image.
     await expect(placeholder).toHaveCount(1);
+    await expect(placeholder).toHaveText('Chargement de l’image...');
+    await expect(placeholder).toHaveAttribute('lang', 'fr');
     expect(await indicator.evaluate(node => node.isConnected)).toBe(true);
     await expect(images).toHaveCount(0);
     await expectPreserved(page);
@@ -172,7 +185,7 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       const element = node as HTMLImageElement;
       return { complete: element.complete, width: element.naturalWidth, height: element.naturalHeight };
     })).toEqual({ complete: true, width: 1, height: 1 });
-    await expect(editor).toContainText('Upload anchor');
+    await expect(editor).toHaveText('Upload anchor');
     expect(await page.evaluate(() => (window as unknown as AsyncWindow).__i18nOwnership.asyncStatus())).toEqual(pending);
     expect(errors).toEqual([]);
   });
