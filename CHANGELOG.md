@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Correct Paste Cleanup configuration guidance when another extension owns clipboard HTML preparation. Releasing that slot requires disabling image assets and omitting per-paste formatting selection.
+
 ## 1.5.0 (2026-10-15)
 
 ### Features
