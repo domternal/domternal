@@ -30,7 +30,7 @@ import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.j
 import { dropInterchangeNewline, emptyParagraphMarks, envelopeTags, transparentOfficeWrapper } from './envelope.js';
 import { wrapLooseInlineRuns } from './looseInline.js';
 import { retainOwnCopyBreaks } from './ownCopyBreaks.js';
-import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
+import { recoverTableParts } from './bareTableParts.js';
 import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
 import { settleWhiteSpace } from './whiteSpace.js';
 import { routineLineHeights } from './wordSpacing.js';
@@ -187,12 +187,9 @@ export function normalizeClipboardHTML(
     let tree: Root;
     try {
       tree = parseBoundedHTML(html, limits, undefined, markup.observer);
-      // Before the table bounds, so the cells of bare rows count as the cells of a table. A
-      // destination without tables keeps their texts, as its paste without cleanup does. Its
-      // markup is read too: the parse above drops the rows after a leading column.
-      if (startsWithTablePart(tree) && destination?.(['table']).includes('table') !== true) {
-        tree = wrapTableContent(parseBoundedHTML(html, limits, 'table', markup.observer));
-      }
+      // Recover bare parts before counting table cells. A destination without tables retains
+      // their text, including content a browser's column-group parser would otherwise discard.
+      tree = recoverTableParts(html, tree, limits, markup.observer, () => destination?.(['table']).includes('table') !== true);
     } finally {
       // Office's conditional comments are read again with one allowance between them, so they at most double the parse.
       const comments = { allocations: 0 };

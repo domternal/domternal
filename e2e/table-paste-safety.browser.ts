@@ -2,10 +2,47 @@ import { expect } from '@playwright/test';
 import type { Editor, JSONContent } from '@domternal/core';
 import { test } from './fixtures.js';
 
-interface ProbeWindow { __pasteCleanup: { ready: boolean; editor: Editor; select: (from: number, to?: number) => void } }
+interface ProbeWindow { __pasteCleanup: { ready: boolean; editor: Editor; select: (from: number, to?: number) => void; closeHistory: () => void } }
 const grid = '<table><tbody><tr><td><p>a</p></td><td><p>b</p></td></tr><tr><td><p>c</p></td><td><p>d</p></td></tr></tbody></table><p>after</p>';
 
 for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
+  test(`${framework} preserves visible clipboard order around incomplete table fragments`, async ({ page }) => {
+    await page.goto(`http://127.0.0.1:5895/?framework=${framework}&unique-id=off`);
+    await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
+    const cases = [
+      ['<html><body><!--StartFragment--><tr><td>a</td><td>b</td></tr><!--EndFragment--></body></html>', 'doc(table(tableRow(tableCell(paragraph("a")), tableCell(paragraph("b")))))'],
+      ['loose<colgroup><col></colgroup><p>pa</p>', 'doc(paragraph("loose"), paragraph("pa"))'],
+      ['text <col> more <p>para</p>', 'doc(paragraph("text more "), paragraph("para"))'],
+      ['<tr><td>first</td></tr>between<tr><td>last</td></tr>', 'doc(table(tableRow(tableCell(paragraph("first")))), paragraph("between"), table(tableRow(tableCell(paragraph("last")))))'],
+    ];
+    for (const [html, expected] of cases) {
+      const result = await page.evaluate(source => {
+        const { editor, select, closeHistory } = (window as unknown as ProbeWindow).__pasteCleanup;
+        editor.setContent('<p></p>', false);
+        select(1);
+        closeHistory();
+        const before = editor.state.doc.toString();
+        const data = new DataTransfer();
+        data.setData('text/html', source ?? '');
+        data.setData('text/plain', 'plain fallback');
+        const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data });
+        if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+        editor.view.dom.dispatchEvent(event);
+        editor.state.doc.check();
+        const doc = editor.state.doc.toString();
+        const handled = event.defaultPrevented;
+        const undo = editor.commands.undo();
+        const restored = editor.state.doc.toString();
+        const redo = editor.commands.redo();
+        return { doc, handled, undo, restored, before, redo, replayed: editor.state.doc.toString() };
+      }, html);
+      expect(result.doc).toBe(expected);
+      expect(result).toMatchObject({ handled: true, undo: true, redo: true });
+      expect(result.restored).toBe(result.before);
+      expect(result.replayed).toBe(result.doc);
+    }
+  });
+
   test(`${framework} keeps table text after a remote invalid span while cells are selected`, async ({ page }) => {
     await page.goto(`http://127.0.0.1:5895/?framework=${framework}&paste-cleanup=off&unique-id=off`);
     await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
