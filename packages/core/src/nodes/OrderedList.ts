@@ -45,19 +45,19 @@ export const OrderedList = Node.create<OrderedListOptions>({
       listStyleType: listMarkerAttribute('orderedList'),
       start: {
         default: 1,
-        // Clamp to a finite integer >= 1. Without this, a malformed
+        // Keep a finite nonnegative integer. Without this, a malformed
         // `start="abc"` parses to NaN; `JSON.stringify(NaN)` is `null`, so
         // getJSON() serializes `start: null` and a save/load cycle
         // permanently dirties the document (reloads as `<ol start="null">`).
         parseHTML: (element: HTMLElement) => {
           const n = parseInt(element.getAttribute('start') ?? '', 10);
-          return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+          return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 1;
         },
         renderHTML: (attributes: Record<string, unknown>) => {
           const start = attributes['start'] as number;
           // Only emit a non-default, valid start. Guards against a stray
           // NaN/non-finite reaching the DOM as `start="NaN"`.
-          if (!Number.isFinite(start) || start <= 1) {
+          if (!Number.isFinite(start) || start < 0 || Math.floor(start) === 1) {
             return {};
           }
           return { start: String(Math.floor(start)) };
@@ -156,7 +156,7 @@ export const OrderedList = Node.create<OrderedListOptions>({
         joinForward: true,
         getAttributes: (match) => {
           const n = parseInt(match[1] ?? '', 10);
-          return { start: Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1 };
+          return { start: Number.isFinite(n) && n >= 0 ? Math.floor(n) : 1 };
         },
       }),
     ];

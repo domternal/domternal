@@ -59,7 +59,7 @@ describe('OrderedList start is validated (no NaN/null corruption)', () => {
     expect(editor.getHTML()).not.toContain('NaN');
     expect(JSON.stringify(editor.getJSON())).not.toContain('"start":null');
   });
-  it('valid start is preserved; values < 1 clamp to 1', () => {
+  it('valid start is preserved; negative values clamp to 1', () => {
     editor = new Editor({ extensions: base, content: '<ol start="5"><li><p>x</p></li></ol>' });
     expect(editor.state.doc.firstChild!.attrs['start']).toBe(5);
     expect(editor.getHTML()).toContain('start="5"');
