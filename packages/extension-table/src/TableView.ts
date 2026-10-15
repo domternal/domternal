@@ -8,7 +8,8 @@
  * - ContentDOM = tbody (ProseMirror renders row content into tbody)
  */
 
-import type { Node as PMNode } from '@domternal/pm/model';
+import { DOMSerializer } from '@domternal/pm/model';
+import type { DOMOutputSpec, Node as PMNode } from '@domternal/pm/model';
 import type { EditorView, NodeView } from '@domternal/pm/view';
 import { TextSelection } from '@domternal/pm/state';
 import {
@@ -44,7 +45,7 @@ import {
   ICON_ALIGN_TOP, ICON_ALIGN_MIDDLE, ICON_ALIGN_BOTTOM,
   ICON_ROW_PLUS_TOP, ICON_ROW_PLUS_BOTTOM, ICON_DELETE_ROW,
   ICON_COL_PLUS_LEFT, ICON_COL_PLUS_RIGHT, ICON_DELETE_COL,
-  CELL_ICON, CELL_COLORS,
+  CELL_ICON, CELL_COLORS, ICON_RESET,
 } from './icons.js';
 
 type PMCommand = (
@@ -144,7 +145,7 @@ export class TableView implements NodeView {
     this.cellHandle.type = 'button';
     this.cellHandle.className = 'dm-table-cell-handle';
     this.bindLabel(this.cellHandle, () => localizeMessage(this.i18n, tableMessages.cellOptions));
-    this.cellHandle.innerHTML = CELL_ICON;
+    this.cellHandle.appendChild(DOMSerializer.renderSpec(this.cellHandle.ownerDocument, CELL_ICON).dom);
     this.cellHandle.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -262,12 +263,12 @@ export class TableView implements NodeView {
 
   // ─── Handle creation ──────────────────────────────────────────────────
 
-  private createHandle(className: string, label: () => ResolvedMessage, icon: string): HTMLButtonElement {
+  private createHandle(className: string, label: () => ResolvedMessage, icon: DOMOutputSpec): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.className = className;
     btn.type = 'button';
     this.bindLabel(btn, label);
-    btn.innerHTML = icon;
+    btn.appendChild(DOMSerializer.renderSpec(btn.ownerDocument, icon).dom);
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault(); // prevent editor blur
       e.stopPropagation();
@@ -352,12 +353,18 @@ export class TableView implements NodeView {
     return toolbar;
   }
 
-  private createToolbarButton(icon: string, label: () => ResolvedMessage, chevron?: string): HTMLButtonElement {
+  private createToolbarButton(icon: DOMOutputSpec, label: () => ResolvedMessage, chevron?: DOMOutputSpec): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dm-table-cell-toolbar-btn';
     this.bindLabel(btn, label);
-    btn.innerHTML = icon + (chevron ? `<span class="dm-table-cell-toolbar-chevron">${chevron}</span>` : '');
+    btn.appendChild(DOMSerializer.renderSpec(btn.ownerDocument, icon).dom);
+    if (chevron) {
+      const wrapper = btn.ownerDocument.createElement('span');
+      wrapper.className = 'dm-table-cell-toolbar-chevron';
+      wrapper.appendChild(DOMSerializer.renderSpec(btn.ownerDocument, chevron).dom);
+      btn.appendChild(wrapper);
+    }
     return btn;
   }
 
@@ -695,7 +702,7 @@ export class TableView implements NodeView {
     dropdown.addEventListener('mouseenter', this.boundCancelHide);
     dropdown.addEventListener('mousedown', (e) => { e.preventDefault(); });
 
-    const items: { icon: string; label: () => ResolvedMessage; action: () => void }[] =
+    const items: { icon: DOMOutputSpec; label: () => ResolvedMessage; action: () => void }[] =
       type === 'row'
         ? [
             { icon: ICON_ROW_PLUS_TOP, label: () => localizeMessage(this.i18n, tableMessages.insertRowAbove), action: () => { this.execRowCmd(addRowBefore); } },
@@ -714,7 +721,7 @@ export class TableView implements NodeView {
       btn.setAttribute('role', 'menuitem');
       const icon = document.createElement('span');
       icon.className = 'dm-table-controls-dropdown-icon';
-      icon.innerHTML = item.icon;
+      icon.appendChild(DOMSerializer.renderSpec(icon.ownerDocument, item.icon).dom);
       icon.setAttribute('aria-hidden', 'true');
       const label = document.createElement('span');
       btn.append(icon, label);
@@ -763,8 +770,7 @@ export class TableView implements NodeView {
       resetBtn.className = 'dm-color-palette-reset';
       resetBtn.setAttribute('role', 'menuitem');
       this.bindLabel(resetBtn, () => localizeMessage(this.i18n, tableMessages.defaultColor));
-      resetBtn.innerHTML =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="14" height="14"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.56,87.56,0,0,1-20.41,56.28L71.72,60.41A88,88,0,0,1,216,128ZM40,128A87.56,87.56,0,0,1,60.41,71.72L184.28,195.59A88,88,0,0,1,40,128Z"/></svg>';
+      resetBtn.appendChild(DOMSerializer.renderSpec(resetBtn.ownerDocument, ICON_RESET).dom);
       const resetLabel = document.createElement('span');
       resetBtn.append(' ', resetLabel);
       this.bindLabel(resetLabel, () => localizeMessage(this.i18n, tableMessages.defaultColorText), resetLabel, false);
@@ -804,13 +810,13 @@ export class TableView implements NodeView {
       const curTextAlign = (cellNode?.attrs['textAlign'] as string | undefined) ?? null;
       const curVerticalAlign = (cellNode?.attrs['verticalAlign'] as string | undefined) ?? null;
 
-      const hAligns: { value: string; label: () => ResolvedMessage; icon: string }[] = [
+      const hAligns: { value: string; label: () => ResolvedMessage; icon: DOMOutputSpec }[] = [
         { value: 'left', label: () => localizeMessage(this.i18n, tableMessages.alignLeft), icon: ICON_ALIGN_LEFT },
         { value: 'center', label: () => localizeMessage(this.i18n, tableMessages.alignCenter), icon: ICON_ALIGN_CENTER },
         { value: 'right', label: () => localizeMessage(this.i18n, tableMessages.alignRight), icon: ICON_ALIGN_RIGHT },
       ];
 
-      const vAligns: { value: string; label: () => ResolvedMessage; icon: string }[] = [
+      const vAligns: { value: string; label: () => ResolvedMessage; icon: DOMOutputSpec }[] = [
         { value: 'top', label: () => localizeMessage(this.i18n, tableMessages.alignTop), icon: ICON_ALIGN_TOP },
         { value: 'middle', label: () => localizeMessage(this.i18n, tableMessages.alignMiddle), icon: ICON_ALIGN_MIDDLE },
         { value: 'bottom', label: () => localizeMessage(this.i18n, tableMessages.alignBottom), icon: ICON_ALIGN_BOTTOM },
@@ -839,14 +845,14 @@ export class TableView implements NodeView {
     });
   }
 
-  private createAlignItem(icon: string, label: () => ResolvedMessage, active: boolean, onClick: () => void): HTMLButtonElement {
+  private createAlignItem(icon: DOMOutputSpec, label: () => ResolvedMessage, active: boolean, onClick: () => void): HTMLButtonElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dm-table-align-item' + (active ? ' dm-table-align-item--active' : '');
     btn.setAttribute('role', 'menuitem');
     const iconElement = document.createElement('span');
     iconElement.className = 'dm-table-align-item-icon';
-    iconElement.innerHTML = icon;
+    iconElement.appendChild(DOMSerializer.renderSpec(iconElement.ownerDocument, icon).dom);
     iconElement.setAttribute('aria-hidden', 'true');
     const labelElement = document.createElement('span');
     btn.append(iconElement, labelElement);

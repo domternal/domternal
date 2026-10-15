@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { BulletList, Document, Editor, ListItem, OrderedList, Paragraph, Text } from '@domternal/core';
 import { Schema } from '@domternal/pm/model';
 import { officeListCapabilities } from './listCapabilities.js';
@@ -18,6 +18,16 @@ describe('Office list destination capabilities', () => {
     expect(officeListCapabilities(editor.schema, document)).toEqual({
       orderedLists: true, bulletLists: true, nestedLists: true,
     });
+  });
+
+  it('checks nested lists and marker styles without assigning raw HTML', () => {
+    const sink = vi.spyOn(Element.prototype, 'innerHTML', 'set').mockImplementation(() => { throw new TypeError('TrustedHTML required'); });
+    try {
+      expect(officeListCapabilities(editor.schema, document, { preserveMarkers: true })).toEqual({
+        orderedLists: true, bulletLists: true, nestedLists: true, markers: new Set(allMarkers),
+      });
+      expect(sink).not.toHaveBeenCalled();
+    } finally { sink.mockRestore(); }
   });
 
   it('proves every reconstructed marker class and nested combination in preservation mode', () => {

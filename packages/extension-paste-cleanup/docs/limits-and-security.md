@@ -92,18 +92,18 @@ bookmark for every table of contents entry.
 ## Trusted Types
 
 The normalizer parses HTML without the DOM, so cleanup itself needs no Trusted
-Types policy. To learn what the destination editor supports, PasteCleanup parses a
-few constant HTML probes, never clipboard content, with the editor's own parse
-rules, and assigns them to `innerHTML` without a policy of its own. On a page that
-enforces Trusted Types (`require-trusted-types-for 'script'`), a default policy
-that passes these probes leaves PasteCleanup unchanged. Without one, every probe
-fails and PasteCleanup fails closed. In Chromium and WebKit, which enforce the
-directive, tables are then refused with `destination-table-unsupported` and the
-`unsupported-content` reason, links lose their target with `link-removed` and
-keep their text, Office lists keep their literal markers with
-`office-list-unsupported`, and pasted formatting, headings and lists reach the
-document with a `destination-formatting-unconfirmed` warning, so the notice asks
-the user to review the paste. Nothing unsafe is inserted.
+Types policy. Destination capability probes build constant elements, attributes
+and text nodes with DOM APIs before running the editor's parse rules. They do not
+assign raw HTML or require a default Trusted Types policy. Image probes stay in
+an isolated document without a window or resource loading. The Table extension
+also constructs its controls and SVG icons with DOM APIs so rendering a pasted
+table does not require a default policy.
+
+On pages that enforce `require-trusted-types-for 'script'`, the host must still
+permit the underlying editor's clipboard policy, `ProseMirrorClipboard`, and any
+policies its framework requires. PasteCleanup does not create or broaden these
+policies. Actual unsupported destination features still receive the same
+refusals and diagnostics; avoiding an HTML sink does not bypass schema checks.
 
 ## Network and trust boundaries
 

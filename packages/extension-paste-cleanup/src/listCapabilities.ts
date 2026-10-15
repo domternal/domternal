@@ -1,5 +1,5 @@
-import { DOMParser } from '@domternal/pm/model';
-import type { Node as PMNode, Schema } from '@domternal/pm/model';
+import { DOMParser, DOMSerializer } from '@domternal/pm/model';
+import type { DOMOutputSpec, Node as PMNode, Schema } from '@domternal/pm/model';
 import { bulletListStyles, orderedListStyles } from './html/listStyles.js';
 
 export interface OfficeListCapabilities {
@@ -28,16 +28,17 @@ function listMatches(node: PMNode | null, probe: ListProbe, text: string): boole
 /** Probe actual parse rules and content expressions before removing visible Office markers. */
 export function officeListCapabilities(schema: Schema, document: Document, options: { preserveMarkers?: boolean } = {}): OfficeListCapabilities {
   const parser = DOMParser.fromSchema(schema);
-  const markerStyle = (probe: ListProbe): string => probe.marker === undefined ? '' : ` style="list-style-type:${probe.marker}"`;
+  const listSpec = (probe: ListProbe, text: string, children: DOMOutputSpec[] = []): DOMOutputSpec => [
+    probe.kind === 'orderedList' ? 'ol' : 'ul',
+    { start: '7', ...(probe.marker === undefined ? {} : { style: `list-style-type:${probe.marker}` }) },
+    ['li', ['p', text], ...children],
+  ];
   const accepts = (probe: ListProbe, nested?: ListProbe): boolean => {
     try {
-      const tag = probe.kind === 'orderedList' ? 'ol' : 'ul';
-      const nestedTag = nested?.kind === 'orderedList' ? 'ol' : 'ul';
-      const child = nested === undefined ? ''
-        : `<${nestedTag} start="7"${markerStyle(nested)}><li><p>Inner</p></li></${nestedTag}>`;
       const container = document.createElement('div');
-      // This constant probe contains no source content or resource references.
-      container.innerHTML = `<${tag} start="7"${markerStyle(probe)}><li><p>Outer</p>${child}</li></${tag}>`;
+      // Constant specs require no HTML sink or host Trusted Types policy.
+      container.appendChild(DOMSerializer.renderSpec(document,
+        listSpec(probe, 'Outer', nested === undefined ? [] : [listSpec(nested, 'Inner')])).dom);
       const slice = parser.parseSlice(container);
       if (slice.content.childCount !== 1) return false;
       const list = slice.content.firstChild;

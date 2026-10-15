@@ -8,6 +8,7 @@
 
 ### Fixes
 
+- Keep supported paste formatting, lists, links and tables available under strict Trusted Types enforcement without a default policy. Destination probes and table control icons use DOM construction; the host still permits ProseMirror's clipboard policy.
 - Preserve an explicit empty image alt attribute through clipboard cleanup and file upload without using another image's description.
 - Preserve alpha in translucent text colors and highlights when reading HTML, including paste, clipboard serialization and save/reload. Opaque RGB colors continue to normalize to hex.
 
