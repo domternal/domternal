@@ -1,11 +1,18 @@
 import { DOMParser } from '@domternal/pm/model';
 import type { EditorProps, EditorView } from '@domternal/pm/view';
 
+declare const clipboardPasteAttemptBrand: unique symbol;
+
+/** @experimental An opaque identity for one Core paste attempt, containing no clipboard data. */
+export interface ClipboardPasteAttemptIdentity { readonly [clipboardPasteAttemptBrand]: true }
+
 /** @experimental The paste attempt a preparation gate or an attempt observer receives. */
 export interface ClipboardHTMLPreparationContext {
   /** Available for synchronous capture only. Deferred work must own a safe snapshot. */
   readonly event: ClipboardEvent | undefined;
   readonly origin: 'native' | 'programmatic';
+  /** Stable within this attempt, including calls without a ClipboardEvent. Not an insertion receipt or replay permission. */
+  readonly attempt?: ClipboardPasteAttemptIdentity;
 }
 
 /** @experimental Returns ProseMirror's handled status, not a transaction acceptance receipt. */
@@ -44,6 +51,7 @@ interface PendingPreparation {
 }
 
 interface Attempt {
+  readonly identity: ClipboardPasteAttemptIdentity;
   event: ClipboardEvent | undefined;
   origin: ClipboardHTMLPreparationContext['origin'];
   readonly scoped: boolean;
@@ -143,11 +151,24 @@ export function getClipboardPasteAttemptEvent(view: EditorView): ClipboardEvent 
   return currentAttempt(view, state)?.event;
 }
 
+/**
+ * @experimental Identify the active registered paste attempt without retaining its event.
+ * Nested attempts have distinct identities; their return restores the active outer identity.
+ * Closed attempts, views without a preparation registration and destroyed views return undefined.
+ * A deferred replay starts a new attempt and receives a different identity.
+ */
+export function getClipboardPasteAttemptIdentity(view: EditorView): ClipboardPasteAttemptIdentity | undefined {
+  const state = preparations.get(view);
+  if (state?.registration === undefined || view.isDestroyed) return undefined;
+  return currentAttempt(view, state)?.identity;
+}
+
 function openAttempt(view: EditorView, state: ViewPreparation, event: ClipboardEvent | undefined, scoped: boolean,
   origin: ClipboardHTMLPreparationContext['origin'] = scoped ? 'programmatic' : 'native'): Attempt {
   const bypass = state.permit?.event === event && state.permit !== undefined;
   state.permit = undefined;
   const attempt: Attempt = {
+    identity: Object.freeze({}) as ClipboardPasteAttemptIdentity,
     event, origin, scoped,
     generation: ++state.generation, bypass, routing: scoped, nativeTraversal: undefined,
     closed: false, checked: false,
@@ -162,7 +183,7 @@ function openAttempt(view: EditorView, state: ViewPreparation, event: ClipboardE
   else {
     const registration = state.registration;
     try {
-      const returned: unknown = registration?.onAttempt?.(Object.freeze({ event, origin }));
+      const returned: unknown = registration?.onAttempt?.(Object.freeze({ event, origin, attempt: attempt.identity }));
       if (returned !== undefined) { observeInvalidReturn(returned); quarantine(attempt); }
     } catch { quarantine(attempt); }
     if (state.generation !== attempt.generation || state.registration !== registration) quarantine(attempt);
@@ -263,7 +284,7 @@ function inspectHTML(view: EditorView, state: ViewPreparation, attempt: Attempt,
   let onDeferred: unknown;
   let discard: unknown;
   try {
-    returned = registration.gate(html, Object.freeze({ event: attempt.event, origin: attempt.origin }));
+    returned = registration.gate(html, Object.freeze({ event: attempt.event, origin: attempt.origin, attempt: attempt.identity }));
     if (returned === undefined) return html;
     quarantine(attempt);
     if (returned === null || typeof returned !== 'object') return '';

@@ -9,11 +9,11 @@ import type { CompleteMessages, Messages, MessageValue } from '@domternal/core';
 import type * as mainEntry from '@domternal/core';
 // Clipboard coordination is published only on the experimental subpath.
 import {
-  armClipboardPasteTransaction, getClipboardImageDestination, getClipboardPasteAttemptEvent, getClipboardPasteBehavior,
+  armClipboardPasteTransaction, getClipboardImageDestination, getClipboardPasteAttemptEvent, getClipboardPasteAttemptIdentity, getClipboardPasteBehavior,
   registerClipboardCopyAnnotation, registerClipboardHTMLPreparation, registerClipboardImageDestination, setClipboardPasteBehavior,
 } from '@domternal/core/clipboard';
 import type {
-  ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay, ClipboardImageDestinationPolicy, ClipboardPasteBehavior,
+  ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay, ClipboardImageDestinationPolicy, ClipboardPasteBehavior, ClipboardPasteAttemptIdentity,
 } from '@domternal/core/clipboard';
 import type * as clipboardEntry from '@domternal/core/clipboard';
 
@@ -51,6 +51,8 @@ declare const clipboardEvent: ClipboardEvent;
 const disposeHTMLPreparation: () => void = registerClipboardHTMLPreparation(editor.view, (html, context: ClipboardHTMLPreparationContext) => {
   const origin: 'native' | 'programmatic' = context.origin;
   const activeEvent: ClipboardEvent | undefined = getClipboardPasteAttemptEvent(editor.view);
+  const activeAttempt: ClipboardPasteAttemptIdentity | undefined = getClipboardPasteAttemptIdentity(editor.view);
+  const contextAttempt: ClipboardPasteAttemptIdentity | undefined = context.attempt;
   return { onDeferred(replay: ClipboardHTMLReplay) {
     queueMicrotask(() => { const handled: boolean = replay(html, new ClipboardEvent('paste')); });
   } };
@@ -62,6 +64,10 @@ const disposeHTMLPreparation: () => void = registerClipboardHTMLPreparation(edit
 registerClipboardHTMLPreparation(editor.view, false);
 // @ts-expect-error Attempt observers must be callable.
 registerClipboardHTMLPreparation(editor.view, () => undefined, false);
+// Existing application-authored contexts remain valid without the additive identity field.
+const previousPreparationContext: ClipboardHTMLPreparationContext = { event: undefined, origin: 'programmatic' };
+// @ts-expect-error Attempt identities are opaque Core values, not application-authored objects.
+const forgedAttemptIdentity: ClipboardPasteAttemptIdentity = {};
 
 const imagePolicy: ClipboardImageDestinationPolicy = {
   nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
@@ -107,6 +113,10 @@ type MainClipboardCopyAnnotator = mainEntry.ClipboardCopyAnnotator;
 type MainRegisterClipboardHTMLPreparation = typeof mainEntry.registerClipboardHTMLPreparation;
 // @ts-expect-error Only on @domternal/core/clipboard.
 type MainGetClipboardPasteAttemptEvent = typeof mainEntry.getClipboardPasteAttemptEvent;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainGetClipboardPasteAttemptIdentity = typeof mainEntry.getClipboardPasteAttemptIdentity;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardPasteAttemptIdentity = mainEntry.ClipboardPasteAttemptIdentity;
 // @ts-expect-error Only on @domternal/core/clipboard.
 type MainClipboardHTMLPreparationContext = mainEntry.ClipboardHTMLPreparationContext;
 // @ts-expect-error Internal to the clipboard declarations.

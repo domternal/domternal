@@ -5,12 +5,14 @@ ClipboardHTMLReplay @experimental
 ClipboardImageDestinationPolicy @experimental
 ClipboardImageFileInserter @experimental
 ClipboardImageFileInsertion @experimental
+ClipboardPasteAttemptIdentity @experimental
 ClipboardPasteBehavior @experimental
 ClipboardPastePlacement @experimental
 ClipboardPasteTextOptions @experimental
 dropClipboardImageFiles @experimental
 getClipboardImageDestination @experimental
 getClipboardPasteAttemptEvent @experimental
+getClipboardPasteAttemptIdentity @experimental
 getClipboardPasteBehavior @experimental
 pasteClipboardImageFiles @experimental
 pasteHasOwnText @experimental

@@ -38,6 +38,8 @@ export { registerClipboardCopyAnnotation } from './helpers/clipboardCopyAnnotati
 export {
   registerClipboardHTMLPreparation,
   getClipboardPasteAttemptEvent,
+  getClipboardPasteAttemptIdentity,
+  type ClipboardPasteAttemptIdentity,
   type ClipboardHTMLPreparationContext,
   type ClipboardHTMLDeferral,
   type ClipboardHTMLReplay,

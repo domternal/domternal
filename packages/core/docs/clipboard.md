@@ -75,6 +75,20 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
 
 ## Pasted clipboard context
 
+For a registered HTML preparation coordinator, `getClipboardPasteAttemptIdentity(view)`
+returns an opaque identity for the active native or programmatic paste. The optional
+`attempt` field on the preparation gate and attempt observer context carries that same
+identity. Extension authors can use it as a `WeakMap` key to take one policy snapshot
+without retaining the clipboard event, HTML or files. Calls without a `ClipboardEvent`
+still have distinct identities, and a nested paste temporarily exposes its own identity
+before returning to the outer attempt. Outside the active attempt, after disposal or
+after view destruction, the getter returns `undefined`.
+
+A deferred replay gets a new identity. A coordinator that carries an earlier decision
+must associate its own verified replay with that snapshot explicitly. The identity
+does not authorize replay, prove insertion, identify a user or provide a persistent
+operation ID. Empty, text-only and subsequently intercepted attempts also receive one.
+
 HTML copied from a ProseMirror editor carries its structural context in a `data-pm-slice`
 attribute on its first element: the open depths and the wrapper nodes, such as lists, list items,
 blockquotes and table parts, that the copied content sat in. Any page can write that attribute,
