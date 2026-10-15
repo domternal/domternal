@@ -250,7 +250,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           const prepared = coordinator?.ordinaryHTML(html);
           if (coordinator?.ordinaryAttempt() === false) { pending = { rejected: true, preserveOrderedListStart: false }; return ''; }
           const { result, preserveOrderedListStart, destinationRejected } = prepared ?? normalizeClipboardHTML(
-            html, { ...options, formatting: formattingPolicy.read(getClipboardPasteAttemptIdentity(view)).formatting }, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }),
+            html, { ...options, formatting: formattingPolicy.read(getClipboardPasteAttemptIdentity(view)).formatting }, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true, preserveLabels: true }),
             undefined, features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features),
             isOwnCopyNonce,
           );

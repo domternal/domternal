@@ -1,6 +1,8 @@
 import { DOMParser, DOMSerializer } from '@domternal/pm/model';
 import type { DOMOutputSpec, Node as PMNode, Schema } from '@domternal/pm/model';
+import type { ListLabel } from '@domternal/core/list-labels';
 import { bulletListStyles, orderedListStyles } from './html/listStyles.js';
+import { officeLabelCapability } from './listLabelCapabilities.js';
 
 export interface OfficeListCapabilities {
   orderedLists: boolean;
@@ -8,6 +10,8 @@ export interface OfficeListCapabilities {
   nestedLists: boolean;
   /** With `preserveMarkers`: each marker class whose explicit value survived an actual parse. */
   markers?: ReadonlySet<string>;
+  /** With `preserveLabels`: exact optional labels the parser and serializer retain at this depth. */
+  labels?: (label: ListLabel, level: number) => boolean;
 }
 
 type ListKind = 'orderedList' | 'bulletList';
@@ -26,7 +30,7 @@ function listMatches(node: PMNode | null, probe: ListProbe, text: string): boole
 }
 
 /** Probe actual parse rules and content expressions before removing visible Office markers. */
-export function officeListCapabilities(schema: Schema, document: Document, options: { preserveMarkers?: boolean } = {}): OfficeListCapabilities {
+export function officeListCapabilities(schema: Schema, document: Document, options: { preserveMarkers?: boolean; preserveLabels?: boolean } = {}): OfficeListCapabilities {
   const parser = DOMParser.fromSchema(schema);
   const listSpec = (probe: ListProbe, text: string, children: DOMOutputSpec[] = []): DOMOutputSpec => [
     probe.kind === 'orderedList' ? 'ol' : 'ul',
@@ -84,5 +88,6 @@ export function officeListCapabilities(schema: Schema, document: Document, optio
     bulletLists: bulletListStyles.some(marker => markers.has(marker)),
     nestedLists: nests(representatives),
     markers,
+    ...(options.preserveLabels === true ? { labels: officeLabelCapability(schema, document) } : {}),
   };
 }

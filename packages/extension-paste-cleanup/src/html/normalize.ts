@@ -73,7 +73,7 @@ const schema: Schema = {
   attributes: {
     '*': ['style', 'dir', 'lang', 'title', 'id', 'data*'],
     a: ['href'], img: ['src', 'alt', 'width', 'height'],
-    ol: ['start', 'type'], li: ['value'],
+    ol: ['start', 'type'], ul: ['type'], li: ['value'],
     td: ['colSpan', 'rowSpan'], th: ['colSpan', 'rowSpan', 'scope'],
     col: ['span', 'width'], code: [['className', /^language-[\w+-]+$/]],
     details: ['open'], div: ['open'],
@@ -159,7 +159,7 @@ export type ClipboardOwnCopyCheck = (nonce: string) => boolean;
 export function normalizeClipboardHTML(
   html: string,
   options: NormalizePasteHTMLOptions = {},
-  capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists' | 'markers'>,
+  capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists' | 'markers' | 'labels'>,
   preparation?: ClipboardImagePreparationSink,
   destination?: ClipboardDestinationCheck,
   ownCopy?: ClipboardOwnCopyCheck,
@@ -408,6 +408,10 @@ export function normalizeClipboardHTML(
           if (Number.isSafeInteger(value) && (value > 0 || listZero) && value <= 10_000) clean[key] = value;
         }
         if (child.tagName === 'ol' && ['1', 'a', 'A', 'i', 'I'].includes(String(original.type))) clean.type = original.type;
+        if (child.tagName === 'ul' && label !== null) {
+          const marker = listStyleFromType('ul', original.type);
+          if (marker !== undefined) clean.type = marker;
+        }
         if (child.tagName === 'code' && Array.isArray(original.className)) clean.className = original.className;
         child.properties = clean;
         if (!tags.includes(child.tagName)) {

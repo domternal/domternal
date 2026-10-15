@@ -2,6 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 import type { JSONContent } from '@domternal/core';
 import type { ListLabelProbe } from './list-label-fixture/main.js';
 interface ProbeWindow { __listLabels: ListLabelProbe }
+// Authored Office clipboard metadata, not a native application qualification record.
+const wordLabelRules = '<style>@list l0:level1 {mso-level-number-format:alpha-upper;mso-level-text:"Section %1)";}'
+  + '@list l0:level2 {mso-level-number-format:bullet;mso-level-text:"✓";}'
+  + '@list l1:level1 {mso-level-text:"(%1)";}</style>';
+const wordLabelItem = (marker: string, text: string, list = 0, level = 1): string =>
+  `<p style="mso-list:l${String(list)} level${String(level)} lfo1"><span style="mso-list:Ignore">${marker}<span>&nbsp;</span></span>${text}</p>`;
 const item = (text: string, nested?: JSONContent): JSONContent => ({ type: 'listItem', content: [
   { type: 'paragraph', content: [{ type: 'text', text }] }, ...(nested ? [nested] : []),
 ] });
@@ -46,6 +52,45 @@ async function oracle(page: Page, labels: readonly string[], shadow = false): Pr
     items.forEach((item, index) => { item.style.listStyleType = `dm-oracle-${String(index)}`; });
   }, { labels, shadow });
 }
+
+test('Word custom labels preserve visible numbering, nested bullets, restarts and editing', async ({ page }) => {
+  await open(page, doc({ type: 'paragraph', content: [{ type: 'text', text: 'Before' }] }), '?cleanup=1&controls=1');
+  const before = await snapshot(page);
+  const html = wordLabelRules + wordLabelItem('Section AA)', 'Outer') + wordLabelItem('✓', 'Inner', 0, 2)
+    + wordLabelItem('Section AB)', 'Next') + wordLabelItem('(0)', 'Zero', 1) + wordLabelItem('(1)', 'One', 1)
+    + wordLabelItem('(4)', 'Restart', 1);
+  await page.evaluate(html => { const probe = (window as unknown as ProbeWindow).__listLabels; probe.editor.commands.selectAll(); probe.pasteHTML(html); }, html);
+  const pasted = await snapshot(page);
+  const ordered = (start: number, content: JSONContent[], prefix: string, suffix: string, format: string): JSONContent => ({ type: 'orderedList', attrs: {
+    start, listStyleType: format, listLabel: { kind: 'counter', format, prefix, suffix },
+  }, content });
+  expect(JSON.parse(pasted.json)).toEqual(doc(
+    ordered(27, [item('Outer', { type: 'bulletList', attrs: { listStyleType: 'disc', listLabel: { kind: 'text', text: '✓' } }, content: [item('Inner')] }), item('Next')], 'Section ', ') ', 'upper-alpha'),
+    ordered(0, [item('Zero'), item('One')], '(', ') ', 'decimal'), ordered(4, [item('Restart')], '(', ') ', 'decimal'),
+  ));
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.pasteResults.map(result => result.diagnostics))).toEqual([[]]);
+  expect(pasted.text).not.toMatch(/Section|✓/u);
+  const rendered = await page.locator('#sample').screenshot();
+  await oracle(page, ['Section AA) ', '✓ ', 'Section AB) ', '(0) ', '(1) ', '(4) ']);
+  expect((await page.locator('#sample').screenshot({ path: test.info().outputPath('word-labels.png') })).equals(rendered)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.undo())).toBe(true);
+  expect((await snapshot(page)).json).toBe(before.json);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.redo())).toBe(true);
+  expect((await snapshot(page)).json).toBe(pasted.json);
+  await page.evaluate(() => { (window as unknown as ProbeWindow).__listLabels.pasteCopy(); });
+  expect((await snapshot(page)).json).toBe(pasted.json);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.pasteResults.at(-1)?.diagnostics)).toEqual([]);
+});
+
+test('Word custom labels retain their literal marker when the destination has no ListLabels', async ({ page }) => {
+  await open(page, doc({ type: 'paragraph', content: [{ type: 'text', text: 'Before' }] }), '?cleanup=1&legacy=1');
+  await page.evaluate(html => { const probe = (window as unknown as ProbeWindow).__listLabels; probe.editor.commands.selectAll(); probe.pasteHTML(html); },
+    wordLabelRules + wordLabelItem('Section AA)', 'Outer') + wordLabelItem('✓', 'Inner', 0, 2));
+  const pasted = await snapshot(page);
+  expect(pasted.json).not.toContain('listLabel'); expect(pasted.text).toContain('Section AA)'); expect(pasted.text).toContain('✓');
+  expect(await page.locator('#sample .ProseMirror ol,#sample .ProseMirror ul').count()).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.pasteResults[0]?.diagnostics.map(item => item.code))).toContain('office-list-unsupported');
+});
 for (const scenario of cases) test(`native markers render ${scenario.name} without adding document text`, async ({ page }) => {
   await open(page, scenario.content);
   const before = await snapshot(page);

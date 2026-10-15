@@ -7,18 +7,26 @@ import { PasteCleanup } from '@domternal/extension-paste-cleanup';
 import type { NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup';
 const controls = new URLSearchParams(location.search).has('controls');
 const cleanup = new URLSearchParams(location.search).has('cleanup');
+const legacy = new URLSearchParams(location.search).has('legacy');
 const pasteResults: NormalizePasteHTMLResult[] = [];
 
-const extensions = (labels = true, hosted = false): AnyExtension[] => [Document, Paragraph, Text, OrderedList, BulletList, History, BaseKeymap,
+const extensions = (labels = !legacy, hosted = false): AnyExtension[] => [Document, Paragraph, Text, OrderedList, BulletList, History, BaseKeymap,
   ...(labels ? [ListLabels.configure({ injectCSS: !hosted, nonce: 'list-label-test' })] : []), ...(controls ? [SmartPaste, KeyboardReorder] : []),
   ...(cleanup ? [PasteCleanup.configure({ onResult: result => { pasteResults.push(result); } })] : [])];
 const sample = document.querySelector<HTMLElement>('#sample');
 if (!sample) throw new Error('Missing editor mount');
 const editor = new Editor({ element: sample, extensions: extensions(), content: '<p>Ready</p>' });
 let shadowEditor: Editor | undefined;
+function pasteHTML(html: string): boolean {
+  const data = new DataTransfer(); data.setData('text/html', html); data.setData('text/plain', 'Imported');
+  const event = new Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'clipboardData', { value: data });
+  editor.view.dom.dispatchEvent(event); return event.defaultPrevented;
+}
 const probe = {
   editor,
   pasteResults,
+  pasteHTML,
   set(json: string) { editor.setContent(JSON.parse(json) as JSONContent, false); editor.view.dom.blur(); },
   snapshot() { return { json: JSON.stringify(editor.getJSON()), html: editor.getHTML(), text: editor.getText() }; },
   roundtrip() {
@@ -33,10 +41,7 @@ const probe = {
   },
   paste(json: string) {
     const html = generateHTML(JSON.parse(json) as JSONContent, extensions());
-    const data = new DataTransfer(); data.setData('text/html', html); data.setData('text/plain', 'Imported');
-    const event = new Event('paste', { bubbles: true, cancelable: true });
-    Object.defineProperty(event, 'clipboardData', { value: data });
-    editor.view.dom.dispatchEvent(event); return event.defaultPrevented;
+    return pasteHTML(html);
   },
   pasteCopy() {
     editor.commands.selectAll(); const copied = editor.view.serializeForClipboard(editor.state.selection.content());

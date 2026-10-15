@@ -5,6 +5,7 @@
 ### Features
 
 - Add optional `ListLabels` for literal bullets and native ordered counters with bounded text prefixes and suffixes. It preserves labels through Core editing, HTML and clipboard metadata, with companion CSS for standalone HTML and explicit schema requirements for collaborative writers. Existing schemas stay unchanged when the extension is omitted.
+- Preserve optional list labels through Paste Cleanup and block controls. With `ListLabels`, Word paste can retain supported single-counter prefixes, suffixes and Unicode text bullets after proving the exact receiving parser and serializer; unsupported markers remain literal with a diagnostic.
 - Show a localized, accessible loading indicator while image files are being stored, with theme, reduced-motion and print styles.
 
 ### Fixes
