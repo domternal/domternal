@@ -96,6 +96,14 @@
     "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
   },
   {
+    "file": "packages/extension-paste-cleanup/src/firstParagraph.ts",
+    "context": "expectedBackground",
+    "sink": "dom:textContent",
+    "text": "Probe",
+    "occurrences": 1,
+    "reason": "Detached destination parser probe. This text only keeps a synthetic paragraph nonempty while checking its background attribute and never reaches the editor or user interface."
+  },
+  {
     "file": "packages/react/src/bubble-menu/DomternalBubbleMenu.tsx",
     "context": "DomternalBubbleMenu",
     "sink": "jsx:text",
