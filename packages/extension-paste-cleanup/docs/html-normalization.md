@@ -121,9 +121,18 @@ inline content, including when a styled wrapper contains only a break.
 
 The standalone normalizer and ordinary document parsing retain a final bare
 `<br>`. ProseMirror's clipboard parser treats a final bare `<br>` directly inside
-a block as a placeholder and can remove it. Breaks inside retained inline wrappers
-are distinct from that case. Cleanup does not override this clipboard rule, so
-preserving every unwrapped trailing break during paste is not guaranteed. The
+a block as a placeholder and can remove it. A verified same-page Domternal copy
+comes from document serialization, so its trailing breaks are actual document
+content. Cleanup protects those breaks with neutral inline wrappers, including
+in break-only paragraphs, headings and lists. The wrappers count toward the
+existing output limits and do not change stored marks or Undo behavior.
+This also applies to a host's `clipboardHTMLTransform` or custom clipboard
+serializer: its terminal breaks are treated as intentional clipboard content.
+Such serializers should emit document content, without editor view placeholders.
+Foreign HTML, an unverified `data-pm-slice` marker and copies from another page
+retain the browser placeholder rule: cleanup cannot reliably distinguish an
+intentional final break from a browser placeholder in those inputs. Breaks inside
+retained inline wrappers are distinct from that case. The
 break a browser ends a copy of a page with, `<br class="Apple-interchange-newline">`
 after the copied content, as Chrome ends its Google Docs copies, marks where the
 selection ended and is no line of it: the editor's paste ignores it, and cleanup leaves it out for every source.

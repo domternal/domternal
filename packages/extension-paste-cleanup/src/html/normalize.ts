@@ -27,6 +27,7 @@ import { quietImageBoxes } from './imageBoxes.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
 import { dropInterchangeNewline, emptyParagraphMarks, envelopeTags, transparentOfficeWrapper } from './envelope.js';
 import { wrapLooseInlineRuns } from './looseInline.js';
+import { retainOwnCopyBreaks } from './ownCopyBreaks.js';
 import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
 import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
 import { settleWhiteSpace } from './whiteSpace.js';
@@ -419,6 +420,7 @@ export function normalizeClipboardHTML(
     assertOutputTreeBounds(tree, limits.maxNodes, limits.maxDepth);
     const sanitized = sanitize(tree, schema);
     if (sanitized.type !== 'root') throw new Error('Expected a sanitized fragment');
+    if (own && retainOwnCopyBreaks(sanitized)) assertOutputTreeBounds(sanitized, limits.maxNodes, limits.maxDepth);
     // A verified own copy holds only blocks at its top, as the editor serialized them. A wrapper
     // added here is generated output too, so the tree must still fit the same bounds with it.
     if (!own && wrapLooseInlineRuns(sanitized)) assertOutputTreeBounds(sanitized, limits.maxNodes, limits.maxDepth);
