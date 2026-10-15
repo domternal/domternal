@@ -71,6 +71,7 @@ ContentDiagnosticProps
 ContentErrorProps
 copyThemeClass
 coreMessages
+CounterListLabel
 createAccumulatingDispatch
 createAdoptablePluginView
 createBubbleMenuPlugin
@@ -139,6 +140,7 @@ FontFamily
 FontFamilyOptions
 FontSize
 FontSizeOptions
+formatListLabel
 Gapcursor
 generateHTML
 GenerateHTMLOptions
@@ -148,6 +150,7 @@ generateText
 GenerateTextOptions
 getBubbleFormatItems
 getListItemCursorContext
+getListLabelStyleSheet
 getMarkRange
 GlobalAttributes
 GlobalAttributeSpec
@@ -228,6 +231,10 @@ ListItemCursorContext
 ListItemOptions
 ListKeymap
 ListKeymapOptions
+ListLabel
+ListLabelFormat
+ListLabels
+ListLabelsOptions
 localizedLabel
 localizeMessage
 Mark
@@ -281,6 +288,7 @@ PrintStorage
 ProseMirrorCopyConflict
 Range
 RawCommands
+readListLabel
 refocusEditorAfterCommand
 registerAttributeNormalizer @experimental
 registerProseMirrorCopy
@@ -341,6 +349,7 @@ TextColor
 TextColorOptions
 textInputRule
 TextInputRuleOptions
+TextListLabel
 TextStyle
 TextStyleOptions
 toggleBlockType

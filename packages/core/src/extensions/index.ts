@@ -16,6 +16,7 @@ export {
 
 // List & Count
 export { ListKeymap, type ListKeymapOptions } from './ListKeymap.js';
+export { ListLabels, type ListLabelsOptions } from './ListLabels.js';
 export {
   ListIndent,
   indentBlockAsListChild,

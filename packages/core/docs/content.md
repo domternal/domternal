@@ -16,6 +16,85 @@ separate when their explicit markers differ; an explicit marker and `null` also
 remain distinct. Marker classes do not preserve a source application's
 exact glyph font, punctuation or indentation.
 
+## Optional list labels
+
+`ListLabels` adds a nullable `listLabel` attribute to `orderedList` and
+`bulletList` only when the extension is registered. It is separate from the
+existing `listStyleType` fallback and `start`. It is not part of StarterKit and
+does not change task lists or a schema that does not include it.
+
+Supported records have exactly these keys:
+
+```ts
+// orderedList: a native counter, with optional punctuation or a text prefix
+{ kind: 'counter', format: 'decimal', prefix: 'Section ', suffix: ') ' }
+// bulletList: a literal marker, independent of a source application's font
+{ kind: 'text', text: '✓' }
+```
+
+Counter formats are `decimal`, `lower-alpha`, `upper-alpha`, `lower-roman` and
+`upper-roman`. The number is calculated from the list's start and current item
+order, not stored in each label. Zero is valid; alphabetic zero and Roman values
+outside 1 to 3999 use decimal numbering. `formatListLabel(label, ordinal)` exposes
+the same plain-text formatting for consumers, accepting whole ordinals from 0 to
+2147483647. An invalid label or ordinal returns `null`.
+
+The combined prefix and suffix, or a literal bullet, contain at most 64 Unicode
+code points. Literal bullets cannot be empty or only whitespace. Control
+characters, bidirectional formatting controls, line separators and unpaired
+surrogates are refused. Natural text, combining characters and emoji joiners are
+allowed. Records cannot supply extra properties, HTML, CSS, a font, an image or
+an executable callback. `readListLabel` validates a value and returns a frozen
+copy, or `null`.
+
+With the extension enabled, invalid JSON labels become `null` with the
+`unsupported-list-label` diagnostic. Unsupported HTML labels fall back to the
+ordinary list marker. Direct ProseMirror schema validation remains strict.
+Different valid labels remain different list identities during Core's list
+editing, and new nested wrappers inherit the label without copying a wrapper ID
+or source start. An explicit restart uses another ordered list with its own
+`start`; this extension does not add a per-item `value` attribute.
+
+### Rendering and serialization
+
+Labels serialize as bounded, canonical JSON in `data-dm-list-label`, together
+with an inline native list-style fallback. Importing this HTML with the same
+extension recovers the label. `getHTML`, `generateHTML` and clipboard HTML do not
+add visible label spans or embed stylesheets. `getText`, `generateText` and plain
+clipboard text keep only document text.
+
+Live editors install native `@counter-style` rules in their document or shadow
+root. A shadow editor also retains the definitions in its owner document for
+browsers that resolve counter styles there. Owners in the same root share rules, and unused rules are removed when the
+content changes or the last editor is destroyed. `ListLabels.configure({ nonce })`
+sets a nonce on this owned style element. The host policy must also allow the
+editor's ordinary inline style attributes. Set `injectCSS: false` when automatic
+style insertion is unsuitable.
+
+For standalone HTML, call `getListLabelStyleSheet(json)` and install its CSS
+through the application's stylesheet and CSP policy. The helper does not create
+an editor or mutate content. Without this companion stylesheet, or in a consumer
+without native counter-style support, HTML keeps an ordinary decimal,
+alphabetic, Roman or bullet fallback. Custom prefixes and bullets are therefore
+not promised in an external clipboard consumer that discards the metadata or
+stylesheet. Fonts supplied by the application still determine glyph appearance.
+
+This first contract represents one counter per ordered list or a literal bullet.
+It does not represent compound counters such as `1.2.3`, picture bullets,
+source-specific marker fonts or layout geometry. Office conversion adapters and
+external exporters need their own explicit support for the optional contract;
+registering this extension alone does not add those adapters.
+
+### Collaborative schemas
+
+Enable `ListLabels` on every writer of a collaborative document before storing
+labels. Matching clients preserve the attribute through text edits, list splits
+and collaborative undo. A client without the extension can display ordinary
+list markers, but its schema does not preserve an unknown `listLabel` when it
+rewrites a list. Reading with the extension does not rewrite an unknown future
+label; it renders the fallback until an explicit
+`normalizeContentAttributes({ codes: ['unsupported-list-label'] })` migration.
+
 ## Content normalization
 
 JSON content can hold values the editor cannot represent: a list marker this version does not
@@ -25,6 +104,7 @@ refuses. The JSON entry points (the initial `content`, `setContent`, `insertCont
 `createDocument`, `normalizeContent`, `generateHTML`, and `generateText`) replace such a value,
 or remove the link that carries it, instead of failing the whole document, and report it:
 
+- An invalid optional list label becomes `null` when `ListLabels` is installed (`unsupported-list-label`).
 - An unknown list marker becomes `null`, the default marker (`unknown-list-marker`).
 - A heading level moves to the nearest configured level of equal or lower importance, otherwise
   to the deepest configured level (`unsupported-heading-level`), so a heading is never promoted

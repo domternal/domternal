@@ -4,10 +4,12 @@
 
 ### Features
 
+- Add optional `ListLabels` for literal bullets and native ordered counters with bounded text prefixes and suffixes. It preserves labels through Core editing, HTML and clipboard metadata, with companion CSS for standalone HTML and explicit schema requirements for collaborative writers. Existing schemas stay unchanged when the extension is omitted.
 - Show a localized, accessible loading indicator while image files are being stored, with theme, reduced-motion and print styles.
 
 ### Fixes
 
+- Notify adoption listeners when the same shadow editor moves to another document, so owned UI and styles can move with it.
 - Keep supported paste formatting, lists, links and tables available under strict Trusted Types enforcement without a default policy. Destination probes and table control icons use DOM construction; the host still permits ProseMirror's clipboard policy.
 - Preserve an explicit empty image alt attribute through clipboard cleanup and file upload without using another image's description.
 - Preserve alpha in translucent text colors and highlights when reading HTML, including paste, clipboard serialization and save/reload. Opaque RGB colors continue to normalize to hex.

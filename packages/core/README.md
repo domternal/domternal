@@ -27,7 +27,7 @@ Import ProseMirror primitives from `@domternal/pm/*` to keep
 
 For ready-made editor styling, also install `@domternal/theme` and import it from
 your application entry point, with `class="dm-editor"` on the mount or an ancestor.
-Core itself ships no CSS, toolbar or framework UI.
+Core has no bundled editor theme, toolbar or framework UI.
 
 ## Quick start
 
@@ -161,6 +161,35 @@ View-only tone attributes let the matching theme keep default text readable on
 known light or dark fills without changing the document. An unresolved translucent
 fill does not receive a guessed tone. Explicit text colors retain the selected
 `TextColor` contrast policy described above.
+
+### Optional list labels
+
+Add `ListLabels` beside `StarterKit` to retain a bounded custom bullet or an
+ordered counter with a text prefix and suffix. It is not included in StarterKit.
+Existing schemas and stored JSON stay unchanged when this extension is omitted.
+
+```ts
+import { ListLabels, StarterKit } from '@domternal/core';
+
+const extensions = [StarterKit, ListLabels];
+// On an orderedList node:
+const attrs = {
+  start: 4,
+  listLabel: { kind: 'counter', format: 'decimal', prefix: 'Section ', suffix: ') ' },
+};
+```
+
+The browser updates markers as items are edited. Markers remain native list
+presentation, with no duplicate marker text in clipboard text or document text.
+The extension installs scoped companion CSS while the editor is alive. Set
+`nonce` for the application's CSP policy, or `injectCSS: false` when the host
+provides that CSS. `getListLabelStyleSheet(json)` supplies the companion stylesheet
+for rendered HTML. HTML without it retains ordinary list fallbacks.
+
+All collaborative writers must enable the same list-label schema. An older
+writer without the extension can remove the unknown attribute when it edits a
+list. See the [list-label contract](docs/content.md#optional-list-labels) for
+supported records, diagnostics, serialization and rendering limits.
 
 ## Content and validation
 

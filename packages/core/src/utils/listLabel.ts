@@ -106,7 +106,7 @@ export function formatListLabel(value: unknown, ordinal?: number): string | null
 }
 
 /** Quote a validated CSS string; syntax-looking text can never leave its string token. */
-function cssString(value: string): string {
+export function quoteListLabelCSS(value: string): string {
   return `"${value.replace(/["'\\<>&]/gu, character => `\\${character.codePointAt(0)?.toString(16) ?? ''} `)}"`;
 }
 
@@ -114,6 +114,6 @@ function cssString(value: string): string {
 export function listLabelCSS(value: unknown): string | null {
   const label = readListLabel(value);
   if (label === null) return null;
-  return label.kind === 'text' ? cssString(label.text)
-    : `${cssString(label.prefix)} counter(list-item, ${label.format}) ${cssString(label.suffix)}`;
+  return label.kind === 'text' ? quoteListLabelCSS(label.text)
+    : `${quoteListLabelCSS(label.prefix)} counter(list-item, ${label.format}) ${quoteListLabelCSS(label.suffix)}`;
 }

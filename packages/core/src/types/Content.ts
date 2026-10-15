@@ -54,6 +54,8 @@ export interface Range {
  *
  * - `unknown-list-marker`: a list marker this version does not know became
  *   null, the default marker.
+ * - `unsupported-list-label`: an optional list label outside the bounded
+ *   text/counter contract became null, retaining the ordinary list marker.
  * - `unsupported-heading-level`: a heading level the Heading configuration
  *   lacks, or a value that is not a level, became the nearest configured level.
  * - `unsafe-url`: a link whose href could run script or deceive was removed,
@@ -76,7 +78,7 @@ export interface Range {
  * switch on `code`.
  */
 export interface ContentDiagnostic {
-  readonly code: 'unknown-list-marker' | 'unsupported-heading-level' | 'unsafe-url' | 'unsupported-url' | 'unsupported-table-span';
+  readonly code: 'unknown-list-marker' | 'unsupported-list-label' | 'unsupported-heading-level' | 'unsafe-url' | 'unsupported-url' | 'unsupported-table-span';
   /** The node that holds the value, or that carries the removed mark, such as `text`. */
   readonly nodeType: string;
   /** The type of the removed mark, such as `link`; absent when a node's value was replaced. */

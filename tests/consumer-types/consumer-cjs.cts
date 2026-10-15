@@ -341,3 +341,10 @@ core.Link.configure({ openOnClick: false, unknownOption: true });
 core.Link.configure(123);
 // @ts-expect-error A function is not a Link options object.
 core.Link.configure(() => 1);
+
+const listLabel: import('@domternal/core').CounterListLabel = { kind: 'counter', format: 'decimal', prefix: '', suffix: ') ' };
+const listJSON: import('@domternal/core').JSONContent = { type: 'orderedList', attrs: { listLabel } };
+import listLabelCore = require('@domternal/core');
+const listLabelCSS: string = listLabelCore.getListLabelStyleSheet(listJSON);
+const listLabelText: string | null = listLabelCore.formatListLabel(listLabel, 0);
+listLabelCore.ListLabels.configure({ nonce: 'host-nonce' });

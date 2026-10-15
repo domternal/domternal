@@ -614,3 +614,19 @@ Link.configure({ openOnClick: false, unknownOption: true });
 Link.configure(123);
 // @ts-expect-error A function is not a Link options object.
 Link.configure(() => 1);
+
+// Optional labels stay usable as JSON attributes without widening their closed record types.
+import { ListLabels, formatListLabel, getListLabelStyleSheet, readListLabel } from '@domternal/core';
+import type { ListLabel, CounterListLabel, TextListLabel, JSONContent, GlobalAttributeSpec } from '@domternal/core';
+const counterLabel: CounterListLabel = { kind: 'counter', format: 'decimal', prefix: 'Section ', suffix: ') ' };
+const textLabel: TextListLabel = { kind: 'text', text: '✓' };
+const labelledDocument: JSONContent = { type: 'orderedList', attrs: { start: 0, listLabel: counterLabel } };
+const labelStyleSheet: string = getListLabelStyleSheet(labelledDocument);
+const labelText: string | null = formatListLabel(counterLabel, 4);
+const parsedLabel: ListLabel | null = readListLabel(textLabel);
+ListLabels.configure({ injectCSS: false, nonce: 'host-nonce' });
+const validatedGlobalAttribute: GlobalAttributeSpec = { default: null, validate: (value: unknown): void => { void value; } };
+// @ts-expect-error A label cannot provide an arbitrary CSS counter style.
+const unknownLabelFormat: CounterListLabel = { kind: 'counter', format: 'url(x)', prefix: '', suffix: '' };
+// @ts-expect-error Literal labels have no image or URL field.
+const unknownLabelProperty: TextListLabel = { kind: 'text', text: 'x', url: 'https://example.test/' };
