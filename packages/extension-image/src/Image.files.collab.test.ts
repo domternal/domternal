@@ -103,9 +103,13 @@ describe('image files in a shared document', () => {
     a.editor.view.dispatch(a.editor.state.tr.setSelection(TextSelection.create(a.editor.state.doc, after(a.editor, 'alpha'))));
 
     pasteFiles(a.editor, [png('a.png'), png('b.png')]);
+    const indicators = Array.from(a.editor.view.dom.querySelectorAll('.domternal-image-uploading'));
+    expect(indicators).toHaveLength(2);
+    expect(b.editor.view.dom.querySelectorAll('.domternal-image-uploading')).toHaveLength(0);
     // A remote edit in the paragraph that holds the placeholders, before them, and one after them.
     b.editor.view.dispatch(b.editor.state.tr.insertText('Say ', start(b.editor, 'alpha')));
     b.editor.view.dispatch(b.editor.state.tr.insertText('!', after(b.editor, 'beta')));
+    expect(Array.from(a.editor.view.dom.querySelectorAll('.domternal-image-uploading'))).toEqual(indicators);
     upload.resolve('b.png');
     upload.resolve('a.png');
     await settle();

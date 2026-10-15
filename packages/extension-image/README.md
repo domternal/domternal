@@ -87,8 +87,11 @@ Image.configure({
 
 The same MIME, size and count rules apply to pasted, dropped and file-picker
 images. Validate uploads on your server too. Files keep their insertion order
-while asynchronous uploads finish. Applications can style the
-`.domternal-image-uploading` placeholder; the theme does not give it a visible
+while asynchronous uploads finish. The theme renders the
+`.domternal-image-uploading` placeholder as a localized loading status with a
+light/dark indicator. It respects reduced motion and is hidden when printing.
+It is view-only, has no keyboard stop and never enters saved content or Undo
+history. A failed upload or deletion of its insertion point removes the
 loading indicator. See [file insertion and undo](https://domternal.dev/v1/nodes/image/#how-files-are-inserted)
 for selection replacement, cancellation and collaborative edits.
 

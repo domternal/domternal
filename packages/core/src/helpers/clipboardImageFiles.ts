@@ -29,6 +29,12 @@ export interface ClipboardPasteTextOptions {
    */
   readonly imageStandIns?: readonly string[];
   /**
+   * Optional source alt attributes corresponding to imageStandIns. An empty string means an
+   * explicitly decorative image; null means the source had no alt. Legacy imageStandIns alone
+   * still treat an empty stand-in as unspecified, since it cannot distinguish those cases.
+   */
+  readonly imageStandInAlts?: readonly (string | null)[];
+  /**
    * Whether a handler removed text of the content's own that it does not paste, such as a Word document's hidden
    * text. The content then had text of its own, whatever the slice holds, so the clipboard's image files, which can
    * be the application's picture of a selection showing that text, are not the paste.
@@ -217,13 +223,15 @@ export function pasteHasOwnText(event: ClipboardEvent, slice: Slice, options: Cl
 }
 
 /** The alt text of the one image the pasted content held, for one file. */
-function singleAlt(slice: Slice, nodeTypeName: string, standIns: readonly string[]): string | undefined {
+function singleAlt(slice: Slice, nodeTypeName: string, standIns: readonly string[], sourceAlts?: readonly (string | null)[]): string | undefined {
   const alts: unknown[] = [];
   slice.content.descendants(node => {
     if (node.type.name === nodeTypeName) alts.push(node.attrs['alt']);
   });
-  if (alts.length === 1) return typeof alts[0] === 'string' && alts[0] !== '' ? alts[0] : undefined;
-  if (alts.length === 0 && standIns.length === 1 && standIns[0] !== '') return standIns[0];
+  if (alts.length + standIns.length !== 1) return undefined;
+  if (alts.length === 1) return typeof alts[0] === 'string' ? alts[0] : undefined;
+  if (standIns.length === 1 && standIns[0] !== '') return standIns[0];
+  if (standIns.length === 1 && sourceAlts?.length === 1 && sourceAlts[0] === '') return '';
   return undefined;
 }
 
@@ -245,7 +253,7 @@ export function pasteClipboardImageFiles(
   if (files.length === 0 || pasteHasOwnText(event, slice, options)) return false;
   const destination = clipboardImageFileDestination(view);
   if (destination === undefined) return false;
-  const alt = files.length === 1 ? singleAlt(slice, destination.nodeTypeName, options.imageStandIns ?? []) : undefined;
+  const alt = files.length === 1 ? singleAlt(slice, destination.nodeTypeName, options.imageStandIns ?? [], options.imageStandInAlts) : undefined;
   try {
     return destination.insertFiles(Object.freeze({ files: Object.freeze(files), ...(alt === undefined ? {} : { alt }) }));
   } catch {
@@ -274,7 +282,7 @@ export function dropClipboardImageFiles(
   if (destination === undefined) return false;
   const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
   if (!at) return false;
-  const alt = files.length === 1 ? singleAlt(slice, destination.nodeTypeName, options.imageStandIns ?? []) : undefined;
+  const alt = files.length === 1 ? singleAlt(slice, destination.nodeTypeName, options.imageStandIns ?? [], options.imageStandInAlts) : undefined;
   try {
     return destination.insertFiles(Object.freeze({ files: Object.freeze(files), position: at.pos, ...(alt === undefined ? {} : { alt }) }));
   } catch {

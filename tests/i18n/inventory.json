@@ -3042,6 +3042,24 @@
       "searchable": false
     },
     {
+      "id": "image.upload.loading",
+      "owner": "@domternal/extension-image",
+      "description": "Visible status while an image file is being read or uploaded.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Loading image..."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "math.block.description",
       "owner": "@domternal/extension-math",
       "description": "Description of the block equation insertion action.",

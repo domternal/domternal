@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+### Features
+
+- Show a localized, accessible loading indicator while image files are being stored, with theme, reduced-motion and print styles.
+
 ### Fixes
 
+- Preserve an explicit empty image alt attribute through clipboard cleanup and file upload without using another image's description.
 - Preserve alpha in translucent text colors and highlights when reading HTML, including paste, clipboard serialization and save/reload. Opaque RGB colors continue to normalize to hex.
 
 ## 1.4.0 (2026-10-12)

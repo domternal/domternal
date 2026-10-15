@@ -197,7 +197,7 @@ export function normalizeClipboardHTML(
     let images = 0;
     let pixels = 0;
     // The alt text left in place of each removed image, so the editor can tell it from pasted text.
-    const standIns: string[] = [];
+    const standIns: (string | null)[] = [];
     const consumePixels = (count: number): boolean => {
       if (pixels + count > limits.maxImagePixels) return false;
       pixels += count;
@@ -377,7 +377,7 @@ export function normalizeClipboardHTML(
               preparation?.removedImage?.();
               report('image-removed', child);
               if (typeof original.alt === 'string') children.push({ type: 'text', value: original.alt });
-              standIns.push(typeof original.alt === 'string' ? original.alt : '');
+              standIns.push(typeof original.alt === 'string' ? original.alt : null);
               continue;
             }
             // HAST data comes from this trusted sink, never from pasted HTML attributes.

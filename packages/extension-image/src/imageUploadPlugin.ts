@@ -16,6 +16,8 @@
  * its place through it, so another client typing while a file is read or
  * uploaded does not lose the image.
  */
+import { localizeMessage } from '@domternal/core';
+import type { I18nService } from '@domternal/core';
 import { placeClipboardPaste } from '@domternal/core/clipboard';
 import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
@@ -24,6 +26,7 @@ import type { EditorView } from '@domternal/pm/view';
 import { Fragment, Slice } from '@domternal/pm/model';
 import type { Node as PMNode, NodeType } from '@domternal/pm/model';
 import { ReplaceStep } from '@domternal/pm/transform';
+import { imageMessages } from './messages.js';
 
 export const imageUploadPluginKey = new PluginKey<DecorationSet>('imageUpload');
 
@@ -34,6 +37,8 @@ export const imageUploadPluginKey = new PluginKey<DecorationSet>('imageUpload');
 export type ImageFilePlacement = { readonly at: 'selection' } | { readonly at: 'position'; readonly pos: number } | { readonly at: 'command' };
 
 export interface ImageFileInsertionOptions {
+  /** The owning editor's live presentation language. */
+  i18n?: I18nService;
   /** The image node type from the schema. */
   nodeType: NodeType;
   /** Stores a file and returns its source; null when files cannot be stored. Read for each insertion. */
@@ -91,15 +96,39 @@ export function _resetPlaceholderCounter(): void {
   placeholderCounter = 0;
 }
 
-function createPlaceholderElement(): HTMLElement {
-  const div = document.createElement('div');
-  div.className = 'domternal-image-uploading';
-  return div;
+function updatePlaceholderLabel(element: HTMLElement, i18n: I18nService | undefined): void {
+  let revision: number | undefined;
+  let label;
+  do {
+    revision = i18n?.getSnapshot().revision;
+    label = localizeMessage(i18n, imageMessages.loading);
+  } while (revision !== i18n?.getSnapshot().revision);
+  const text = element.querySelector('.domternal-image-uploading__label');
+  if (text !== null) text.textContent = label.text;
+  element.lang = label.language;
 }
 
-function placeholder(pos: number, id: string): Decoration {
+function createPlaceholderElement(view: EditorView, i18n: I18nService | undefined): HTMLElement {
+  const owner = view.dom.ownerDocument;
+  const element = owner.createElement('span');
+  element.className = 'domternal-image-uploading';
+  element.contentEditable = 'false';
+  element.setAttribute('role', 'status');
+  element.setAttribute('aria-live', 'polite');
+  element.setAttribute('aria-atomic', 'true');
+  const spinner = owner.createElement('span');
+  spinner.className = 'domternal-image-uploading__spinner';
+  spinner.setAttribute('aria-hidden', 'true');
+  const label = owner.createElement('span');
+  label.className = 'domternal-image-uploading__label';
+  element.append(spinner, label);
+  updatePlaceholderLabel(element, i18n);
+  return element;
+}
+
+function placeholder(pos: number, id: string, i18n?: I18nService): Decoration {
   // The key keeps the rendered indicator when a placeholder is placed anew at a mapped position.
-  return Decoration.widget(pos, createPlaceholderElement, { id, key: id, side: -1 });
+  return Decoration.widget(pos, view => createPlaceholderElement(view, i18n), { id, key: id, side: -1 });
 }
 
 const byId = (id: string) => (spec: { id?: string }): boolean => spec.id === id;
@@ -142,7 +171,7 @@ function documentChange(before: PMNode, after: PMNode): DocumentChange | null {
  * of a collaboration binding, which replaces the whole document, it stays
  * wherever the content around it is unchanged.
  */
-function mapPlaceholders(tr: Transaction, decorations: DecorationSet): DecorationSet {
+function mapPlaceholders(tr: Transaction, decorations: DecorationSet, i18n?: I18nService): DecorationSet {
   if (!tr.docChanged) return decorations;
   const found = decorations.find();
   if (found.length === 0) return decorations.map(tr.mapping, tr.doc);
@@ -158,7 +187,7 @@ function mapPlaceholders(tr: Transaction, decorations: DecorationSet): Decoratio
       if (change === null || widget.from <= change.start) pos = widget.from;
       else if (widget.from >= change.endA) pos = widget.from - change.endA + change.endB;
     }
-    if (pos !== undefined && pos <= tr.doc.content.size) widgets.push(placeholder(pos, id));
+    if (pos !== undefined && pos <= tr.doc.content.size) widgets.push(placeholder(pos, id, i18n));
   }
   return DecorationSet.create(tr.doc, widgets);
 }
@@ -305,20 +334,28 @@ export function imageFileInsertion(options: ImageFileInsertionOptions): ImageFil
     state: {
       init: () => DecorationSet.empty,
       apply(tr: Transaction, decorations: DecorationSet) {
-        let next = mapPlaceholders(tr, decorations);
+        let next = mapPlaceholders(tr, decorations, options.i18n);
         const action = tr.getMeta(imageUploadPluginKey) as Action | undefined;
         if (action?.type === 'add') {
-          next = next.add(tr.doc, action.placeholders.map(({ id, pos }) => placeholder(pos, id)));
+          next = next.add(tr.doc, action.placeholders.map(({ id, pos }) => placeholder(pos, id, options.i18n)));
         } else if (action?.type === 'settle') {
           const gone = new Set([...action.remove, ...action.place.map(({ id }) => id)]);
           next = next.remove(next.find(undefined, undefined, (spec: { id?: string }) => spec.id !== undefined && gone.has(spec.id)));
-          next = next.add(tr.doc, action.place.map(({ id, pos }) => placeholder(pos, id)));
+          next = next.add(tr.doc, action.place.map(({ id, pos }) => placeholder(pos, id, options.i18n)));
         }
         return next;
       },
     },
     props: {
       decorations: state => imageUploadPluginKey.getState(state),
+    },
+    view(view) {
+      const unsubscribe = options.i18n?.subscribe(() => {
+        for (const element of Array.from(view.dom.querySelectorAll<HTMLElement>('.domternal-image-uploading'))) {
+          updatePlaceholderLabel(element, options.i18n);
+        }
+      });
+      return { destroy: () => { unsubscribe?.(); } };
     },
   });
 

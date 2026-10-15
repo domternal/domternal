@@ -26,6 +26,7 @@ export const deMessages: Readonly<CompleteMessages<typeof imageMessages>> = Obje
     'image.popover.insert': 'Bild einfügen',
     'image.popover.saveAlt': 'Alternativtext speichern',
     'image.popover.browse': 'Dateien durchsuchen',
+    'image.upload.loading': 'Bild wird geladen …',
 } satisfies CompleteMessages<typeof imageMessages>);
 
 /** German search terms supplement the stable technical aliases. */

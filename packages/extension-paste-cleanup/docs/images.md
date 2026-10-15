@@ -55,6 +55,12 @@ files and the cleaned content pastes as it would without them.
 
 ## Enable local embedding
 
+For a single image and a single File, an explicitly empty `alt=""` stays empty,
+so a decorative image does not become an undescribed image. An absent alt stays
+absent. This also applies when cleanup removes the HTML image before handing
+its File to Image. Multiple source images or multiple Files do not borrow one
+image's alternative text or decorative status for the others.
+
 ```ts
 import { Image } from '@domternal/extension-image';
 import { PasteCleanup } from '@domternal/extension-paste-cleanup';

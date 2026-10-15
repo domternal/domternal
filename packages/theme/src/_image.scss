@@ -2,6 +2,55 @@
 // Image Styles
 // =============================================================================.
 
+// A widget owned by the view, never saved as document content.
+.dm-editor .ProseMirror .domternal-image-uploading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  max-inline-size: 100%;
+  margin: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: 0.375rem;
+  background: var(--dm-surface, #f8f9fa);
+  color: var(--dm-text, #1a1a1a);
+  font-family: var(--dm-editor-font-family, sans-serif);
+  font-size: 0.875rem;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.5;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+  user-select: none;
+
+  .domternal-image-uploading__spinner {
+    display: inline-block;
+    flex: 0 0 1em;
+    inline-size: 1em;
+    block-size: 1em;
+    box-sizing: border-box;
+    border: 2px solid currentColor;
+    border-inline-end-color: transparent;
+    border-radius: 50%;
+    animation: dm-image-loading 0.9s linear infinite;
+  }
+}
+
+@keyframes dm-image-loading {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-editor .ProseMirror .domternal-image-uploading .domternal-image-uploading__spinner {
+    animation: none;
+  }
+}
+
+@media print {
+  .dm-editor .ProseMirror .domternal-image-uploading { display: none !important; }
+}
+
 .dm-editor .ProseMirror {
   img {
     // Floated images shouldn't exceed 60% width

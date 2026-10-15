@@ -176,7 +176,6 @@ describe('pasteClipboardImageFiles', () => {
   it.each([
     ['two images', '<img src="https://example.com/a.png" alt="A"><img src="https://example.com/b.png" alt="B">', undefined, 1],
     ['an image without alt', '<img src="https://example.com/a.png">', undefined, 1],
-    ['an image with an empty alt', '<img src="https://example.com/a.png" alt="">', undefined, 1],
     ['one image and two files', '<img src="https://example.com/a.png" alt="A">', undefined, 2],
   ])('gives no alt text for %s', (_name, html, _alt, count) => {
     const insert = vi.fn(() => true);
@@ -196,6 +195,38 @@ describe('pasteClipboardImageFiles', () => {
 
     expect(pasteClipboardImageFiles(ed.view, pasteEvent({ html: '<p>A B</p>', files: [file] }), textSlice(ed, 'A B'), { imageStandIns: ['A', 'B'] })).toBe(true);
     expect(insert).toHaveBeenLastCalledWith({ files: [file] });
+  });
+
+  it.each(['', null] as const)('keeps the distinction between decorative and absent alt %j', alt => {
+    const insert = vi.fn(() => true);
+    const { ed } = withDestination(insert);
+    const file = png();
+    const html = `<img src="https://example.com/a.png"${alt === null ? '' : ' alt=""'}>`;
+    const expected = { files: [file], ...(alt === null ? {} : { alt }) };
+    expect(pasteClipboardImageFiles(ed.view, pasteEvent({ html, files: [file] }), sliceOf(ed, html))).toBe(true);
+    expect(insert).toHaveBeenLastCalledWith(expected);
+    expect(pasteClipboardImageFiles(ed.view, pasteEvent({ html, files: [file] }), Slice.empty, { imageStandIns: [alt ?? ''], imageStandInAlts: [alt] })).toBe(true);
+    expect(insert).toHaveBeenLastCalledWith(expected);
+  });
+
+  it('keeps legacy empty text stand-ins unspecified without the optional source-alt metadata', () => {
+    const insert = vi.fn(() => true);
+    const { ed } = withDestination(insert);
+    const file = png();
+    const legacy: Parameters<typeof pasteClipboardImageFiles>[3] = { imageStandIns: [''] as readonly string[] };
+    expect(pasteClipboardImageFiles(ed.view, pasteEvent({ files: [file] }), Slice.empty, legacy)).toBe(true);
+    expect(insert).toHaveBeenLastCalledWith({ files: [file] });
+    expect(pasteClipboardImageFiles(ed.view, pasteEvent({ files: [file] }), Slice.empty, { ...legacy, imageStandInAlts: ['', ''] })).toBe(true);
+    expect(insert).toHaveBeenLastCalledWith({ files: [file] });
+  });
+
+  it('does not borrow an alt when kept and removed images make the source ambiguous', () => {
+    const insert = vi.fn(() => true);
+    const { ed } = withDestination(insert);
+    const file = png();
+    const html = '<img src="https://example.com/a.png" alt="Kept">';
+    expect(pasteClipboardImageFiles(ed.view, pasteEvent({ html, files: [file] }), sliceOf(ed, html), { imageStandIns: [''] })).toBe(true);
+    expect(insert).toHaveBeenCalledExactlyOnceWith({ files: [file] });
   });
 
   it('keeps the content, and hands over nothing, when it has text of its own', () => {

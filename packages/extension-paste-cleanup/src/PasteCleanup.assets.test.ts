@@ -411,16 +411,45 @@ describe('coordinated embedded clipboard assets', () => {
     expect(fixture.upload).not.toHaveBeenCalled();
   });
 
-  it('inserts the clipboard file once, with the alt text, in place of an embedded HTML image with no text beside it', async () => {
+  it.each(['Existing', '', null] as const)('inserts the clipboard file once, keeping embedded image alt %j', async alt => {
     const asset = imageFile();
     const fixture = mount();
-    paste(fixture.editor, { html: `<img src="${PNG_URL}" alt="Existing">`, files: [asset.file] });
+    paste(fixture.editor, { html: `<img src="${PNG_URL}"${alt === null ? '' : ` alt="${alt}"`}>`, files: [asset.file] });
     // The cleaned content reports untracked without findings; the prepared file reports as applied.
     await terminal(fixture, 'applied', undefined, 2);
     expect(fixture.completed.mock.calls[0]?.[0]).toMatchObject({ status: 'untracked', diagnostics: [] });
-    expect(imageNodes(fixture.editor).map(image => [image.src, image.alt])).toEqual([[PNG_URL, 'Existing']]);
+    expect(imageNodes(fixture.editor).map(image => [image.src, image.alt])).toEqual([[PNG_URL, alt]]);
     expect(asset.read).toHaveBeenCalledOnce();
     expect(fixture.upload).not.toHaveBeenCalled();
+  });
+
+  it.each(['Decorative & descriptive "label"', '', null] as const)('keeps removed web image alt %j through the File route', async alt => {
+    const asset = imageFile();
+    const fixture = mount();
+    const attribute = alt === null ? '' : ` alt="${alt.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}"`;
+    paste(fixture.editor, { html: `<img src="https://example.com/a.png"${attribute}>`, files: [asset.file] });
+    await terminal(fixture, 'applied', undefined, 2);
+    expect(imageNodes(fixture.editor).map(image => [image.src, image.alt])).toEqual([[PNG_URL, alt]]);
+    expect(fixture.editor.view.dom.querySelector('img')?.getAttribute('alt')).toBe(alt);
+    expect(asset.read).toHaveBeenCalledOnce();
+    expect(fixture.upload).not.toHaveBeenCalled();
+  });
+
+  it('does not mark several files decorative because one HTML image has empty alt', async () => {
+    const first = imageFile();
+    const second = imageFile();
+    const fixture = mount();
+    paste(fixture.editor, { html: '<img src="https://example.com/a.png" alt="">', files: [first.file, second.file] });
+    await terminal(fixture, 'applied', undefined, 2);
+    expect(imageNodes(fixture.editor).map(image => image.alt)).toEqual([null, null]);
+  });
+
+  it('does not borrow decorative status from one of several kept and removed source images', async () => {
+    const asset = imageFile();
+    const fixture = mount();
+    paste(fixture.editor, { html: `<img src="${PNG_URL}" alt=""><img src="https://example.com/a.png">`, files: [asset.file] });
+    await terminal(fixture, 'applied', undefined, 2);
+    expect(imageNodes(fixture.editor).map(image => image.alt)).toEqual([null]);
   });
 
   it('keeps an embedded HTML image with text beside it, without reading the clipboard file', async () => {

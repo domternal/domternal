@@ -775,6 +775,7 @@ export const Image = Node.create<ImageOptions>({
     // One path for pasted, dropped and chosen files: an uploadHandler stores them, otherwise
     // they are read as data URLs when allowBase64 allows it, and without either nothing is stored.
     const files = nodeType ? imageFileInsertion({
+      i18n: editor.i18n,
       nodeType,
       store: () => {
         const { uploadHandler, allowBase64 } = live();

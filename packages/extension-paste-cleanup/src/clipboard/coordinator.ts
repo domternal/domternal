@@ -154,7 +154,7 @@ export interface ClipboardAssetCoordinator {
    * Prepares the clipboard's image files when the cleaned content has no text of its own. `removedText` says that
    * cleanup removed text the content held, Word's hidden text, which a picture of the selection can show.
    */
-  handleImageOnly(event: ClipboardEvent, slice: Slice, standIns?: readonly string[], removedText?: boolean): boolean;
+  handleImageOnly(event: ClipboardEvent, slice: Slice, standIns?: readonly string[], removedText?: boolean, sourceAlts?: readonly (string | null)[]): boolean;
   assetsHandled(event: ClipboardEvent): boolean;
   observe(): void;
   adopt(): void;
@@ -203,13 +203,15 @@ function resolverNonce(view: EditorView): string {
 }
 
 /** The alt text of the one image a pasted slice held, or the one stand-in cleanup left for it. */
-function singleImageAlt(slice: Slice, nodeTypeName: string | undefined, standIns: readonly string[]): string | undefined {
+function singleImageAlt(slice: Slice, nodeTypeName: string | undefined, standIns: readonly string[], sourceAlts?: readonly (string | null)[]): string | undefined {
   const alts: unknown[] = [];
   slice.content.descendants(node => {
     if (node.type.name === nodeTypeName) alts.push(node.attrs['alt']);
   });
-  if (alts.length === 1) return typeof alts[0] === 'string' && alts[0] !== '' ? alts[0] : undefined;
-  return alts.length === 0 && standIns.length === 1 && standIns[0] !== '' ? standIns[0] : undefined;
+  if (alts.length + standIns.length !== 1) return undefined;
+  if (alts.length === 1) return typeof alts[0] === 'string' ? alts[0] : undefined;
+  if (standIns.length === 1 && standIns[0] !== '') return standIns[0];
+  return standIns.length === 1 && sourceAlts?.length === 1 && sourceAlts[0] === '' ? '' : undefined;
 }
 
 /** A value written into a double-quoted HTML attribute. */
@@ -602,7 +604,7 @@ export function createClipboardAssetCoordinator(
       if (blocked && !own.asset.done) stop(own.asset, slice.content.size === 0 ? 'assets-unavailable' : cancellationReason(own.asset.session?.cancellation));
       return { operation: own.asset.operation, blocked, preserveOrderedListStart: own.preserveOrderedListStart };
     },
-    handleImageOnly(event, slice, standIns = [], removedText = false) {
+    handleImageOnly(event, slice, standIns = [], removedText = false, sourceAlts) {
       // Core's rule: white space, format characters and alt text left in place of removed images are not text of its
       // own, while text cleanup removed, Word's hidden text, is.
       if (destroyed || replays.has(event) || pasteHasOwnText(event, slice, { imageStandIns: standIns, removedText })) return false;
@@ -628,7 +630,7 @@ export function createClipboardAssetCoordinator(
       if (files.length === 0) return false;
       event.preventDefault();
       // One file stands for the one image the pasted content held and keeps its alt text.
-      const alt = files.length === 1 ? singleImageAlt(slice, readDestination()?.nodeTypeName, standIns) : undefined;
+      const alt = files.length === 1 ? singleImageAlt(slice, readDestination()?.nodeTypeName, standIns, sourceAlts) : undefined;
       const altAttribute = alt === undefined ? '' : ` alt="${escapeAttribute(alt)}"`;
       const result = prepare(files.map(item => `<img src="cid:clipboard-item-${String(item.itemIndex)}"${altAttribute}>`).join(''));
       const asset = makeOperation(result, entry);

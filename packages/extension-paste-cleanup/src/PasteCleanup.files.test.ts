@@ -92,6 +92,9 @@ const text = (editor: Editor): string => {
 describe('PasteCleanup without image assets', () => {
   it.each([
     ['a copied web image with alt text', `<meta charset="utf-8"><img src="${REMOTE}" alt="A cat">`, 'A cat'],
+    ['a decorative web image', `<img src="${REMOTE}" alt="">`, ''],
+    ['a web image without alt', `<img src="${REMOTE}">`, null],
+    ['a decorative local image', '<img src="file:///C:/decorative.png" alt="">', ''],
     ['a copied local image with alt text', '<img src="file:///C:/Users/me/cat.png" alt="A cat">', 'A cat'],
     ['a blob image', '<img src="blob:https://example.com/1234">', null],
     ['a meta element only', '<meta charset="utf-8">', null],
@@ -196,6 +199,18 @@ describe('PasteCleanup and dropped image files', () => {
     expect(images(fixture.editor)).toEqual([{ src: 'https://cdn.example/shot.png', alt: 'A cat' }]);
     expect(text(fixture.editor)).toBe('');
     expect(result).toMatchObject({ status: 'untracked', diagnostics: [] });
+  });
+
+  it.each(['', null] as const)('keeps decorative versus absent alt %j for one dropped file', async alt => {
+    const fixture = mount();
+    drop(fixture.editor, `<img src="${REMOTE}"${alt === null ? '' : ' alt=""'}>`, [png()]);
+    await settled(fixture);
+    expect(images(fixture.editor)).toEqual([{ src: 'https://cdn.example/shot.png', alt }]);
+    expect(fixture.editor.view.dom.querySelector('img')?.getAttribute('alt')).toBe(alt);
+    // An unrelated later file does not inherit this image's decorative decision.
+    drop(fixture.editor, '', [png('later.png')]);
+    await settled(fixture);
+    expect(images(fixture.editor).find(image => image.src === 'https://cdn.example/later.png')?.alt).toBe(null);
   });
 
   it('inserts every dropped file in order over dropped text, without alt text', async () => {

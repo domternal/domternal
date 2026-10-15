@@ -7,6 +7,7 @@
 import { expect, type Page } from '@playwright/test';
 import { resolve } from 'node:path';
 import type { Editor } from '@domternal/core';
+import type { ImageOptions } from '@domternal/extension-image';
 import type * as CoreClipboard from '../packages/core/dist/clipboard.js';
 import type { PasteOperationResult } from '@domternal/extension-paste-cleanup';
 import { test } from './native-clipboard.js';
@@ -23,6 +24,7 @@ interface ProbeWindow {
     operations: PasteOperationResult[];
     clearObservations: () => void;
   };
+  __imageUploadControls?: { finish(): void; fail(): void };
 }
 
 type Config = 'off' | 'cleanup' | 'assets' | 'assets-omit' | 'upload' | 'no-base64';
@@ -78,6 +80,16 @@ const ROWS: Row[] = [
     name: 'a copied web image with alt text and its file',
     clipboard: { html: `<meta charset="utf-8"><img src="${REMOTE}" alt="A cat">`, files: 1 },
     expect: { off: { file: 1, alt: 'A cat' }, cleanup: { file: 1, alt: 'A cat' }, assets: { file: 1, alt: 'A cat' }, 'assets-omit': { file: 1, alt: 'A cat' }, upload: { file: 1, alt: 'A cat' }, 'no-base64': { htmlImage: true } },
+  },
+  {
+    name: 'a decorative web image with its file',
+    clipboard: { html: `<img src="${REMOTE}" alt="">`, files: 1 },
+    expect: { off: { file: 1, alt: '' }, cleanup: { file: 1, alt: '' }, assets: { file: 1, alt: '' }, 'assets-omit': { file: 1, alt: '' }, upload: { file: 1, alt: '' }, 'no-base64': { htmlImage: true } },
+  },
+  {
+    name: 'two images with one decorative alt and one file',
+    clipboard: { html: `<img src="${REMOTE}" alt=""><img src="${REMOTE}" alt="Second">`, files: 1 },
+    expect: { off: FILE, cleanup: FILE, assets: FILE, 'assets-omit': FILE, upload: FILE },
   },
   {
     name: 'a copied web image whose text is its address',
@@ -212,6 +224,89 @@ function check(outcome: Outcome, expected: Expected, config: Config): void {
 }
 
 const CONFIGS: Config[] = ['off', 'upload', 'no-base64', 'cleanup', 'assets', 'assets-omit'];
+
+async function beginPendingUpload(page: Page): Promise<void> {
+  await page.evaluate(png => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    const { editor } = probe;
+    const image = editor.extensionManager.extensions.find(extension => extension.name === 'image');
+    if (!image) throw new Error('No image destination');
+    const options = image.options as ImageOptions;
+    options.uploadHandler = () => new Promise<string>((resolve, reject) => {
+      (window as unknown as ProbeWindow).__imageUploadControls = {
+        finish: () => { resolve(`data:image/png;base64,${png}`); },
+        fail: () => { reject(new Error('Synthetic upload failure')); },
+      };
+    });
+    editor.setContent('<p>Before after</p>', false);
+    editor.commands.focus('start');
+    const data = new DataTransfer();
+    data.items.add(new File([Uint8Array.from(atob(png), value => value.charCodeAt(0))], 'private-image.png', { type: 'image/png' }));
+    const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+    if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+    editor.view.dom.dispatchEvent(event);
+  }, PNG);
+}
+
+for (const theme of ['light', 'dark']) {
+  test(`image upload status is accessible and readable in the ${theme} theme`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => { errors.push(error.message); });
+    await page.goto(`${BASE_URL}/?framework=vanilla&paste-cleanup=off&image-upload=on&unique-id=off&theme=1&theme-mode=${theme}`);
+    await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
+    await beginPendingUpload(page);
+    const indicator = page.locator('.domternal-image-uploading');
+    await expect(indicator).toBeVisible();
+    await expect(indicator).toHaveAttribute('role', 'status');
+    await expect(indicator).toHaveAttribute('aria-live', 'polite');
+    await expect(indicator).toHaveAttribute('contenteditable', 'false');
+    await expect(indicator).toHaveText('Loading image...');
+    await expect(indicator).not.toHaveAttribute('tabindex');
+    const presentation = await indicator.evaluate(element => {
+      const style = getComputedStyle(element);
+      const luminance = (color: string): number => {
+        const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(value => {
+          const channel = Number(value) / 255;
+          return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+        });
+        if (channels?.length !== 3) throw new Error('Expected an RGB theme color');
+        return (channels[0] ?? 0) * 0.2126 + (channels[1] ?? 0) * 0.7152 + (channels[2] ?? 0) * 0.0722;
+      };
+      const light = luminance(style.color);
+      const dark = luminance(style.backgroundColor);
+      const bounds = element.getBoundingClientRect();
+      return { contrast: (Math.max(light, dark) + 0.05) / (Math.min(light, dark) + 0.05), width: bounds.width, height: bounds.height };
+    });
+    expect(presentation.contrast).toBeGreaterThanOrEqual(4.5);
+    expect(presentation.width).toBeGreaterThan(80);
+    expect(presentation.height).toBeGreaterThan(20);
+    await expect(indicator.locator('.domternal-image-uploading__spinner')).toHaveCSS('animation-name', 'dm-image-loading');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(indicator.locator('.domternal-image-uploading__spinner')).toHaveCSS('animation-name', 'none');
+    await expect(indicator).toBeVisible();
+    await page.emulateMedia({ media: 'print' });
+    await expect(indicator).toBeHidden();
+    await page.emulateMedia({ media: 'screen' });
+    await expect(indicator).toBeVisible();
+    const before = await page.evaluate(() => {
+      const { editor } = (window as unknown as ProbeWindow).__pasteCleanup;
+      return { html: editor.getHTML(), undo: editor.commands.undo() };
+    });
+    expect(before).toEqual({ html: '<p>Before after</p>', undo: false });
+    await page.evaluate(() => { (window as unknown as ProbeWindow).__imageUploadControls?.finish(); });
+    await expect(indicator).toHaveCount(0);
+    await expect(page.locator('.ProseMirror img')).toHaveCount(1);
+    expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.editor.commands.undo())).toBe(true);
+    await expect(page.locator('.ProseMirror img')).toHaveCount(0);
+
+    await beginPendingUpload(page);
+    await expect(indicator).toBeVisible();
+    await page.evaluate(() => { (window as unknown as ProbeWindow).__imageUploadControls?.fail(); });
+    await expect(indicator).toHaveCount(0);
+    await expect(page.locator('.ProseMirror img')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+}
 
 test('Office image classification parses hostile HTML without executing or loading it', async ({ page }) => {
   await open(page, 'vanilla', 'off');

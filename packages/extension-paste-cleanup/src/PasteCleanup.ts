@@ -7,7 +7,7 @@ import { Slice } from '@domternal/pm/model';
 import { normalizePasteHTML, DEFAULT_PASTE_HTML_LIMITS } from './html/index.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './html/index.js';
 import { normalizeClipboardHTML } from './html/normalize.js';
-import { imageStandIns } from './html/imageStandIns.js';
+import { imageStandIns, imageStandInAlts } from './html/imageStandIns.js';
 import { removedText } from './html/removedText.js';
 import { officeListCapabilities } from './listCapabilities.js';
 import { getUnsupportedDestinationFeatures } from './destinationCapabilities.js';
@@ -75,7 +75,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
     // state clears. Empty slices must never bypass a current rejection.
     // standIns: the alt text cleanup left in place of the images it removed. removedText: cleanup removed text the
     // content held, Word's hidden text, so the clipboard's picture of the selection, which can show it, is no paste.
-    let pending: { rejected: boolean; preserveOrderedListStart: boolean; operation?: PendingPasteOperation; standIns?: readonly string[]; removedText?: boolean } = {
+    let pending: { rejected: boolean; preserveOrderedListStart: boolean; operation?: PendingPasteOperation; standIns?: readonly string[]; standInAlts?: readonly (string | null)[]; removedText?: boolean } = {
       rejected: false, preserveOrderedListStart: false,
     };
     const tooComplex = (text: string, code: boolean): boolean => {
@@ -235,7 +235,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           const operation = report(result);
           void tracking.finish(view, operation, rejected, destinationRejected ? { reason: 'unsupported-content' } : {});
           // A host observer can synchronously paste again. Restore this operation after it returns.
-          pending = { rejected, preserveOrderedListStart, operation, standIns: imageStandIns(result), removedText: removedText(result) };
+          pending = { rejected, preserveOrderedListStart, operation, standIns: imageStandIns(result), standInAlts: imageStandInAlts(result), removedText: removedText(result) };
           return cleaned;
         },
         handleDrop(view, event, slice, moved) {
@@ -243,7 +243,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           // HTML is not inserted. Without image assets they go to the image node here, so the one
           // file keeps the alt text cleanup left in place of the image.
           if (moved || coordinator !== undefined) return false;
-          if (!dropClipboardImageFiles(view, event, slice, { imageStandIns: pending.standIns ?? [], removedText: pending.removedText === true })) return false;
+          if (!dropClipboardImageFiles(view, event, slice, { imageStandIns: pending.standIns ?? [], imageStandInAlts: pending.standInAlts ?? [], removedText: pending.removedText === true })) return false;
           if (pending.operation !== undefined) tracking.replacedByFiles(pending.operation);
           pending = { rejected: false, preserveOrderedListStart: false };
           return true;
@@ -263,7 +263,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           }
           const standIns = pending.standIns ?? [];
           const removed = pending.removedText === true;
-          if (!pending.rejected && coordinator?.handleImageOnly(event, slice, standIns, removed) === true) {
+          if (!pending.rejected && coordinator?.handleImageOnly(event, slice, standIns, removed, pending.standInAlts) === true) {
             // The prepared files replace the cleaned content, which reports no finding of its own.
             if (pending.operation !== undefined) tracking.replacedByFiles(pending.operation);
             pending = { rejected: false, preserveOrderedListStart: false };
@@ -272,7 +272,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           // Without image assets, the image node takes the clipboard's image files when the
           // cleaned content has no text of its own: only white space, format characters or the
           // alt text left in place of removed images. Core decides, as it does for every handler.
-          if (!pending.rejected && coordinator === undefined && pasteClipboardImageFiles(view, event, slice, { imageStandIns: standIns, removedText: removed })) {
+          if (!pending.rejected && coordinator === undefined && pasteClipboardImageFiles(view, event, slice, { imageStandIns: standIns, imageStandInAlts: pending.standInAlts ?? [], removedText: removed })) {
             if (pending.operation !== undefined) tracking.replacedByFiles(pending.operation);
             pending = { rejected: false, preserveOrderedListStart: false };
             setClipboardPasteBehavior(view, event, { assetsAlreadyHandled: true });

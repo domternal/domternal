@@ -24,7 +24,9 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
           const data = new DataTransfer();
           data.setData('text/html', '<p><span style="color:rgba(12,34,56,0.25);background-color:rgba(210,180,150,0.5)">Translucent</span></p>');
           data.setData('text/plain', 'Translucent');
-          editor.view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+          const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+          if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+          editor.view.dom.dispatchEvent(event);
         });
         await expect(page.locator('.ProseMirror')).toHaveText('Translucent');
         const painted = await page.evaluate(() => {

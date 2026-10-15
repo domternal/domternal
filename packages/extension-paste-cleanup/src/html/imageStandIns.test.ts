@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeClipboardHTML, normalizePasteHTML } from './normalize.js';
-import { imageStandIns, recordImageStandIns } from './imageStandIns.js';
+import { imageStandIns, imageStandInAlts, recordImageStandIns } from './imageStandIns.js';
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
 
 describe('image stand-ins of a normalization', () => {
-  it('records the alt text left in place of each removed image, in document order, empty without alt', () => {
+  it('records each removed image in order, distinguishing absent and explicitly empty alt', () => {
     const html = '<img src="https://example.com/a.png" alt="First"><p>Text</p><img src="blob:https://example.com/1">'
-      + '<img src="file:///C:/b.png" alt="Local">';
+      + '<img src="file:///C:/b.png" alt="Local"><img src="https://example.com/decorative.png" alt="">';
     const { result } = normalizeClipboardHTML(html);
-    expect(result.diagnostics.filter(diagnostic => diagnostic.code === 'image-removed')).toHaveLength(3);
-    expect(imageStandIns(result)).toEqual(['First', '', 'Local']);
+    expect(result.diagnostics.filter(diagnostic => diagnostic.code === 'image-removed')).toHaveLength(4);
+    expect(imageStandIns(result)).toEqual(['First', '', 'Local', '']);
+    expect(imageStandInAlts(result)).toEqual(['First', null, 'Local', '']);
+    expect(Object.isFrozen(imageStandInAlts(result))).toBe(true);
     expect(Object.isFrozen(imageStandIns(result))).toBe(true);
   });
 
@@ -30,5 +32,7 @@ describe('image stand-ins of a normalization', () => {
     recordImageStandIns(target, []);
     expect(imageStandIns(target)).toEqual([]);
     expect(imageStandIns(undefined)).toEqual([]);
+    expect(imageStandInAlts(target)).toEqual([]);
+    expect(imageStandInAlts(undefined)).toEqual([]);
   });
 });
