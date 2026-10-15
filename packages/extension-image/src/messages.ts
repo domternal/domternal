@@ -34,7 +34,7 @@ declare module '@domternal/core' {
 /** English UI definitions owned by the image extension. */
 export const imageMessages = {
   loading: defineMessage({
-    id: 'image.upload.loading', defaultValue: 'Loading image...', owner: '@domternal/extension-image',
+    id: 'image.upload.loading', defaultValue: 'Loading image...', owner: '@domternal/extension-image', optionalTranslation: true,
     description: 'Visible status while an image file is being read or uploaded.',
   }),
   insertToolbar: defineMessage({
