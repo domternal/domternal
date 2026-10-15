@@ -151,8 +151,8 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       expect(await page.evaluate(() => {
         const first = (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.firstChild;
         let block = first;
-        while (block !== null && block !== undefined && !block.isTextblock) block = block.firstChild;
-        return { kind: first?.type.name, text: block?.textContent, alignment: block?.attrs['textAlign'] };
+        while (block !== null && !block.isTextblock) block = block.firstChild;
+        return { kind: first?.type.name, text: block?.textContent, alignment: block?.attrs['textAlign'] as unknown };
       })).toEqual({ kind, text, alignment });
     }
   });

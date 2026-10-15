@@ -61,8 +61,25 @@ in a row share it. When Dismiss, Escape or Cancel hides the notice while focus i
 in it, or while a pointer press left focus on the page, focus returns to the
 editor with its selection. A clean paste or intentional
 formatting adaptation alone stays quiet, including when its informational findings
-fill the diagnostic allowance. Load the normal `@domternal/theme` CSS
+fill the diagnostic allowance. When asynchronous image preparation is accepted,
+the live region announces "Images pasted." once. A clean completion leaves the
+visible notice hidden; cancelled, rejected and untracked operations never receive
+that success announcement. Load the normal `@domternal/theme` CSS
 for styling. The notice follows editor adoption and is removed on destruction.
+
+Press `Alt+Shift+P` while editing to focus a visible notice, including from a list
+that uses Tab for indentation. Escape dismisses it and returns to the stored
+editor selection. `focusFeedbackShortcut` accepts a ProseMirror shortcut such as
+`'Alt-F9'`, or `false` to disable this binding. The default is `'Alt-Shift-P'`.
+It does not intercept composition or act when the notice is hidden, and does not
+apply to application-owned feedback. A host that reserves the default shortcut
+should configure another binding and explain it in its keyboard help.
+
+The notice is an accessible group, not a separate landmark. Give each editor a
+meaningful `aria-label` or `aria-labelledby` on its editable DOM element; the
+notice combines "Paste notice" with that name. Valid `aria-labelledby` references
+are resolved in the editor's current document or shadow root. Unnamed editors
+use the generic "Paste notice" label. Clipboard text is never used as a UI label.
 
 With the theme, the notice stays in view in a long document on a screen at
 least `30rem` tall (480 px at the default font size): it sticks to the bottom of

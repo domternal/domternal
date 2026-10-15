@@ -8,6 +8,7 @@ declare module '@domternal/core' {
     'pasteCleanup.feedback.untracked': undefined;
     'pasteCleanup.feedback.noop': undefined;
     'pasteCleanup.feedback.preparing': undefined;
+    'pasteCleanup.feedback.completed': undefined;
     'pasteCleanup.feedback.cancel': undefined;
     'pasteCleanup.feedback.cancelLabel': undefined;
     'pasteCleanup.feedback.targetChanged': undefined;
@@ -48,7 +49,7 @@ declare module '@domternal/core' {
 export const pasteCleanupMessages = {
   label: defineMessage({
     id: 'pasteCleanup.feedback.label', defaultValue: 'Paste notice', owner: '@domternal/extension-paste-cleanup',
-    description: 'Accessible name of the nonmodal paste feedback region.',
+    description: 'Accessible name of the nonmodal paste feedback group.',
   }),
   applied: defineMessage({
     id: 'pasteCleanup.feedback.applied', defaultValue: 'Review the pasted content.', owner: '@domternal/extension-paste-cleanup',
@@ -69,6 +70,11 @@ export const pasteCleanupMessages = {
   preparing: defineMessage({
     id: 'pasteCleanup.feedback.preparing', defaultValue: 'Preparing pasted images.', owner: '@domternal/extension-paste-cleanup',
     description: 'Nonmodal progress notice before prepared images are inserted.',
+  }),
+  completed: defineMessage({
+    id: 'pasteCleanup.feedback.completed', defaultValue: 'Images pasted.', owner: '@domternal/extension-paste-cleanup',
+    description: 'Polite announcement after accepted image preparation completes without a visible warning.',
+    optionalTranslation: true,
   }),
   cancel: defineMessage({
     id: 'pasteCleanup.feedback.cancel', defaultValue: 'Cancel', owner: '@domternal/extension-paste-cleanup',

@@ -3631,6 +3631,24 @@
       "searchable": false
     },
     {
+      "id": "pasteCleanup.feedback.completed",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Polite announcement after accepted image preparation completes without a visible warning.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Images pasted."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "pasteCleanup.feedback.copyAgainRecovery",
       "owner": "@domternal/extension-paste-cleanup",
       "description": "Recovery for unavailable or unreadable clipboard images, without automatic clipboard access.",
@@ -3723,7 +3741,7 @@
     {
       "id": "pasteCleanup.feedback.label",
       "owner": "@domternal/extension-paste-cleanup",
-      "description": "Accessible name of the nonmodal paste feedback region.",
+      "description": "Accessible name of the nonmodal paste feedback group.",
       "allowEmpty": false,
       "default": {
         "kind": "text",

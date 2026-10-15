@@ -51,7 +51,7 @@ const editor = new Editor({
 
 This provides paragraphs, headings, lists and basic marks. Add the corresponding extensions for tables, images, colors, fonts, alignment or other content your editor should retain. Table capability checks can block a paste that the destination cannot represent; other unsupported formatting produces diagnostics. Cleanup cannot add capabilities to the receiving schema.
 
-The default nonmodal notice reports warnings and blocked input, with details and dismissal. The theme styles it. Clean pastes and intentional formatting adaptation stay quiet. Markdown, Link, SmartPaste and history keep their normal insertion behavior; plain text and code-block pastes keep their interpretation, subject to the limits below.
+The default nonmodal notice reports warnings and blocked input, with details and dismissal. The theme styles it. Clean pastes and intentional formatting adaptation stay quiet; accepted asynchronous image preparation announces completion without showing a warning. Press `Alt+Shift+P` in the editor to focus a visible notice, then `Escape` to return to the same selection. Tab retains its list behavior. Markdown, Link, SmartPaste and history keep their normal insertion behavior; plain text and code-block pastes keep their interpretation, subject to the limits below.
 
 Paragraph and heading fills use `BlockColor` to paint the full block width, including empty paragraphs. Inline highlights remain separate. Without the corresponding block capability, cleanup keeps an inline highlight when supported and reports the lost full-width fill. Adapt removes both background styles.
 

@@ -442,7 +442,7 @@ test.describe('image files on drop', () => {
     expect(outcome.files).toHaveLength(1);
     expect(outcome.text).toBe('');
     expect(outcome.statuses).toEqual(['untracked']);
-    await expect(page.locator('[role="region"][aria-label="Paste notice"]')).not.toContainText('blocked');
+    await expect(page.locator('.dm-paste-feedback[role="group"]')).not.toContainText('blocked');
   });
 
   test('a dropped file with allowBase64 false and no uploadHandler inserts nothing, and the browser does not open it', async ({ page }) => {

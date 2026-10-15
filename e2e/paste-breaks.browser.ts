@@ -207,7 +207,7 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       const results = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.results);
       expect(results).toHaveLength(1);
       expect(results[0]?.diagnostics).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toContainText('Review the pasted content.');
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toContainText('Review the pasted content.');
       const expected: JSONContent = { type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: 'left' },
         content: [{ type: 'hardBreak' }] }] };
       await historyAndReload(page, before, expected);

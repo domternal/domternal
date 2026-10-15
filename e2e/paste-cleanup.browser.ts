@@ -474,7 +474,7 @@ test('vanilla: a Google Docs image box pastes its image quietly, and a box that 
   observed = await observations(page);
   expect(observed.results.at(-1)?.diagnostics.filter(diagnostic => diagnostic.severity !== 'info').map(diagnostic => diagnostic.code))
     .toEqual(['unsupported-formatting']);
-  await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toContainText('Review the pasted content.');
+  await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toContainText('Review the pasted content.');
 });
 
 clipboardTest('Chromium native clipboard keeps an own editor copy through adapt cleanup', async ({ page, context, browserName }) => {

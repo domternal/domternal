@@ -217,6 +217,11 @@ PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
   references?.ranges.push({ from: 1, to: 2 });
 } });
 editor.i18n.t(pasteCleanupMessages.applied);
+editor.i18n.t(pasteCleanupMessages.completed);
+PasteCleanup.configure({ focusFeedbackShortcut: 'Alt-F9' });
+PasteCleanup.configure({ focusFeedbackShortcut: false });
+// @ts-expect-error A shortcut is a key binding string or false.
+PasteCleanup.configure({ focusFeedbackShortcut: true });
 // @ts-expect-error Feedback ownership is a finite public option.
 PasteCleanup.configure({ feedback: 'none' });
 const pasteLimits: Partial<PasteHTMLLimits> = { maxInputLength: 20_000, maxDiagnostics: 10 };

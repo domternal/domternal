@@ -10,7 +10,7 @@ interface Snapshot { doc: JSONContent; selection: unknown }
 function snapshot(page: Page): Promise<Snapshot> {
   return page.evaluate(() => {
     const editor = (window as unknown as ProbeWindow).__pasteCleanup.editor;
-    return { doc: editor.getJSON(), selection: editor.state.selection.toJSON() };
+    return { doc: editor.getJSON(), selection: editor.state.selection.toJSON() as unknown };
   });
 }
 
@@ -56,7 +56,7 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) for (const forma
     const reloaded = await page.evaluate(() => {
       const editor = (window as unknown as ProbeWindow).__pasteCleanup.editor;
       const html = editor.getHTML(); editor.setContent(html, false);
-      return { html, start: editor.state.doc.firstChild?.attrs['start'], text: editor.state.doc.textContent };
+      return { html, start: editor.state.doc.firstChild?.attrs['start'] as unknown, text: editor.state.doc.textContent };
     });
     expect(reloaded.html).toContain('start="0"');
     expect(reloaded.start).toBe(0); expect(reloaded.text).toBe('ZeroOne');

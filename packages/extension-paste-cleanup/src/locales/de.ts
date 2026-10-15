@@ -10,6 +10,7 @@ export const deMessages: Readonly<CompleteMessages<typeof pasteCleanupMessages>>
     'pasteCleanup.feedback.untracked': 'Ergebnis des Einfügens prüfen.',
     'pasteCleanup.feedback.noop': 'Beim Einfügen wurden keine Änderungen vorgenommen.',
     'pasteCleanup.feedback.preparing': 'Bilder zum Einfügen werden vorbereitet.',
+    'pasteCleanup.feedback.completed': 'Bilder eingefügt.',
     'pasteCleanup.feedback.cancel': 'Abbrechen',
     'pasteCleanup.feedback.cancelLabel': 'Bildvorbereitung abbrechen',
     'pasteCleanup.feedback.targetChanged': 'Die Einfügeposition hat sich geändert.',

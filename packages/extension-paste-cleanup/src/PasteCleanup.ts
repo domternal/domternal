@@ -2,6 +2,7 @@ import { Extension, ExtensionConfigurationError } from '@domternal/core';
 import { setClipboardPasteBehavior, armClipboardPasteTransaction, registerClipboardCopyAnnotation, registerClipboardHTMLPreparation, getClipboardPasteAttemptIdentity, pasteClipboardImageFiles, dropClipboardImageFiles } from '@domternal/core/clipboard';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
+import { keydownHandler } from '@domternal/pm/keymap';
 import { closeHistory } from '@domternal/pm/history';
 import { Slice } from '@domternal/pm/model';
 import { normalizePasteHTML, DEFAULT_PASTE_HTML_LIMITS } from './html/index.js';
@@ -38,6 +39,8 @@ export interface PasteCleanupOptions extends NormalizePasteHTMLOptions {
   onPasteProgress?: (progress: PastePreparationProgress) => void;
   /** Use the built-in notice or provide an application-owned onPasteResult handler. */
   feedback?: 'default' | 'application';
+  /** Focus the visible default notice. Defaults to Alt-Shift-P; false disables this shortcut. */
+  focusFeedbackShortcut?: string | false;
   /** Observe cleanup diagnostics. Exceptions from this observer never bypass cleanup. */
   onResult?: (result: NormalizePasteHTMLResult & PasteNormalizationContext) => void;
   /** Observe the accepted operation after synchronous paste handlers and normalizers settle. */
@@ -67,6 +70,10 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
     }
     if (options.feedback === 'application' && typeof options.onPasteResult !== 'function') {
       throw new ExtensionConfigurationError('PasteCleanup: application feedback requires onPasteResult');
+    }
+    if (options.focusFeedbackShortcut !== undefined && options.focusFeedbackShortcut !== false
+      && (typeof options.focusFeedbackShortcut !== 'string' || options.focusFeedbackShortcut.trim() === '')) {
+      throw new ExtensionConfigurationError('PasteCleanup: focusFeedbackShortcut must be a nonempty shortcut or false');
     }
     const editor = this.editor as Editor | null;
     if (editor === null) throw new ExtensionConfigurationError('PasteCleanup: an editor instance is required');
@@ -131,6 +138,15 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
         return true;
       },
     })];
+    const shortcuts: Plugin[] = [];
+    if (options.feedback !== 'application' && options.focusFeedbackShortcut !== false) {
+      try {
+        const focusNotice = keydownHandler({ [options.focusFeedbackShortcut ?? 'Alt-Shift-P']: () => feedback?.focus() ?? false });
+        shortcuts.push(new Plugin({ props: {
+          handleKeyDown: (view, event) => !event.isComposing && !view.composing && focusNotice(view, event),
+        } }));
+      } catch (error) { throw new ExtensionConfigurationError('PasteCleanup: invalid focusFeedbackShortcut', { cause: error }); }
+    }
     return [new Plugin({
       key: pasteCleanupKey,
       state: receiptStateField,
@@ -333,6 +349,6 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           return block;
         },
       },
-    }), ...history];
+    }), ...history, ...shortcuts];
   },
 });

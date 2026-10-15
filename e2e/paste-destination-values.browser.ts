@@ -69,7 +69,7 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
         await expect(page.locator('.ProseMirror [style*="font-size"]')).toHaveCount(0);
         await expect(page.locator('.ProseMirror [style*="line-height"]')).toHaveCount(0);
         await expect(page.locator('.ProseMirror img')).toHaveCount(route === 'images' ? 1 : 0);
-        const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+        const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
         await notice.locator('summary').click(); await expect(notice).toContainText('This editor may not preserve some pasted formatting.');
         await history(page, before);
       });
