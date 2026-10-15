@@ -111,7 +111,7 @@ export function validFamily(value: string): boolean {
     if (name.startsWith('"') || name.startsWith("'")) {
       return name.length > 2 && name.at(-1) === name[0] && !name.slice(1, -1).includes(name[0] ?? '');
     }
-    return name.split(/\s+/).every(word => /^-?(?:[\p{L}_]|--)[\p{L}\p{N}_-]*$/u.test(word));
+    return name.split(/\s+/).every(word => /^-?(?:[\p{L}_]|--)[\p{L}\p{M}\p{N}_-]*$/u.test(word));
   });
 }
 

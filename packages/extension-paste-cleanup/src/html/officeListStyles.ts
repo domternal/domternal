@@ -130,7 +130,7 @@ function firstFamily(value: string): string | undefined {
     family = text.slice(1, end);
   } else family = text.split(',')[0] ?? '';
   family = family.trim().replace(/[\t\n\f\r ]+/g, ' ').toLowerCase();
-  return /^[\p{L}\p{N} ._-]{1,160}$/u.test(family) ? family : undefined;
+  return /^[\p{L}\p{M}\p{N} ._-]{1,160}$/u.test(family) ? family : undefined;
 }
 
 function readLevelRule(body: string): LevelRule | null {

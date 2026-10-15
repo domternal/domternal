@@ -7,7 +7,7 @@ const length = /^(?:0|\d{1,4}(?:\.\d{1,3})?(?:px|pt|em|rem|%))$/i;
 const rules: Readonly<Record<string, RegExp>> = {
   color,
   'background-color': color,
-  'font-family': /^[\p{L}\p{N} ,'"._-]{1,160}$/u,
+  'font-family': /^[\p{L}\p{M}\p{N} ,'"._-]{1,160}$/u,
   'font-size': length,
   'font-weight': /^(?:normal|bold|[1-9]00)$/,
   'font-style': /^(?:normal|italic|oblique)$/,
