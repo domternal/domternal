@@ -4,7 +4,7 @@ import {
   Blockquote, CodeBlock, HardBreak, UniqueID, Extension, Subscript, Superscript, LineHeight, TaskList, TaskItem,
   CharacterCount, TrailingNode, HorizontalRule,
 } from '@domternal/core';
-import { Plugin, TextSelection } from '@domternal/pm/state';
+import { NodeSelection, Plugin, TextSelection } from '@domternal/pm/state';
 import { undoDepth, redoDepth, closeHistory } from '@domternal/pm/history';
 import { Image } from '@domternal/extension-image';
 import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
@@ -512,6 +512,7 @@ window.__pasteCleanup = {
   history: () => ({ undo: undoDepth(editor.state), redo: redoDepth(editor.state) }),
   closeHistory() { editor.view.dispatch(closeHistory(editor.state.tr)); },
   select(from, to = from) { editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from, to))); },
+  selectNode(pos) { editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos))); },
   async useGerman() {
     const { deMessages, deSearchAliases } = await import('@domternal/extension-paste-cleanup/locales/de');
     editor.i18n.set({ locale: 'de', messages: deMessages, searchAliases: deSearchAliases });

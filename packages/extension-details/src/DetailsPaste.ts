@@ -16,7 +16,7 @@
  */
 import { Extension, defaultBlockAt } from '@domternal/core';
 import { registerClipboardPastePlacement } from '@domternal/core/clipboard';
-import { Plugin, PluginKey, Selection } from '@domternal/pm/state';
+import { NodeSelection, Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import { Slice } from '@domternal/pm/model';
 import type { Fragment, Node as PMNode } from '@domternal/pm/model';
@@ -90,34 +90,77 @@ function isInline(content: Fragment): boolean {
   return true;
 }
 
-/** Whether the selection lies in one details summary. */
-function inSummary(state: EditorState): boolean {
-  const { $from, $to } = state.selection;
-  return $from.parent.type.name === 'detailsSummary' && $from.sameParent($to) && $from.depth >= 2;
+/** A selection confined to one summary, or ending in that same disclosure's content. */
+function summaryRange(selection: Selection): 'summary' | 'content' | undefined {
+  const { $from, $to } = selection;
+  if ($from.parent.type.name !== 'detailsSummary' || $from.depth < 2) return undefined;
+  if ($from.sameParent($to)) return 'summary';
+  return $to.depth >= $from.depth && $to.node($from.depth).type.name === 'detailsContent'
+    && $to.before($from.depth) === $from.after() ? 'content' : undefined;
 }
 
 /**
- * A transaction that puts the caret in a new block at the start of the summary's content, as
- * Enter in the summary does, after deleting the selected summary text, and opens the details;
- * undefined when the selection is not in one summary or the content takes no such block.
+ * Put a summary paste in a new body block, or replace a selection crossing into that body
+ * without splitting the disclosure. Keep the existing body tail for ordinary slice fitting.
+ * Return undefined for another selection or a body that cannot hold the required block.
  */
-function enterContent(state: EditorState, persist: boolean): Transaction | undefined {
-  if (!inSummary(state)) return undefined;
-  const detailsPos = state.selection.$from.before(-1);
-  const tr = state.tr;
-  if (!tr.selection.empty) tr.deleteSelection();
-  const contentPos = tr.selection.$head.after();
+function enterContent(state: EditorState, persist: boolean, tr = state.tr): Transaction | undefined {
+  const range = summaryRange(tr.selection);
+  if (range === undefined) return undefined;
+  const { $from, $to } = tr.selection;
+  const detailsPos = $from.before(-1);
+  let contentPos: number;
+  if (range === 'content') {
+    const before = $from.after();
+    const step = tr.steps.length;
+    // Delete the two selected text ranges without joining the isolating summary and content.
+    // The remaining body tail then uses the ordinary paste fitting at its own start.
+    const body = tr.doc.nodeAt(before);
+    if (body?.type.name !== 'detailsContent') return undefined;
+    if (body.firstChild?.isTextblock !== true) {
+      const type = defaultBlockAt(body.contentMatchAt(0));
+      const block = type?.createAndFill();
+      if (!type || !block || !body.canReplaceWith(0, 0, type)) return undefined;
+      tr.insert(before + 1, block);
+    }
+    const end = tr.mapping.slice(step).map($to.pos);
+    // Start inside the first block so deleting its last character does not also remove the
+    // unselected boundary before the following block.
+    tr.delete(before + 2, end);
+    tr.delete($from.pos, $from.end());
+    contentPos = tr.mapping.slice(step).map(before);
+  } else {
+    if (!tr.selection.empty) tr.deleteSelection();
+    contentPos = tr.selection.$head.after();
+  }
   const content = tr.doc.nodeAt(contentPos);
-  const type = content?.type.name === 'detailsContent' ? defaultBlockAt(content.contentMatchAt(0)) : null;
-  const block = type?.createAndFill();
-  if (!content || !type || !block || !content.canReplaceWith(0, 0, type)) return undefined;
-  tr.insert(contentPos + 1, block);
+  if (content?.type.name !== 'detailsContent') return undefined;
+  if (range !== 'content' || content.firstChild?.isTextblock !== true) {
+    const type = defaultBlockAt(content.contentMatchAt(0));
+    const block = type?.createAndFill();
+    if (!type || !block || !content.canReplaceWith(0, 0, type)) return undefined;
+    tr.insert(contentPos + 1, block);
+  }
   tr.setSelection(Selection.near(tr.doc.resolve(contentPos + 2)));
   const details = tr.doc.nodeAt(detailsPos);
   if (persist && details && details.attrs['open'] !== true) tr.setNodeMarkup(detailsPos, undefined, { ...details.attrs, open: true });
-  // The selection fix that keeps the caret out of collapsed content leaves this one alone, and
-  // the details opens once the transaction applies, so a refused paste leaves it closed.
+  // Open only after the transaction applies, so a refused paste leaves the disclosure closed.
   return tr.setMeta('detailsEnterOpen', true).setMeta(detailsPastePluginKey, { pos: detailsPos, step: tr.steps.length });
+}
+
+/**
+ * ProseMirror may drag a node without making it the current selection. Its optional private
+ * node field is only a candidate: require the current document and the exact public dragged
+ * slice before deleting anything. Unknown or stale drag state stays with the native handler.
+ */
+function draggedSelection(view: EditorView): Selection | undefined {
+  const dragging = view.dragging;
+  if (dragging === null) return undefined;
+  const node: unknown = Object.getOwnPropertyDescriptor(dragging, 'node')?.value;
+  const selection = node === undefined ? view.state.selection : node instanceof NodeSelection ? node : undefined;
+  if (selection?.$from.doc !== view.state.doc || selection.empty
+    || selection.from < 0 || selection.to > view.state.doc.content.size) return undefined;
+  return selection.content().eq(dragging.slice) ? selection : undefined;
 }
 
 /** Opens the details whose node view is at `pos`, as its toggle button does. */
@@ -155,7 +198,7 @@ export const DetailsPaste = Extension.create<DetailsPasteOptions>({
         },
         view: editorView => {
           const unregister = registerClipboardPastePlacement(editorView, (view, content) =>
-            bringsBlocks(content) ? enterContent(view.state, options.persist) : undefined);
+            summaryRange(view.state.selection) === 'content' || bringsBlocks(content) ? enterContent(view.state, options.persist) : undefined);
           return {
             update(view, previous) {
               const request = detailsPastePluginKey.getState(view.state);
@@ -166,15 +209,41 @@ export const DetailsPaste = Extension.create<DetailsPasteOptions>({
           };
         },
         props: {
+          handleDrop: (view, event, slice, moved) => {
+            if (!view.editable || slice.size === 0) return false;
+            const wholeBlock = slice.openStart === 0 && slice.openEnd === 0 && slice.content.firstChild?.isBlock === true;
+            if (!wholeBlock && !bringsBlocks(innerSlice(slice).content)) return false;
+            const target = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            if (target === null || target.pos < 0 || target.pos > view.state.doc.content.size) return false;
+            const $target = view.state.doc.resolve(target.pos);
+            if ($target.parent.type.name !== 'detailsSummary') return false;
+            const tr = view.state.tr;
+            if (moved) {
+              const selection = draggedSelection(view);
+              if (selection === undefined || (target.pos >= selection.from && target.pos <= selection.to)) return false;
+              selection.replace(tr);
+            }
+            const at = tr.mapping.map(target.pos);
+            const $at = tr.doc.resolve(at);
+            if ($at.parent.type.name !== 'detailsSummary') return false;
+            tr.setSelection(TextSelection.create(tr.doc, at));
+            const placed = enterContent(view.state, options.persist, tr);
+            if (placed === undefined) return false;
+            placed.replaceSelection(slice);
+            view.dispatch(placed.scrollIntoView().setMeta('uiEvent', 'drop'));
+            view.focus();
+            return true;
+          },
           handlePaste: (view, _event, slice) => {
-            if (!inSummary(view.state)) return false;
+            const range = summaryRange(view.state.selection);
+            if (range === undefined) return false;
             const inner = innerSlice(slice);
             const { content } = inner;
             const only = content.childCount === 1 ? content.firstChild : null;
             // Inline content, and one textblock, join the summary's text through ProseMirror's paste:
             // a code block only as text copied from inside it, since a summary holds no lines.
-            if (isInline(content) || (only?.isTextblock === true && (isLine(only) || (inner.openStart > 0 && inner.openEnd > 0)))) return false;
-            const line = soleTextblock(content);
+            if (range === 'summary' && (isInline(content) || (only?.isTextblock === true && (isLine(only) || (inner.openStart > 0 && inner.openEnd > 0))))) return false;
+            const line = range === 'summary' ? soleTextblock(content) : undefined;
             const tr = line === undefined ? enterContent(view.state, options.persist) : view.state.tr;
             if (tr === undefined) return false;
             // A line between empty blocks joins the summary's text too; anything else goes into the content.
