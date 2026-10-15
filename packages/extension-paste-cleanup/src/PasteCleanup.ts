@@ -12,6 +12,7 @@ import { removedText } from './html/removedText.js';
 import { firstParagraphFormat } from './html/firstParagraph.js';
 import type { FirstParagraphFormat } from './html/firstParagraph.js';
 import { createFirstParagraphPreserver } from './firstParagraph.js';
+import { createPasteContentWitness } from './contentWitness.js';
 import { officeListCapabilities } from './listCapabilities.js';
 import { getUnsupportedDestinationFeatures } from './destinationCapabilities.js';
 import { pasteCleanupKey, receiptStateField } from './operations.js';
@@ -72,7 +73,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
     const tracking = createPasteTracking(options.formatting ?? 'preserve', result => {
       try { if (latestOperationId === result.operationId) feedback?.update(result); } catch { /* Presentation failures do not suppress the host observer. */ }
       options.onPasteResult?.(result);
-    });
+    }, options.limits.maxDiagnostics ?? DEFAULT_PASTE_HTML_LIMITS.maxDiagnostics);
     // Transforms do not receive the paste event. If an earlier handler consumes a
     // rejected programmatic paste, the next empty paste stays blocked until this
     // state clears. Empty slices must never bypass a current rejection.
@@ -265,7 +266,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
               preserveOrderedListStart: !owned.blocked && owned.preserveOrderedListStart });
             if (owned.blocked) event.preventDefault();
             else {
-              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: owned.operation.operationId });
+              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: owned.operation.operationId,
+                contentWitness: createPasteContentWitness(slice, view.state) });
               tracking.recordSlice(owned.operation, slice);
               firstParagraph.remember(owned.operation.operationId, slice, view.state, format, view.dom.ownerDocument);
             }
@@ -304,7 +306,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
             // A transform-skipping empty attempt can carry an older pending operation.
             if (empty && !rejected && slice !== Slice.empty) tracking.skip(operation);
             if (!block) {
-              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: operation.operationId });
+              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: operation.operationId,
+                contentWitness: createPasteContentWitness(slice, view.state) });
               // A heading finding follows the slice's headings into the document.
               tracking.recordSlice(operation, slice);
               firstParagraph.remember(operation.operationId, slice, view.state, format, view.dom.ownerDocument);

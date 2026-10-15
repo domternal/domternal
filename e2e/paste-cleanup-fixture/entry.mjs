@@ -287,6 +287,32 @@ const AppendDocument = Extension.create({
   })],
 });
 
+// Accepted appended host processing, for the bounded post-insertion formatting diagnostic.
+const formattingNormalizer = query.get('formatting-normalizer');
+const FormattingNormalizer = Extension.create({
+  name: 'pasteFixtureFormattingNormalizer',
+  priority: 100,
+  addProseMirrorPlugins: () => [new Plugin({
+    appendTransaction(transactions, _previous, state) {
+      if (!transactions.some(transaction => transaction.getMeta('paste') === true)) return null;
+      if (formattingNormalizer === 'replace') {
+        let first;
+        state.doc.descendants((node, position) => {
+          if (!first && node.isText) first = { node, position };
+        });
+        return first ? state.tr.replaceWith(first.position, first.position + first.node.nodeSize, state.schema.text(first.node.text)) : null;
+      }
+      return state.tr.removeMark(0, state.doc.content.size, state.schema.marks.bold).setMeta('fixtureFormattingRemoved', true);
+    },
+  }), new Plugin({
+    filterTransaction: transaction => formattingNormalizer !== 'veto' || transaction.getMeta('fixtureFormattingRemoved') !== true,
+    appendTransaction(transactions, _previous, state) {
+      return formattingNormalizer === 'restore' && transactions.some(transaction => transaction.getMeta('fixtureFormattingRemoved') === true)
+        ? state.tr.addMark(0, state.doc.content.size, state.schema.mark('bold')) : null;
+    },
+  })],
+});
+
 const tableExtensions = [Table, TableRow, TableCell, TableHeader];
 
 // Each wrapper supplies Document, Paragraph, Text, BaseKeymap and History.
@@ -324,6 +350,7 @@ const extensions = [
   ...(coordinatedAssets && query.get('asset-hooks') !== 'off' ? [AssetHookObserver] : []),
   ...(characterLimit === null ? [] : [CharacterCount.configure({ limit: characterLimit })]),
   ...(lifecycle === 'append-doc' ? [AppendDocument] : []),
+  ...(formattingNormalizer === null ? [] : [FormattingNormalizer]),
   PasteCleanup.configure({
     formatting,
     feedback,

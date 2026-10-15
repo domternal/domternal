@@ -47,6 +47,7 @@ const diagnosticMessages: Readonly<Record<PasteDiagnosticCode, Copy>> = {
   'formatting-adapted': pasteCleanupMessages.formattingAdapted,
   'office-list-unsupported': pasteCleanupMessages.officeListUnsupported,
   'destination-formatting-unconfirmed': pasteCleanupMessages.destinationFormattingUnconfirmed,
+  'destination-formatting-removed': pasteCleanupMessages.destinationFormattingRemoved,
   'destination-table-unsupported': pasteCleanupMessages.destinationTableUnsupported,
   'destination-heading-level-adapted': pasteCleanupMessages.destinationHeadingLevelAdapted,
   'hidden-text-removed': pasteCleanupMessages.hiddenTextRemoved,

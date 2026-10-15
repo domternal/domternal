@@ -3,6 +3,7 @@ import type { EditorView } from '@domternal/pm/view';
 import type { NormalizePasteHTMLResult, PasteDiagnostic, PasteFormatting } from './html/types.js';
 import { headingOutline } from './html/headingLevels.js';
 import type { HeadingOutline } from './html/headingLevels.js';
+import { DEFAULT_PASTE_HTML_LIMITS, retainDiagnostic } from './html/normalize.js';
 import { pasteDocumentRevision, readPasteReceipt } from './operations.js';
 import type { PasteInsertion, PasteOperationResult, PasteNormalizationContext, PasteOperationRejectionReason } from './operations.js';
 
@@ -93,6 +94,7 @@ function normalizedOperation(operation: PendingPasteOperation, result?: Normaliz
 export function createPasteTracking(
   formatting: PasteFormatting,
   onPasteResult: ((result: PasteOperationResult) => void) | undefined,
+  maxDiagnostics = DEFAULT_PASTE_HTML_LIMITS.maxDiagnostics,
 ): {
   create: (result?: NormalizePasteHTMLResult) => PendingPasteOperation;
   context: (operation: PendingPasteOperation) => PasteNormalizationContext;
@@ -191,14 +193,22 @@ export function createPasteTracking(
         // Files that replaced the cleaned content, as a drop's files replace even rejected HTML,
         // arrive through the image node: nothing of the cleanup reached the document or was blocked.
         const replaced = entry.replacedByFiles === true && receipt === undefined;
-        const diagnostics = replaced ? Object.freeze([])
+        let diagnostics = replaced ? Object.freeze([])
           : receipt?.changed === true
             ? reconcileHeadingDiagnostics(normalized.diagnostics, outline, slices.get(operation), receipt.insertion)
             : normalized.diagnostics;
+        let diagnosticsTruncated = normalized.diagnosticsTruncated;
+        if (receipt?.changed === true && receipt.formattingRemoved === true) {
+          const extended = diagnostics.map(diagnostic => ({ ...diagnostic }));
+          diagnosticsTruncated = retainDiagnostic(extended, { code: 'destination-formatting-removed', severity: 'warning' }, maxDiagnostics)
+            || diagnosticsTruncated;
+          diagnostics = Object.freeze(extended.map(diagnostic => Object.freeze(diagnostic)));
+        }
         const rejected = entry.rejected && !replaced;
         const result: PasteOperationResult = Object.freeze({
           ...normalized,
           diagnostics,
+          diagnosticsTruncated,
           status: receipt !== undefined ? receipt.changed ? 'applied' : 'noop'
             : rejected ? 'rejected' : entry.skipped === true ? 'noop' : 'untracked',
           ...(receipt === undefined && rejected && entry.reason !== undefined ? { reason: entry.reason } : {}),

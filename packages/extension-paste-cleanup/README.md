@@ -97,6 +97,8 @@ PasteCleanup.configure({
 
 `applied` does not promise complete fidelity, and `untracked` does not prove nothing was inserted. `onResult` is an earlier normalization callback, not an insertion receipt. Both include an operation ID; diagnostics exclude source HTML. To render your own feedback, set `feedback: 'application'` and provide `onPasteResult`, which is required in that mode. See [feedback, callbacks and clipboard integration](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/clipboard-integration.md) for localization, affected ranges and custom-handler boundaries.
 
+The accepted result can report known formatting removed during appended editor processing. This bounded check follows identified parsed content; it does not compare every original Word style with the final rendering or treat equal text as proof of identity.
+
 ## Normalize HTML without an editor
 
 The `/html` entry works without a browser DOM, Editor or ProseMirror instance:

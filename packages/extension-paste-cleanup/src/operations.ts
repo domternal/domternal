@@ -4,6 +4,8 @@ import type { StateField, Transaction } from '@domternal/pm/state';
 import { AddMarkStep, RemoveMarkStep } from '@domternal/pm/transform';
 import type { EditorView } from '@domternal/pm/view';
 import type { PasteDiagnostic, PasteFormatting, PasteSource } from './html/types.js';
+import { advancePasteContentLedger, bindPasteContentWitness } from './contentWitness.js';
+import type { PasteContentLedger } from './contentWitness.js';
 
 /** @experimental One changed region of an accepted paste, in the installed document. */
 export interface PasteAffectedRange {
@@ -35,7 +37,9 @@ export interface PasteOperationResult {
   /**
    * The cleanup findings. An applied paste reports a `destination-heading-level-adapted` warning
    * only for a heading that reached the document as a heading, not for one ProseMirror merged
-   * into the block at the caret.
+   * into the block at the caret. A `destination-formatting-removed` warning records known
+   * parsed formatting removed by accepted appended processing on an identified insertion.
+   * It is not a comparison of the original clipboard source with the final document.
    */
   readonly diagnostics: readonly PasteDiagnostic[];
   readonly diagnosticsTruncated: boolean;
@@ -79,6 +83,7 @@ interface Receipt {
   readonly ranges: readonly PasteAffectedRange[];
   readonly expired: boolean;
   readonly insertion?: PasteInsertion;
+  readonly contentLedger?: PasteContentLedger;
 }
 
 interface ReceiptState {
@@ -234,11 +239,18 @@ export const receiptStateField: StateField<ReceiptState> = {
         // Only the root transaction inserts the pasted slice; appended normalizers keep its measure.
         const insertion = ownId === undefined ? earlier?.insertion
           : earlier === undefined && !changed.expired ? measureInsertion(transaction, changed.ranges) : undefined;
+        const descriptor: unknown = transaction.getMeta(pasteCleanupKey);
+        const witness = descriptor !== null && typeof descriptor === 'object' && 'contentWitness' in descriptor
+          ? descriptor.contentWitness : undefined;
+        const contentLedger = ownId !== undefined
+          ? earlier === undefined ? bindPasteContentWitness(witness, transaction) : undefined
+          : earlier?.contentLedger === undefined ? undefined : advancePasteContentLedger(earlier.contentLedger, transaction);
         const receipt: Receipt = Object.freeze({
           operationId: currentId, changed: transaction.docChanged || earlier?.changed === true,
           ranges: ranges.length > MAX_RANGES ? Object.freeze([]) : ranges,
           expired: changed.expired || earlier?.expired === true || ranges.length > MAX_RANGES,
           ...(insertion === undefined ? {} : { insertion }),
+          ...(contentLedger === undefined ? {} : { contentLedger }),
         });
         if (index < 0) receipts.push(receipt); else receipts[index] = receipt;
       }
@@ -261,7 +273,7 @@ export function getPasteAffectedReferences(view: EditorView, id: string): PasteA
 }
 
 export function readPasteReceipt(view: EditorView, id: string): {
-  changed: boolean; references: PasteAffectedReferences; insertion?: PasteInsertion;
+  changed: boolean; references: PasteAffectedReferences; insertion?: PasteInsertion; formattingRemoved?: true;
 } | undefined {
   const state = pasteCleanupKey.getState(view.state);
   const receipt = state?.receipts.find(entry => entry.operationId === id);
@@ -272,7 +284,8 @@ export function readPasteReceipt(view: EditorView, id: string): {
     referenceId: id, precision: 'operation' as const, documentRevision: state.revision,
     ranges: Object.freeze([]), expired: true,
   });
-  return { changed: receipt.changed, references, ...(receipt.insertion === undefined ? {} : { insertion: receipt.insertion }) };
+  return { changed: receipt.changed, references, ...(receipt.insertion === undefined ? {} : { insertion: receipt.insertion }),
+    ...(receipt.contentLedger?.formattingRemoved === true ? { formattingRemoved: true } : {}) };
 }
 
 export function pasteDocumentRevision(view: EditorView): number {

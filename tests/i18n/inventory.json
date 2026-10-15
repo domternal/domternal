@@ -3235,6 +3235,24 @@
       "searchable": false
     },
     {
+      "id": "pasteCleanup.diagnostic.destinationFormattingRemoved",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Known formatting on an identified inserted node did not survive accepted appended editor transactions. This does not assess source-to-parser fidelity.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Some retained paste formatting was removed during this editor's final processing."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "pasteCleanup.diagnostic.destinationFormattingUnconfirmed",
       "owner": "@domternal/extension-paste-cleanup",
       "description": "A requested built-in schema capability was not confirmed by a reference parse probe; this does not assert exact content loss.",

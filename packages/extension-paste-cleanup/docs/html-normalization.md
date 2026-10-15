@@ -212,6 +212,24 @@ and line-height probes do not establish every heading/cell context or a configur
 LineHeight rendering allowlist. The standalone `/html` entry has no schema and
 does not run these editor checks.
 
+For an accepted paste, the integration also reports
+`destination-formatting-removed` when it can prove that appended editor processing
+removed a known mark or an explicit formatting property from an identified
+insertion. The comparison starts with the parsed paste slice after HTML and slice
+transforms. It follows source node identity through the accepted replacement and
+checks known appended mark and attribute changes. A later normalizer that restores
+the formatting before processing finishes leaves no warning. Independent edits,
+Undo and rejected transactions do not change this paste result.
+
+This is a limited post-insertion check. It does not measure loss before parsing,
+infer identity from equal text, compare rendered colors or validate every custom
+node. Rebuilt nodes, overlapping replacements, unknown steps and inputs beyond
+the small inspection budget remain unverified. Changed nonempty style values are
+not called removed: a host can canonicalize a CSS value or replace it with a theme
+token. Absence of this warning therefore does not establish complete fidelity.
+The check never blocks or changes insertion and its warning shares the configured
+diagnostic limit. `onResult` and the standalone `/html` entry do not report it.
+
 ## Routine clipboard wrappers
 
 The routine clipboard envelope is removed without a diagnostic: `head`, `title`,

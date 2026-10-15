@@ -80,9 +80,13 @@ storage, diagnostics, or a remote service.
 including plain-text transforms. Its frozen result contains `operationId`,
 `source`, `formatting`, `status`, bounded `diagnostics`, `diagnosticsTruncated` and
 `references`, without source HTML. `onResult` includes the same operation ID and
-formatting policy synchronously. Both list the same diagnostics, except that an
-applied paste's result leaves out the heading warning of a pasted heading that
-merged into the block at the caret, as [destination checks](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md#destination-checks) describe.
+formatting policy synchronously. An applied paste's result can refine these
+diagnostics: it leaves out the heading warning of a pasted heading that merged
+into the block at the caret, and adds `destination-formatting-removed` when
+accepted appended processing demonstrably removes known formatting from an
+identified insertion. This bounded check starts after parsing and does not prove
+complete source fidelity. Equal-text replacements and other ambiguous changes
+remain unverified, as [destination checks](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md#destination-checks) describe.
 Callback exceptions cannot revoke an accepted paste or disable cleanup.
 
 | Status | Meaning |
