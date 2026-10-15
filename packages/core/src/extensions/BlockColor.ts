@@ -1,12 +1,13 @@
 /**
- * Tints whole blocks via `bgColor` / `textColor` attributes rendered as
- * `data-bg-color` / `data-text-color`. Theme's `_block-colors.scss` maps
- * names to CSS custom properties with light/dark variants. `null` clears
- * the attribute; unknown palette names are rejected by commands.
+ * Tints whole blocks via the existing `bgColor` / `textColor` attributes. Palette
+ * tokens use data attributes and theme variables; explicit sRGB backgrounds use
+ * a background-color style. `null` clears the attribute. Palette commands keep
+ * their configured choices, while pasted or imported literal fills retain their color.
  */
 import { Extension } from '../Extension.js';
 import type { Command, CommandSpec } from '../types/Commands.js';
 import type { EditorState, Transaction } from '@domternal/pm/state';
+import { blockBackgroundTonePlugin, htmlBlockBackground, literalBlockBackground } from '../utils/blockColorBackground.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -142,11 +143,12 @@ export const BlockColor = Extension.create<BlockColorOptions>({
         attributes: {
           bgColor: {
             default: null,
-            parseHTML: (element: HTMLElement) => element.getAttribute('data-bg-color'),
+            parseHTML: (element: HTMLElement) => element.getAttribute('data-bg-color') ?? htmlBlockBackground(element.style.backgroundColor),
             renderHTML: (attributes: Record<string, unknown>) => {
               const v = attributes['bgColor'] as string | null;
               if (!v) return null;
-              return { 'data-bg-color': v };
+              const background = literalBlockBackground(v);
+              return background === null ? { 'data-bg-color': v } : { style: `background-color: ${background}` };
             },
           },
           textColor: {
@@ -161,6 +163,10 @@ export const BlockColor = Extension.create<BlockColorOptions>({
         },
       },
     ];
+  },
+
+  addProseMirrorPlugins() {
+    return [blockBackgroundTonePlugin(this.options.types)];
   },
 
   addCommands() {

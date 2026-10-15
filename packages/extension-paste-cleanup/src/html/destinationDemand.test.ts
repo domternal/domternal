@@ -124,9 +124,9 @@ describe('bounded sanitized destination feature demand', () => {
     const html = '<div style="background-color:yellow"><p style="background-color:red">Block</p>'
       + '<table><tr><th style="background-color:blue;text-align:center;line-height:2" data-bg-color="accent">Header</th>'
       + '<td data-background="#123456" data-text-align="right" style="background-color:green;text-align:right;line-height:2"><p>Cell</p></td></tr></table></div>';
-    expect(collectDestinationDemand(normalized(html), limits)).toEqual(['table', 'table-header']);
+    expect(collectDestinationDemand(normalized(html), limits)).toEqual(['paragraph-background', 'table', 'table-header']);
     const inline = html.replace('<p>Cell</p>', '<p><span style="background-color:yellow">Cell</span></p>');
-    expect(collectDestinationDemand(normalized(inline), limits)).toEqual(['highlight', 'table', 'table-header']);
+    expect(collectDestinationDemand(normalized(inline), limits)).toEqual(['highlight', 'paragraph-background', 'table', 'table-header']);
   });
 
   it('requires paragraph layout only on actual paragraphs and headings, including empty ones', () => {

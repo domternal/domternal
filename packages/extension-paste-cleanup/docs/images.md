@@ -35,8 +35,8 @@ alt text cleanup leaves in place of the images it removes do not count as text, 
 image (an `<img>` next to its file), a meta element, blank paragraphs or a `blob:` image with a
 file paste the file instead of nothing or the alt text. Core's `pasteHasOwnText` decides, as it
 does for the Image extension and the Link paste. Without `imageAssets`, the Image extension
-inserts the files; one file keeps the alt text of the one image the content held when it is
-not empty, and an empty `alt` leaves the file without one. Such an
+inserts the files; one file keeps the alt text of the one image the content held, including
+an explicit `alt=""` for a decorative image. An absent alt stays absent. Such an
 operation reports `untracked` without findings in `onPasteResult` and the notice, since nothing
 of the cleaned content reached the document, while `onResult` still reports the cleanup as it
 ran. A drop's image files win over its content, even content cleanup rejected, such as HTML over
@@ -55,6 +55,12 @@ files and the cleaned content pastes as it would without them.
 
 ## Enable local embedding
 
+For a single image and a single File, an explicitly empty `alt=""` stays empty,
+so a decorative image does not become an undescribed image. An absent alt stays
+absent. This also applies when cleanup removes the HTML image before handing
+its File to Image. Multiple source images or multiple Files do not borrow one
+image's alternative text or decorative status for the others.
+
 ```ts
 import { Image } from '@domternal/extension-image';
 import { PasteCleanup } from '@domternal/extension-paste-cleanup';
@@ -72,7 +78,7 @@ Install `@domternal/extension-image` if the editor does not already use it.
 alongside `Image.configure({ allowBase64: true })` to prepare image-only clipboard
 files as embedded raster images. A paste is image-only when its cleaned content has no text of
 its own, as described in [image-file routing](#image-files-and-cleaned-content), so a copied web image, blank paragraphs or a meta element next to a
-file prepare the file too, with the one copied image's alt text when it is not empty; the
+file prepare the file too, with the one copied image's alt text, including an explicit empty alt; the
 cleaned operation then
 reports `untracked` without findings and the prepared files report as their own `applied`
 operation. A local `file:` or `blob:` image reference is not such a stand-in: it follows the
@@ -83,6 +89,12 @@ uploading, fetching, creating object URLs or adding document placeholders.
 With `imageAssets`, PasteCleanup also owns the editor's clipboard HTML
 preparation. Core accepts one per editor, and another registration never takes
 over; [Clipboard ownership](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/clipboard-integration.md#clipboard-ownership) describes a conflict.
+
+Ordinary HTML without images stays synchronous. When cleanup is the first HTML
+transform, a native paste reuses its bounded preparation result instead of
+normalizing the same content twice. Earlier application HTML transforms retain
+their normal order and are followed by a fresh cleanup. Diagnostics, source limits
+and Undo behavior are the same in both routes.
 
 ## Bind mixed HTML to captured files
 
@@ -122,7 +134,8 @@ continues to control untrusted data images in source HTML.
 
 Values must be positive safe integers and the per-file allowance cannot exceed
 the total. `DEFAULT_CLIPBOARD_ASSET_LIMITS` and `MAX_CLIPBOARD_ASSET_LIMITS` expose
-these frozen values. Source HTML retains its separate input ceiling. Generated
+these frozen values. Source HTML retains its separate input ceiling. The image
+preparation output allowance does not limit ordinary HTML without images. Generated
 markup, escaping and each repeated image URL count toward the output allowance;
 repeated placements also share the existing raster-pixel limit. File metadata,
 actual bytes, raster headers and current destination policy are rechecked.

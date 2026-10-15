@@ -1,12 +1,13 @@
 import type { Element } from 'hast';
 import { validListStyle } from './listStyles.js';
+import { readCompanionListStyle } from './listLabels.js';
 
 const color = /^(?:#[\da-f]{3,8}|[a-z]{1,24}|rgba?\([\d.% ,]+\)|hsla?\([\d.% ,]+\))$/i;
 const length = /^(?:0|\d{1,4}(?:\.\d{1,3})?(?:px|pt|em|rem|%))$/i;
 const rules: Readonly<Record<string, RegExp>> = {
   color,
   'background-color': color,
-  'font-family': /^[\p{L}\p{N} ,'"._-]{1,160}$/u,
+  'font-family': /^[\p{L}\p{M}\p{N} ,'"._-]{1,160}$/u,
   'font-size': length,
   'font-weight': /^(?:normal|bold|[1-9]00)$/,
   'font-style': /^(?:normal|italic|oblique)$/,
@@ -85,8 +86,8 @@ function smallTracking(value: string): boolean {
 }
 
 const backgroundInitials = new Set(['none', 'repeat', 'scroll', '0', '0%', 'left', 'top', 'auto', 'padding-box', 'border-box', 'initial']);
-// Where a painted background has a home: a run's highlight, or a table cell's background. A block keeps none.
-const backgroundOwners = new Set(['', 'span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'a', 'code', 'sub', 'sup', 'font', 'td', 'th']);
+// A fill belongs to its paragraph, heading or cell. Inline fills remain text highlights, never inherited block fills.
+const backgroundOwners = new Set(['', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'a', 'code', 'sub', 'sup', 'font', 'td', 'th']);
 
 /** A background shorthand of initial values and transparent only, such as `transparent none repeat scroll 0% 0%`: it paints nothing. */
 function paintsNothing(value: string): boolean {
@@ -211,7 +212,7 @@ export interface SafeStyles {
  * A deliberately small CSS value grammar: no functions that can load resources. A verified own copy (`own`) keeps
  * the line height the editor wrote, `normal` included: LineHeight writes it when the host lists it.
  */
-export function readSafeStyles(value: unknown, imagePlacement = false, tag = '', own = false): SafeStyles {
+export function readSafeStyles(value: unknown, imagePlacement = false, tag = '', own = false, labelStyleName?: string): SafeStyles {
   const styles = new Map<string, string>();
   const removedNames: string[] = [];
   const cleared = new Set<string>();
@@ -227,7 +228,11 @@ export function readSafeStyles(value: unknown, imagePlacement = false, tag = '',
     if (name === 'list-style-type') {
       const marker = content.toLowerCase();
       if (validListStyle(tag, marker)) keep(name, marker);
-      else removedNames.push(name);
+      else {
+        const companion = readCompanionListStyle(content, tag, labelStyleName);
+        if (companion === undefined) removedNames.push(name);
+        else keep(name, companion);
+      }
       continue;
     }
     const placement = ownRule(imagePlacementRules, name);

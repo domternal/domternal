@@ -94,9 +94,15 @@ the open state back to the document.
 - Pasting multiple blocks into the summary inserts them at the start of the
   content and opens it. Inline text and a single paragraph or heading join the
   summary. A block paste is one undoable change.
+- A selection from the summary into the same details content keeps the unselected
+  title prefix and body suffix. Pasted HTML or Markdown goes into the body without
+  splitting the disclosure. Ordinary slice fitting determines whether the final
+  pasted text joins the remaining body paragraph.
+- Dropping whole blocks onto a summary inserts them at the content start and opens
+  it after the transaction is accepted. A proven internal move removes its source
+  in the same undoable transaction; inline drops keep the native behavior.
 - Copying content without its summary pastes those blocks; including the summary
-  copies the whole details block. Dropping blocks onto a summary is not supported
-  by the paste-placement behavior.
+  copies the whole details block.
 
 See the [full reference](https://domternal.dev/v1/nodes/details/) for child-node
 configuration, serialization, and clipboard integration.

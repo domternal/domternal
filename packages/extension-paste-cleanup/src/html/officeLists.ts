@@ -1,5 +1,7 @@
 import type { Comment, Element, ElementContent, Root, RootContent, Text } from 'hast';
+import type { ListLabel } from '@domternal/core/list-labels';
 import { StructureLimitError } from './parse.js';
+import { readOfficeMarkerLabel } from './officeListLabels.js';
 import { declaredFont, officeLevelKey, readOfficeListRules, resolveOfficeLevel } from './officeListStyles.js';
 import type { OfficeLevelDefinition, OfficeListRules } from './officeListStyles.js';
 
@@ -12,6 +14,8 @@ export interface OfficeListReconstructionOptions {
   nestedLists?: boolean;
   /** Marker classes the destination preserves. Absent means every class. */
   markers?: ReadonlySet<string>;
+  /** An editor can opt into exact text and single-counter labels after proving their destination contract. */
+  labels?: (label: ListLabel, level: number) => boolean;
 }
 
 export interface OfficeListReconstructionResult {
@@ -50,6 +54,7 @@ interface Marker {
 interface Ancestor {
   kind: ListItem['kind'];
   markerStyle: ListItem['markerStyle'];
+  listLabel?: ListLabel;
   start: number;
 }
 
@@ -61,6 +66,7 @@ interface ListItem {
   kind: 'ol' | 'ul';
   markerStyle: 'decimal' | 'lower-alpha' | 'upper-alpha' | 'lower-roman' | 'upper-roman' | 'disc' | 'circle' | 'square';
   ordinal?: number;
+  listLabel?: ListLabel;
   after: ElementContent[];
 }
 
@@ -68,6 +74,7 @@ interface Level {
   list: Element;
   identity: string;
   markerStyle: ListItem['markerStyle'];
+  listLabel?: ListLabel;
   nextOrdinal: number | undefined;
   lastItem: Element;
 }
@@ -81,7 +88,23 @@ const levelGeometry = new Set(['margin', 'margin-left', 'margin-inline-start', '
 const prefixWhitespace = /^[\t\r\n ]*$/;
 const listMetadata = /^l([0-9]{1,10})[\t\n\f\r ]+level([1-9])[\t\n\f\r ]+lfo([0-9]{1,10})$/;
 
-type MarkerValue = Pick<ListItem, 'kind' | 'ordinal' | 'markerStyle'>;
+type MarkerValue = Pick<ListItem, 'kind' | 'ordinal' | 'markerStyle' | 'listLabel'>;
+type MarkerProfile = Pick<ListItem, 'kind' | 'markerStyle' | 'listLabel'>;
+
+function sameLabel(left: ListLabel | undefined, right: ListLabel | undefined): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+/** Existing marker classes stay unchanged unless an exact optional label adds supported information. */
+function labelledProfile<T extends MarkerProfile>(
+  original: T | undefined, definition: OfficeLevelDefinition, level: number,
+  supports: OfficeListReconstructionOptions['labels'], visible?: string, font?: string | null,
+): T | ReturnType<typeof readOfficeMarkerLabel> {
+  if (supports === undefined || original !== undefined && (definition.format === 'bullet'
+    || definition.text === undefined || definition.text === `%${String(level)}.`)) return original;
+  const custom = readOfficeMarkerLabel(definition, level, visible, font);
+  return custom !== undefined && supports(custom.listLabel, level) ? custom : original;
+}
 
 interface BulletProfile { style: ListItem['markerStyle']; glyphs: readonly string[]; font?: string }
 /**
@@ -300,7 +323,7 @@ function findMarker(entry: Candidate): Marker | undefined {
   return marker === undefined ? undefined : { element: marker, font: markerFont };
 }
 
-function readItem(entry: Candidate, rules: OfficeListRules, marker: Marker | undefined): ListItem | undefined {
+function readItem(entry: Candidate, rules: OfficeListRules, marker: Marker | undefined, options: OfficeListReconstructionOptions): ListItem | undefined {
   const metadata = listMetadata.exec(entry.declaration.value ?? '');
   const identity = metadata?.[1];
   const level = metadata?.[2];
@@ -310,7 +333,8 @@ function readItem(entry: Candidate, rules: OfficeListRules, marker: Marker | und
   if (label === undefined) return undefined;
   const definition = resolveOfficeLevel(rules, identity, Number(level), instance);
   const value = definition === undefined ? legacyMarker(label)
-    : definition === null ? undefined : profileMarker(label, Number(level), definition, marker.font);
+    : definition === null ? undefined : labelledProfile(profileMarker(label, Number(level), definition, marker.font),
+      definition, Number(level), options.labels, label, marker.font);
   if (value === undefined) return undefined;
   return {
     paragraph: entry.paragraph, marker: marker.element, level: Number(level),
@@ -376,7 +400,7 @@ interface RunOutput {
   segments: Element[];
 }
 
-type AncestorProfile = (item: ListItem, level: number) => Pick<ListItem, 'kind' | 'markerStyle'> | undefined;
+type AncestorProfile = (item: ListItem, level: number) => MarkerProfile | undefined;
 
 /**
  * The levels to open above an item whose parent levels do not exist, as a selection that starts in a
@@ -396,6 +420,7 @@ function ancestorsOf(entries: readonly PlannedEntry[], position: number, item: L
       if (nextLevel > level) continue;
       const ordinal = next.item?.ordinal;
       if (next.item?.identity === item.identity && next.item.kind === value.kind && next.item.markerStyle === value.markerStyle
+        && sameLabel(next.item.listLabel, value.listLabel)
         && ordinal !== undefined && ordinal > 1) start = ordinal - 1;
       break;
     }
@@ -444,6 +469,7 @@ function reconstructRun(entries: readonly PlannedEntry[], nestedLists: boolean, 
     for (const ancestor of ancestors) {
       const list: Element = { type: 'element', tagName: ancestor.kind, properties: {
         ...(ancestor.kind === 'ol' ? { start: ancestor.start } : {}), style: `list-style-type:${ancestor.markerStyle}`,
+        ...(ancestor.listLabel === undefined ? {} : { dataDmListLabel: JSON.stringify(ancestor.listLabel) }),
       }, children: [] };
       const empty: Element = { type: 'element', tagName: 'li', properties: {}, children: [] };
       list.children.push(empty);
@@ -451,15 +477,18 @@ function reconstructRun(entries: readonly PlannedEntry[], nestedLists: boolean, 
       if (parent === undefined) output.content.push(list);
       else parent.lastItem.children.push(list);
       stack.push({ list, identity: item.identity, markerStyle: ancestor.markerStyle, lastItem: empty,
+        ...(ancestor.listLabel === undefined ? {} : { listLabel: ancestor.listLabel }),
         nextOrdinal: ancestor.kind === 'ol' ? ancestor.start + 1 : undefined });
       output.lists++;
     }
     stack.length = Math.min(stack.length, item.level);
     let current = stack[item.level - 1];
     if (current?.list.tagName !== item.kind || current.identity !== item.identity || current.markerStyle !== item.markerStyle
+      || !sameLabel(current.listLabel, item.listLabel)
       || (item.kind === 'ol' && current.nextOrdinal !== item.ordinal)) {
       const list: Element = { type: 'element', tagName: item.kind, properties: {
         ...(item.ordinal === undefined ? {} : { start: item.ordinal }), style: `list-style-type:${item.markerStyle}`,
+        ...(item.listLabel === undefined ? {} : { dataDmListLabel: JSON.stringify(item.listLabel) }),
       }, children: [] };
       if (item.level === 1) output.content.push(list);
       else {
@@ -467,7 +496,8 @@ function reconstructRun(entries: readonly PlannedEntry[], nestedLists: boolean, 
         if (parent === undefined) throw new Error('Missing validated Office list parent');
         parent.lastItem.children.push(list);
       }
-      current = { list, identity: item.identity, markerStyle: item.markerStyle, lastItem: list, nextOrdinal: undefined };
+      current = { list, identity: item.identity, markerStyle: item.markerStyle, lastItem: list, nextOrdinal: undefined,
+        ...(item.listLabel === undefined ? {} : { listLabel: item.listLabel }) };
       stack[item.level - 1] = current;
       output.lists++;
     }
@@ -564,7 +594,8 @@ export function reconstructOfficeLists(
   const ancestorProfile: AncestorProfile = (item, level) => {
     const [list = '', instance] = item.identity.split(':');
     const definition = resolveOfficeLevel(rules, list, level, instance);
-    const value = definition === undefined || definition === null ? undefined : definitionMarker(definition, level);
+    const value = definition === undefined || definition === null ? undefined
+      : labelledProfile(definitionMarker(definition, level), definition, level, options.labels);
     return value !== undefined && representable({ ...value, level }) ? value : undefined;
   };
   function rewrite(parent: Element): ElementContent[];
@@ -598,7 +629,7 @@ export function reconstructOfficeLists(
       }
       const planned = entries.map(entry => {
         const marker = findMarker(entry);
-        const item = readItem(entry, rules, marker);
+        const item = readItem(entry, rules, marker, options);
         return { entry, marker, item: item !== undefined && representable(item) ? item : undefined };
       });
       const reconstructed = reconstructRun(planned, options.nestedLists !== false, ancestorProfile);

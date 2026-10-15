@@ -22,7 +22,6 @@ describe('routine clipboard envelope', () => {
     ['a document title', '<title>Document</title><p>Plain</p>', '<p>Plain</p>'],
     ['a pasted base element', '<base href="https://example.test/"><p>Plain</p>', '<p>Plain</p>'],
     ['a clipboard stylesheet', '<style><!-- p.MsoNormal {margin:0cm} --></style><p class=MsoNormal>Plain</p>', '<p>Plain</p>'],
-    ['a Word head and body envelope', `${wordHead}<p class=MsoNormal>Plain</p>${wordTail}`, '<div><p>Plain</p></div>'],
   ])('removes %s without a diagnostic', (_name, html, expected) => {
     for (const formatting of ['preserve', 'adapt'] as const) {
       const result = normalizePasteHTML(html, { formatting });
@@ -31,6 +30,16 @@ describe('routine clipboard envelope', () => {
       expect(codes(result.diagnostics)).toEqual([]);
       expect(result.diagnosticsTruncated).toBe(false);
     }
+  });
+
+  it('removes a Word envelope while preserving or adapting its class typography', () => {
+    const html = `${wordHead}<p class=MsoNormal>Plain</p>${wordTail}`;
+    const preserved = normalizePasteHTML(html);
+    expect(preserved.html).toBe('<div><p><span style="font-size:12pt">Plain</span></p></div>');
+    expect(codes(preserved.diagnostics)).toEqual([]);
+    const adapted = normalizePasteHTML(html, { formatting: 'adapt' });
+    expect(adapted.html).toBe('<div><p>Plain</p></div>');
+    expect(codes(adapted.diagnostics)).toEqual(['formatting-adapted:info']);
   });
 
   it('removes a raw Office XML island with its content instead of leaking its text', () => {

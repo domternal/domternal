@@ -120,6 +120,13 @@ Office cleanup, typography, or unsupported-content policy. `SmartPaste` does not
 enable that policy. With both extensions, explicit list markers and ordered-list
 starts are preserved; incompatible explicit markers keep pasted lists separate.
 
+With Core `ListLabels` enabled, SmartPaste and block movement also compare the
+validated custom label. Different prefixes, suffixes or literal bullets keep
+their own wrappers. Moving an item into a fresh wrapper retains its label and
+ordinary marker, while the new wrapper receives its own default start and ID.
+Without `ListLabels`, existing list behavior is unchanged; an unrelated custom
+attribute named `listLabel` does not opt into this policy.
+
 ## Custom integrations
 
 Use [`addBlockMenuItems()`](https://domternal.dev/v1/extensions/block-controls/#contributed-items-addblockmenuitems)

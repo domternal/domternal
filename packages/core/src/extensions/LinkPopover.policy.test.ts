@@ -91,6 +91,8 @@ describe('LinkPopover input rules', () => {
     mount();
     select(1, 6);
     openPopover();
+    input().value = typed;
+    expect(input().checkValidity()).toBe(true);
     apply(typed);
     expect(hrefs()).toEqual([stored]);
     expect(isOpen()).toBe(false);
@@ -135,8 +137,8 @@ describe('LinkPopover refusals', () => {
     expect(isOpen()).toBe(true);
     expect(input().getAttribute('aria-invalid')).toBe('true');
     expect(input().validationMessage).toBe('This address cannot be used as a link.');
-    // A URL input drops outer spaces from its value.
-    expect(input().value).toBe(typed.trim());
+    // The field keeps the draft exactly as typed; the policy judges the cleaned spelling.
+    expect(input().value).toBe(typed);
     expect(document.activeElement).toBe(input());
   });
 

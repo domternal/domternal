@@ -1,13 +1,18 @@
-import { DOMParser } from '@domternal/pm/model';
-import type { Node as PMNode, Schema } from '@domternal/pm/model';
+import { confirmDestinationValues } from './destinationValues.js';
+import type { ClipboardDestinationCheck } from './html/normalize.js';
+import { DOMParser, DOMSerializer } from '@domternal/pm/model';
+import type { Root } from 'hast';
+import type { DOMOutputSpec, Node as PMNode, Schema } from '@domternal/pm/model';
 import type { PasteDestinationFeature } from './html/destinationDemand.js';
 import { officeListCapabilities } from './listCapabilities.js';
 import { bulletListStyles, orderedListStyles } from './html/listStyles.js';
+import { PARAGRAPH_BACKGROUNDS, PARAGRAPH_BACKGROUND_FEATURES } from './html/paragraphBackgrounds.js';
 
 const FEATURES: readonly PasteDestinationFeature[] = Object.freeze([
   'bold', 'italic', 'underline', 'strike', 'subscript', 'superscript',
   'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6',
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
+  ...PARAGRAPH_BACKGROUND_FEATURES,
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
   'ordered-list-style', 'bullet-list-style', 'task-list',
   'link-http', 'link-https', 'link-mailto', 'link-tel',
@@ -20,10 +25,10 @@ const FEATURES: readonly PasteDestinationFeature[] = Object.freeze([
  * feature when the parsed fragment holds no heading; one without the block, or whose block can
  * start with a heading, keeps it.
  */
-const HEADING_TEXT_PROBES: Readonly<Partial<Record<PasteDestinationFeature, string>>> = Object.freeze({
-  'heading-text-at-list-item-start': '<ul><li><h1>Probe</h1></li></ul>',
-  'heading-text-in-summary': '<details><summary><h1>Probe</h1></summary><p>Probe</p></details>',
-  'heading-text-in-preformatted': '<pre><h1>Probe</h1></pre>',
+const HEADING_TEXT_PROBES: Readonly<Partial<Record<PasteDestinationFeature, DOMOutputSpec>>> = Object.freeze({
+  'heading-text-at-list-item-start': ['ul', ['li', ['h1', 'Probe']]],
+  'heading-text-in-summary': ['details', ['summary', ['h1', 'Probe']], ['p', 'Probe']],
+  'heading-text-in-preformatted': ['pre', ['h1', 'Probe']],
 });
 /**
  * One constant address per link scheme. A scheme is supported when the parsed
@@ -105,10 +110,10 @@ export function getUnsupportedDestinationFeatures(
   try { parser = DOMParser.fromSchema(schema); }
   catch { return Object.freeze(requested); }
   let inert: Document | undefined;
-  const parse = (html: string, owner: Document = document): readonly PMNode[] => {
+  const parse = (specs: readonly DOMOutputSpec[], owner: Document = document): readonly PMNode[] => {
     const container = owner.createElement('div');
-    // These strings contain only this module's constants, never source HTML or URLs.
-    container.innerHTML = html;
+    // Constant DOM specs use element, attribute and text APIs, without a Trusted Types HTML sink.
+    for (const spec of specs) container.appendChild(DOMSerializer.renderSpec(owner, spec).dom);
     const slice = parser.parseSlice(container);
     const nodes: PMNode[] = [];
     slice.content.forEach(node => { node.check(); nodes.push(node); });
@@ -116,6 +121,15 @@ export function getUnsupportedDestinationFeatures(
   };
   let lists: ReturnType<typeof officeListCapabilities> | undefined;
   const supports = (feature: PasteDestinationFeature): boolean => {
+    if (PARAGRAPH_BACKGROUND_FEATURES.includes(feature)) {
+      const tag = Object.entries(PARAGRAPH_BACKGROUNDS).find(([, value]) => value === feature)?.[0];
+      if (tag === undefined) return false;
+      const values = ['#123456', '#654321'];
+      const nodes = parse(values.map((value, index): DOMOutputSpec => [tag, { style: `background-color:${value}` }, String(index)]));
+      return nodes.length === 2 && nodes.every((node, index) => node.type.name === (tag === 'p' ? 'paragraph' : 'heading')
+        && (tag === 'p' || node.attrs['level'] === Number(tag.slice(1))) && node.attrs['bgColor'] === values[index]
+        && node.childCount === 1 && node.firstChild?.isText === true && node.textContent === String(index));
+    }
     if (feature === 'ordered-list-style' || feature === 'bullet-list-style') {
       const ordered = feature === 'ordered-list-style';
       const tag = ordered ? 'ol' : 'ul';
@@ -123,7 +137,8 @@ export function getUnsupportedDestinationFeatures(
       // Probe every member of this closed vocabulary, including the legacy null
       // default. A constant schema default cannot stand in for parsed markers.
       const expected = [null, ...markers];
-      const nodes = parse(expected.map((marker, index) => `<${tag}${marker === null ? '' : ` style="list-style-type:${marker}"`}><li><p>${String(index)}</p></li></${tag}>`).join(''));
+      const nodes = parse(expected.map((marker, index): DOMOutputSpec => [tag,
+        marker === null ? {} : { style: `list-style-type:${marker}` }, ['li', ['p', String(index)]]]));
       return nodes.length === expected.length && nodes.every((node, index) => node.type.name === (ordered ? 'orderedList' : 'bulletList')
         && node.attrs['listStyleType'] === expected[index] && node.childCount === 1
         && node.firstChild?.type.name === 'listItem' && node.firstChild.childCount === 1
@@ -131,8 +146,9 @@ export function getUnsupportedDestinationFeatures(
     }
     if (feature === 'task-list') {
       // A checked and an unchecked item: a task list is held when both keep their state, which a bullet list loses.
-      const nodes = parse('<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>A</p></li>'
-        + '<li data-type="taskItem" data-checked="false"><p>B</p></li></ul>');
+      const nodes = parse([['ul', { 'data-type': 'taskList' },
+        ['li', { 'data-type': 'taskItem', 'data-checked': 'true' }, ['p', 'A']],
+        ['li', { 'data-type': 'taskItem', 'data-checked': 'false' }, ['p', 'B']]]]);
       const list = nodes[0];
       return nodes.length === 1 && list?.childCount === 2 && ['A', 'B'].every((text, index) => {
         const item = list.child(index);
@@ -149,7 +165,7 @@ export function getUnsupportedDestinationFeatures(
     const placement = HEADING_TEXT_PROBES[feature];
     if (placement !== undefined) {
       let heading = false;
-      for (const node of parse(placement)) {
+      for (const node of parse([placement])) {
         if (node.type.name === 'heading') heading = true;
         node.descendants(child => { if (child.type.name === 'heading') heading = true; return !heading; });
       }
@@ -157,7 +173,7 @@ export function getUnsupportedDestinationFeatures(
     }
     const probe = LINK_PROBES[feature];
     if (probe !== undefined) {
-      const nodes = parse(`<p><a href="${probe}">Probe</a></p>`);
+      const nodes = parse([['p', ['a', { href: probe }, 'Probe']]]);
       return nodes.length === 1 && paragraph(nodes[0] ?? null, 'Probe')
         && nodes[0]?.firstChild?.marks.some(mark => mark.attrs['href'] === probe) === true;
     }
@@ -165,7 +181,7 @@ export function getUnsupportedDestinationFeatures(
     if (image !== undefined) {
       inert ??= document.implementation.createHTMLDocument('');
       let held = false;
-      for (const node of parse(`<p><img src="${image}" alt="Probe"></p>`, inert)) {
+      for (const node of parse([['p', ['img', { src: image, alt: 'Probe' }]]], inert)) {
         if (node.attrs['src'] === image) held = true;
         node.descendants(child => { if (child.attrs['src'] === image) held = true; return !held; });
       }
@@ -173,22 +189,22 @@ export function getUnsupportedDestinationFeatures(
     }
     const markTag = MARK_TAGS[feature];
     if (markTag) {
-      const nodes = parse(`<p><${markTag}>Probe</${markTag}></p>`);
+      const nodes = parse([['p', [markTag, 'Probe']]]);
       return nodes.length === 1 && paragraph(nodes[0] ?? null, 'Probe')
         && nodes[0]?.firstChild?.marks.some(mark => mark.type.name === feature) === true;
     }
     if (feature.startsWith('heading-')) {
       const level = Number(feature.slice(-1));
-      const nodes = parse(`<h${String(level)}>Probe</h${String(level)}>`);
+      const nodes = parse([[`h${String(level)}`, 'Probe']]);
       const node = nodes[0];
       return nodes.length === 1 && node?.type.name === 'heading' && node.attrs['level'] === level
         && node.childCount === 1 && node.firstChild?.isText === true && node.textContent === 'Probe';
     }
     const attribute = ATTRIBUTES[feature];
     if (attribute) {
-      const nodes = parse(attribute.values.map((value, index) => attribute.mark
-        ? `<p><span style="${attribute.property}:${value}">${String(index)}</span></p>`
-        : `<p style="${attribute.property}:${value}">${String(index)}</p>`).join(''));
+      const nodes = parse(attribute.values.map((value, index): DOMOutputSpec => attribute.mark
+        ? ['p', ['span', { style: `${attribute.property}:${value}` }, String(index)]]
+        : ['p', { style: `${attribute.property}:${value}` }, String(index)]));
       return nodes.length === 2 && nodes.every((node, index) => {
         if (!paragraph(node, String(index))) return false;
         const attrs = attribute.mark ? node.firstChild?.marks.find(mark => mark.type.name === 'textStyle')?.attrs : node.attrs;
@@ -197,8 +213,9 @@ export function getUnsupportedDestinationFeatures(
     }
     if (feature === 'table' || feature === 'table-header') {
       const tag = feature === 'table-header' ? 'th' : 'td';
-      const nodes = parse(`<table><tbody><tr><${tag}><p>A</p></${tag}><${tag}><p>B</p></${tag}></tr>`
-        + '<tr><td><p>C</p></td><td><p>D</p></td></tr></tbody></table>');
+      const nodes = parse([['table', ['tbody',
+        ['tr', [tag, ['p', 'A']], [tag, ['p', 'B']]],
+        ['tr', ['td', ['p', 'C']], ['td', ['p', 'D']]]]]]);
       return nodes.length === 1 && table(nodes[0] ?? null, feature === 'table-header');
     }
     return false;
@@ -208,4 +225,11 @@ export function getUnsupportedDestinationFeatures(
     catch { return true; }
   });
   return Object.freeze(unsupported);
+}
+
+/** One normalization owns its actual-value probe budget and does not retain private source values. */
+export function createDestinationCheck(schema: Schema, document: Document): ClipboardDestinationCheck {
+  return Object.assign((features: readonly PasteDestinationFeature[]) => getUnsupportedDestinationFeatures(schema, document, features), {
+    confirmValues: (tree: Root): boolean => confirmDestinationValues(schema, document, tree),
+  });
 }

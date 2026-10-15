@@ -71,6 +71,16 @@ describe('PasteCleanup and bare table rows and cells', () => {
     expect(editor.state.doc.toString()).toBe(`doc(${table([['ra', 'rb'], ['rc', 'rd']])}, paragraph("after"))`);
   });
 
+  it('keeps the text of recovered envelope rows in a destination without tables', async () => {
+    const results: PasteOperationResult[] = [];
+    const editor = new Editor({ content: '<p></p>', extensions: [Document, Paragraph, Text,
+      PasteCleanup.configure({ onPasteResult: result => { results.push(result); } })] });
+    editors.push(editor);
+    pasteClipboard(editor.view, { html: `<html><body><!--StartFragment-->${rows}<!--EndFragment--></body></html>` });
+    expect(editor.state.doc.textContent).toBe('rarbrcrd');
+    await vi.waitFor(() => { expect(results.map(result => result.status)).toEqual(['applied']); });
+  });
+
   it('pastes bare rows into a table cell by cell, as without PasteCleanup', () => {
     const content = '<table><tr><td><p>x1</p></td><td><p>x2</p></td></tr><tr><td><p>x3</p></td><td><p>x4</p></td></tr></table>';
     const cleaned = mount(content, true);

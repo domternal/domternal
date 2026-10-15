@@ -25,6 +25,46 @@ moved to it or a reconstructed Office list, also stays separate from a destinati
 list without one: pasting it inside such a list splits that list around it, and in
 a numbered list the items after the paste number from 1 again.
 
+## Optional custom labels
+
+When the editor includes Core's `ListLabels`, cleanup retains bounded
+`data-dm-list-label` records and matching labels in internal slice context.
+Nested labels, nullable marker defaults and ordered starts survive an editor
+copy in both formatting modes. SmartPaste and block movement keep lists with
+different labels separate. No visible marker text is inserted into the document.
+
+Only the exact companion CSS variable compiled from the validated label is
+retained, with a native fallback from the existing marker vocabulary. Unknown
+variables, incompatible list kinds, task-list labels and invalid records are
+removed; invalid HTML records report `unsupported-formatting`. Arbitrary source
+CSS, custom counter-style definitions and picture assets are not accepted.
+
+The standalone HTML entry validates and retains the same metadata without
+loading the editor runtime. Rendering custom labels still requires an opted-in
+editor or the companion stylesheet from `@domternal/core/list-labels`.
+A destination without `ListLabels` keeps ordinary semantic lists without the
+optional attribute or duplicated marker text. This metadata support alone does
+not authorize removing visible Word markers: Word reconstruction also verifies
+the source definition and the actual receiving parser and serializer.
+
+With `ListLabels`, Word levels containing one counter for their own level can
+retain a bounded prefix and suffix, such as `Section %1)` or `(%2)`. The visible
+marker must match the shared decimal, alphabetic or Roman formatter exactly.
+Observed counters from zero through 10,000 are admitted, including alphabetic
+values after `z`. The counter remains dynamic as items are edited. A Unicode text
+bullet such as `✓` or `→` can also be retained when its definition and visible
+marker agree. Private-use glyphs and known symbol-font encodings are not treated
+as Unicode text. A single separator space replaces Word's marker layout;
+original font, tab stop and hanging-indent geometry are not promised.
+
+Before removing a custom marker, cleanup proves the exact label at its nesting
+depth through parse, validation, serialization and a second parse. Counter
+probes include zero and nonzero starts. Probes are cached per paste and limited
+to 256 distinct label/depth pairs; later unproved labels remain literal. An
+editor without `ListLabels`, an incompatible custom renderer and the standalone
+HTML normalizer keep these additional source markers as paragraph text with
+`office-list-unsupported`. Existing marker-class reconstruction is unchanged.
+
 ## Office list reconstruction
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
@@ -55,9 +95,10 @@ point of the label's position, so about 1,600 at the widest indent it allows
 A glyph alone never selects a Word profile. `o`, `§`, `a.` or `i.` without a
 matching definition and marker run font stay literal, and `i.` under an
 alphabetic definition is the ninth letter, not a Roman one. Legal and multilevel
-numbering, prefixed or custom level text, other number formats, other symbol and
-picture bullets, letters past `z`, and malformed or conflicting definitions stay
-literal. A paragraph without a level definition, for example when a browser
+numbering, other number formats, other symbol and picture bullets, and malformed
+or conflicting definitions stay literal. Prefixed level text, Unicode text
+bullets and letters past `z` require the optional label path described above.
+A paragraph without a level definition, for example when a browser
 drops the stylesheet, admits only these fallback markers: positive decimal numbers followed
 by `.` or `)` and the Unicode bullets `• · ◦ ▪ ●` are admitted. The reader records
 only the levels that pasted paragraphs reference and the levels above them, bounds
@@ -99,8 +140,8 @@ change of marker class creates a separate list. The schema probes must confirm
 each explicit marker class before Office marker text is removed. Legacy schemas
 keep the visible Office markers with `office-list-unsupported`; ordinary semantic
 HTML can still paste with `destination-formatting-unconfirmed`. Marker classes do
-not promise identical glyphs, punctuation, fonts, spacing or page layout: `a)`
-and `a.` both become `lower-alpha`.
+not promise identical glyphs, punctuation, fonts, spacing or page layout: without
+the optional label path, `a)` and `a.` both become `lower-alpha`.
 
 ## Partial and nested selections
 

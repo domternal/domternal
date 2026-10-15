@@ -48,7 +48,7 @@ describe('ListItem', () => {
     it('returns rule for li tag', () => {
       const rules = ListItem.config.parseHTML?.call(ListItem);
 
-      expect(rules).toEqual([{ tag: 'li' }]);
+      expect(rules).toEqual([{ tag: 'li', contentElement: expect.any(Function) }]);
     });
   });
 

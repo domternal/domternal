@@ -251,7 +251,7 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       expect(results).toHaveLength(1); expect(results[0]?.status).toBe('cleaned');
       expect(results[0]?.diagnostics.filter(entry => entry.severity !== 'info')).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
       expect(listShape((await snapshot(page)).doc)).toEqual(googleShape([null, null, null], [null, null, null]));
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toContainText('Review the pasted content.');
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toContainText('Review the pasted content.');
     });
 
     test('a Google Docs bullet list pasted into a default marker list keeps its own wrapper, as a Word list does', async ({ page }) => {
@@ -457,7 +457,7 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       const results = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.results);
       expect(results).toHaveLength(1); expect(results[0]?.status).not.toBe('rejected');
       expect(results[0]?.diagnostics).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toContainText('Review the pasted content.');
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toContainText('Review the pasted content.');
       const expected = doc({ type: 'orderedList', attrs: { start: 1 }, content: [item(p('A'))] }, { type: 'bulletList', content: [item(p('B'))] });
       await history(page, before, expected);
     });

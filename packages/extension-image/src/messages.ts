@@ -24,6 +24,7 @@ declare module '@domternal/core' {
     'image.popover.insert': undefined;
     'image.popover.saveAlt': undefined;
     'image.popover.browse': undefined;
+    'image.upload.loading': undefined;
   }
   interface SearchableMessages {
     'image.insert.label': true;
@@ -32,6 +33,10 @@ declare module '@domternal/core' {
 
 /** English UI definitions owned by the image extension. */
 export const imageMessages = {
+  loading: defineMessage({
+    id: 'image.upload.loading', defaultValue: 'Loading image...', owner: '@domternal/extension-image', optionalTranslation: true,
+    description: 'Visible status while an image file is being read or uploaded.',
+  }),
   insertToolbar: defineMessage({
     id: 'image.toolbar.insert', defaultValue: 'Insert Image', owner: '@domternal/extension-image',
     description: 'Main toolbar image insertion action.',

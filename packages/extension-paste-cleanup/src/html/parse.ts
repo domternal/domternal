@@ -9,6 +9,8 @@ export class StructureLimitError extends Error {}
 
 /** Each parsed image's attributes as the HTML parser read them, before HAST reads `1e3` as the number 1000. */
 export const imageSourceAttributes = new WeakMap<Element, ReadonlyMap<string, string>>();
+/** A list's start or an item's value before HAST turns a whitespace-only attribute into zero. */
+export const listSourceOrdinal = new WeakMap<Element, string>();
 
 /**
  * Reject hostile nesting before the recursive HAST conversion or sanitizer runs. A `table` context
@@ -78,6 +80,11 @@ export function parseBoundedHTML(
     }
     if (pair.target.type === 'element' && pair.target.tagName === 'img' && 'attrs' in pair.source) {
       imageSourceAttributes.set(pair.target, new Map(pair.source.attrs.map(({ name, value }) => [name, value])));
+    }
+    if (pair.target.type === 'element' && (pair.target.tagName === 'ol' || pair.target.tagName === 'li') && 'attrs' in pair.source) {
+      const attribute = pair.target.tagName === 'ol' ? 'start' : 'value';
+      const ordinal = pair.source.attrs.find(value => value.name === attribute)?.value;
+      if (ordinal !== undefined) listSourceOrdinal.set(pair.target, ordinal);
     }
     if ('childNodes' in pair.source && 'children' in pair.target) {
       for (let index = 0; index < pair.source.childNodes.length; index++) {

@@ -147,7 +147,7 @@ for (const framework of FRAMEWORKS) {
       expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
       expect(observed.hostUpdates).toBe(1);
       expect(observed.operationSnapshots).toEqual([{ ...await snapshot(page), focused: true }]);
-      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
       await expect(notice).toBeVisible();
       await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
       // The polite live region beside the notice announces the same title.
@@ -177,7 +177,7 @@ for (const framework of FRAMEWORKS) {
       expect((await observe(page)).transactions).toEqual([]);
       expect((await observe(page)).hostUpdates).toBe(0);
       expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history())).toEqual({ undo: 0, redo: 0 });
-      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
       await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Paste was blocked.');
       await expect(notice).toContainText('Try a smaller selection or paste as plain text.');
     });
@@ -194,7 +194,7 @@ for (const framework of FRAMEWORKS) {
       expect((await observe(page)).transactions).toEqual([]);
       expect((await observe(page)).hostUpdates).toBe(0);
       expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history())).toEqual({ undo: 0, redo: 0 });
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true }).locator('.dm-paste-feedback__status')).toHaveText('Paste made no changes.');
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u }).locator('.dm-paste-feedback__status')).toHaveText('Paste made no changes.');
     });
 
     test('does not emit host updates or accepted receipts for a transaction veto', async ({ page }) => {
@@ -216,7 +216,7 @@ for (const framework of FRAMEWORKS) {
         { phase: 'operation', operationId: result.operationId },
       ]);
       expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history())).toEqual({ undo: 0, redo: 0 });
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true }).locator('.dm-paste-feedback__status')).toHaveText('Check the paste result.');
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u }).locator('.dm-paste-feedback__status')).toHaveText('Check the paste result.');
     });
 
     test('reports committed content when a host observer throws after installation', async ({ page }) => {
@@ -234,7 +234,7 @@ for (const framework of FRAMEWORKS) {
       expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
       expect(observed.operationSnapshots[0]?.doc).toEqual((await snapshot(page)).doc);
       expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history())).toEqual({ undo: 1, redo: 0 });
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true }).locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u }).locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
     });
 
     test('retains applied status if an earlier plugin destroys the editor before feedback observes it', async ({ page }) => {
@@ -340,11 +340,11 @@ for (const framework of FRAMEWORKS) {
       await paste(page, WARNING_HTML);
       const before = await snapshot(page);
       const applied = await operation(page);
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toBeVisible();
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toBeVisible();
 
       await page.evaluate(async () => { await (window as unknown as ProbeWindow).__pasteCleanup.useGerman(); });
 
-      const notice = page.getByRole('region', { name: 'Hinweis zum Einfügen', exact: true });
+      const notice = page.getByRole('group', { name: /^Hinweis zum Einfügen(?:: .+)?$/u });
       await expect(notice).toHaveAttribute('lang', 'de');
       await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Eingefügten Inhalt prüfen.');
       await expect(notice.locator('.dm-paste-feedback__status')).toHaveAttribute('lang', 'de');
@@ -394,6 +394,59 @@ test.describe('paste notice focus and announcements', () => {
   const editorFocused = (page: Page): Promise<boolean> =>
     page.evaluate(() => document.activeElement === (window as unknown as ProbeWindow).__pasteCleanup.editor.view.dom);
 
+  for (const framework of FRAMEWORKS) {
+    test(`${framework}: reaches the named notice from a list without replacing Tab indentation`, async ({ page }) => {
+      await openFixture(page, framework);
+      await page.evaluate(() => {
+        const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+        probe.editor.view.dom.setAttribute('aria-label', 'Article');
+        probe.editor.setContent('<ul><li><p>First</p></li><li><p>Second</p></li></ul>', false);
+        probe.editor.commands.focus('end'); probe.clearObservations();
+      });
+      await paste(page, WARNING_HTML);
+      const beforeTab = await snapshot(page);
+      await page.keyboard.press('Tab');
+      expect((await snapshot(page)).doc).not.toEqual(beforeTab.doc);
+      await expect(page.locator('.ProseMirror ul ul')).toHaveCount(1);
+      const beforeFocus = await snapshot(page);
+      const notice = page.getByRole('group', { name: 'Paste notice: Article', exact: true });
+      await expect(notice).toBeVisible();
+      await expect(page.getByRole('region', { name: /Paste notice/u })).toHaveCount(0);
+      await page.keyboard.press('Alt+Shift+P');
+      await expect(notice.getByRole('button', { name: 'Dismiss paste notice', exact: true })).toBeFocused();
+      expect(await snapshot(page)).toEqual(beforeFocus);
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.ProseMirror')).toBeFocused();
+      expect(await snapshot(page)).toEqual(beforeFocus);
+      await expect(notice).toBeHidden();
+    });
+
+    test(`${framework}: follows the editor accessible name after label and language updates`, async ({ page }) => {
+      await openFixture(page, framework);
+      await seed(page);
+      await page.evaluate(() => {
+        const editor = (window as unknown as ProbeWindow).__pasteCleanup.editor;
+        const label = document.createElement('span'); label.id = 'article-title'; label.textContent = 'Article';
+        const parent = editor.view.dom.parentElement;
+        if (parent === null) throw new Error('Missing editor mount');
+        parent.prepend(label);
+        editor.view.dom.setAttribute('aria-labelledby', label.id);
+      });
+      await paste(page, WARNING_HTML);
+      const before = await snapshot(page);
+      await expect(page.getByRole('group', { name: 'Paste notice Article', exact: true })).toBeVisible();
+      await page.evaluate(async () => {
+        const label = document.getElementById('article-title');
+        if (label === null) throw new Error('Missing editor label');
+        label.textContent = 'Reply';
+        await (window as unknown as ProbeWindow).__pasteCleanup.useGerman();
+      });
+      await expect(page.getByRole('group', { name: 'Hinweis zum Einfügen Reply', exact: true })).toBeVisible();
+      expect(await snapshot(page)).toEqual(before);
+      await expect(page.locator('.ProseMirror')).toBeFocused();
+    });
+  }
+
   test('keeps an empty live region in the accessibility tree before a paste, and announces each operation into it', async ({ page }) => {
     await openFixture(page, 'vanilla');
     await seed(page);
@@ -419,7 +472,7 @@ test.describe('paste notice focus and announcements', () => {
       await openFixture(page, 'vanilla');
       await seed(page);
       await paste(page, WARNING_HTML);
-      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
       await expect(notice).toBeVisible();
 
       if (action === 'Enter on Dismiss') {
@@ -491,7 +544,7 @@ test.describe('paste notice placement in a long document', () => {
       expect(idle.wrapper).toEqual({ overflow: 'hidden', display: 'block' });
 
       await paste(page, WARNING_HTML);
-      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
       await expect(notice).toBeVisible();
       await expect(page.getByRole('status')).toHaveText('Review the pasted content.');
       const shown = await placement(page);
@@ -539,7 +592,7 @@ test.describe('paste notice placement in a long document', () => {
       await openFixture(page, framework, { theme: true });
       await seedLongDocument(page);
       await paste(page, WARNING_HTML);
-      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
       await expect(notice).toBeVisible();
       expect((await placement(page)).position).toBe('sticky');
       // From about the twelfth line on, the caret reaches the notice at the bottom of the viewport.
@@ -577,7 +630,7 @@ test.describe('paste notice placement in a long document', () => {
     });
     await seedLongDocument(page);
     await paste(page, WARNING_HTML);
-    await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toBeVisible();
+    await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toBeVisible();
     let head = (await caret(page)).head;
     for (let step = 0; step < 20; step++) {
       await page.keyboard.press('ArrowDown');
@@ -603,7 +656,7 @@ test.describe('paste notice placement in a long document', () => {
       await openFixture(page, 'vanilla', { theme: true });
       await seedLongDocument(page);
       await paste(page, WARNING_HTML);
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toBeVisible();
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toBeVisible();
       await expect(page.getByRole('status')).toHaveText('Review the pasted content.');
       const shown = await placement(page);
       expect(shown.position).toBe('static');
@@ -621,7 +674,7 @@ test.describe('paste notice placement in a long document', () => {
     await seedLongDocument(page);
     expect((await placement(page)).wrapper).toEqual({ overflow: 'auto', display: 'block' });
     await paste(page, WARNING_HTML);
-    await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toBeVisible();
+    await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toBeVisible();
     const scrolled = await page.evaluate(() => {
       const mount = (window as unknown as ProbeWindow).__pasteCleanup.editor.view.dom.parentElement;
       const notice = document.querySelector('.dm-paste-feedback');
@@ -642,7 +695,7 @@ test.describe('paste notice placement in a long document', () => {
     const idle = await placement(page);
     await page.emulateMedia({ media: 'screen' });
     await paste(page, WARNING_HTML);
-    await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toBeVisible();
+    await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toBeVisible();
     await page.emulateMedia({ media: 'print' });
     const shown = await placement(page);
     expect(shown.wrapper).toEqual(idle.wrapper);

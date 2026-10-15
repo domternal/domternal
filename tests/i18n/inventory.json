@@ -3042,6 +3042,24 @@
       "searchable": false
     },
     {
+      "id": "image.upload.loading",
+      "owner": "@domternal/extension-image",
+      "description": "Visible status while an image file is being read or uploaded.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Loading image..."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-image/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "math.block.description",
       "owner": "@domternal/extension-math",
       "description": "Description of the block equation insertion action.",
@@ -3210,6 +3228,24 @@
       "searchAliases": [],
       "technicalAliases": [],
       "source": "packages/extension-mention/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.destinationFormattingRemoved",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Known formatting on an identified inserted node did not survive accepted appended editor transactions. This does not assess source-to-parser fidelity.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Some retained paste formatting was removed during this editor's final processing."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
       "parameters": {
         "type": "undefined",
         "fields": []
@@ -3595,6 +3631,24 @@
       "searchable": false
     },
     {
+      "id": "pasteCleanup.feedback.completed",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Polite announcement after accepted image preparation completes without a visible warning.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Images pasted."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "pasteCleanup.feedback.copyAgainRecovery",
       "owner": "@domternal/extension-paste-cleanup",
       "description": "Recovery for unavailable or unreadable clipboard images, without automatic clipboard access.",
@@ -3687,7 +3741,7 @@
     {
       "id": "pasteCleanup.feedback.label",
       "owner": "@domternal/extension-paste-cleanup",
-      "description": "Accessible name of the nonmodal paste feedback region.",
+      "description": "Accessible name of the nonmodal paste feedback group.",
       "allowEmpty": false,
       "default": {
         "kind": "text",

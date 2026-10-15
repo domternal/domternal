@@ -1,16 +1,21 @@
 import { Extension, ExtensionConfigurationError } from '@domternal/core';
-import { setClipboardPasteBehavior, armClipboardPasteTransaction, registerClipboardCopyAnnotation, pasteClipboardImageFiles, dropClipboardImageFiles } from '@domternal/core/clipboard';
+import { setClipboardPasteBehavior, armClipboardPasteTransaction, registerClipboardCopyAnnotation, registerClipboardHTMLPreparation, getClipboardPasteAttemptIdentity, pasteClipboardImageFiles, dropClipboardImageFiles } from '@domternal/core/clipboard';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
+import { keydownHandler } from '@domternal/pm/keymap';
 import { closeHistory } from '@domternal/pm/history';
 import { Slice } from '@domternal/pm/model';
 import { normalizePasteHTML, DEFAULT_PASTE_HTML_LIMITS } from './html/index.js';
-import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './html/index.js';
+import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteFormatting } from './html/index.js';
 import { normalizeClipboardHTML } from './html/normalize.js';
-import { imageStandIns } from './html/imageStandIns.js';
+import { imageStandIns, imageStandInAlts } from './html/imageStandIns.js';
 import { removedText } from './html/removedText.js';
+import { firstParagraphFormat } from './html/firstParagraph.js';
+import type { FirstParagraphFormat } from './html/firstParagraph.js';
+import { createFirstParagraphPreserver } from './firstParagraph.js';
+import { createPasteContentWitness } from './contentWitness.js';
 import { officeListCapabilities } from './listCapabilities.js';
-import { getUnsupportedDestinationFeatures } from './destinationCapabilities.js';
+import { createDestinationCheck } from './destinationCapabilities.js';
 import { pasteCleanupKey, receiptStateField } from './operations.js';
 import type { PasteNormalizationContext, PasteOperationResult } from './operations.js';
 import { createPasteTracking } from './tracking.js';
@@ -22,14 +27,20 @@ import type { ClipboardAssetCoordinator } from './clipboard/coordinator.js';
 import type { ClipboardImageAssetOptions, PastePreparationProgress } from './clipboard/types.js';
 import { annotateOwnCopy, isOwnCopyNonce } from './clipboard/ownCopy.js';
 import { claimClipboardSlot } from './clipboard/ownership.js';
+import { createPasteFormattingPolicy } from './pasteFormatting.js';
+import type { PasteFormattingResolver } from './pasteFormatting.js';
 
 export interface PasteCleanupOptions extends NormalizePasteHTMLOptions {
+  /** Choose Preserve or Adapt synchronously once per paste. Undefined or a failed callback keeps the configured default. */
+  formattingForPaste?: PasteFormattingResolver;
   /** Opt in to bounded local raster preparation with explicit rich-HTML bindings. */
   imageAssets?: false | ClipboardImageAssetOptions;
   /** Observe a cancellable preparation before any document mutation. */
   onPasteProgress?: (progress: PastePreparationProgress) => void;
   /** Use the built-in notice or provide an application-owned onPasteResult handler. */
   feedback?: 'default' | 'application';
+  /** Focus the visible default notice. Defaults to Alt-Shift-P; false disables this shortcut. */
+  focusFeedbackShortcut?: string | false;
   /** Observe cleanup diagnostics. Exceptions from this observer never bypass cleanup. */
   onResult?: (result: NormalizePasteHTMLResult & PasteNormalizationContext) => void;
   /** Observe the accepted operation after synchronous paste handlers and normalizers settle. */
@@ -51,6 +62,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
       normalizePasteHTML('', options);
       imageAssets = resolveClipboardImageAssets(options.imageAssets);
       if (options.onPasteProgress !== undefined && typeof options.onPasteProgress !== 'function') throw new RangeError('onPasteProgress must be a function');
+      if (options.formattingForPaste !== undefined && typeof options.formattingForPaste !== 'function') throw new RangeError('formattingForPaste must be a function');
     }
     catch (error) { throw new ExtensionConfigurationError(`PasteCleanup: ${error instanceof Error ? error.message : 'Invalid normalization options'}`); }
     if (options.feedback !== 'default' && options.feedback !== 'application') {
@@ -59,23 +71,29 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
     if (options.feedback === 'application' && typeof options.onPasteResult !== 'function') {
       throw new ExtensionConfigurationError('PasteCleanup: application feedback requires onPasteResult');
     }
+    if (options.focusFeedbackShortcut !== undefined && options.focusFeedbackShortcut !== false
+      && (typeof options.focusFeedbackShortcut !== 'string' || options.focusFeedbackShortcut.trim() === '')) {
+      throw new ExtensionConfigurationError('PasteCleanup: focusFeedbackShortcut must be a nonempty shortcut or false');
+    }
     const editor = this.editor as Editor | null;
     if (editor === null) throw new ExtensionConfigurationError('PasteCleanup: an editor instance is required');
     let feedback: PasteFeedbackRenderer | undefined;
     let coordinator: ClipboardAssetCoordinator | undefined;
     let latestOperationId: string | undefined;
     let disarm: (() => void) | undefined;
+    const formattingPolicy = createPasteFormattingPolicy(options.formatting ?? 'preserve', options.formattingForPaste);
     const startAttempt = (): void => { disarm?.(); disarm = undefined; };
     const tracking = createPasteTracking(options.formatting ?? 'preserve', result => {
       try { if (latestOperationId === result.operationId) feedback?.update(result); } catch { /* Presentation failures do not suppress the host observer. */ }
       options.onPasteResult?.(result);
-    });
+    }, options.limits.maxDiagnostics ?? DEFAULT_PASTE_HTML_LIMITS.maxDiagnostics);
     // Transforms do not receive the paste event. If an earlier handler consumes a
     // rejected programmatic paste, the next empty paste stays blocked until this
     // state clears. Empty slices must never bypass a current rejection.
     // standIns: the alt text cleanup left in place of the images it removed. removedText: cleanup removed text the
     // content held, Word's hidden text, so the clipboard's picture of the selection, which can show it, is no paste.
-    let pending: { rejected: boolean; preserveOrderedListStart: boolean; operation?: PendingPasteOperation; standIns?: readonly string[]; removedText?: boolean } = {
+    const firstParagraph = createFirstParagraphPreserver();
+    let pending: { rejected: boolean; preserveOrderedListStart: boolean; operation?: PendingPasteOperation; standIns?: readonly string[]; standInAlts?: readonly (string | null)[]; removedText?: boolean; firstParagraph?: Readonly<FirstParagraphFormat> | undefined } = {
       rejected: false, preserveOrderedListStart: false,
     };
     const tooComplex = (text: string, code: boolean): boolean => {
@@ -89,8 +107,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
       }
       return false;
     };
-    const createOperation = (result?: NormalizePasteHTMLResult): PendingPasteOperation => {
-      const operation = tracking.create(result);
+    const createOperation = (result?: NormalizePasteHTMLResult, formatting?: PasteFormatting): PendingPasteOperation => {
+      const operation = tracking.create(result, formatting ?? formattingPolicy.read(getClipboardPasteAttemptIdentity(editor.view)).formatting);
       latestOperationId = operation.operationId;
       return operation;
     };
@@ -120,24 +138,44 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
         return true;
       },
     })];
+    const shortcuts: Plugin[] = [];
+    if (options.feedback !== 'application' && options.focusFeedbackShortcut !== false) {
+      try {
+        const focusNotice = keydownHandler({ [options.focusFeedbackShortcut ?? 'Alt-Shift-P']: () => feedback?.focus() ?? false });
+        shortcuts.push(new Plugin({ props: {
+          handleKeyDown: (view, event) => !event.isComposing && !view.composing && focusNotice(view, event),
+        } }));
+      } catch (error) { throw new ExtensionConfigurationError('PasteCleanup: invalid focusFeedbackShortcut', { cause: error }); }
+    }
     return [new Plugin({
       key: pasteCleanupKey,
       state: receiptStateField,
+      appendTransaction: (transactions, _previous, state) => firstParagraph.append(transactions, state),
       filterTransaction: transaction => coordinator?.filterTransaction(transaction) ?? true,
       view: view => {
         // Claim Core's single clipboard slots before any other setup, so a refused claim
         // fails editor setup with guidance and leaves nothing of PasteCleanup behind.
         // Copies from this editor carry a same-page nonce that makes them recognizable own copies.
         const disposeCopyAnnotation = claimClipboardSlot('copy-annotation', () => registerClipboardCopyAnnotation(view, annotateOwnCopy));
+        let disposeFormatting: (() => void) | undefined;
         if (imageAssets !== undefined) {
           try {
             coordinator = createClipboardAssetCoordinator(view, imageAssets, options, {
-              create: createOperation, notify, tracking,
+              create: createOperation, notify, tracking, formatting: formattingPolicy,
               progress: progress => {
                 feedback?.preparing(progress.operationId, progress.cancel);
                 options.onPasteProgress?.(progress);
               },
             });
+          } catch (error) {
+            disposeCopyAnnotation();
+            throw error;
+          }
+        } else if (options.formattingForPaste !== undefined) {
+          try {
+            disposeFormatting = claimClipboardSlot('html-preparation', () => registerClipboardHTMLPreparation(view, () => undefined, context => {
+              formattingPolicy.capture(context.attempt, context.origin);
+            }));
           } catch (error) {
             disposeCopyAnnotation();
             throw error;
@@ -150,7 +188,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
         return {
           update: updatedView => { tracking.observe(updatedView); coordinator?.observe(); refresh(); },
           destroy: () => {
-            startAttempt(); disposeCopyAnnotation(); coordinator?.destroy(); coordinator = undefined;
+            startAttempt(); disposeCopyAnnotation(); disposeFormatting?.(); coordinator?.destroy(); coordinator = undefined;
             editor.off('adopt', adopt); feedback?.dispose(); feedback = undefined;
           },
         };
@@ -221,13 +259,15 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           const owned = coordinator?.replayHTML(html);
           startAttempt();
           if (owned !== undefined) {
-            pending = { rejected: owned.rejected, preserveOrderedListStart: owned.preserveOrderedListStart, operation: owned.operation };
+            pending = { rejected: owned.rejected, preserveOrderedListStart: owned.preserveOrderedListStart,
+              operation: owned.operation, firstParagraph: owned.firstParagraph };
             return owned.html;
           }
+          const prepared = coordinator?.ordinaryHTML(html);
           if (coordinator?.ordinaryAttempt() === false) { pending = { rejected: true, preserveOrderedListStart: false }; return ''; }
-          const { result, preserveOrderedListStart, destinationRejected } = normalizeClipboardHTML(
-            html, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }),
-            undefined, features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features),
+          const { result, preserveOrderedListStart, destinationRejected } = prepared ?? normalizeClipboardHTML(
+            html, { ...options, formatting: formattingPolicy.read(getClipboardPasteAttemptIdentity(view)).formatting }, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true, preserveLabels: true }),
+            undefined, createDestinationCheck(view.state.schema, view.dom.ownerDocument),
             isOwnCopyNonce,
           );
           const rejected = result.status === 'rejected';
@@ -235,7 +275,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           const operation = report(result);
           void tracking.finish(view, operation, rejected, destinationRejected ? { reason: 'unsupported-content' } : {});
           // A host observer can synchronously paste again. Restore this operation after it returns.
-          pending = { rejected, preserveOrderedListStart, operation, standIns: imageStandIns(result), removedText: removedText(result) };
+          pending = { rejected, preserveOrderedListStart, operation, standIns: imageStandIns(result), standInAlts: imageStandInAlts(result),
+            removedText: removedText(result), firstParagraph: rejected ? undefined : firstParagraphFormat(result) };
           return cleaned;
         },
         handleDrop(view, event, slice, moved) {
@@ -243,7 +284,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           // HTML is not inserted. Without image assets they go to the image node here, so the one
           // file keeps the alt text cleanup left in place of the image.
           if (moved || coordinator !== undefined) return false;
-          if (!dropClipboardImageFiles(view, event, slice, { imageStandIns: pending.standIns ?? [], removedText: pending.removedText === true })) return false;
+          if (!dropClipboardImageFiles(view, event, slice, { imageStandIns: pending.standIns ?? [], imageStandInAlts: pending.standInAlts ?? [], removedText: pending.removedText === true })) return false;
           if (pending.operation !== undefined) tracking.replacedByFiles(pending.operation);
           pending = { rejected: false, preserveOrderedListStart: false };
           return true;
@@ -251,19 +292,22 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
         handlePaste(view, event, slice) {
           const owned = coordinator?.handleReplay(event, slice);
           if (owned !== undefined) {
+            const format = pending.firstParagraph;
             pending = { rejected: false, preserveOrderedListStart: false };
             setClipboardPasteBehavior(view, event, { assetsAlreadyHandled: true,
               preserveOrderedListStart: !owned.blocked && owned.preserveOrderedListStart });
             if (owned.blocked) event.preventDefault();
             else {
-              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: owned.operation.operationId });
+              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: owned.operation.operationId,
+                contentWitness: createPasteContentWitness(slice, view.state) });
               tracking.recordSlice(owned.operation, slice);
+              firstParagraph.remember(owned.operation.operationId, slice, view.state, format, view.dom.ownerDocument);
             }
             return owned.blocked;
           }
           const standIns = pending.standIns ?? [];
           const removed = pending.removedText === true;
-          if (!pending.rejected && coordinator?.handleImageOnly(event, slice, standIns, removed) === true) {
+          if (!pending.rejected && coordinator?.handleImageOnly(event, slice, standIns, removed, pending.standInAlts) === true) {
             // The prepared files replace the cleaned content, which reports no finding of its own.
             if (pending.operation !== undefined) tracking.replacedByFiles(pending.operation);
             pending = { rejected: false, preserveOrderedListStart: false };
@@ -272,7 +316,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           // Without image assets, the image node takes the clipboard's image files when the
           // cleaned content has no text of its own: only white space, format characters or the
           // alt text left in place of removed images. Core decides, as it does for every handler.
-          if (!pending.rejected && coordinator === undefined && pasteClipboardImageFiles(view, event, slice, { imageStandIns: standIns, removedText: removed })) {
+          if (!pending.rejected && coordinator === undefined && pasteClipboardImageFiles(view, event, slice, { imageStandIns: standIns, imageStandInAlts: pending.standInAlts ?? [], removedText: removed })) {
             if (pending.operation !== undefined) tracking.replacedByFiles(pending.operation);
             pending = { rejected: false, preserveOrderedListStart: false };
             setClipboardPasteBehavior(view, event, { assetsAlreadyHandled: true });
@@ -281,6 +325,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           }
           const rejected = pending.rejected;
           const operation = pending.operation;
+          const format = pending.firstParagraph;
           // An empty cleaned slice must not delete the user's current selection.
           const empty = operation !== undefined && slice.content.size === 0;
           const block = rejected || empty;
@@ -293,15 +338,17 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
             // A transform-skipping empty attempt can carry an older pending operation.
             if (empty && !rejected && slice !== Slice.empty) tracking.skip(operation);
             if (!block) {
-              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: operation.operationId });
+              disarm = armClipboardPasteTransaction(view, pasteCleanupKey, { operationId: operation.operationId,
+                contentWitness: createPasteContentWitness(slice, view.state) });
               // A heading finding follows the slice's headings into the document.
               tracking.recordSlice(operation, slice);
+              firstParagraph.remember(operation.operationId, slice, view.state, format, view.dom.ownerDocument);
             }
           }
           if (block) event.preventDefault();
           return block;
         },
       },
-    }), ...history];
+    }), ...history, ...shortcuts];
   },
 });

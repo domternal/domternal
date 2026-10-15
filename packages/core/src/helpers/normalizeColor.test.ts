@@ -14,9 +14,23 @@ describe('normalizeColor', () => {
     expect(normalizeColor('rgb(37, 99, 235)')).toBe('#2563eb');
   });
 
-  it('converts rgba with alpha to hex (ignores alpha)', () => {
-    expect(normalizeColor('rgba(255, 0, 0, 0.5)')).toBe('#ff0000');
+  it.each([
+    'rgba(255, 0, 0, 0.5)', 'rgba(10, 20, 30, 0)', 'rgba(10, 20, 30, .12345)',
+    'rgb(10 20 30 / 50%)', 'rgba(10, 20, 30, 99.99%)', '#12345680',
+  ])('preserves translucent %s without dropping or quantizing alpha', color => {
+    expect(normalizeColor(color)).toBe(color);
   });
+
+  it.each(['rgba(10, 20, 30, 1)', 'rgb(10 20 30)', 'rgb(10 20 30 / 100%)', 'rgba(10, 20, 30, 1.00)'])(
+    'normalizes opaque %s consistently', color => {
+      expect(normalizeColor(color)).toBe('#0a141e');
+    });
+
+  it.each(['rgb(256, 20, 30)', 'rgb(10, 20, 30) trailing', 'rgb(10, 20, 30',
+    'rgb(10 20, 30)', 'rgba(10, 20, 30, invalid)', 'rgb(10.5, 20, 30)', 'rgb(10%, 20%, 30%)'])(
+    'does not turn an unsupported spelling into an opaque color: %s', color => {
+      expect(normalizeColor(color)).toBe(color);
+    });
 
   it('handles rgb without spaces', () => {
     expect(normalizeColor('rgb(10,20,30)')).toBe('#0a141e');

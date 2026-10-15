@@ -65,7 +65,9 @@ describe('Word hidden text', () => {
       + '<p class=MsoNormal><span class=WebOnly>Kept</span> <span class=HiddenChar style="mso-hide:none">Shown</span><o:p></o:p></p>'
       // A rule for another element type does not apply.
       + '<p class=MsoNormal><b class=HiddenParagraph>Bold</b><o:p></o:p></p>', style));
-    expect(result.html).toBe('<p>Visible  end</p><p><span>Kept</span> <span>Shown</span></p><p><span><strong>Bold</strong></span></p>');
+    const sized = (text: string): string => `<span style="font-size:12pt">${text}</span>`;
+    expect(result.html).toBe(`<p>${sized('Visible ')}${sized(' end')}</p><p><span>${sized('Kept')}</span>${sized(' ')}<span>${sized('Shown')}</span></p>`
+      + `<p><span>${sized('<strong>Bold</strong>')}</span></p>`);
     expect(warnings(result.diagnostics)).toEqual(['hidden-text-removed', 'hidden-text-removed']);
   });
 

@@ -5,6 +5,7 @@ import { pasteCleanupMessages } from './messages.js';
 import type { PasteOperationRejectionReason } from './operations.js';
 
 export interface PasteFeedbackResult {
+  readonly operationId?: string;
   readonly status: 'applied' | 'rejected' | 'untracked' | 'noop';
   readonly diagnostics: readonly PasteDiagnostic[];
   readonly diagnosticsTruncated: boolean;
@@ -23,6 +24,8 @@ export interface PasteFeedbackRenderer {
   update(result: PasteFeedbackResult): void;
   /** Reattach next to a moved or adopted view without changing the editor. */
   refresh(): void;
+  /** Focus the visible notice without changing the document selection. */
+  focus(): boolean;
   /**
    * Call after the view scrolled its selection into view. When the theme keeps the notice
    * sticky and it covers that line, the scroller it sticks in moves on by the overlap, once
@@ -34,6 +37,7 @@ export interface PasteFeedbackRenderer {
 
 // Room kept between an uncovered selection line and the notice.
 const UNCOVER_GAP = 8;
+let nextLabel = 0;
 
 type Copy = (typeof pasteCleanupMessages)[keyof typeof pasteCleanupMessages];
 const diagnosticMessages: Readonly<Record<PasteDiagnosticCode, Copy>> = {
@@ -47,12 +51,15 @@ const diagnosticMessages: Readonly<Record<PasteDiagnosticCode, Copy>> = {
   'formatting-adapted': pasteCleanupMessages.formattingAdapted,
   'office-list-unsupported': pasteCleanupMessages.officeListUnsupported,
   'destination-formatting-unconfirmed': pasteCleanupMessages.destinationFormattingUnconfirmed,
+  'destination-formatting-removed': pasteCleanupMessages.destinationFormattingRemoved,
   'destination-table-unsupported': pasteCleanupMessages.destinationTableUnsupported,
   'destination-heading-level-adapted': pasteCleanupMessages.destinationHeadingLevelAdapted,
   'hidden-text-removed': pasteCleanupMessages.hiddenTextRemoved,
 };
 
 interface Presentation {
+  operationId?: string;
+  completedPreparation?: boolean;
   status: PasteFeedbackResult['status'];
   details: Copy[];
   images: boolean;
@@ -103,6 +110,7 @@ function presentation(result: PasteFeedbackResult): Presentation | undefined {
   // so a retained info proves that only informational findings, which the notice never lists, were dropped.
   const truncated = (result.diagnosticsTruncated && !retainedInfo) || result.diagnostics.length > maximum;
   return {
+    ...(result.operationId === undefined ? {} : { operationId: result.operationId }),
     status: result.status, details: [...details], images, truncated,
     title: copy?.title ?? pasteCleanupMessages[result.status],
     recovery: copy?.recovery ?? (images ? pasteCleanupMessages.imageRecovery : pasteCleanupMessages.rejectedRecovery),
@@ -119,8 +127,20 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom' | 'focus'>, i18
   const notice = doc.createElement('div');
   notice.className = 'dm-paste-feedback';
   notice.contentEditable = 'false';
-  notice.setAttribute('role', 'region');
+  notice.setAttribute('role', 'group');
   notice.hidden = true;
+  const ownerLabel = doc.createElement('span');
+  ownerLabel.hidden = true;
+  const labelElement = (id: string): Element | null => {
+    const root = view.dom.getRootNode();
+    return 'getElementById' in root ? (root as Document | ShadowRoot).getElementById(id) : null;
+  };
+  const assignLabel = (): void => {
+    let id: string;
+    do { id = `dm-paste-feedback-label-${String(++nextLabel)}`; } while (labelElement(id) !== null);
+    ownerLabel.id = id;
+  };
+  assignLabel();
   // The live region stays in the accessibility tree while the notice is hidden, because a
   // region that appears already filled is not reliably announced. It is visually hidden
   // through CSSOM properties, which a style-src policy allows, so it needs no theme.
@@ -157,7 +177,7 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom' | 'focus'>, i18
   const list = doc.createElement('ul');
   const truncated = doc.createElement('p');
   details.append(summary, list, truncated);
-  notice.append(header, recovery, details);
+  notice.append(ownerLabel, header, recovery, details);
   let current: Presentation | PendingPresentation | undefined;
   let dismissed = false;
   let disposed = false;
@@ -241,7 +261,20 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom' | 'focus'>, i18
     const connectedBefore = announcer.isConnected;
     attach();
     const label = i18n.resolve(pasteCleanupMessages.label);
-    notice.setAttribute('aria-label', label.text);
+    ownerLabel.textContent = label.text;
+    ownerLabel.lang = label.language;
+    const collision = labelElement(ownerLabel.id);
+    if (collision !== null && collision !== ownerLabel) assignLabel();
+    const references = (view.dom.getAttribute('aria-labelledby') ?? '').trim().split(/\s+/u)
+      .filter(id => id && labelElement(id) !== null);
+    if (references.length > 0) {
+      notice.setAttribute('aria-labelledby', [ownerLabel.id, ...new Set(references)].join(' '));
+      notice.removeAttribute('aria-label');
+    } else {
+      notice.removeAttribute('aria-labelledby');
+      const editorLabel = view.dom.getAttribute('aria-label')?.trim();
+      notice.setAttribute('aria-label', editorLabel ? `${label.text}: ${editorLabel}` : label.text);
+    }
     notice.lang = label.language;
     text(dismissText, pasteCleanupMessages.dismiss);
     const dismissLabel = i18n.resolve(pasteCleanupMessages.dismissLabel);
@@ -280,7 +313,13 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom' | 'focus'>, i18
     }
     const visible = !dismissed && (shown.status === 'rejected' || shown.details.length > 0 || shown.truncated);
     notice.hidden = !visible;
-    if (!visible) { status.textContent = ''; silence(); return; }
+    if (!visible) {
+      status.textContent = '';
+      if (!dismissed && shown.completedPreparation === true) {
+        announce(i18n.resolve(pasteCleanupMessages.completed), connectedBefore);
+      } else silence();
+      return;
+    }
     announce(text(status, shown.title), connectedBefore);
     recovery.hidden = !shown.images && shown.status !== 'rejected';
     text(recovery, shown.recovery);
@@ -401,13 +440,24 @@ export function createPasteFeedback(view: Pick<EditorView, 'dom' | 'focus'>, i18
     },
     update(result) {
       if (disposed) return;
+      if (current?.status === 'preparing' && result.operationId !== undefined && result.operationId !== current.operationId) return;
+      const sameOperation = result.operationId !== undefined && current?.operationId === result.operationId;
+      const completed = result.status === 'applied' && sameOperation
+        && (current?.status === 'preparing' || current?.completedPreparation === true);
+      const duplicateCompletion = completed && current?.status === 'applied';
       current = presentation(result);
-      presentationRevision++;
+      if (current && completed) current.completedPreparation = true;
+      if (!duplicateCompletion) presentationRevision++;
       dismissed = false;
       details.open = false;
       render();
     },
     refresh: render,
+    focus() {
+      if (disposed || notice.hidden || !notice.isConnected) return false;
+      dismiss.focus();
+      return focusedWithin() !== null;
+    },
     uncover(measure) {
       if (disposed || notice.hidden) return;
       const queued = uncoverPending !== undefined;

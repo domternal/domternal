@@ -48,7 +48,7 @@ import { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCel
 import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 import { createResizeSuppressionPlugin } from './plugins/resizeSuppressionPlugin.js';
 import { createCellSelectionPlugin } from './plugins/cellSelectionPlugin.js';
-import { guardedColumnResizing, guardedTableEditing, inUnsupportedTable, selectionInUnsupportedTable } from './helpers/guardedTableEditing.js';
+import { guardedColumnResizing, guardedTableEditing, inUnsupportedTable, selectionInUnsupportedTable, subtreeHoldsUnsupportedSpan } from './helpers/guardedTableEditing.js';
 import { createTableCellPastePlugin } from './plugins/tableCellPastePlugin.js';
 import { createCellSurfaceTonePlugin } from './plugins/cellSurfaceTonePlugin.js';
 import { TableRow } from './TableRow.js';
@@ -332,7 +332,7 @@ export const Table = Node.create<TableOptions>({
             if (!isSafeCssValue(value)) return false;
           }
           // A span is stored only when loading would keep it: a whole number from 1 to 1,000.
-          if ((name === 'colspan' || name === 'rowspan') && !isSupportedAttributeValue(state.schema, tableNodeTypes(state.schema).cell.name, name, value)) {
+          if ((name === 'colspan' || name === 'rowspan' || name === 'colwidth') && !isSupportedAttributeValue(state.schema, tableNodeTypes(state.schema).cell.name, name, value)) {
             return false;
           }
           return setCellAttr(name, value)(state, dispatch);
@@ -353,6 +353,7 @@ export const Table = Node.create<TableOptions>({
       fixTables:
         () =>
         ({ state, dispatch }) => {
+          if (subtreeHoldsUnsupportedSpan(state.doc)) return false;
           if (dispatch) {
             const tr = fixTables(state);
             if (tr) dispatch(tr);
@@ -508,6 +509,7 @@ export const Table = Node.create<TableOptions>({
 
       // A span that data-pm-slice context carries is rebuilt without validation.
       pastedAttributesPlugin('unsupported-table-span'),
+      pastedAttributesPlugin('unsupported-table-width'),
     ];
   },
 });

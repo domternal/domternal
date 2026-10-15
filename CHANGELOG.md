@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Add optional `ListLabels` for literal bullets and native ordered counters with bounded text prefixes and suffixes. It preserves labels through Core editing, HTML and clipboard metadata, with companion CSS for standalone HTML and explicit schema requirements for collaborative writers. Existing schemas stay unchanged when the extension is omitted.
+- Preserve optional list labels through Paste Cleanup and block controls. With `ListLabels`, Word paste can retain supported single-counter prefixes, suffixes and Unicode text bullets after proving the exact receiving parser and serializer; unsupported markers remain literal with a diagnostic.
+- Show a localized, accessible loading indicator while image files are being stored, with theme, reduced-motion and print styles.
+
+### Fixes
+
+- Announce accepted image preparation once, provide configurable keyboard access to Paste Cleanup notices, and name each notice from its owning editor without adding extra landmarks.
+- Preserve whole nested-list-first items during HTML load, paste and drop without Paste Cleanup, while retaining native partial-copy boundaries and task state.
+- Keep a Details disclosure intact when HTML or Markdown replaces a selection across its summary and body, and place dropped blocks at the body start in one undoable transaction.
+- Recover bare clipboard rows and cells inside HTML fragment envelopes, preserve text between row groups, and keep orphan column tags from consuming following content.
+- Keep table content editable after unsupported remote spans invalidate a cell selection, guard explicit table repair, and normalize malformed column widths with a content diagnostic.
+- Let the Link URL policy own input validity, so supported relative addresses and bare hosts are not incorrectly marked invalid by native absolute-URL validation.
+- Warn when retained pasted formatting values cannot be confirmed by the receiving parser and serializer, including configured font and line-height restrictions. The bounded advisory check leaves content, intentional Adapt behavior and undo history unchanged.
+- Notify adoption listeners when the same shadow editor moves to another document, so owned UI and styles can move with it.
+- Keep supported paste formatting, lists, links and tables available under strict Trusted Types enforcement without a default policy. Destination probes and table control icons use DOM construction; the host still permits ProseMirror's clipboard policy.
+- Preserve an explicit empty image alt attribute through clipboard cleanup and file upload without using another image's description.
+- Preserve alpha in translucent text colors and highlights when reading HTML, including paste, clipboard serialization and save/reload. Opaque RGB colors continue to normalize to hex.
+
 ## 1.4.0 (2026-10-12)
 
 ### Features

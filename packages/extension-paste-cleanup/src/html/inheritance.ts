@@ -1,5 +1,6 @@
 import type { Element, ElementContent, Properties, Root, RootContent, Text } from 'hast';
 import { adaptedTypography, readSafeStyles, serializeStyles, styleToRead } from './styles.js';
+import { listLabelStyleName, readHTMLListLabel } from './listLabels.js';
 import { envelopeTags } from './envelope.js';
 
 export interface InlineInheritanceOptions {
@@ -69,7 +70,7 @@ const namedColors = new Set((
 ).split(' '));
 
 /** Validate only the legacy color forms already admitted by readSafeStyles. */
-function validColor(value: string): boolean {
+export function validColor(value: string): boolean {
   if (namedColors.has(value.toLowerCase()) || /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(value)) return true;
   const match = /^(rgb|rgba|hsl|hsla)\(([^)]+)\)$/i.exec(value);
   if (match === null) return false;
@@ -91,7 +92,7 @@ function fullyTransparent(value: string): boolean {
   return match !== null && Number.parseFloat(match[1] ?? '') === 0;
 }
 
-function validFamily(value: string): boolean {
+export function validFamily(value: string): boolean {
   if (cssWide.has(value.toLowerCase())) return false;
   const parts: string[] = [];
   let quote: string | undefined;
@@ -110,7 +111,7 @@ function validFamily(value: string): boolean {
     if (name.startsWith('"') || name.startsWith("'")) {
       return name.length > 2 && name.at(-1) === name[0] && !name.slice(1, -1).includes(name[0] ?? '');
     }
-    return name.split(/\s+/).every(word => /^-?(?:[\p{L}_]|--)[\p{L}\p{N}_-]*$/u.test(word));
+    return name.split(/\s+/).every(word => /^-?(?:[\p{L}_]|--)[\p{L}\p{M}\p{N}_-]*$/u.test(word));
   });
 }
 
@@ -188,7 +189,7 @@ function lineHeightRatio(value: string, fontSize: string | undefined): string | 
  * also writes on each run whose size differs from its paragraph's. A later declaration wins, a reset to
  * the initial value included. The names of the declarations not kept are returned for the caller's policy.
  */
-function readInheritanceStyles(value: unknown, image: boolean, tag: string, routineLineHeights?: ReadonlySet<string>, wordSource = false, defaultTextColor?: string): { styles: Map<string, string>; removedNames: string[]; defaultColor: boolean; defaultSize: boolean } {
+function readInheritanceStyles(value: unknown, image: boolean, tag: string, routineLineHeights?: ReadonlySet<string>, wordSource = false, defaultTextColor?: string, labelStyleName?: string): { styles: Map<string, string>; removedNames: string[]; defaultColor: boolean; defaultSize: boolean } {
   const styles = new Map<string, string>();
   const removedNames: string[] = [];
   let defaultColor = false;
@@ -211,7 +212,7 @@ function readInheritanceStyles(value: unknown, image: boolean, tag: string, rout
         text = `line-height:${ratio}`;
       }
     }
-    const parsed = readSafeStyles(text, image, tag);
+    const parsed = readSafeStyles(text, image, tag, false, labelStyleName);
     removedNames.push(...parsed.removedNames);
     for (const key of parsed.cleared) styles.delete(key);
     for (const [key, entry] of parsed.styles) {
@@ -271,6 +272,28 @@ export function resolveInlineInheritance(
     || !Number.isSafeInteger(maxStyleLength) || maxStyleLength < 1 || maxStyleLength > 2_000_000) {
     throw new RangeError('Invalid inline inheritance limits');
   }
+  // Repeated Word runs share declarations. Cache only their context-free parse facts for this pass,
+  // never inherited state, generated wrappers, source positions or diagnostics. Every caller gets its own mutable map.
+  type StyleFacts = ReturnType<typeof readInheritanceStyles>;
+  const styleFacts = new Map<string, { tag: string; label: string | undefined; facts: StyleFacts }>();
+  let cachedCharacters = 0;
+  const routineLineHeights = options.routineLineHeights;
+  const wordSource = options.wordSource;
+  const defaultTextColor = options.defaultTextColor;
+  const readStyles = (value: unknown, tag: string, label: string | undefined): StyleFacts => {
+    const retained = typeof value === 'string' ? styleFacts.get(value) : undefined;
+    if (retained?.tag === tag && retained.label === label) {
+      return { ...retained.facts, styles: new Map(retained.facts.styles), removedNames: [...retained.facts.removedNames] };
+    }
+    const facts = readInheritanceStyles(value, tag === 'img', tag, routineLineHeights, wordSource, defaultTextColor, label);
+    // Bound retained input and facts even when every source run has a different attribute.
+    if (typeof value === 'string' && value.length > 0 && value.length <= 2048
+      && (retained !== undefined || styleFacts.size < 128) && cachedCharacters + (retained === undefined ? value.length : 0) <= 65_536) {
+      if (retained === undefined) cachedCharacters += value.length;
+      styleFacts.set(value, { tag, label, facts: { ...facts, styles: new Map(facts.styles), removedNames: [...facts.removedNames] } });
+    }
+    return facts;
+  };
   let generatedStyleLength = 0;
   let nodes = 0;
   const pending: { node: RootContent; depth: number }[] = tree.children.map(node => ({ node, depth: 1 }));
@@ -328,8 +351,8 @@ export function resolveInlineInheritance(
       const state: State = { ...inherited };
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
-      const { styles, removedNames, defaultColor, defaultSize } = readInheritanceStyles(styleToRead(child), tag === 'img', tag, options.routineLineHeights, options.wordSource,
-        options.defaultTextColor);
+      const label = readHTMLListLabel(child.properties, tag);
+      const { styles, removedNames, defaultColor, defaultSize } = readStyles(styleToRead(child), tag, label === null ? undefined : listLabelStyleName(label));
       // Typography that adapt removes anyway is that policy's adaptation, not a loss; in preserve every declaration not kept is.
       let unsupported = removedNames.some(name => preserve || !adaptedTypography(name));
       // One adapted finding per discarded source property, reported on its declaring element.

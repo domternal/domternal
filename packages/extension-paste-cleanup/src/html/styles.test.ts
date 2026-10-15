@@ -59,6 +59,26 @@ describe('safe CSS rule lookup through metadata colors and image placement', () 
   });
 });
 
+describe('Unicode font family names', () => {
+  it.each(['E\u0301cole', 'Noto देवनागरी', 'Noto نَسخ'])(
+    'retains combining marks in quoted and unquoted names without normalizing them: %s', family => {
+      for (const declaration of [family, `"${family}"`]) {
+        const css = `font-family:${declaration}`;
+        expect(readSafeStyles(css).styles.get('font-family')).toBe(declaration);
+        const result = normalizePasteHTML(`<div style='${css}'><p>Text</p></div>`, { formatting: 'preserve' });
+        expect(result.html).toContain(family);
+        expect(result.diagnostics).toEqual([]);
+        expect(normalizePasteHTML(`<p style='${css}'>Text</p>`, { formatting: 'adapt' }).html).not.toContain(family);
+      }
+    },
+  );
+  it.each(['A\u200bB', 'A\u202eB', 'A\\B', 'A(url)'])(
+    'keeps unsupported controls and CSS syntax out: %j', family => {
+      expect(readSafeStyles(`font-family:"${family}"`).styles.has('font-family')).toBe(false);
+    },
+  );
+});
+
 describe('plain declarations', () => {
   it('reads lowercased names and values trimmed of CSS white space only', () => {
     expect(plainDeclarations(' Color : Red ;\t;\nLIST-STYLE-TYPE:\fdisc\r')).toEqual([['color', 'Red'], ['list-style-type', 'disc']]);

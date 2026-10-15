@@ -45,7 +45,7 @@ export function officeLevelKey(list: string, level: number | string, instance?: 
 interface Declaration { name: string; value: string }
 
 /** Split a declaration list without treating strings, comments, escapes or blocks as separators. */
-function readDeclarations(input: string, maximum: number): Declaration[] | undefined {
+export function readBoundedStyleDeclarations(input: string, maximum: number): Declaration[] | undefined {
   const declarations: Declaration[] = [];
   let current = '';
   let quote = '';
@@ -130,12 +130,12 @@ function firstFamily(value: string): string | undefined {
     family = text.slice(1, end);
   } else family = text.split(',')[0] ?? '';
   family = family.trim().replace(/[\t\n\f\r ]+/g, ' ').toLowerCase();
-  return /^[\p{L}\p{N} ._-]{1,160}$/u.test(family) ? family : undefined;
+  return /^[\p{L}\p{M}\p{N} ._-]{1,160}$/u.test(family) ? family : undefined;
 }
 
 function readLevelRule(body: string): LevelRule | null {
   if (body.length > maxRuleBody) return null;
-  const declarations = readDeclarations(body, maxRuleDeclarations);
+  const declarations = readBoundedStyleDeclarations(body, maxRuleDeclarations);
   if (declarations === undefined) return null;
   const values = new Map<string, string>();
   for (const { name, value } of declarations) {
@@ -216,7 +216,9 @@ function blockEnd(css: string, open: number): number {
  * of its opening brace and the index of the brace that closes it. HTML comment delimiters around the text are
  * skipped; unterminated syntax stops the text, so later rules stay unknown.
  */
-export function forEachStyleRule(css: string, visit: (start: number, open: number, end: number) => void): void {
+export function forEachStyleRule(
+  css: string, visit: (start: number, open: number, end: number) => void, unknown?: (text: string) => void,
+): void {
   let index = 0;
   while (index < css.length) {
     const char = css.charAt(index);
@@ -229,14 +231,14 @@ export function forEachStyleRule(css: string, visit: (start: number, open: numbe
       if (next === '\\') open++;
       else if (opensToken(css, open)) {
         const after = skipToken(css, open);
-        if (after < 0) return;
+        if (after < 0) { unknown?.(css.slice(index)); return; }
         open = after - 1;
       } else if (next === '{' || next === ';' || next === '}') break;
     }
-    if (open >= css.length) return;
-    if (css.charAt(open) !== '{') { index = open + 1; continue; }
+    if (open >= css.length) { unknown?.(css.slice(index)); return; }
+    if (css.charAt(open) !== '{') { unknown?.(css.slice(index, open + 1)); index = open + 1; continue; }
     const end = blockEnd(css, open);
-    if (end < 0) return;
+    if (end < 0) { unknown?.(css.slice(index)); return; }
     visit(index, open, end);
     index = end + 1;
   }
@@ -297,7 +299,7 @@ export function resolveOfficeLevel(rules: OfficeListRules, list: string, level: 
  */
 export function declaredFont(style: unknown): string | null | undefined {
   if (typeof style !== 'string') return undefined;
-  const declarations = readDeclarations(style, 128);
+  const declarations = readBoundedStyleDeclarations(style, 128);
   if (declarations === undefined) return null;
   let family: string | null | undefined;
   for (const { name, value } of declarations) {

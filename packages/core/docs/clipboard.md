@@ -45,10 +45,12 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   plain-text clipboard without HTML whose lines are exactly its image files' names, as a file
   manager copies files. Without text of its own, `pasteClipboardImageFiles(view, event, slice)`
   hands every image file, in clipboard order, to the latest destination's `insertFiles` (the
-  optional third argument of `registerClipboardImageDestination`), with the alt text of the one
-  image the content held when there is one image and one file and that alt text is not empty, and
-  returns whether it took them. An empty `alt`, which marks a decorative image, leaves the file
-  without alt text.
+  optional third argument of `registerClipboardImageDestination`), with the matching image's alt
+  text when there is one image and one file, and returns whether it took them. An explicit
+  `alt=""` remains empty for a decorative image; an absent attribute remains absent. A paste
+  handler can preserve this distinction with the optional `imageStandInAlts` insertion options.
+  The legacy string-only stand-in channel cannot distinguish a missing description from an empty
+  one, so an empty legacy value still leaves the file without an alt description.
   `dropClipboardImageFiles(view, event, slice)` does the same for a drop at its position, where
   the files win over whatever else the drop carries.
   A paste whose content has text of its own keeps that content, because Office applications put
@@ -72,6 +74,20 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   cannot disagree.
 
 ## Pasted clipboard context
+
+For a registered HTML preparation coordinator, `getClipboardPasteAttemptIdentity(view)`
+returns an opaque identity for the active native or programmatic paste. The optional
+`attempt` field on the preparation gate and attempt observer context carries that same
+identity. Extension authors can use it as a `WeakMap` key to take one policy snapshot
+without retaining the clipboard event, HTML or files. Calls without a `ClipboardEvent`
+still have distinct identities, and a nested paste temporarily exposes its own identity
+before returning to the outer attempt. Outside the active attempt, after disposal or
+after view destruction, the getter returns `undefined`.
+
+A deferred replay gets a new identity. A coordinator that carries an earlier decision
+must associate its own verified replay with that snapshot explicitly. The identity
+does not authorize replay, prove insertion, identify a user or provide a persistent
+operation ID. Empty, text-only and subsequently intercepted attempts also receive one.
 
 HTML copied from a ProseMirror editor carries its structural context in a `data-pm-slice`
 attribute on its first element: the open depths and the wrapper nodes, such as lists, list items,

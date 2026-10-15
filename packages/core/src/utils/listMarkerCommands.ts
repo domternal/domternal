@@ -38,7 +38,7 @@ export function sinkListItemWithMarker(itemType: NodeType): Command {
 function ordinal(node: PMNode, index: number): number | null {
   if (node.type.name !== 'orderedList') return 1;
   const start: unknown = node.attrs['start'];
-  return typeof start === 'number' && Number.isSafeInteger(start) && start >= 1
+  return typeof start === 'number' && Number.isSafeInteger(start) && start >= 0
     && Number.isSafeInteger(start + index) ? start + index : null;
 }
 

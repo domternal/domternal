@@ -3,6 +3,7 @@ export { pasteCleanupMessages } from './messages.js';
 export { getPasteAffectedReferences } from './operations.js';
 export type { PasteAffectedRange, PasteAffectedReferences, PasteOperationResult, PasteOperationRejectionReason, PasteNormalizationContext } from './operations.js';
 export type { PasteCleanupOptions } from './PasteCleanup.js';
+export type { PasteFormattingContext, PasteFormattingResolver } from './pasteFormatting.js';
 export type { ClipboardImageAssetOptions, ClipboardImageMatchContext, ClipboardImageItemMetadata, PastePreparationProgress } from './clipboard/types.js';
 export type { ClipboardEmbeddedImageAssetOptions, ClipboardResolvedImageAssetOptions, ClipboardAssetRecoveryReport } from './clipboard/types.js';
 export type { ClipboardImageAssetCommonOptions } from './clipboard/types.js';

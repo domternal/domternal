@@ -6,7 +6,7 @@ Use this reference when integrating custom paste handlers, application feedback 
 
 PasteCleanup registers single clipboard slots from the experimental
 `@domternal/core/clipboard` subpath on each editor it is installed in: the copy
-annotation always, and the HTML preparation when `imageAssets` is enabled. Core
+annotation always, and the HTML preparation when `imageAssets` or `formattingForPaste` is enabled. Core
 accepts one registration per editor for each slot, and whichever registers second
 fails:
 
@@ -24,9 +24,32 @@ fails:
   the constructor with Core's error, and the teardown releases PasteCleanup as well.
 
 To resolve a conflict, remove the other registration from that editor or leave
-PasteCleanup out of it. For the HTML preparation, `imageAssets: false` leaves the
-slot to the other registration, and `imageAssets` with `mode: 'resolver'` stages
+PasteCleanup out of it. For the HTML preparation, `imageAssets: false` with no
+`formattingForPaste` leaves the slot to the other registration. `imageAssets` with `mode: 'resolver'` stages
 pasted images in application storage without a separate preparation.
+
+## Choose formatting for one paste
+
+`formattingForPaste(context)` lets an application-owned control choose `preserve` or
+`adapt` when a paste starts. The frozen context contains only `defaultFormatting`
+and `origin`, either `native` or `programmatic`. It does not expose source HTML,
+text, browser events, files or image metadata. Return synchronously; `undefined`,
+an exception, an invalid value or a Promise retains the configured `formatting`
+default. Rejected Promises are contained and never disable cleanup.
+
+The choice is captured before clipboard preparation and host HTML transforms. It
+belongs to that attempt, including event-free `view.pasteHTML(...)` and
+`view.pasteText(...)` calls. A nested paste chooses independently. A deferred image
+operation and its authorized replay retain their original choice even if the UI
+changes while preparation is pending. `onResult` and `onPasteResult` report this
+same policy; cancellation, Undo and Redo do not invoke the selector again.
+
+An empty, intercepted or code-block paste can call the selector without producing
+an HTML-cleanup result. The callback does not change routing: plain text, Markdown,
+code blocks and recognized same-page own copies retain their existing semantics.
+Drops, direct transform calls outside a paste and the standalone `/html` API use
+the static `formatting` option. The control should be available before pasting;
+this API does not retain the clipboard to offer a second-format paste afterward.
 
 ## Built-in notice
 
@@ -38,8 +61,25 @@ in a row share it. When Dismiss, Escape or Cancel hides the notice while focus i
 in it, or while a pointer press left focus on the page, focus returns to the
 editor with its selection. A clean paste or intentional
 formatting adaptation alone stays quiet, including when its informational findings
-fill the diagnostic allowance. Load the normal `@domternal/theme` CSS
+fill the diagnostic allowance. When asynchronous image preparation is accepted,
+the live region announces "Images pasted." once. A clean completion leaves the
+visible notice hidden; cancelled, rejected and untracked operations never receive
+that success announcement. Load the normal `@domternal/theme` CSS
 for styling. The notice follows editor adoption and is removed on destruction.
+
+Press `Alt+Shift+P` while editing to focus a visible notice, including from a list
+that uses Tab for indentation. Escape dismisses it and returns to the stored
+editor selection. `focusFeedbackShortcut` accepts a ProseMirror shortcut such as
+`'Alt-F9'`, or `false` to disable this binding. The default is `'Alt-Shift-P'`.
+It does not intercept composition or act when the notice is hidden, and does not
+apply to application-owned feedback. A host that reserves the default shortcut
+should configure another binding and explain it in its keyboard help.
+
+The notice is an accessible group, not a separate landmark. Give each editor a
+meaningful `aria-label` or `aria-labelledby` on its editable DOM element; the
+notice combines "Paste notice" with that name. Valid `aria-labelledby` references
+are resolved in the editor's current document or shadow root. Unnamed editors
+use the generic "Paste notice" label. Clipboard text is never used as a UI label.
 
 With the theme, the notice stays in view in a long document on a screen at
 least `30rem` tall (480 px at the default font size): it sticks to the bottom of
@@ -80,9 +120,20 @@ storage, diagnostics, or a remote service.
 including plain-text transforms. Its frozen result contains `operationId`,
 `source`, `formatting`, `status`, bounded `diagnostics`, `diagnosticsTruncated` and
 `references`, without source HTML. `onResult` includes the same operation ID and
-formatting policy synchronously. Both list the same diagnostics, except that an
-applied paste's result leaves out the heading warning of a pasted heading that
-merged into the block at the caret, as [destination checks](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md#destination-checks) describe.
+formatting policy synchronously. An applied paste's result can refine these
+diagnostics: it leaves out the heading warning of a pasted heading that merged
+into the block at the caret, and adds `destination-formatting-removed` when
+accepted appended processing demonstrably removes known formatting from an
+identified insertion. This bounded check starts after parsing and does not prove
+complete source fidelity. Equal-text replacements and other ambiguous changes
+remain unverified, as [destination checks](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md#destination-checks) describe.
+Before insertion, the integration also probes bounded actual formatting values
+against the destination parser and serializer. For example, a font size or line
+height refused by a custom parser or rendering allowlist produces
+`destination-formatting-unconfirmed` in both callbacks. This advisory warning
+does not block the content and is different from the proven post-insertion
+removal warning. Later custom HTML or slice transforms remain outside that
+source-value proof.
 Callback exceptions cannot revoke an accepted paste or disable cleanup.
 
 | Status | Meaning |

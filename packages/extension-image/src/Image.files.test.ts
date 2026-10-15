@@ -77,6 +77,83 @@ const placeholders = (target: Editor): number => imageUploadPluginKey.getState(t
 const html = (target: Editor): string => target.getHTML();
 
 describe('image files: order and uploads', () => {
+  it('shows a localized status without adding content, undo steps or keyboard stops', async () => {
+    const upload = uploads();
+    const ed = mount({ uploadHandler: upload.handler });
+    caret(ed, 3);
+    const content = ed.getJSON();
+    pasteFiles(ed, [png('private-file-name.png')]);
+    const indicator = ed.view.dom.querySelector<HTMLElement>('.domternal-image-uploading');
+    expect(indicator).not.toBeNull();
+    expect(indicator?.getAttribute('role')).toBe('status');
+    expect(indicator?.getAttribute('aria-live')).toBe('polite');
+    expect(indicator?.getAttribute('aria-atomic')).toBe('true');
+    expect(indicator?.getAttribute('tabindex')).toBe(null);
+    expect(indicator?.contentEditable).toBe('false');
+    expect(indicator?.textContent).toBe('Loading image...');
+    expect(indicator?.lang).toBe('en');
+    expect(indicator?.outerHTML).not.toContain('private-file-name');
+    expect(indicator?.querySelector('.domternal-image-uploading__spinner')?.getAttribute('aria-hidden')).toBe('true');
+    expect(ed.getJSON()).toEqual(content);
+    expect(html(ed)).toBe('<p>Hello</p>');
+    expect(ed.commands.undo()).toBe(false);
+
+    const state = ed.state;
+    ed.i18n.set({ locale: 'de', messages: { 'image.upload.loading': 'Bild wird geladen …' } });
+    expect(ed.view.dom.querySelector('.domternal-image-uploading')).toBe(indicator);
+    expect(indicator?.textContent).toBe('Bild wird geladen …');
+    expect(indicator?.lang).toBe('de');
+    expect(ed.state).toBe(state);
+
+    ed.view.dispatch(ed.state.tr.insertText('!', 1));
+    expect(ed.view.dom.querySelector('.domternal-image-uploading')).toBe(indicator);
+    expect(indicator?.textContent).toBe('Bild wird geladen …');
+    upload.resolve('private-file-name.png');
+    await flush();
+    expect(ed.view.dom.querySelector('.domternal-image-uploading')).toBe(null);
+    expect(ed.view.dom.querySelector('img')).not.toBeNull();
+    expect(html(ed)).not.toContain('Loading');
+  });
+
+  it('settles a reentrant loading-label resolver on the latest locale', () => {
+    const upload = uploads();
+    const ed = mount({ uploadHandler: upload.handler });
+    pasteFiles(ed, [png('a.png')]);
+    const state = ed.state;
+    let changed = false;
+    ed.i18n.set({ locale: 'fr', resolve: id => {
+      if (id !== 'image.upload.loading' || changed) return undefined;
+      changed = true;
+      ed.i18n.set({ locale: 'de', messages: { 'image.upload.loading': 'Bild wird geladen …' } });
+      return 'Stale label';
+    } });
+    expect(changed).toBe(true);
+    expect(ed.view.dom.querySelector('.domternal-image-uploading')?.textContent).toBe('Bild wird geladen …');
+    expect(ed.view.dom.querySelector('.domternal-image-uploading')?.getAttribute('lang')).toBe('de');
+    expect(ed.state).toBe(state);
+  });
+
+  it('removes the visible status immediately after failure and does not retain its locale subscription after destroy', async () => {
+    const upload = uploads();
+    const onUploadError = vi.fn();
+    const ed = mount({ uploadHandler: upload.handler, onUploadError });
+    pasteFiles(ed, [png('failed.png')]);
+    expect(ed.view.dom.querySelectorAll('[role="status"]')).toHaveLength(1);
+    upload.reject('failed.png', new Error('Upload unavailable'));
+    await flush();
+    expect(ed.view.dom.querySelector('.domternal-image-uploading')).toBeNull();
+    expect(ed.getHTML()).toBe('<p>Hello</p>');
+    expect(onUploadError).toHaveBeenCalledOnce();
+    expect(ed.commands.undo()).toBe(false);
+    pasteFiles(ed, [png('pending.png')]);
+    const indicator = ed.view.dom.querySelector('.domternal-image-uploading');
+    ed.destroy();
+    expect(() => { ed.i18n.set({ locale: 'de', messages: { 'image.upload.loading': 'Changed after destroy' } }); }).not.toThrow();
+    expect(indicator?.textContent).toBe('Loading image...');
+    upload.resolve('pending.png');
+    await flush();
+  });
+
   it('inserts every pasted file in clipboard order, however the uploads finish', async () => {
     const upload = uploads();
     const ed = mount({ uploadHandler: upload.handler });
@@ -87,14 +164,17 @@ describe('image files: order and uploads', () => {
     expect(event.defaultPrevented).toBe(true);
     expect(upload.started).toEqual(['1.png', '2.png', '3.png']);
     expect(placeholders(ed)).toBe(3);
+    expect(ed.view.dom.querySelectorAll('.domternal-image-uploading')).toHaveLength(3);
     upload.resolve('3.png');
     upload.resolve('1.png');
     await flush();
     expect(html(ed)).toBe('<p>Hello</p><img src="https://cdn.example/1.png">');
+    expect(ed.view.dom.querySelectorAll('.domternal-image-uploading')).toHaveLength(2);
     upload.resolve('2.png');
     await flush();
     expect(html(ed)).toBe('<p>Hello</p><img src="https://cdn.example/1.png"><img src="https://cdn.example/2.png"><img src="https://cdn.example/3.png">');
     expect(placeholders(ed)).toBe(0);
+    expect(ed.view.dom.querySelectorAll('.domternal-image-uploading')).toHaveLength(0);
   });
 
   it('skips a failed upload, reports it, and keeps the others in order', async () => {
@@ -179,7 +259,9 @@ describe('image files: order and uploads', () => {
     const ed = mount({ uploadHandler: upload.handler, onUploadError }, '<p>Hello</p><p>World</p>');
     caret(ed, 3);
     pasteFiles(ed, [png('a.png')]);
+    expect(ed.view.dom.querySelector('.domternal-image-uploading')).not.toBeNull();
     ed.view.dispatch(ed.state.tr.delete(1, 6));
+    expect(ed.view.dom.querySelector('.domternal-image-uploading')).toBeNull();
 
     upload.resolve('a.png');
     await flush();

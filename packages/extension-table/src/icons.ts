@@ -1,63 +1,68 @@
+import type { DOMOutputSpec } from '@domternal/pm/model';
+
 // Table SVG Icons & Colors
 // Extracted from TableView for readability.
 
 // Handle buttons (three dots)
-export const DOTS_H =
-  '<svg width="10" height="4" viewBox="0 0 10 4"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="5" cy="2" r="1.2" fill="currentColor"/><circle cx="8" cy="2" r="1.2" fill="currentColor"/></svg>';
-export const DOTS_V =
-  '<svg width="4" height="10" viewBox="0 0 4 10"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="2" cy="5" r="1.2" fill="currentColor"/><circle cx="2" cy="8" r="1.2" fill="currentColor"/></svg>';
+export const DOTS_H: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '10', 'height': '4', 'viewBox': '0 0 10 4'}, ['circle', {'cx': '2', 'cy': '2', 'r': '1.2', 'fill': 'currentColor'}], ['circle', {'cx': '5', 'cy': '2', 'r': '1.2', 'fill': 'currentColor'}], ['circle', {'cx': '8', 'cy': '2', 'r': '1.2', 'fill': 'currentColor'}]];
+export const DOTS_V: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '4', 'height': '10', 'viewBox': '0 0 4 10'}, ['circle', {'cx': '2', 'cy': '2', 'r': '1.2', 'fill': 'currentColor'}], ['circle', {'cx': '2', 'cy': '5', 'r': '1.2', 'fill': 'currentColor'}], ['circle', {'cx': '2', 'cy': '8', 'r': '1.2', 'fill': 'currentColor'}]];
 
 // Chevron-down for dropdown buttons
-export const CHEVRON_DOWN =
-  '<svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 2.5l3 3 3-3"/></svg>';
+export const CHEVRON_DOWN: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '8', 'height': '8', 'viewBox': '0 0 8 8', 'fill': 'none', 'stroke': 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round'}, ['path', {'d': 'M1 2.5l3 3 3-3'}]];
 
 // Cell toolbar icons (16×16 Phosphor-style)
-export const ICON_COLOR =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200.77,53.89A103.27,103.27,0,0,0,128,24h-1.07A104,104,0,0,0,24,128c0,43,26.58,79.06,69.36,94.17A32,32,0,0,0,136,192a16,16,0,0,1,16-16h46.21a31.81,31.81,0,0,0,31.2-24.88,104.43,104.43,0,0,0,2.59-24A103.28,103.28,0,0,0,200.77,53.89Zm13,93.71A15.89,15.89,0,0,1,198.21,160H152a32,32,0,0,0-32,32,16,16,0,0,1-21.31,15.07C62.49,194.3,40,164,40,128a88,88,0,0,1,87.09-88h.9a88.35,88.35,0,0,1,88,87.25A88.86,88.86,0,0,1,213.81,147.6ZM140,76a12,12,0,1,1-12-12A12,12,0,0,1,140,76ZM96,100A12,12,0,1,1,84,88,12,12,0,0,1,96,100Zm0,56a12,12,0,1,1-12-12A12,12,0,0,1,96,156Zm88-56a12,12,0,1,1-12-12A12,12,0,0,1,184,100Z"/></svg>';
-export const ICON_ALIGNMENT =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z"/></svg>';
-export const ICON_HEADER =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208ZM72,96V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Zm96,0V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Zm-48,0V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Z"/></svg>';
+export const ICON_COLOR: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M200.77,53.89A103.27,103.27,0,0,0,128,24h-1.07A104,104,0,0,0,24,128c0,43,26.58,79.06,69.36,94.17A32,32,0,0,0,136,192a16,16,0,0,1,16-16h46.21a31.81,31.81,0,0,0,31.2-24.88,104.43,104.43,0,0,0,2.59-24A103.28,103.28,0,0,0,200.77,53.89Zm13,93.71A15.89,15.89,0,0,1,198.21,160H152a32,32,0,0,0-32,32,16,16,0,0,1-21.31,15.07C62.49,194.3,40,164,40,128a88,88,0,0,1,87.09-88h.9a88.35,88.35,0,0,1,88,87.25A88.86,88.86,0,0,1,213.81,147.6ZM140,76a12,12,0,1,1-12-12A12,12,0,0,1,140,76ZM96,100A12,12,0,1,1,84,88,12,12,0,0,1,96,100Zm0,56a12,12,0,1,1-12-12A12,12,0,0,1,96,156Zm88-56a12,12,0,1,1-12-12A12,12,0,0,1,184,100Z'}]];
+export const ICON_ALIGNMENT: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z'}]];
+export const ICON_HEADER: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208ZM72,96V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Zm96,0V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Zm-48,0V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Z'}]];
 
 // Merge/split icons (16×16)
-export const ICON_MERGE =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,16V96H136V56ZM56,56h64V96H56ZM56,200V112H200v88Z"/></svg>';
-export const ICON_SPLIT =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,16V96H136V56ZM56,56h64V96H56ZM56,136V112h64v24Zm0,64V152h64v48Zm144,0H136V152h64Zm0-48H136V112h64Z"/></svg>';
+export const ICON_MERGE: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,16V96H136V56ZM56,56h64V96H56ZM56,200V112H200v88Z'}]];
+export const ICON_SPLIT: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,16V96H136V56ZM56,56h64V96H56ZM56,136V112h64v24Zm0,64V152h64v48Zm144,0H136V152h64Zm0-48H136V112h64Z'}]];
 
 // Horizontal alignment icons (Phosphor, 16×16)
-export const ICON_ALIGN_LEFT =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z"/></svg>';
-export const ICON_ALIGN_CENTER =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64ZM64,96a8,8,0,0,0,0,16H192a8,8,0,0,0,0-16Zm152,40H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-24,40H64a8,8,0,0,0,0,16H192a8,8,0,0,0,0-16Z"/></svg>';
-export const ICON_ALIGN_RIGHT =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64ZM216,96H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,40H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,40H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"/></svg>';
+export const ICON_ALIGN_LEFT: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z'}]];
+export const ICON_ALIGN_CENTER: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64ZM64,96a8,8,0,0,0,0,16H192a8,8,0,0,0,0-16Zm152,40H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-24,40H64a8,8,0,0,0,0,16H192a8,8,0,0,0,0-16Z'}]];
+export const ICON_ALIGN_RIGHT: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64ZM216,96H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,40H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,40H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z'}]];
 
 // Vertical alignment icons (16×16)
-export const ICON_ALIGN_TOP =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M40,40H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88,16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,16a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V80A8,8,0,0,0,168,72ZM88,72a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V80A8,8,0,0,0,88,72Z"/></svg>';
-export const ICON_ALIGN_MIDDLE =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M40,136H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88-80a8,8,0,0,0-8,8v32a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm0,104a8,8,0,0,0-8,8v32a8,8,0,0,0,16,0V168A8,8,0,0,0,128,160Zm40-80a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V88A8,8,0,0,0,168,80Zm0,56a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V144A8,8,0,0,0,168,136ZM88,80a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V88A8,8,0,0,0,88,80Zm0,56a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V144A8,8,0,0,0,88,136Z"/></svg>';
-export const ICON_ALIGN_BOTTOM =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M40,232H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88-32a8,8,0,0,0,8-8V96a8,8,0,0,0-16,0v96A8,8,0,0,0,128,200Zm40-16a8,8,0,0,0,8-8V112a8,8,0,0,0-16,0v64A8,8,0,0,0,168,184ZM88,184a8,8,0,0,0,8-8V112a8,8,0,0,0-16,0v64A8,8,0,0,0,88,184Z"/></svg>';
+export const ICON_ALIGN_TOP: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M40,40H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88,16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,16a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V80A8,8,0,0,0,168,72ZM88,72a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V80A8,8,0,0,0,88,72Z'}]];
+export const ICON_ALIGN_MIDDLE: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M40,136H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88-80a8,8,0,0,0-8,8v32a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm0,104a8,8,0,0,0-8,8v32a8,8,0,0,0,16,0V168A8,8,0,0,0,128,160Zm40-80a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V88A8,8,0,0,0,168,80Zm0,56a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V144A8,8,0,0,0,168,136ZM88,80a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V88A8,8,0,0,0,88,80Zm0,56a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V144A8,8,0,0,0,88,136Z'}]];
+export const ICON_ALIGN_BOTTOM: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M40,232H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88-32a8,8,0,0,0,8-8V96a8,8,0,0,0-16,0v96A8,8,0,0,0,128,200Zm40-16a8,8,0,0,0,8-8V112a8,8,0,0,0-16,0v64A8,8,0,0,0,168,184ZM88,184a8,8,0,0,0,8-8V112a8,8,0,0,0-16,0v64A8,8,0,0,0,88,184Z'}]];
 
 // Cell handle icon (2×2 grid dots)
-export const CELL_ICON =
-  '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="6" cy="2" r="1.2" fill="currentColor"/><circle cx="2" cy="6" r="1.2" fill="currentColor"/><circle cx="6" cy="6" r="1.2" fill="currentColor"/></svg>';
+export const CELL_ICON: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '8', 'height': '8', 'viewBox': '0 0 8 8'}, ['circle', {'cx': '2', 'cy': '2', 'r': '1.2', 'fill': 'currentColor'}], ['circle', {'cx': '6', 'cy': '2', 'r': '1.2', 'fill': 'currentColor'}], ['circle', {'cx': '2', 'cy': '6', 'r': '1.2', 'fill': 'currentColor'}], ['circle', {'cx': '6', 'cy': '6', 'r': '1.2', 'fill': 'currentColor'}]];
 
 // Row/column handle dropdown icons (Phosphor, 16×16)
-export const ICON_ROW_PLUS_TOP =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,160H48a16,16,0,0,0-16,16v24a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V176A16,16,0,0,0,208,160Zm0,40H48V176H208v24Zm0-112H48a16,16,0,0,0-16,16v24a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V104A16,16,0,0,0,208,88Zm0,40H48V104H208v24ZM96,40a8,8,0,0,1,8-8h16V16a8,8,0,0,1,16,0V32h16a8,8,0,0,1,0,16H136V64a8,8,0,0,1-16,0V48H104A8,8,0,0,1,96,40Z"/></svg>';
-export const ICON_ROW_PLUS_BOTTOM =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,112H48a16,16,0,0,0-16,16v24a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V128A16,16,0,0,0,208,112Zm0,40H48V128H208v24Zm0-112H48A16,16,0,0,0,32,56V80A16,16,0,0,0,48,96H208a16,16,0,0,0,16-16V56A16,16,0,0,0,208,40Zm0,40H48V56H208V80ZM160,216a8,8,0,0,1-8,8H136v16a8,8,0,0,1-16,0V224H104a8,8,0,0,1,0-16h16V192a8,8,0,0,1,16,0v16h16A8,8,0,0,1,160,216Z"/></svg>';
-export const ICON_DELETE_ROW =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,136H48a16,16,0,0,0-16,16v40a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V152A16,16,0,0,0,208,136Zm0,56H48V152H208v40Zm0-144H48A16,16,0,0,0,32,64v40a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V64A16,16,0,0,0,208,48Zm0,56H48V64H208v40Z"/></svg>';
-export const ICON_COL_PLUS_LEFT =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128,32H104A16,16,0,0,0,88,48V208a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V48A16,16,0,0,0,128,32Zm0,176H104V48h24ZM200,32H176a16,16,0,0,0-16,16V208a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V48A16,16,0,0,0,200,32Zm0,176H176V48h24ZM72,128a8,8,0,0,1-8,8H48v16a8,8,0,0,1-16,0V136H16a8,8,0,0,1,0-16H32V104a8,8,0,0,1,16,0v16H64A8,8,0,0,1,72,128Z"/></svg>';
-export const ICON_COL_PLUS_RIGHT =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M80,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16H80a16,16,0,0,0,16-16V48A16,16,0,0,0,80,32Zm0,176H56V48H80ZM152,32H128a16,16,0,0,0-16,16V208a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V48A16,16,0,0,0,152,32Zm0,176H128V48h24Zm96-80a8,8,0,0,1-8,8H224v16a8,8,0,0,1-16,0V136H192a8,8,0,0,1,0-16h16V104a8,8,0,0,1,16,0v16h16A8,8,0,0,1,248,128Z"/></svg>';
-export const ICON_DELETE_COL =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M104,32H64A16,16,0,0,0,48,48V208a16,16,0,0,0,16,16h40a16,16,0,0,0,16-16V48A16,16,0,0,0,104,32Zm0,176H64V48h40ZM192,32H152a16,16,0,0,0-16,16V208a16,16,0,0,0,16,16h40a16,16,0,0,0,16-16V48A16,16,0,0,0,192,32Zm0,176H152V48h40Z"/></svg>';
+export const ICON_ROW_PLUS_TOP: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M208,160H48a16,16,0,0,0-16,16v24a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V176A16,16,0,0,0,208,160Zm0,40H48V176H208v24Zm0-112H48a16,16,0,0,0-16,16v24a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V104A16,16,0,0,0,208,88Zm0,40H48V104H208v24ZM96,40a8,8,0,0,1,8-8h16V16a8,8,0,0,1,16,0V32h16a8,8,0,0,1,0,16H136V64a8,8,0,0,1-16,0V48H104A8,8,0,0,1,96,40Z'}]];
+export const ICON_ROW_PLUS_BOTTOM: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M208,112H48a16,16,0,0,0-16,16v24a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V128A16,16,0,0,0,208,112Zm0,40H48V128H208v24Zm0-112H48A16,16,0,0,0,32,56V80A16,16,0,0,0,48,96H208a16,16,0,0,0,16-16V56A16,16,0,0,0,208,40Zm0,40H48V56H208V80ZM160,216a8,8,0,0,1-8,8H136v16a8,8,0,0,1-16,0V224H104a8,8,0,0,1,0-16h16V192a8,8,0,0,1,16,0v16h16A8,8,0,0,1,160,216Z'}]];
+export const ICON_DELETE_ROW: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M208,136H48a16,16,0,0,0-16,16v40a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V152A16,16,0,0,0,208,136Zm0,56H48V152H208v40Zm0-144H48A16,16,0,0,0,32,64v40a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V64A16,16,0,0,0,208,48Zm0,56H48V64H208v40Z'}]];
+export const ICON_COL_PLUS_LEFT: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M128,32H104A16,16,0,0,0,88,48V208a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V48A16,16,0,0,0,128,32Zm0,176H104V48h24ZM200,32H176a16,16,0,0,0-16,16V208a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V48A16,16,0,0,0,200,32Zm0,176H176V48h24ZM72,128a8,8,0,0,1-8,8H48v16a8,8,0,0,1-16,0V136H16a8,8,0,0,1,0-16H32V104a8,8,0,0,1,16,0v16H64A8,8,0,0,1,72,128Z'}]];
+export const ICON_COL_PLUS_RIGHT: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M80,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16H80a16,16,0,0,0,16-16V48A16,16,0,0,0,80,32Zm0,176H56V48H80ZM152,32H128a16,16,0,0,0-16,16V208a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V48A16,16,0,0,0,152,32Zm0,176H128V48h24Zm96-80a8,8,0,0,1-8,8H224v16a8,8,0,0,1-16,0V136H192a8,8,0,0,1,0-16h16V104a8,8,0,0,1,16,0v16h16A8,8,0,0,1,248,128Z'}]];
+export const ICON_DELETE_COL: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'width': '16', 'height': '16', 'viewBox': '0 0 256 256', 'fill': 'currentColor'}, ['path', {'d': 'M104,32H64A16,16,0,0,0,48,48V208a16,16,0,0,0,16,16h40a16,16,0,0,0,16-16V48A16,16,0,0,0,104,32Zm0,176H64V48h40ZM192,32H152a16,16,0,0,0-16,16V208a16,16,0,0,0,16,16h40a16,16,0,0,0,16-16V48A16,16,0,0,0,192,32Zm0,176H152V48h40Z'}]];
+
+export const ICON_RESET: DOMOutputSpec =
+  ['http://www.w3.org/2000/svg svg', {'viewBox': '0 0 256 256', 'fill': 'currentColor', 'width': '14', 'height': '14'}, ['path', {'d': 'M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.56,87.56,0,0,1-20.41,56.28L71.72,60.41A88,88,0,0,1,216,128ZM40,128A87.56,87.56,0,0,1,60.41,71.72L184.28,195.59A88,88,0,0,1,40,128Z'}]];
 
 // Default cell background colors (4 rows × 4 columns)
 export const CELL_COLORS = [

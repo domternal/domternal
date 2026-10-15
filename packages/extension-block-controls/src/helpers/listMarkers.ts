@@ -1,3 +1,4 @@
+import { getNodeListLabel } from '@domternal/core';
 import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 
 const ORDERED_MARKERS = new Set(['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman']);
@@ -13,11 +14,14 @@ export function readListMarker(wrapper: PMNode): string | null {
 
 /** IDs and ordered starts retain their separate existing merge policies. */
 export function canMergeListWrappers(before: PMNode, after: PMNode): boolean {
-  return before.type === after.type && readListMarker(before) === readListMarker(after);
+  return before.type === after.type && readListMarker(before) === readListMarker(after)
+    && JSON.stringify(getNodeListLabel(before)) === JSON.stringify(getNodeListLabel(after));
 }
 
-/** Fresh wrappers retain only the safe marker, never source IDs or ordered starts. */
+/** Fresh wrappers retain the safe marker and optional label, never source IDs or ordered starts. */
 export function freshListMarkerAttributes(wrapper: PMNode): Attrs | null {
   const marker = readListMarker(wrapper);
-  return marker === null ? null : { listStyleType: marker };
+  const label = getNodeListLabel(wrapper);
+  if (marker === null && label === null) return null;
+  return { ...(marker === null ? {} : { listStyleType: marker }), ...(label === null ? {} : { listLabel: label }) };
 }

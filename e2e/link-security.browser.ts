@@ -611,6 +611,8 @@ test.describe('relative links and the link popover in the browser', () => {
       await setup(page, { content: docOf(paragraph(text('Hello world'))), linkPopover: {} });
       const popover = await openPopover(page);
       await popover.locator('input').fill(typed);
+      expect(await popover.locator('input').evaluate(element => (element as HTMLInputElement).checkValidity())).toBe(true);
+      await expect(popover.locator('input')).toHaveAttribute('inputmode', 'url');
       await page.keyboard.press('Enter');
       await expect(popover).toBeHidden();
       expect(await linkHrefs(page)).toEqual([stored]);
@@ -627,6 +629,7 @@ test.describe('relative links and the link popover in the browser', () => {
       await page.keyboard.press('Enter');
       await expect(popover).toBeVisible();
       await expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(await input.evaluate(element => (element as HTMLInputElement).checkValidity())).toBe(false);
       expect(await input.evaluate(element => (element as HTMLInputElement).validationMessage)).toBe('This address cannot be used as a link.');
       await expect(input).toBeFocused();
     }

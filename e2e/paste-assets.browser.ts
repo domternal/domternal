@@ -121,6 +121,37 @@ async function undoRedo(page: Page, before: Snapshot, after: Snapshot): Promise<
 
 for (const framework of FRAMEWORKS) {
   test.describe(`${framework}: clipboard image preparation`, () => {
+    test('announces clean image completion once after accepted insertion', async ({ page }) => {
+      const before = await open(page, framework);
+      await paste(page, { hold: true });
+      await pending(page);
+      await expect(page.getByRole('status')).toHaveText('Preparing pasted images.');
+      await release(page);
+      expect((await terminal(page)).status).toBe('applied');
+      await expect(page.getByRole('status')).toHaveText('Images pasted.');
+      await expect(page.locator('.dm-paste-feedback')).toBeHidden();
+      await page.getByRole('status').evaluate(element => { element.firstElementChild?.setAttribute('data-announcement-probe', 'accepted'); });
+      const after = await snapshot(page);
+      await undoRedo(page, before, after);
+      await expect(page.getByRole('status').locator('span')).toHaveAttribute('data-announcement-probe', 'accepted');
+      await expect(page.locator('.ProseMirror')).toBeFocused();
+      expect((await observations(page)).operations).toHaveLength(1);
+    });
+
+    for (const outcome of ['cancel', 'veto'] as const) {
+      test(`does not announce image completion after ${outcome}`, async ({ page }) => {
+        const before = await open(page, framework, outcome === 'veto' ? { lifecycle: 'veto' } : {});
+        await paste(page, { hold: true });
+        await pending(page);
+        if (outcome === 'cancel') await page.getByRole('button', { name: 'Cancel image preparation', exact: true }).click();
+        await release(page);
+        expect((await terminal(page)).status).toBe(outcome === 'veto' ? 'untracked' : 'rejected');
+        await expect(page.getByRole('status')).not.toHaveText('Images pasted.');
+        expect(await snapshot(page)).toEqual(before);
+        await expect(page.locator('.ProseMirror img')).toHaveCount(0);
+      });
+    }
+
     for (const route of ['native', 'programmatic'] as const) {
       test(`${route}: resolves explicit file placement once with exact Undo and Redo`, async ({ page }) => {
         const before = await open(page, framework);
@@ -188,7 +219,7 @@ for (const framework of FRAMEWORKS) {
       await release(page);
       expect(await snapshot(page)).toEqual(before);
       expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history())).toEqual({ undo: 0, redo: 0 });
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toHaveCount(0);
       expect((await observations(page)).operations).toHaveLength(1);
     });
 
@@ -271,7 +302,7 @@ for (const framework of FRAMEWORKS) {
         const codes = (diagnostics: readonly { code: string }[]): string[] => diagnostics.map(diagnostic => diagnostic.code);
         expect(codes(observed.results[0]?.diagnostics ?? [])).toEqual(['destination-heading-level-adapted']);
         expect(codes(result.diagnostics)).toEqual(smartPaste ? ['destination-heading-level-adapted'] : []);
-        const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+        const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
         if (smartPaste) await expect(notice.locator('li')).toHaveText([HEADING_NOTICE]);
         else await expect(notice).toBeHidden();
         expect(observed.assetReads).toBe(1);

@@ -52,6 +52,9 @@ export interface GlobalAttributeSpec {
    */
   default?: unknown;
 
+  /** Validate stored values with the same contract as a node or mark attribute. */
+  validate?: string | ((value: unknown) => void);
+
   /**
    * Parse attribute value from HTML element.
    * @param element - The DOM element to parse from

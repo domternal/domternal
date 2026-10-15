@@ -5,6 +5,12 @@
 
 export const VERSION = '1.4.0';
 
+export { ListLabels, type ListLabelsOptions } from './extensions/ListLabels.js';
+export type { ListLabel, CounterListLabel, TextListLabel, ListLabelFormat } from './types/ListLabel.js';
+export { formatListLabel, readListLabel } from './utils/listLabel.js';
+export { nodeListLabel as getNodeListLabel } from './utils/listLabelAttribute.js';
+export { getListLabelStyleSheet } from './utils/listLabelStyles.js';
+
 export * from './i18n/index.js';
 export type { MessageParameters, SearchableMessages } from './i18n/types.js';
 export { coreMessages } from './messages/core.js';

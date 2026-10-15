@@ -19,7 +19,8 @@ import { NodeSelection, Plugin, Selection, TextSelection } from '@domternal/pm/s
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { EditorProps, EditorView } from '@domternal/pm/view';
 import type { Node as PMNode, ResolvedPos } from '@domternal/pm/model';
-import { columnResizing, columnResizingPluginKey, tableEditing } from '@domternal/pm/tables';
+import { CellBookmark, CellSelection, columnResizing, columnResizingPluginKey, tableEditing } from '@domternal/pm/tables';
+import type { Mappable } from '@domternal/pm/transform';
 import { MAX_SPAN } from './cellAttributes.js';
 
 type TableEditingOptions = NonNullable<Parameters<typeof tableEditing>[0]>;
@@ -93,7 +94,7 @@ const subtreesHoldingUnsupportedSpans = new WeakMap<PMNode, boolean>();
  * Every node is looked at, also where the schema allows no table, since unchecked content can
  * hold one there.
  */
-function subtreeHoldsUnsupportedSpan(node: PMNode): boolean {
+export function subtreeHoldsUnsupportedSpan(node: PMNode): boolean {
   if (node.childCount === 0) return false;
   let holds = subtreesHoldingUnsupportedSpans.get(node);
   if (holds === undefined) {
@@ -121,6 +122,41 @@ export function inUnsupportedTable($pos: ResolvedPos): boolean {
     if (node.type.spec['tableRole'] === 'table') return tableHoldsUnsupportedSpan(node);
   }
   return false;
+}
+
+/**
+ * A cell selection can outlive the supported table in which it was made. Mapping the upstream
+ * selection builds the next table map before appendTransaction can guard it. Keep the ordinary
+ * selection contract, but fall back to a caret when a remote change makes that table unsupported.
+ */
+class SupportedCellSelection extends CellSelection {
+  override map(doc: PMNode, mapping: Mappable): Selection {
+    const head = doc.resolve(mapping.map(this.$headCell.pos));
+    const anchor = doc.resolve(mapping.map(this.$anchorCell.pos));
+    if (inUnsupportedTable(head) || inUnsupportedTable(anchor)) return Selection.near(head);
+    return supportedSelection(super.map(doc, mapping));
+  }
+
+  override getBookmark(): CellBookmark {
+    return new SupportedCellBookmark(this.$anchorCell.pos, this.$headCell.pos);
+  }
+}
+
+function supportedSelection(selection: Selection): Selection {
+  return selection instanceof CellSelection && !(selection instanceof SupportedCellSelection)
+    ? new SupportedCellSelection(selection.$anchorCell, selection.$headCell) : selection;
+}
+
+class SupportedCellBookmark extends CellBookmark {
+  override map(mapping: Mappable): CellBookmark {
+    return new SupportedCellBookmark(mapping.map(this.anchor), mapping.map(this.head));
+  }
+
+  override resolve(doc: PMNode): Selection {
+    const head = doc.resolve(this.head);
+    if (inUnsupportedTable(head) || inUnsupportedTable(doc.resolve(this.anchor))) return Selection.near(head);
+    return supportedSelection(super.resolve(doc));
+  }
 }
 
 /**
@@ -242,7 +278,10 @@ export function guardedTableEditing(options: TableEditingOptions = {}): Plugin {
       }
       // Handing the new state over as the old one leaves fixTables nothing changed to fix.
       const skip = changedTableHoldsUnsupportedSpan(oldState.doc, newState.doc);
-      return append.call(this, transactions, skip ? newState : oldState, newState);
+      const tr = append.call(this, transactions, skip ? newState : oldState, newState);
+      const selection = tr?.selection ?? newState.selection;
+      const supported = supportedSelection(selection);
+      return supported === selection ? tr : (tr ?? newState.tr).setSelection(supported);
     },
   });
 }

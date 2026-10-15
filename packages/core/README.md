@@ -27,7 +27,7 @@ Import ProseMirror primitives from `@domternal/pm/*` to keep
 
 For ready-made editor styling, also install `@domternal/theme` and import it from
 your application entry point, with `class="dm-editor"` on the mount or an ancestor.
-Core itself ships no CSS, toolbar or framework UI.
+Core has no bundled editor theme, toolbar or framework UI.
 
 ## Quick start
 
@@ -142,6 +142,63 @@ Applications with their own styles can use the same narrowly scoped rule:
   }
 }
 ```
+
+### Full block backgrounds
+
+`BlockColor` keeps explicit hex, `rgb()` and `rgba()` fills in its existing
+`bgColor` node attribute. A paragraph or heading with an inline
+`background-color` therefore keeps a fill across the block, including an empty
+paragraph. Named CSS colors in HTML become literal hex values; `transparent`
+becomes a transparent `rgba()` fill. Nested inline highlights remain independent.
+Alpha values are retained.
+
+Palette tokens such as `red` and `gray` retain their theme meaning and take
+precedence over an inline background when `data-bg-color` is present. The palette
+commands still accept only their configured choices. Literal fills serialize as
+`background-color`; tokens continue to serialize as `data-bg-color`.
+
+View-only tone attributes let the matching theme keep default text readable on
+known light or dark fills without changing the document. An unresolved translucent
+fill does not receive a guessed tone. Explicit text colors retain the selected
+`TextColor` contrast policy described above.
+
+### Optional list labels
+
+Add `ListLabels` beside `StarterKit` to retain a bounded custom bullet or an
+ordered counter with a text prefix and suffix. It is not included in StarterKit.
+Existing schemas and stored JSON stay unchanged when this extension is omitted.
+
+```ts
+import { ListLabels, StarterKit } from '@domternal/core';
+
+const extensions = [StarterKit, ListLabels];
+// On an orderedList node:
+const attrs = {
+  start: 4,
+  listLabel: { kind: 'counter', format: 'decimal', prefix: 'Section ', suffix: ') ' },
+};
+```
+
+The browser updates markers as items are edited. Markers remain native list
+presentation, with no duplicate marker text in clipboard text or document text.
+The extension installs scoped companion CSS while the editor is alive. Set
+`nonce` for the application's CSP policy, or `injectCSS: false` when the host
+provides that CSS. `getListLabelStyleSheet(json)` supplies the companion stylesheet
+for rendered HTML. HTML without it retains ordinary list fallbacks.
+The pure `@domternal/core/list-labels` entry exposes the validator, formatter,
+stylesheet collector and label types for workers and server code without loading
+the editor runtime.
+
+All collaborative writers must enable the same list-label schema. An older
+writer without the extension can remove the unknown attribute when it edits a
+list. See the [list-label contract](docs/content.md#optional-list-labels) for
+supported records, diagnostics, serialization and rendering limits.
+
+Whole HTML list items that begin with a nested list receive an empty paragraph
+label during parsing, so their outer numbering, checked state and later siblings
+stay together. This works on load, paste, drop and server-side HTML conversion
+without Paste Cleanup. Native partial copies keep their open slice boundaries;
+the original DOM and already valid list items are unchanged.
 
 ## Content and validation
 

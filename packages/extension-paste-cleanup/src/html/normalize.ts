@@ -2,9 +2,10 @@ import type { Element, Root, RootContent, Properties } from 'hast';
 import { sanitize } from 'hast-util-sanitize';
 import type { Schema } from 'hast-util-sanitize';
 import { toHtml } from 'hast-util-to-html';
-import { parseBoundedHTML, StructureLimitError } from './parse.js';
+import { listSourceOrdinal, parseBoundedHTML, StructureLimitError } from './parse.js';
 import { adaptedTypography, readSafeStyles, serializeStyles, styleToRead } from './styles.js';
 import { listStyleFromType } from './listStyles.js';
+import { listLabelStyleName, readHTMLListLabel } from './listLabels.js';
 import { safeImage, safeLink } from './urls.js';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
 import { confirmSliceAnchor, readSliceOrigin, sliceAnchorContext } from './sliceOrigin.js';
@@ -14,6 +15,8 @@ import { assertOutputTreeBounds } from './treeBounds.js';
 import { collectDestinationDemand } from './destinationDemand.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
 import { adaptHeadingLevels, HEADING_LEVEL_FEATURES, HEADING_TEXT_FEATURES, recordHeadingOutline } from './headingLevels.js';
+import { recordFirstParagraphFormat } from './firstParagraph.js';
+import { adaptParagraphBackgrounds, PARAGRAPH_BACKGROUND_FEATURES } from './paragraphBackgrounds.js';
 import type { HeadingPlacement } from './headingLevels.js';
 import { recordImageStandIns } from './imageStandIns.js';
 import { LINK_FEATURES, unwrapLinks } from './links.js';
@@ -26,7 +29,8 @@ import { quietImageBoxes } from './imageBoxes.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
 import { dropInterchangeNewline, emptyParagraphMarks, envelopeTags, transparentOfficeWrapper } from './envelope.js';
 import { wrapLooseInlineRuns } from './looseInline.js';
-import { startsWithTablePart, wrapTableContent } from './bareTableParts.js';
+import { retainOwnCopyBreaks } from './ownCopyBreaks.js';
+import { recoverTableParts } from './bareTableParts.js';
 import { restoreBareSpaces, restoreConvertedSpaces } from './convertedSpaces.js';
 import { settleWhiteSpace } from './whiteSpace.js';
 import { routineLineHeights } from './wordSpacing.js';
@@ -34,6 +38,7 @@ import {
   googleDocsChecklists, googleDocsCopyWrappers, googleDocsEmptyParagraphs, googleDocsImageParagraphs, googleDocsLineHeights, googleDocsListLevels,
 } from './googleDocs.js';
 import { wordHiddenText } from './hiddenText.js';
+import { applyWordTypography } from './wordTypography.js';
 import { recordRemovedText } from './removedText.js';
 import { clipboardMarkup } from './markup.js';
 import type {
@@ -68,7 +73,7 @@ const schema: Schema = {
   attributes: {
     '*': ['style', 'dir', 'lang', 'title', 'id', 'data*'],
     a: ['href'], img: ['src', 'alt', 'width', 'height'],
-    ol: ['start', 'type'], li: ['value'],
+    ol: ['start', 'type'], ul: ['type'], li: ['value'],
     td: ['colSpan', 'rowSpan'], th: ['colSpan', 'rowSpan', 'scope'],
     col: ['span', 'width'], code: [['className', /^language-[\w+-]+$/]],
     details: ['open'], div: ['open'],
@@ -142,7 +147,9 @@ export interface ClipboardImagePreparationSink {
 }
 
 /** Private editor adapter. The standalone HTML entry never supplies a schema. */
-export type ClipboardDestinationCheck = (features: readonly PasteDestinationFeature[]) => readonly PasteDestinationFeature[];
+export type ClipboardDestinationCheck = ((features: readonly PasteDestinationFeature[]) => readonly PasteDestinationFeature[]) & {
+  readonly confirmValues?: (tree: Root) => boolean;
+};
 
 /**
  * Private editor verifier for a Domternal copy nonce issued in this page. The standalone HTML
@@ -154,7 +161,7 @@ export type ClipboardOwnCopyCheck = (nonce: string) => boolean;
 export function normalizeClipboardHTML(
   html: string,
   options: NormalizePasteHTMLOptions = {},
-  capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists' | 'markers'>,
+  capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists' | 'markers' | 'labels'>,
   preparation?: ClipboardImagePreparationSink,
   destination?: ClipboardDestinationCheck,
   ownCopy?: ClipboardOwnCopyCheck,
@@ -180,12 +187,9 @@ export function normalizeClipboardHTML(
     let tree: Root;
     try {
       tree = parseBoundedHTML(html, limits, undefined, markup.observer);
-      // Before the table bounds, so the cells of bare rows count as the cells of a table. A
-      // destination without tables keeps their texts, as its paste without cleanup does. Its
-      // markup is read too: the parse above drops the rows after a leading column.
-      if (startsWithTablePart(tree) && destination?.(['table']).includes('table') !== true) {
-        tree = wrapTableContent(parseBoundedHTML(html, limits, 'table', markup.observer));
-      }
+      // Recover bare parts before counting table cells. A destination without tables retains
+      // their text, including content a browser's column-group parser would otherwise discard.
+      tree = recoverTableParts(html, tree, limits, markup.observer, () => destination?.(['table']).includes('table') !== true);
     } finally {
       // Office's conditional comments are read again with one allowance between them, so they at most double the parse.
       const comments = { allocations: 0 };
@@ -197,7 +201,7 @@ export function normalizeClipboardHTML(
     let images = 0;
     let pixels = 0;
     // The alt text left in place of each removed image, so the editor can tell it from pasted text.
-    const standIns: string[] = [];
+    const standIns: (string | null)[] = [];
     const consumePixels = (count: number): boolean => {
       if (pixels + count > limits.maxImagePixels) return false;
       pixels += count;
@@ -221,6 +225,10 @@ export function normalizeClipboardHTML(
       // The break a browser ends a copy of a page with, as Chrome ends a Google Docs copy, marks where the selection ended, no line of the content.
       dropInterchangeNewline(tree);
       const hidden = result.source === 'word' ? wordHiddenText(tree) : undefined;
+      if (result.source === 'word') applyWordTypography(tree, limits, node => {
+        if (options.formatting === 'adapt') report('formatting-adapted', node, 'info');
+        else report('unsupported-formatting', node);
+      });
       // Only where the markup declares an Office list: the text of a page that names the property opens no list pass.
       if (officeLists) {
         // A list item Word hides is not pasted, so an item cleanup cannot rebuild is no finding when it is hidden.
@@ -278,14 +286,17 @@ export function normalizeClipboardHTML(
         // classes. Each is a first level heading, as Pro's DOCX import reads every Title paragraph.
         if (!own && result.source === 'word' && child.tagName === 'p' && Array.isArray(original.className)
           && original.className.some(name => typeof name === 'string' && WORD_TITLE.test(name))) child.tagName = 'h1';
-        const clean: Properties = cleanMetadata(original);
+        const clean: Properties = cleanMetadata(original, child.tagName);
+        const label = readHTMLListLabel(clean, child.tagName);
+        if (original['dataDmListLabel'] !== undefined && label === null) report('unsupported-formatting', child);
         const anchorContext = sliceAnchorContext(child);
         if (anchorContext !== undefined) {
           const context = cleanSliceContext(anchorContext, droppedContext);
           if (context !== undefined) clean['dataPmSlice'] = context;
           if (context !== anchorContext) report('formatting-adapted', child, 'info');
         }
-        const { styles, removedNames } = readSafeStyles(styleToRead(child), child.tagName === 'img', child.tagName, own);
+        const { styles, removedNames } = readSafeStyles(styleToRead(child), child.tagName === 'img', child.tagName, own,
+          label === null ? undefined : listLabelStyleName(label));
         // Typography that adapt removes anyway is its adaptation there, as in the inheritance pass.
         if (removedNames.some(name => !adapt || !adaptedTypography(name))) report('unsupported-formatting', child);
         else if (removedNames.length > 0) report('formatting-adapted', child, 'info');
@@ -377,7 +388,7 @@ export function normalizeClipboardHTML(
               preparation?.removedImage?.();
               report('image-removed', child);
               if (typeof original.alt === 'string') children.push({ type: 'text', value: original.alt });
-              standIns.push(typeof original.alt === 'string' ? original.alt : '');
+              standIns.push(typeof original.alt === 'string' ? original.alt : null);
               continue;
             }
             // HAST data comes from this trusted sink, never from pasted HTML attributes.
@@ -390,9 +401,16 @@ export function normalizeClipboardHTML(
           // A cell span keeps the value a browser and the Table extension read, which the table bounds counted.
           const value = key === 'colSpan' || key === 'rowSpan' ? readTableSpan(original[key]) : Number(original[key]);
           if (value === 1 && Number(original[key]) !== 1) continue;
-          if (Number.isSafeInteger(value) && value > 0 && value <= 10_000) clean[key] = value;
+          const ordinal = listSourceOrdinal.get(child) ?? original[key];
+          const listZero = (key === 'start' || key === 'value') && value === 0
+            && (typeof ordinal === 'number' || typeof ordinal === 'string' && ordinal.trim() !== '');
+          if (Number.isSafeInteger(value) && (value > 0 || listZero) && value <= 10_000) clean[key] = value;
         }
         if (child.tagName === 'ol' && ['1', 'a', 'A', 'i', 'I'].includes(String(original.type))) clean.type = original.type;
+        if (child.tagName === 'ul' && label !== null) {
+          const marker = listStyleFromType('ul', original.type);
+          if (marker !== undefined) clean.type = marker;
+        }
         if (child.tagName === 'code' && Array.isArray(original.className)) clean.className = original.className;
         child.properties = clean;
         if (!tags.includes(child.tagName)) {
@@ -410,6 +428,7 @@ export function normalizeClipboardHTML(
     assertOutputTreeBounds(tree, limits.maxNodes, limits.maxDepth);
     const sanitized = sanitize(tree, schema);
     if (sanitized.type !== 'root') throw new Error('Expected a sanitized fragment');
+    if (own && retainOwnCopyBreaks(sanitized)) assertOutputTreeBounds(sanitized, limits.maxNodes, limits.maxDepth);
     // A verified own copy holds only blocks at its top, as the editor serialized them. A wrapper
     // added here is generated output too, so the tree must still fit the same bounds with it.
     if (!own && wrapLooseInlineRuns(sanitized)) assertOutputTreeBounds(sanitized, limits.maxNodes, limits.maxDepth);
@@ -429,7 +448,7 @@ export function normalizeClipboardHTML(
       // A link whose scheme the destination lacks keeps its text, one report each.
       const refusedLinks = unconfirmed.filter(feature => LINK_FEATURES.includes(feature));
       if (refusedLinks.length > 0) unwrapLinks(sanitized, refusedLinks, node => { report('link-removed', node); });
-      let remaining = unconfirmed.filter(feature => !LINK_FEATURES.includes(feature));
+      let remaining = unconfirmed.filter(feature => !LINK_FEATURES.includes(feature) && !PARAGRAPH_BACKGROUND_FEATURES.includes(feature));
       if (remaining.some(feature => HEADING_LEVEL_FEATURES.includes(feature))) {
         // A heading keeps its meaning at the nearest level the destination supports. Only a level
         // that every answer confirmed counts, and without one the destination makes paragraphs.
@@ -452,7 +471,14 @@ export function normalizeClipboardHTML(
         }
       }
       if (remaining.length > 0) report('destination-formatting-unconfirmed');
+      // Test the final heading tag after level adaptation, rather than treating one supported paragraph as every block.
+      if (adaptParagraphBackgrounds(sanitized, destination, node => { report('destination-formatting-unconfirmed', node); })) {
+        assertOutputTreeBounds(sanitized, limits.maxNodes, limits.maxDepth);
+      }
+      if (!result.diagnostics.some(diagnostic => diagnostic.code === 'destination-formatting-unconfirmed')
+        && destination.confirmValues?.(sanitized) === false) report('destination-formatting-unconfirmed');
     }
+    if (!own && (options.formatting ?? 'preserve') === 'preserve') recordFirstParagraphFormat(result, sanitized);
     if (preparation === undefined) result.html = toHtml(sanitized);
     else preparation.retainTree(sanitized, pixels);
   } catch (error: unknown) {

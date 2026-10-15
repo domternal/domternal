@@ -1,6 +1,8 @@
 import type { Attrs, Node as PMNode, NodeType, ResolvedPos } from '@domternal/pm/model';
 import type { AttributeSpec } from '../types/AttributeSpec.js';
 import { registerAttributeNormalizer } from './normalizedAttributes.js';
+import { hasListLabelContract, nodeListLabel } from './listLabelAttribute.js';
+import { listLabelForKind, serializeListLabel } from './listLabel.js';
 
 const ORDERED = ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'] as const;
 const BULLET = ['disc', 'circle', 'square'] as const;
@@ -58,17 +60,19 @@ export function listMarkerAttribute(kind: ListKind): AttributeSpec {
 /** Marker identity intentionally excludes ordered start and unique wrapper IDs. */
 export function sameListMarker(left: PMNode, right: PMNode): boolean {
   return left.type === right.type
-    && listMarker(left.type.name, left.attrs['listStyleType']) === listMarker(right.type.name, right.attrs['listStyleType']);
+    && listMarker(left.type.name, left.attrs['listStyleType']) === listMarker(right.type.name, right.attrs['listStyleType'])
+    && serializeListLabel(nodeListLabel(left)) === serializeListLabel(nodeListLabel(right));
 }
 
 export function hasListMarker(node: PMNode): boolean {
-  return listMarker(node.type.name, node.attrs['listStyleType']) !== null;
+  return listMarker(node.type.name, node.attrs['listStyleType']) !== null || nodeListLabel(node) !== null;
 }
 
 /** Fresh wrappers inherit a marker, not a source wrapper's identity or start. */
 export function freshListAttrs(type: NodeType, source?: Attrs, start = 1): Attrs {
   const attrs: Record<string, unknown> = {};
   if (type.spec.attrs?.['listStyleType']) attrs['listStyleType'] = listMarker(type.name, source?.['listStyleType']);
+  if (hasListLabelContract(type.spec.attrs?.['listLabel'])) attrs['listLabel'] = listLabelForKind(type.name, source?.['listLabel']);
   if (type.name === 'orderedList') attrs['start'] = start;
   return attrs;
 }

@@ -173,6 +173,33 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       await historyAndReload(page, before, documentJSON([null, 'A', null].map(text => leaf(text, ['bold'], 'preserve')), 'preserve'));
     });
 
+    for (const formatting of ['preserve', 'adapt'] as const) {
+      test(`own-copy trailing bare breaks retain their exact source document in ${formatting}`, async ({ page }) => {
+        await open(page, framework, formatting);
+        const source = await page.evaluate(() => {
+          const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+          const html = '<p><br></p><p>One<br></p><p>Several<br><br><br></p><p><strong><br></strong><br></p>'
+            + '<h2>Heading<br></h2><ul><li><p>List<br></p></li></ul><blockquote><p>Quote<br></p></blockquote>'
+            + '<table><tbody><tr><td><p>Cell<br></p></td><td><p><br></p></td></tr></tbody></table><p></p>';
+          if (!probe.editor.setContent(html, false)) throw new Error('Cannot seed trailing breaks');
+          const expected = probe.editor.getJSON();
+          probe.editor.commands.focus('all');
+          const copied = probe.serializeSelection();
+          if (!probe.editor.setContent('<p>Replace me</p>', false)) throw new Error('Cannot reset destination');
+          probe.editor.commands.focus('all');
+          probe.clearObservations();
+          return { expected: JSON.stringify(expected), copied };
+        });
+        expect(source.copied.html).toContain('data-domternal-copy');
+        const before = await snapshot(page);
+        await paste(page, source.copied.html, source.copied.text);
+        const results = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.results);
+        expect(results).toHaveLength(1);
+        expect(results[0]).toMatchObject({ status: 'cleaned', diagnostics: [] });
+        await historyAndReload(page, before, canonical(JSON.parse(source.expected) as JSONContent));
+      });
+    }
+
     test('a break-only unsupported script mark warns through the real destination', async ({ page }) => {
       await open(page, framework, 'preserve', false);
       const before = await snapshot(page);
@@ -180,7 +207,7 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       const results = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.results);
       expect(results).toHaveLength(1);
       expect(results[0]?.diagnostics).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toContainText('Review the pasted content.');
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toContainText('Review the pasted content.');
       const expected: JSONContent = { type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: 'left' },
         content: [{ type: 'hardBreak' }] }] };
       await historyAndReload(page, before, expected);

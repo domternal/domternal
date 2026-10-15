@@ -192,6 +192,15 @@ export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
         const paragraph = single && first.type.name === 'paragraph';
         let slice = new Slice(paragraph ? first.content : doc.content, 0, 0);
         let tr: Transaction | undefined;
+        let placementChecked = false;
+        const place = (content: Fragment): Transaction | undefined => {
+          if (!placementChecked) {
+            placementChecked = true;
+            tr = placeClipboardPaste(view, content);
+          }
+          return tr;
+        };
+        if (!view.state.selection.$from.sameParent(view.state.selection.$to)) place(doc.content);
         // A textblock blocks cannot leave, inside a parent that takes no block beside it, such as a
         // details summary, takes text only: blocks pasted there split its parent. One line there
         // gives its text if it parses as a textblock other than code, as a heading, and pastes as
@@ -200,17 +209,14 @@ export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
         const { $from } = view.state.selection;
         const textOnly = $from.parent.isTextblock && $from.parent.type.spec.isolating === true && $from.depth > 0
           && !$from.node(-1).canReplace($from.index(-1) + 1, $from.index(-1) + 1, blocksAfter(doc, $from.parent.type));
-        if (textOnly && !paragraph) {
+        if (tr === undefined && textOnly && !paragraph) {
           if (!/[\n\r]/.test(text.trim())) {
             if (!single || !first.isTextblock || first.type.spec.code === true) return false;
             slice = new Slice(first.content, 0, 0);
-          } else {
-            tr = placeClipboardPaste(view, doc.content);
-            if (tr === undefined) return false;
-          }
+          } else if (place(doc.content) === undefined) return false;
         }
         view.dispatch(
-          (tr ?? view.state.tr).replaceSelection(slice).scrollIntoView()
+          (place(slice.content) ?? view.state.tr).replaceSelection(slice).scrollIntoView()
             .setMeta('paste', true).setMeta('uiEvent', 'paste')
         );
         return true;

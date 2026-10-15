@@ -76,9 +76,22 @@ Inherited inline font family, size, color, bold and italic resolve through sourc
 wrappers, including descendant bold/italic resets. Relative `em` and `%` font
 sizes resolve only when the source provides a known absolute base. Inline text
 decoration and highlight retain supported source semantics; a block or cell fill
-does not become text highlighting. Apart from [Word list level definitions](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/lists.md#office-list-reconstruction), stylesheet rules, CSS variables, the browser's computed
-styles and arbitrary CSS inheritance are not resolved. The destination
-schema determines which retained styles become document attributes.
+does not become text highlighting. Word copies also recover `font-family`, `font-size`
+and `color` from simple type, class and type-plus-class stylesheet selectors, including
+comma-separated selectors. Rules and inline declarations are compared by importance,
+specificity and source order before inherited typography is resolved. Font resources
+are never downloaded; rendering still depends on fonts available in the host application.
+
+This is a bounded Word typography reader, not a general CSS engine. Complex selectors,
+conditional rules, imports, CSS variables, font shorthands and ambiguous or incomplete
+syntax prevent partial stylesheet recovery and produce `unsupported-formatting` in
+Preserve, or an informational adaptation in Adapt. Direct inline formatting still goes
+through the ordinary sanitizer. The reader handles at most 1,024 typography selectors,
+8,192 characters per rule prelude/body and 256 declarations per rule, and bounds generated
+style text with the input allowance. Nested style elements retain document order.
+[Word list level definitions](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/lists.md#office-list-reconstruction)
+are handled separately. Browser-computed styles and arbitrary CSS inheritance are not
+resolved. The destination schema determines which retained styles become document attributes.
 
 Supported inline marks and effective typography are materialized around both text
 and hard breaks, including break-only runs. The original `<br>` remains a void
@@ -108,12 +121,32 @@ inline content, including when a styled wrapper contains only a break.
 
 The standalone normalizer and ordinary document parsing retain a final bare
 `<br>`. ProseMirror's clipboard parser treats a final bare `<br>` directly inside
-a block as a placeholder and can remove it. Breaks inside retained inline wrappers
-are distinct from that case. Cleanup does not override this clipboard rule, so
-preserving every unwrapped trailing break during paste is not guaranteed. The
+a block as a placeholder and can remove it. A verified same-page Domternal copy
+comes from document serialization, so its trailing breaks are actual document
+content. Cleanup protects those breaks with neutral inline wrappers, including
+in break-only paragraphs, headings and lists. The wrappers count toward the
+existing output limits and do not change stored marks or Undo behavior.
+This also applies to a host's `clipboardHTMLTransform` or custom clipboard
+serializer: its terminal breaks are treated as intentional clipboard content.
+Such serializers should emit document content, without editor view placeholders.
+Foreign HTML, an unverified `data-pm-slice` marker and copies from another page
+retain the browser placeholder rule: cleanup cannot reliably distinguish an
+intentional final break from a browser placeholder in those inputs. Breaks inside
+retained inline wrappers are distinct from that case. The
 break a browser ends a copy of a page with, `<br class="Apple-interchange-newline">`
 after the copied content, as Chrome ends its Google Docs copies, marks where the
 selection ended and is no line of it: the editor's paste ignores it, and cleanup leaves it out for every source.
+
+Explicit empty paragraphs are different from a terminal hard break. Word's
+`<p><o:p>&nbsp;</o:p></p>` stays an empty paragraph, without a stored nonbreaking
+space. A bare break between blocks or at the end of a recognized Google Docs copy
+wrapper becomes an empty paragraph, including the paragraph after a final table.
+These paragraphs are retained in Preserve and Adapt. When pasting into the middle
+of existing text, the last pasted paragraph receives the destination's remaining
+text; preceding empty paragraphs stay empty. A final newline in the clipboard's
+plain-text flavor does not establish an additional empty paragraph: Word also
+writes it after a nonempty final paragraph. Cleanup therefore does not invent
+paragraphs from that newline when HTML is present.
 
 Inline content after a top-level block, including content inside a wrapper that
 holds blocks, gets a `<div>` wrapper when it contains a whitespace-only text node
@@ -182,13 +215,46 @@ whose headings differ from the cleaned HTML, every warning stays. `onResult`
 describes the cleanup, so it still lists every moved heading. A drop has no paste
 receipt, so its result stays `untracked` with every warning.
 
-These are built-in reference capability checks, not a comparison of each source
-word or style with the final editor document. Custom renamed nodes, custom clipboard
-parsers, later transforms, insertion fitting, individual style values and runtime
-rendering options can still change the result. In particular, paragraph alignment
-and line-height probes do not establish every heading/cell context or a configured
-LineHeight rendering allowlist. The standalone `/html` entry has no schema and
-does not run these editor checks.
+After these reference checks, the editor integration also checks actual retained
+font family, font size, text color, inline background, paragraph background,
+alignment, line spacing, link destination and semantic emphasis values. It uses
+small detached parser and serializer probes in the source paragraph, heading
+level or preformatted block. This catches, for example, a custom font parser that
+accepts the reference sizes but drops the pasted size, a configured `LineHeight`
+rendering allowlist or alignment enabled only for paragraphs. A missing value,
+failed custom parser or exhausted probe budget adds the same
+`destination-formatting-unconfirmed` warning. It never blocks or rewrites the
+paste. Intentional Adapt removal is checked after adaptation and does not produce
+this warning.
+
+This check reuses each distinct value and block context within one normalization
+pass. It allows at most 128 distinct probes and 16,384 combined key code units;
+a single value is limited to 1,024 code units. The probes use constant text in an
+inert document, never source text, image elements or resource-loading HTML. No
+style or URL value is copied into a diagnostic. They do not reconstruct a whole
+source document, every list or table context, combinations of marks, arbitrary
+custom nodes or the actual insertion position. A custom clipboard parser, later
+HTML or slice transform, insertion fitting and runtime CSS can still change the
+result. This is advisory schema evidence, not proof of final visual fidelity.
+The standalone `/html` entry has no schema and does not run these editor checks.
+
+For an accepted paste, the integration also reports
+`destination-formatting-removed` when it can prove that appended editor processing
+removed a known mark or an explicit formatting property from an identified
+insertion. The comparison starts with the parsed paste slice after HTML and slice
+transforms. It follows source node identity through the accepted replacement and
+checks known appended mark and attribute changes. A later normalizer that restores
+the formatting before processing finishes leaves no warning. Independent edits,
+Undo and rejected transactions do not change this paste result.
+
+This is a limited post-insertion check. It does not measure loss before parsing,
+infer identity from equal text, compare rendered colors or validate every custom
+node. Rebuilt nodes, overlapping replacements, unknown steps and inputs beyond
+the small inspection budget remain unverified. Changed nonempty style values are
+not called removed: a host can canonicalize a CSS value or replace it with a theme
+token. Absence of this warning therefore does not establish complete fidelity.
+The check never blocks or changes insertion and its warning shares the configured
+diagnostic limit. `onResult` and the standalone `/html` entry do not report it.
 
 ## Routine clipboard wrappers
 
@@ -231,8 +297,7 @@ span that only draws the box of the one image it holds (no border, `inline-block
 margin, padding, `hspace`, `vspace` or border attribute, and no comment, escape or
 `!important` in either style), as can occur around copied images. Nonzero horizontal indentation outside lists
 and tables, borders outside tables, background shorthands with more than one
-color or an image, a background shorthand that paints a block other than a table
-cell, which no block keeps, background images, an image box that crops, pads or
+color or an image, a background shorthand on unsupported containers such as divisions or list items, background images, an image box that crops, pads or
 offsets its image, an element a page hides outside a Word source (below), the
 `font` shorthand, wider letter spacing, case transforms, small caps and other
 unsupported declarations still report `unsupported-formatting`. In `adapt`, which removes typography anyway, an
@@ -290,7 +355,7 @@ page gives its text: in `preserve` it pastes as that color and can read poorly i
 a light editor (a light blue about 1.8:1 on white), while `adapt` removes text
 colors. A
 background shorthand that paints one color, as Word writes a highlight
-(`background: yellow`) or cell shading, is read as that background color. A line
+(`background: yellow`), paragraph or heading fill, or cell shading, is read as that background color. A line
 height becomes the ratio of the font size a LineHeight destination renders,
 rounded to two places: a percentage, as Word's raw HTML in Chrome and Firefox
 writes 150 %, or a plain number by itself, and a length in pixels or points as a
@@ -412,8 +477,8 @@ editor; [Clipboard ownership](https://github.com/domternal/domternal/blob/main/p
 
 ## Source-specific limits
 
-Word HTML from Chrome and Firefox keeps class-based formatting that general cleanup does not resolve. Preserve mode retains supported inline formatting, without reconstructing the Normal and heading styles' fonts, sizes and colors. Safari writes more computed typography inline, although its Word list fonts also remain in class rules.
+Word HTML from Chrome and Firefox commonly keeps typography in class rules. Preserve mode resolves bounded simple selectors for supported font family, size and color, including eligible Normal and heading rules, with inline and `!important` precedence. Complex selectors and unsupported stylesheet constructs use the conservative warning fallback rather than reconstructing the complete Word stylesheet. Safari writes more computed typography inline, although some Word list typography can still depend on class rules.
 
-The first open paragraph joins the destination paragraph and takes its alignment and line spacing, including in an empty paragraph, without a notice. Later blocks and headings keep their own. A paragraph or heading `background-color` has no destination attribute and is dropped without a notice; unsupported `background` shorthand is reported. Core does not retain alpha in RGBA text colors or partially transparent backgrounds.
+The first open paragraph normally joins the destination paragraph and keeps its alignment and line spacing. An external Preserve paste into a completely empty paragraph instead retains the first source paragraph's explicit supported alignment, line spacing and a paragraph background, including inside a list item or table cell. When the first paragraph joins the empty target, it keeps that block's identity and unspecified destination properties. SmartPaste still replaces whole blocks when its existing image or mixed-block insertion rules apply. Existing text, headings, recognized own copies, Adapt and dropped HTML keep their existing insertion behavior. Later host transforms and accepted transaction normalizers retain precedence. Later pasted blocks and headings keep their own properties. Paragraph and heading backgrounds stay on their block and use `BlockColor` to paint the full width, including an empty paragraph. Nested inline highlights remain independent. Destination checks verify each final paragraph or heading level. When its full-width fill cannot be represented, cleanup reports `destination-formatting-unconfirmed` and keeps an inline highlight if supported. A destination with neither capability keeps the content without its fill. Adapt removes both kinds of background. Supported RGBA colors retain their alpha value; no opaque replacement is inferred.
 
 These rules do not qualify every application or clipboard path. The [support matrix](https://github.com/domternal/domternal/blob/main/e2e/native-office-capture/SUPPORT-MATRIX.md) records tested versions, provenance and remaining source limits.

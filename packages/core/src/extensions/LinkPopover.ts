@@ -129,7 +129,12 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
   el.style.display = 'none';
 
   const input = document.createElement('input');
-  input.type = 'url';
+  // The Link policy also accepts relative references and expands bare host names. Native URL
+  // validity requires an absolute URL, so let the same policy own visible and native errors.
+  input.type = 'text';
+  input.inputMode = 'url';
+  input.autocapitalize = 'off';
+  input.spellcheck = false;
   input.className = 'dm-link-popover-input';
 
   const applyBtn = document.createElement('button');

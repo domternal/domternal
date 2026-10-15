@@ -51,7 +51,9 @@ const editor = new Editor({
 
 This provides paragraphs, headings, lists and basic marks. Add the corresponding extensions for tables, images, colors, fonts, alignment or other content your editor should retain. Table capability checks can block a paste that the destination cannot represent; other unsupported formatting produces diagnostics. Cleanup cannot add capabilities to the receiving schema.
 
-The default nonmodal notice reports warnings and blocked input, with details and dismissal. The theme styles it. Clean pastes and intentional formatting adaptation stay quiet. Markdown, Link, SmartPaste and history keep their normal insertion behavior; plain text and code-block pastes keep their interpretation, subject to the limits below.
+The default nonmodal notice reports warnings and blocked input, with details and dismissal. The theme styles it. Clean pastes and intentional formatting adaptation stay quiet; accepted asynchronous image preparation announces completion without showing a warning. Press `Alt+Shift+P` in the editor to focus a visible notice, then `Escape` to return to the same selection. Tab retains its list behavior. Markdown, Link, SmartPaste and history keep their normal insertion behavior; plain text and code-block pastes keep their interpretation, subject to the limits below.
+
+Paragraph and heading fills use `BlockColor` to paint the full block width, including empty paragraphs. Inline highlights remain separate. Without the corresponding block capability, cleanup keeps an inline highlight when supported and reports the lost full-width fill. Adapt removes both background styles.
 
 ## Preserve or adapt formatting
 
@@ -70,7 +72,38 @@ PasteCleanup.configure({
 });
 ```
 
-Neither policy reproduces page layout or arbitrary stylesheets. Recognized copies between PasteCleanup editors on the same page retain editor formatting in both modes. See [HTML and formatting](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md) and [lists](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/lists.md) for supported shapes and fallbacks.
+Applications can offer a choice before the next paste without recreating the editor:
+
+```html
+<label>Paste formatting
+  <select id="paste-formatting">
+    <option value="preserve">Keep source formatting</option>
+    <option value="adapt">Match editor formatting</option>
+  </select>
+</label>
+```
+
+```ts
+const choice = document.querySelector<HTMLSelectElement>('#paste-formatting')!;
+
+PasteCleanup.configure({
+  formatting: 'preserve',
+  formattingForPaste: () => choice.value === 'adapt' ? 'adapt' : 'preserve',
+});
+```
+
+`formattingForPaste` runs synchronously once per paste. Its context contains only
+`defaultFormatting` and `origin` (`native` or `programmatic`), with no clipboard data.
+The choice stays fixed during asynchronous image preparation, and both result callbacks
+report that choice. Returning `undefined`, throwing, or returning an invalid asynchronous
+value keeps the configured default. Drops and standalone normalization use `formatting`.
+The [Vanilla demo](https://github.com/domternal/domternal/tree/main/apps/demo-vanilla) includes this application-owned control.
+
+Bare rows and cells inside an HTML clipboard fragment are rebuilt as tables when the receiving editor supports them. Visible text between separate row groups stays between separate tables in source order. Orphan column tags cannot consume following text, and authored complete or nested tables keep their structure. Fragment recovery uses the normal input, node, depth and cell limits; warning offsets still refer to the original clipboard HTML.
+
+When an external Preserve paste fills a completely empty paragraph, its first paragraph keeps explicit supported alignment, line spacing and a paragraph background. This also applies to an empty paragraph inside a list item or table cell. Pasting into existing text or a heading keeps the destination insertion behavior, and unstyled content does not reset the destination format.
+
+Word copies can also retain font family, size and color from bounded simple stylesheet selectors, with inline and `!important` precedence. Unicode font names retain their original spelling, including combining marks. Unsupported stylesheet constructs are reported; fonts are not downloaded. Neither policy reproduces page layout or arbitrary stylesheets. Recognized copies between PasteCleanup editors on the same page retain editor formatting in both modes. See [HTML and formatting](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md) and [lists](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/lists.md) for supported shapes and fallbacks.
 
 ## Observe the result
 
@@ -92,6 +125,8 @@ PasteCleanup.configure({
 | `untracked` | No accepted receipt was found, for example with a custom handler. |
 
 `applied` does not promise complete fidelity, and `untracked` does not prove nothing was inserted. `onResult` is an earlier normalization callback, not an insertion receipt. Both include an operation ID; diagnostics exclude source HTML. To render your own feedback, set `feedback: 'application'` and provide `onPasteResult`, which is required in that mode. See [feedback, callbacks and clipboard integration](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/clipboard-integration.md) for localization, affected ranges and custom-handler boundaries.
+
+The accepted result can report known formatting removed during appended editor processing. This bounded check follows identified parsed content; it does not compare every original Word style with the final rendering or treat equal text as proof of identity.
 
 ## Normalize HTML without an editor
 
@@ -135,6 +170,8 @@ The output is editor input, still subject to your destination schema, not a gene
 | Total declared raster pixels | 50,000,000 |
 
 HTML limits can be lowered, not raised. Plain text and Markdown also have a conservative markup-token budget before conversion. A resource rejection inserts nothing; HTML is never truncated to fit. Cleanup is synchronous, and these ceilings are not memory or latency guarantees.
+
+Repeated inline style declarations reuse bounded parse results within one cleanup pass. Inherited values and diagnostics are still evaluated for each source element; clipboard content is not retained between pastes.
 
 For configuration details, see [local clipboard images](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/images.md), [persistent image resolvers](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/image-resolver.md), and [limits, links and security](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/limits-and-security.md).
 

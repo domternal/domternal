@@ -25,7 +25,7 @@ import { normalizeColor } from './helpers/normalizeColor.js';
 import {
   ClipboardEditorView, claimClipboardPasteTransaction, clearPendingClipboardPasteTransaction, recordNativeClipboardEvent,
 } from './helpers/clipboardPasteTransaction.js';
-import { beginNativeClipboardPasteAttempt } from './helpers/clipboardHTMLPreparation.js';
+import { beginNativeClipboardPasteAttempt, beginNativeClipboardDropScope } from './helpers/clipboardHTMLPreparation.js';
 import { repairSliceContext } from './utils/sliceContext.js';
 import { I18nService } from './i18n/index.js';
 import { coreMessages } from './messages/core.js';
@@ -52,6 +52,7 @@ import type {
 } from './types/index.js';
 
 interface EditorDomContext {
+  document: Document;
   element: HTMLElement | null;
   host: HTMLElement | null;
   hostParent: HTMLElement | null;
@@ -317,6 +318,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     const current = this.captureDomContext();
     this._domContext = current;
     if (previous?.element === current.element
+      && previous.document === current.document
       && previous.host === current.host
       && previous.hostParent === current.hostParent
       && previous.root === current.root
@@ -962,6 +964,7 @@ export class Editor extends EventEmitter<EditorEvents> {
         },
         drop: (view, event) => {
           recordNativeClipboardEvent(view, event);
+          beginNativeClipboardDropScope(view, event);
           return false;
         },
         focus: (_view, event) => {
@@ -1018,6 +1021,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     const host = this.view.dom.closest<HTMLElement>('.dm-editor');
     return {
       element: this.view.dom.parentElement,
+      document: this.view.dom.ownerDocument,
       host,
       hostParent: host?.parentElement ?? null,
       root: this.view.dom.getRootNode(),

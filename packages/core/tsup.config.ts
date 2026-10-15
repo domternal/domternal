@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { localeEntries } from '../../scripts/locale-build.mjs';
-import { defineConfig } from 'tsup';
+import { build, defineConfig } from 'tsup';
 import type { Options } from 'tsup';
 
 type EsbuildPlugin = NonNullable<Options['esbuildPlugins']>[number];
@@ -50,7 +50,7 @@ export default defineConfig({
   // dist/index.* runs index.bundle.ts, which adds the clipboard bindings that
   // dist/clipboard.* re-exports. The declarations come from index.ts, so the main
   // entry does not declare them.
-  entry: { index: 'src/index.bundle.ts', clipboard: 'src/clipboard.ts', ...locales },
+  entry: { index: 'src/index.bundle.ts', clipboard: 'src/clipboard.ts', 'list-labels': 'src/list-labels.ts', ...locales },
   format: ['esm', 'cjs'],
   target: 'es2022',
   dts: {
@@ -64,6 +64,12 @@ export default defineConfig({
   splitting: false,
   treeshake: true,
   esbuildPlugins: [reexportMainBundle(['src/clipboard.ts'])],
+  async onSuccess() {
+    // Separate declaration rollup keeps both entries self-contained. Shared hashed declarations
+    // cannot be redirected to source by TypeScript workspace project references.
+    await build({ config: false, entry: { 'list-labels': 'src/list-labels.ts' }, format: ['esm', 'cjs'],
+      dts: { only: true, compilerOptions: { composite: false } }, clean: false });
+  },
   external: [
     '@domternal/pm/commands',
     '@domternal/pm/dropcursor',

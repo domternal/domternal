@@ -4,6 +4,7 @@ import { normalizeClipboardHTML, DEFAULT_PASTE_HTML_LIMITS, retainDiagnostic } f
 import type { ClipboardDestinationCheck, ClipboardOwnCopyCheck } from '../html/normalize.js';
 import { safeImage } from '../html/urls.js';
 import { copyHeadingOutline } from '../html/headingLevels.js';
+import { copyFirstParagraphFormat } from '../html/firstParagraph.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic } from '../html/types.js';
 import type { OfficeListReconstructionOptions } from '../html/officeLists.js';
 import type { ClipboardImageReference } from './references.js';
@@ -54,7 +55,28 @@ export function readPreparedClipboardHTMLNormalization(handle: PreparedClipboard
   if (state === undefined) return undefined;
   const normalization = { ...state.result, html: '', diagnostics: state.result.diagnostics.map(diagnostic => ({ ...diagnostic })) };
   copyHeadingOutline(state.result, normalization);
+  copyFirstParagraphFormat(state.result, normalization);
   return normalization;
+}
+
+/**
+ * Consume ordinary HTML without image replacements, with the same serialization as normalization.
+ * Keep its result identity so private heading, removed-text and image-description records survive.
+ * Image replacement output budgets do not apply to the ordinary synchronous HTML route.
+ */
+export function consumePreparedClipboardHTMLWithoutAssets(handle: PreparedClipboardHTML): NormalizePasteHTMLResult | undefined {
+  const state = states.get(handle);
+  if (state?.slots.length !== 0) return undefined;
+  states.delete(handle);
+  try { state.result.html = toHtml(state.tree); }
+  catch {
+    state.result.status = 'rejected';
+    state.result.html = '';
+    if (retainDiagnostic(state.result.diagnostics, { code: 'parse-failed', severity: 'error' }, state.maxDiagnostics)) {
+      state.result.diagnosticsTruncated = true;
+    }
+  }
+  return state.result;
 }
 
 export type ClipboardHTMLPreparationResult =
@@ -335,6 +357,7 @@ function materializeImages(
     }
     const normalization = { ...state.result, html, diagnostics, diagnosticsTruncated };
     copyHeadingOutline(state.result, normalization);
+    copyFirstParagraphFormat(state.result, normalization);
     return Object.freeze({ status: 'materialized', normalization });
   } catch (error) {
     return Object.freeze({ status: 'rejected', reason: error instanceof PreparedOutputLimit ? 'output-limit' : 'invalid-resolution' });

@@ -5,7 +5,7 @@ import {
   LineHeight, ListItem, Paragraph, StarterKit, Strike, Subscript, Superscript, Text, TextAlign, TextColor,
   OrderedList, TaskItem, TaskList, TextStyle, Underline,
 } from '@domternal/core';
-import type { EditorOptions } from '@domternal/core';
+import type { EditorOptions, GlobalAttributes } from '@domternal/core';
 import { redoDepth, undoDepth } from '@domternal/pm/history';
 import { TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -281,6 +281,40 @@ describe('destination capability feedback through the editor', () => {
     expect(fixture.host.querySelector('.dm-paste-feedback')).toBeNull();
     await Promise.resolve();
     expect(fixture.completed).toHaveBeenCalledOnce(); expect(fixture.normalized).toHaveBeenCalledOnce();
+  });
+});
+
+describe('concrete destination values', () => {
+  const restrictedSize = FontSize.extend({ addGlobalAttributes() {
+    return (this.parent?.() as GlobalAttributes[] | undefined ?? []).map(group => ({ ...group, attributes: { ...group.attributes, fontSize: {
+      ...group.attributes['fontSize'],
+      parseHTML: (element: HTMLElement) => ['18px', '22px'].includes(element.style.fontSize) ? element.style.fontSize : null,
+    } } }));
+  } });
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+  it.each([
+    { assets: false, route: 'native' }, { assets: false, route: 'programmatic' },
+    { assets: true, route: 'native' }, { assets: true, route: 'programmatic' },
+  ] as const)('reports actual value loss through $route with image preparation $assets', async ({ assets, route }) => {
+    const fixture = mount(assets ? { imageAssets: { mode: 'embedded' } } : {}, [
+      TextStyle, restrictedSize, LineHeight.configure({ lineHeights: ['1.5'] }), Image.configure({ allowBase64: true }),
+    ]);
+    const before = snapshot(fixture.editor);
+    const html = '<p style="line-height:1.7"><span style="font-size:32px">Private</span></p>'
+      + (assets ? `<p><img src="${png}" alt="Chart"></p>` : '');
+    paste(fixture.editor, html, [], route);
+    const result = await terminal(fixture, 'applied');
+    expect(result.diagnostics).toEqual([warning]);
+    expect(JSON.stringify(result.diagnostics)).not.toMatch(/Private|32px|1.7|data:image/u);
+    expect(fixture.editor.state.doc.textContent).toBe(assets ? 'PrivateChart' : 'Private');
+    expect(fixture.editor.state.doc.firstChild?.attrs['lineHeight']).toBe('1.7');
+    expect(fixture.editor.getHTML()).not.toMatch(/font-size|line-height/u);
+    let images = 0; fixture.editor.state.doc.descendants(node => { if (node.type.name === 'image') images++; });
+    expect(images).toBe(assets ? 1 : 0);
+    expect(notice(fixture).textContent).toContain('This editor may not preserve some pasted formatting.');
+    const after = fixture.editor.getJSON(); expect(fixture.changes).toHaveLength(1);
+    expect(fixture.editor.commands.undo()).toBe(true); expect(fixture.editor.getJSON()).toEqual(before.doc);
+    expect(fixture.editor.commands.redo()).toBe(true); expect(fixture.editor.getJSON()).toEqual(after);
   });
 });
 

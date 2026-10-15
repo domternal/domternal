@@ -116,6 +116,19 @@ them. Rendering does not silently rewrite that shared content. See
 [Core migration guide](https://github.com/domternal/domternal/blob/main/packages/core/docs/content.md)
 before migrating existing collaborative documents.
 
+A cell selection made before a remote span becomes unsupported falls back to a
+text caret without rebuilding that table's map or deleting its cells. The explicit
+`fixTables` command also refuses a document that still contains unsupported spans.
+Normalizing those spans restores ordinary table commands and cell selections.
+
+Column widths are `null` or an array of at most 1,000 finite, non-negative numbers
+no larger than `Number.MAX_SAFE_INTEGER`. Zero means an automatic width;
+fractional CSS widths remain supported. Invalid JSON widths become `null` with an
+`unsupported-table-width` diagnostic. HTML parsing discards invalid widths, and
+rendering a stored invalid width uses automatic sizing without rewriting shared
+content. `normalizeContentAttributes({ codes: ['unsupported-table-width'] })`
+performs that explicit repair when the application chooses to migrate it.
+
 PasteCleanup applies its own structural budgets and rejects a span above 1,000;
 that differs from Table's ordinary HTML parsing, which caps the span. Cell colors
 and alignment values also follow Core's style policy.

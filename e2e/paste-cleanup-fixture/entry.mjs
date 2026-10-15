@@ -4,7 +4,7 @@ import {
   Blockquote, CodeBlock, HardBreak, UniqueID, Extension, Subscript, Superscript, LineHeight, TaskList, TaskItem,
   CharacterCount, TrailingNode, HorizontalRule,
 } from '@domternal/core';
-import { Plugin, TextSelection } from '@domternal/pm/state';
+import { NodeSelection, Plugin, TextSelection } from '@domternal/pm/state';
 import { undoDepth, redoDepth, closeHistory } from '@domternal/pm/history';
 import { Image } from '@domternal/extension-image';
 import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
@@ -14,10 +14,14 @@ import { Mention } from '@domternal/extension-mention';
 import { SmartPaste } from '@domternal/extension-block-controls';
 import { PasteCleanup, getPasteAffectedReferences } from '@domternal/extension-paste-cleanup';
 import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
+import { createPasteFormattingControl } from '../../apps/demo-vanilla/src/paste-formatting-control.ts';
 
 const query = new URLSearchParams(location.search);
 const framework = query.get('framework') ?? 'vanilla';
 const formatting = query.get('formatting') === 'adapt' ? 'adapt' : 'preserve';
+const formattingControl = query.get('formatting-choice') === 'on' ? createPasteFormattingControl() : undefined;
+if (formattingControl !== undefined) document.body.prepend(formattingControl.element);
+let formattingChoices = 0;
 const lifecycle = query.get('lifecycle');
 const feedback = query.get('feedback') === 'application' ? 'application' : 'default';
 const embeddedAssets = query.get('assets') === 'embedded';
@@ -30,6 +34,14 @@ const imageUpload = query.get('image-upload') === 'on';
 const tableFirst = query.get('extension-order') === 'table-first';
 const capabilityMinimal = query.get('schema') === 'capability-minimal';
 const capabilityFull = query.get('schema') === 'capability-full';
+// Custom host constraints whose ordinary reference values remain supported.
+const actualValues = query.get('destination-values') === 'restricted';
+const restrictedFontSize = FontSize.extend({ addGlobalAttributes() {
+  return this.parent().map(group => ({ ...group, attributes: { ...group.attributes, fontSize: {
+    ...group.attributes.fontSize,
+    parseHTML: element => ['18px', '22px'].includes(element.style.fontSize) ? element.style.fontSize : null,
+  } } }));
+} });
 // Levels two and three only, as an application that reserves h1 for its page title.
 const headingLevels = query.get('schema') === 'heading-levels';
 const lists = query.get('schema') !== 'no-lists';
@@ -287,6 +299,32 @@ const AppendDocument = Extension.create({
   })],
 });
 
+// Accepted appended host processing, for the bounded post-insertion formatting diagnostic.
+const formattingNormalizer = query.get('formatting-normalizer');
+const FormattingNormalizer = Extension.create({
+  name: 'pasteFixtureFormattingNormalizer',
+  priority: 100,
+  addProseMirrorPlugins: () => [new Plugin({
+    appendTransaction(transactions, _previous, state) {
+      if (!transactions.some(transaction => transaction.getMeta('paste') === true)) return null;
+      if (formattingNormalizer === 'replace') {
+        let first;
+        state.doc.descendants((node, position) => {
+          if (!first && node.isText) first = { node, position };
+        });
+        return first ? state.tr.replaceWith(first.position, first.position + first.node.nodeSize, state.schema.text(first.node.text)) : null;
+      }
+      return state.tr.removeMark(0, state.doc.content.size, state.schema.marks.bold).setMeta('fixtureFormattingRemoved', true);
+    },
+  }), new Plugin({
+    filterTransaction: transaction => formattingNormalizer !== 'veto' || transaction.getMeta('fixtureFormattingRemoved') !== true,
+    appendTransaction(transactions, _previous, state) {
+      return formattingNormalizer === 'restore' && transactions.some(transaction => transaction.getMeta('fixtureFormattingRemoved') === true)
+        ? state.tr.addMark(0, state.doc.content.size, state.schema.mark('bold')) : null;
+    },
+  })],
+});
+
 const tableExtensions = [Table, TableRow, TableCell, TableHeader];
 
 // Each wrapper supplies Document, Paragraph, Text, BaseKeymap and History.
@@ -296,9 +334,9 @@ const extensions = [
   ...(query.get('text-style-order') === 'highlight-first'
     ? [Highlight, readableText ? TextColor.configure({ contrast: 'auto' }) : TextColor]
     : [readableText ? TextColor.configure({ contrast: 'auto' }) : TextColor, Highlight]),
-  FontFamily, FontSize, TextAlign,
+  FontFamily, actualValues ? restrictedFontSize : FontSize, actualValues ? TextAlign.configure({ types: ['paragraph'] }) : TextAlign,
   capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : headingLevels ? Heading.configure({ levels: [2, 3] }) : Heading,
-  ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),
+  ...(capabilityFull ? [Subscript, Superscript, actualValues ? LineHeight.configure({ lineHeights: ['1.5'] }) : LineHeight] : []),
   ...(lists ? [...markerLists, ListItem] : []),
   ...((listMarkers || contrast) && taskLists ? [TaskList, TaskItem] : []),
   ...(contrast ? [Code, BlockColor, HorizontalRule] : []),
@@ -321,11 +359,13 @@ const extensions = [
   ...(lifecycle === 'veto' ? [PasteVeto] : []),
   ...(lifecycle === 'destroy-before-observe' ? [DestroyBeforeReceiptObserver] : []),
   ...(['nested-interception', 'nested-empty-interception'].includes(lifecycle) ? [ConsumeNestedPaste, ConsumeOuterAndNest] : []),
-  ...(coordinatedAssets ? [AssetHookObserver] : []),
+  ...(coordinatedAssets && query.get('asset-hooks') !== 'off' ? [AssetHookObserver] : []),
   ...(characterLimit === null ? [] : [CharacterCount.configure({ limit: characterLimit })]),
   ...(lifecycle === 'append-doc' ? [AppendDocument] : []),
+  ...(formattingNormalizer === null ? [] : [FormattingNormalizer]),
   PasteCleanup.configure({
     formatting,
+    ...(formattingControl === undefined ? {} : { formattingForPaste: () => { formattingChoices++; return formattingControl.formatting; } }),
     feedback,
     ...(query.get('source-data') === 'forbid' ? { allowDataImages: false } : {}),
     ...(limits === undefined && query.get('diagnostics') !== 'one' ? {} : {
@@ -413,6 +453,7 @@ window.__pasteCleanup = {
   get wrapper() { return wrapper; },
   get framework() { return framework; },
   get results() { return results; },
+  get formattingChoices() { return formattingChoices; },
   get wrapperCalls() { return wrapperCalls; },
   get angularForm() {
     const control = wrapper?.components?.[0]?.instance?.control;
@@ -471,6 +512,7 @@ window.__pasteCleanup = {
   history: () => ({ undo: undoDepth(editor.state), redo: redoDepth(editor.state) }),
   closeHistory() { editor.view.dispatch(closeHistory(editor.state.tr)); },
   select(from, to = from) { editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from, to))); },
+  selectNode(pos) { editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos))); },
   async useGerman() {
     const { deMessages, deSearchAliases } = await import('@domternal/extension-paste-cleanup/locales/de');
     editor.i18n.set({ locale: 'de', messages: deMessages, searchAliases: deSearchAliases });

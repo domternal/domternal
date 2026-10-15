@@ -1,19 +1,20 @@
+import { readListLabel as readPureListLabel, formatListLabel as formatPureListLabel, getListLabelStyleSheet as pureListLabelStyleSheet, type ListLabel as PureListLabel } from '@domternal/core/list-labels';
 /**
  * Type-checks against the BUILT @domternal/core dist (not source) to
  * verify every RawCommands augmentation reaches an external consumer.
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
-import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation, writeToClipboard, PluginKey } from '@domternal/core';
+import { Node, coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation, writeToClipboard, PluginKey } from '@domternal/core';
 import type { CompleteMessages, Messages, MessageValue } from '@domternal/core';
 import type * as mainEntry from '@domternal/core';
 // Clipboard coordination is published only on the experimental subpath.
 import {
-  armClipboardPasteTransaction, getClipboardImageDestination, getClipboardPasteAttemptEvent, getClipboardPasteBehavior,
+  armClipboardPasteTransaction, getClipboardImageDestination, getClipboardPasteAttemptEvent, getClipboardPasteAttemptIdentity, getClipboardPasteBehavior,
   registerClipboardCopyAnnotation, registerClipboardHTMLPreparation, registerClipboardImageDestination, setClipboardPasteBehavior,
 } from '@domternal/core/clipboard';
 import type {
-  ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay, ClipboardImageDestinationPolicy, ClipboardPasteBehavior,
+  ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay, ClipboardImageDestinationPolicy, ClipboardPasteBehavior, ClipboardPasteAttemptIdentity,
 } from '@domternal/core/clipboard';
 import type * as clipboardEntry from '@domternal/core/clipboard';
 
@@ -37,6 +38,7 @@ import '@domternal/extension-math';
 import '@domternal/extension-mention';
 import { PasteCleanup, pasteCleanupMessages, getPasteAffectedReferences, normalizePasteHTML as normalizePasteFromMain } from '@domternal/extension-paste-cleanup';
 import type { NormalizePasteHTMLResult as MainPasteHTMLResult } from '@domternal/extension-paste-cleanup';
+import type { PasteFormattingContext, PasteFormattingResolver } from '@domternal/extension-paste-cleanup';
 import { DEFAULT_CLIPBOARD_ASSET_LIMITS, MAX_CLIPBOARD_ASSET_LIMITS } from '@domternal/extension-paste-cleanup';
 import type { ClipboardAssetLimits, ClipboardImageBinding, ClipboardImageMatchContext, PastePreparationProgress } from '@domternal/extension-paste-cleanup';
 import type { ClipboardResolverAdapter, ClipboardCreatedResource, ClipboardAssetRecoveryReport } from '@domternal/extension-paste-cleanup';
@@ -45,12 +47,20 @@ import type { PasteHTMLLimits, NormalizePasteHTMLResult } from '@domternal/exten
 import '@domternal/extension-table';
 import '@domternal/extension-toc';
 
+// Standard ProseMirror content-element rules remain available through Node.create.
+Node.create({ name: 'consumerContent', group: 'block', content: 'block+',
+  parseHTML: () => [{ tag: 'article', contentElement: element => element.querySelector<HTMLElement>('section') ?? element }],
+  renderHTML: () => ['article', 0],
+});
+
 declare const editor: Editor;
 declare const clipboardEvent: ClipboardEvent;
 
 const disposeHTMLPreparation: () => void = registerClipboardHTMLPreparation(editor.view, (html, context: ClipboardHTMLPreparationContext) => {
   const origin: 'native' | 'programmatic' = context.origin;
   const activeEvent: ClipboardEvent | undefined = getClipboardPasteAttemptEvent(editor.view);
+  const activeAttempt: ClipboardPasteAttemptIdentity | undefined = getClipboardPasteAttemptIdentity(editor.view);
+  const contextAttempt: ClipboardPasteAttemptIdentity | undefined = context.attempt;
   return { onDeferred(replay: ClipboardHTMLReplay) {
     queueMicrotask(() => { const handled: boolean = replay(html, new ClipboardEvent('paste')); });
   } };
@@ -62,6 +72,10 @@ const disposeHTMLPreparation: () => void = registerClipboardHTMLPreparation(edit
 registerClipboardHTMLPreparation(editor.view, false);
 // @ts-expect-error Attempt observers must be callable.
 registerClipboardHTMLPreparation(editor.view, () => undefined, false);
+// Existing application-authored contexts remain valid without the additive identity field.
+const previousPreparationContext: ClipboardHTMLPreparationContext = { event: undefined, origin: 'programmatic' };
+// @ts-expect-error Attempt identities are opaque Core values, not application-authored objects.
+const forgedAttemptIdentity: ClipboardPasteAttemptIdentity = {};
 
 const imagePolicy: ClipboardImageDestinationPolicy = {
   nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
@@ -108,6 +122,10 @@ type MainRegisterClipboardHTMLPreparation = typeof mainEntry.registerClipboardHT
 // @ts-expect-error Only on @domternal/core/clipboard.
 type MainGetClipboardPasteAttemptEvent = typeof mainEntry.getClipboardPasteAttemptEvent;
 // @ts-expect-error Only on @domternal/core/clipboard.
+type MainGetClipboardPasteAttemptIdentity = typeof mainEntry.getClipboardPasteAttemptIdentity;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardPasteAttemptIdentity = mainEntry.ClipboardPasteAttemptIdentity;
+// @ts-expect-error Only on @domternal/core/clipboard.
 type MainClipboardHTMLPreparationContext = mainEntry.ClipboardHTMLPreparationContext;
 // @ts-expect-error Internal to the clipboard declarations.
 type MainClipboardHTMLPreparationGate = mainEntry.ClipboardHTMLPreparationGate;
@@ -125,6 +143,19 @@ type SubpathWriteToClipboard = typeof clipboardEntry.writeToClipboard;
 
 // Both published entries retain the same typed conversion contract.
 PasteCleanup.configure({ formatting: 'adapt' });
+const choosePasteFormatting: PasteFormattingResolver = (context: Readonly<PasteFormattingContext>) => {
+  const origin: 'native' | 'programmatic' = context.origin;
+  // @ts-expect-error Policy contexts never expose live clipboard data.
+  context.clipboardData;
+  // @ts-expect-error The context is immutable for the active attempt.
+  context.defaultFormatting = 'adapt';
+  return context.defaultFormatting;
+};
+PasteCleanup.configure({ formattingForPaste: choosePasteFormatting });
+// @ts-expect-error Per-paste choices are synchronous; asynchronous UI must choose before pasting.
+PasteCleanup.configure({ formattingForPaste: async () => 'adapt' });
+// @ts-expect-error Only the existing Preserve and Adapt policies are accepted.
+PasteCleanup.configure({ formattingForPaste: () => 'source' });
 const assetLimits: Readonly<ClipboardAssetLimits> = DEFAULT_CLIPBOARD_ASSET_LIMITS;
 const maximumAssetBytes: number = MAX_CLIPBOARD_ASSET_LIMITS.maxTotalFileBytes;
 PasteCleanup.configure({ imageAssets: {
@@ -186,6 +217,11 @@ PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
   references?.ranges.push({ from: 1, to: 2 });
 } });
 editor.i18n.t(pasteCleanupMessages.applied);
+editor.i18n.t(pasteCleanupMessages.completed);
+PasteCleanup.configure({ focusFeedbackShortcut: 'Alt-F9' });
+PasteCleanup.configure({ focusFeedbackShortcut: false });
+// @ts-expect-error A shortcut is a key binding string or false.
+PasteCleanup.configure({ focusFeedbackShortcut: true });
 // @ts-expect-error Feedback ownership is a finite public option.
 PasteCleanup.configure({ feedback: 'none' });
 const pasteLimits: Partial<PasteHTMLLimits> = { maxInputLength: 20_000, maxDiagnostics: 10 };
@@ -467,6 +503,7 @@ const describeDiagnostic = (diagnostic: ContentDiagnostic): string => {
     case 'unknown-list-marker':
     case 'unsupported-heading-level':
     case 'unsupported-table-span':
+    case 'unsupported-table-width':
       return diagnostic.nodeType;
     default:
       // The list of codes is open: a minor release can add one.
@@ -590,3 +627,26 @@ Link.configure({ openOnClick: false, unknownOption: true });
 Link.configure(123);
 // @ts-expect-error A function is not a Link options object.
 Link.configure(() => 1);
+
+// Optional labels stay usable as JSON attributes without widening their closed record types.
+import { ListLabels, formatListLabel, getListLabelStyleSheet, getNodeListLabel, readListLabel } from '@domternal/core';
+import type { ListLabel, CounterListLabel, TextListLabel, JSONContent, GlobalAttributeSpec } from '@domternal/core';
+const counterLabel: CounterListLabel = { kind: 'counter', format: 'decimal', prefix: 'Section ', suffix: ') ' };
+const textLabel: TextListLabel = { kind: 'text', text: '✓' };
+const labelledDocument: JSONContent = { type: 'orderedList', attrs: { start: 0, listLabel: counterLabel } };
+const labelStyleSheet: string = getListLabelStyleSheet(labelledDocument);
+const labelText: string | null = formatListLabel(counterLabel, 4);
+const parsedLabel: ListLabel | null = readListLabel(textLabel);
+ListLabels.configure({ injectCSS: false, nonce: 'host-nonce' });
+const validatedGlobalAttribute: GlobalAttributeSpec = { default: null, validate: (value: unknown): void => { void value; } };
+// @ts-expect-error A label cannot provide an arbitrary CSS counter style.
+const unknownLabelFormat: CounterListLabel = { kind: 'counter', format: 'url(x)', prefix: '', suffix: '' };
+// @ts-expect-error Literal labels have no image or URL field.
+const unknownLabelProperty: TextListLabel = { kind: 'text', text: 'x', url: 'https://example.test/' };
+
+const nodeLabel: ListLabel | null = getNodeListLabel(editor.state.doc);
+
+// Pure list label helpers have their own Node and worker declaration graph.
+const pureListLabel: PureListLabel | null = readPureListLabel({ kind: 'text', text: '✓' });
+const pureMarker: string | null = formatPureListLabel(pureListLabel);
+const pureStyles: string = pureListLabelStyleSheet({ type: 'bulletList', attrs: { listLabel: pureListLabel } });

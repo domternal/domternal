@@ -19,6 +19,7 @@
  */
 import { isSafeCssValue, registerAttributeNormalizer } from '@domternal/core';
 import type { AttributeSpecs } from '@domternal/core';
+import { resolveColumnWidths, validColumnWidths, validateColumnWidths } from './columnWidths.js';
 
 /** An alignment to parse or render: a safe CSS value, or null. The document keeps any stored value. */
 function safeAlignment(value: unknown): string | null {
@@ -77,6 +78,11 @@ export function cellAttributes(): AttributeSpecs {
     unsupported: value => invalidSpan(value) || (value as number) > MAX_SPAN,
     replacement: resolveSpan,
   });
+  registerAttributeNormalizer(validateColumnWidths, {
+    code: 'unsupported-table-width',
+    invalid: value => !validColumnWidths(value),
+    replacement: () => null,
+  });
   return {
     colspan: {
       default: 1,
@@ -101,12 +107,13 @@ export function cellAttributes(): AttributeSpecs {
     },
     colwidth: {
       default: null,
+      validate: validateColumnWidths,
       parseHTML: (element: HTMLElement) => {
         const colwidth = element.getAttribute('data-colwidth');
-        return colwidth ? colwidth.split(',').map(Number) : null;
+        return colwidth ? resolveColumnWidths(colwidth.split(',', MAX_SPAN + 1).map(Number)) : null;
       },
       renderHTML: (attrs: Record<string, unknown>) => {
-        const colwidth = attrs['colwidth'] as number[] | null;
+        const colwidth = resolveColumnWidths(attrs['colwidth']);
         if (!colwidth) return null;
         return { 'data-colwidth': colwidth.join(',') };
       },

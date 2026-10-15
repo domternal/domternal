@@ -233,17 +233,22 @@ describe('built-in destination parser capabilities', () => {
 
   it('constructs only fixed resource-free probes for requested features', () => {
     const schema = fullSchema();
-    const created: Element[] = [];
-    const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML') as { set: (this: Element, value: string) => void };
-    vi.spyOn(Element.prototype, 'innerHTML', 'set').mockImplementation(function(this: Element, value: string): void {
-      descriptor.set.call(this, value); created.push(this);
-    });
+    const parse = vi.spyOn(DOMParser.prototype, 'parseSlice');
     expect(getUnsupportedDestinationFeatures(schema, document, ['bold', 'text-color'])).toEqual([]);
+    const created = parse.mock.calls.map(([element]) => element as Element);
     expect(created).toHaveLength(2);
     for (const element of created) {
       expect(element.querySelector('img,video,audio,iframe,object,link,script,a,[src],[href]')).toBeNull();
       expect(element.textContent).toMatch(/^(?:Probe|01)$/u);
     }
+  });
+
+  it('keeps schema checks available when raw HTML sinks are forbidden', () => {
+    const schema = withTables(fullSchema());
+    vi.spyOn(Element.prototype, 'innerHTML', 'set').mockImplementation(() => { throw new TypeError('TrustedHTML required'); });
+    vi.spyOn(globalThis.DOMParser.prototype, 'parseFromString').mockImplementation(() => { throw new TypeError('TrustedHTML required'); });
+    expect(getUnsupportedDestinationFeatures(schema, document, FEATURES)).toEqual([]);
+    expect(getUnsupportedDestinationFeatures(schemaWith(), document, FEATURES)).toEqual(FEATURES);
   });
 });
 
@@ -267,12 +272,9 @@ describe('destination image capabilities', () => {
   });
 
   it('parses its image probes in a document that has no window, which loads nothing', () => {
-    const created: Element[] = [];
-    const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML') as { set: (this: Element, value: string) => void };
-    vi.spyOn(Element.prototype, 'innerHTML', 'set').mockImplementation(function(this: Element, value: string): void {
-      descriptor.set.call(this, value); created.push(this);
-    });
+    const parse = vi.spyOn(DOMParser.prototype, 'parseSlice');
     getUnsupportedDestinationFeatures(imageSchema(false), document, ['image', 'image-data']);
+    const created = parse.mock.calls.map(([element]) => element as Element);
     expect(created).toHaveLength(2);
     for (const element of created) {
       expect(element.ownerDocument).not.toBe(document);

@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@domternal/extension-details",
+  "targets": {
+    "build": {
+      "dependsOn": [
+        {
+          "target": "build",
+          "projects": ["@domternal/core", "@domternal/pm"]
+        }
+      ]
+    }
+  }
+}

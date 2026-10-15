@@ -17,14 +17,14 @@ import { Markdown } from './Markdown.js';
 const editors: Editor[] = [];
 afterEach(() => { for (const editor of editors.splice(0)) editor.destroy(); });
 
-function pasteIntoSummary(text: string, extra: AnyExtension[] = []): string {
+function pasteIntoSummary(text: string, extra: AnyExtension[] = [], selection: readonly [number, number] = [7, 7]): string {
   const editor = new Editor({
     element: document.body.appendChild(document.createElement('div')),
     content: '<details><summary>Title</summary><div data-details-content><p>body</p></div></details>',
     extensions: [Document, Paragraph, Text, Blockquote, Bold, CodeBlock, Heading, BulletList, ListItem, Details, DetailsSummary, DetailsContent, Markdown, ...extra],
   });
   editors.push(editor);
-  editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7)));
+  editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, selection[0], selection[1])));
   pasteClipboard(editor.view, { text });
   return editor.state.doc.toString();
 }
@@ -55,6 +55,13 @@ describe('Markdown pasted into a details summary', () => {
     for (const text of ['```\nconst a = 1;\n```', '```\nline one\nline two\n```']) {
       expect(pasteIntoSummary(text), text).toMatch(/^doc\(details\(detailsSummary\("Title"\), detailsContent\(codeBlock\(".+"\), paragraph\("body"\)\)\)\)$/);
     }
+  });
+
+  it('keeps one disclosure when Markdown replaces a selection from summary into body', () => {
+    expect(pasteIntoSummary('# Head\n\n- one', [], [4, 12])).toBe(
+      'doc(details(detailsSummary("Ti"), detailsContent(heading("Head"), bulletList(listItem(paragraph("one"))), paragraph("dy"))))');
+    expect(pasteIntoSummary('# Head', [], [4, 12])).toBe(
+      'doc(details(detailsSummary("Ti"), detailsContent(heading("Head"), paragraph("dy"))))');
   });
 
   it('puts nothing in the content when a transaction filter refuses the paste', () => {

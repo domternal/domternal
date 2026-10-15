@@ -142,7 +142,7 @@ async function unchangedBlocked(page: Page, before: Snapshot, priorHistory: Hist
   expect(observed.operations[0]).toMatchObject({ status: 'rejected', reason: 'unsupported-content', references: { ranges: [], expired: true } });
   expect(observed.transactions).toEqual([]);
   expect(observed.hostUpdates).toBe(0);
-  const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+  const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
   await expect(notice).toBeVisible();
   await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Paste was blocked.');
   await expect(page.locator('.dm-paste-feedback__announcer')).toHaveText('Paste was blocked.');
@@ -168,7 +168,7 @@ for (const framework of FRAMEWORKS) {
         expect(observed.operations[0]?.status).toBe('applied');
         expect(observed.results[0]?.diagnostics).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
         expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
-        const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+        const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
         await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
         await notice.locator('summary').click();
         await expect(notice).toContainText('This editor may not preserve some pasted formatting.');
@@ -193,7 +193,7 @@ for (const framework of FRAMEWORKS) {
           });
           return { images, texts };
         })).toEqual({ images: 0, texts: ['GI02 Text before the picture.', 'GI03 Blue rectangle', 'GI04 Text after the picture.'] });
-        await expect(page.getByRole('region', { name: 'Paste notice', exact: true }).locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
+        await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u }).locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
       });
     }
 
@@ -295,7 +295,7 @@ for (const framework of FRAMEWORKS) {
       expect(await headings(page)).toEqual([{ level: 4, text: 'Level five' }]);
       expect(observed.results[0]?.diagnostics).toEqual([{ code: 'destination-heading-level-adapted', severity: 'warning', offset: 0 }]);
       expect(observed.operations[0]?.status).toBe('applied');
-      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
       await expect(notice.locator('.dm-paste-feedback__status')).toHaveText('Review the pasted content.');
       await notice.locator('summary').click();
       await expect(notice.locator('li')).toHaveText([HEADING_NOTICE]);
@@ -315,7 +315,7 @@ for (const framework of FRAMEWORKS) {
       })));
       expect(observed.operations[0]?.status).toBe('applied');
       expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
-      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
       await notice.locator('summary').click();
       await expect(notice.locator('li')).toHaveText([HEADING_NOTICE]);
       expect(await history(page)).toEqual({ undo: 1, redo: 0 });
@@ -342,7 +342,7 @@ for (const framework of FRAMEWORKS) {
       await expect(page.locator('.ProseMirror h5')).toHaveText('Level five');
       expect(observed.results[0]?.diagnostics).toEqual([]);
       expect(observed.operations[0]?.status).toBe('applied');
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toHaveCount(0);
     });
 
     test('the full destination retains supported formatting, list structure and table headers', async ({ page }) => {
@@ -364,7 +364,7 @@ for (const framework of FRAMEWORKS) {
       await expect(page.locator('.ProseMirror ol > li ul > li')).toHaveText('Nested');
       await expect(page.locator('.ProseMirror th')).toHaveText(['Header A', 'Header B']);
       await expect(page.locator('.ProseMirror td')).toHaveText(['A', 'B']);
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toHaveCount(0);
       const after = await snapshot(page);
       expect(await history(page)).toEqual({ undo: 1, redo: 0 });
       await page.keyboard.press('ControlOrMeta+z');
@@ -384,7 +384,7 @@ for (const framework of FRAMEWORKS) {
       expect(observed.results[0]?.diagnostics.every(item => item.code === 'formatting-adapted' && item.severity === 'info')).toBe(true);
       expect(observed.results[0]?.diagnosticsTruncated).toBe(false);
       expect(observed.operations[0]?.status).toBe('applied');
-      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u })).toHaveCount(0);
     });
 
     for (const transport of ['synthetic-event', 'programmatic'] as const) {
@@ -409,7 +409,7 @@ for (const framework of FRAMEWORKS) {
       expect(observed.results[0]?.diagnosticsTruncated).toBe(true);
       // The retained terminal diagnostic renders the table refusal detail next to the truncation note.
       await unchangedBlocked(page, before, priorHistory, observed, true);
-      const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+      const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
       await expect(notice).toContainText('Not all paste details are shown.');
     });
   });
@@ -512,7 +512,7 @@ function pasteNoticeMatrix(page: Page, clipboards: readonly string[], adaptedLev
         editor.state.doc.descendants(node => {
           if (node.isTextblock) blocks.push(`${node.type.name === 'heading' ? `h${String(node.attrs['level'])}` : node.type.name}:${node.textContent}`);
         });
-        const region = document.querySelector('[role="region"][aria-label="Paste notice"]');
+        const region = document.querySelector('.dm-paste-feedback[role="group"]');
         outcomes.push({
           seed: seedName, html, status: operation.status, blocks,
           normalized: result.diagnostics.map(({ code, offset }) => offset === undefined ? { code } : { code, offset }),

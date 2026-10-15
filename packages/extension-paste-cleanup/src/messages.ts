@@ -8,6 +8,7 @@ declare module '@domternal/core' {
     'pasteCleanup.feedback.untracked': undefined;
     'pasteCleanup.feedback.noop': undefined;
     'pasteCleanup.feedback.preparing': undefined;
+    'pasteCleanup.feedback.completed': undefined;
     'pasteCleanup.feedback.cancel': undefined;
     'pasteCleanup.feedback.cancelLabel': undefined;
     'pasteCleanup.feedback.targetChanged': undefined;
@@ -36,6 +37,7 @@ declare module '@domternal/core' {
     'pasteCleanup.diagnostic.formattingAdapted': undefined;
     'pasteCleanup.diagnostic.officeListUnsupported': undefined;
     'pasteCleanup.diagnostic.destinationFormattingUnconfirmed': undefined;
+    'pasteCleanup.diagnostic.destinationFormattingRemoved': undefined;
     'pasteCleanup.diagnostic.destinationTableUnsupported': undefined;
     'pasteCleanup.diagnostic.destinationHeadingLevelAdapted': undefined;
     'pasteCleanup.diagnostic.hiddenTextRemoved': undefined;
@@ -47,7 +49,7 @@ declare module '@domternal/core' {
 export const pasteCleanupMessages = {
   label: defineMessage({
     id: 'pasteCleanup.feedback.label', defaultValue: 'Paste notice', owner: '@domternal/extension-paste-cleanup',
-    description: 'Accessible name of the nonmodal paste feedback region.',
+    description: 'Accessible name of the nonmodal paste feedback group.',
   }),
   applied: defineMessage({
     id: 'pasteCleanup.feedback.applied', defaultValue: 'Review the pasted content.', owner: '@domternal/extension-paste-cleanup',
@@ -68,6 +70,11 @@ export const pasteCleanupMessages = {
   preparing: defineMessage({
     id: 'pasteCleanup.feedback.preparing', defaultValue: 'Preparing pasted images.', owner: '@domternal/extension-paste-cleanup',
     description: 'Nonmodal progress notice before prepared images are inserted.',
+  }),
+  completed: defineMessage({
+    id: 'pasteCleanup.feedback.completed', defaultValue: 'Images pasted.', owner: '@domternal/extension-paste-cleanup',
+    description: 'Polite announcement after accepted image preparation completes without a visible warning.',
+    optionalTranslation: true,
   }),
   cancel: defineMessage({
     id: 'pasteCleanup.feedback.cancel', defaultValue: 'Cancel', owner: '@domternal/extension-paste-cleanup',
@@ -180,6 +187,11 @@ export const pasteCleanupMessages = {
   destinationFormattingUnconfirmed: defineMessage({
     id: 'pasteCleanup.diagnostic.destinationFormattingUnconfirmed', defaultValue: 'This editor may not preserve some pasted formatting.', owner: '@domternal/extension-paste-cleanup',
     description: 'A requested built-in schema capability was not confirmed by a reference parse probe; this does not assert exact content loss.',
+  }),
+  destinationFormattingRemoved: defineMessage({
+    id: 'pasteCleanup.diagnostic.destinationFormattingRemoved', defaultValue: "Some retained paste formatting was removed during this editor's final processing.", owner: '@domternal/extension-paste-cleanup',
+    description: 'Known formatting on an identified inserted node did not survive accepted appended editor transactions. This does not assess source-to-parser fidelity.',
+    optionalTranslation: true,
   }),
   destinationTableUnsupported: defineMessage({
     id: 'pasteCleanup.diagnostic.destinationTableUnsupported', defaultValue: 'Table paste was blocked because table support could not be confirmed.', owner: '@domternal/extension-paste-cleanup',

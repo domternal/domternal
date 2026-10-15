@@ -6,7 +6,7 @@ import { getClipboardPasteBehavior, setClipboardPasteBehavior } from './helpers/
 import { armClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
 import { getClipboardImageDestination, registerClipboardImageDestination } from './helpers/clipboardImageDestination.js';
 import { registerClipboardCopyAnnotation } from './helpers/clipboardCopyAnnotation.js';
-import { getClipboardPasteAttemptEvent, registerClipboardHTMLPreparation } from './helpers/clipboardHTMLPreparation.js';
+import { getClipboardPasteAttemptEvent, getClipboardPasteAttemptIdentity, registerClipboardHTMLPreparation } from './helpers/clipboardHTMLPreparation.js';
 import { dropClipboardImageFiles, pasteClipboardImageFiles, pasteHasOwnText } from './helpers/clipboardImageFiles.js';
 import { placeClipboardPaste, registerClipboardPastePlacement } from './helpers/clipboardPastePlacement.js';
 
@@ -15,6 +15,7 @@ const functions = {
   dropClipboardImageFiles,
   getClipboardImageDestination,
   getClipboardPasteAttemptEvent,
+  getClipboardPasteAttemptIdentity,
   getClipboardPasteBehavior,
   pasteClipboardImageFiles,
   pasteHasOwnText,

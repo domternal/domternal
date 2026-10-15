@@ -235,6 +235,7 @@ export function extensionImage(): { deMessages: Readonly<CompleteMessages<typeof
     'image.popover.insert': 'Bild einfügen',
     'image.popover.saveAlt': 'Alternativtext speichern',
     'image.popover.browse': 'Dateien durchsuchen',
+    'image.upload.loading': 'Bild wird geladen …',
   } satisfies CompleteMessages<typeof imageMessages>);
 
   /** German search terms supplement the stable technical aliases. */
@@ -288,6 +289,7 @@ export function extensionPasteCleanup(): { deMessages: Readonly<CompleteMessages
     'pasteCleanup.feedback.untracked': 'Ergebnis des Einfügens prüfen.',
     'pasteCleanup.feedback.noop': 'Beim Einfügen wurden keine Änderungen vorgenommen.',
     'pasteCleanup.feedback.preparing': 'Bilder zum Einfügen werden vorbereitet.',
+    'pasteCleanup.feedback.completed': 'Bilder eingefügt.',
     'pasteCleanup.feedback.cancel': 'Abbrechen',
     'pasteCleanup.feedback.cancelLabel': 'Bildvorbereitung abbrechen',
     'pasteCleanup.feedback.targetChanged': 'Die Einfügeposition hat sich geändert.',
@@ -316,6 +318,7 @@ export function extensionPasteCleanup(): { deMessages: Readonly<CompleteMessages
     'pasteCleanup.diagnostic.formattingAdapted': 'Die Formatierung wurde an den Editor angepasst.',
     'pasteCleanup.diagnostic.officeListUnsupported': 'Einige Office-Listen konnten nicht wiederhergestellt werden.',
     'pasteCleanup.diagnostic.destinationFormattingUnconfirmed': 'Dieser Editor kann möglicherweise nicht alle eingefügten Formatierungen beibehalten.',
+    'pasteCleanup.diagnostic.destinationFormattingRemoved': 'Einige beibehaltene Formatierungen wurden bei der abschließenden Verarbeitung durch diesen Editor entfernt.',
     'pasteCleanup.diagnostic.destinationTableUnsupported': 'Das Einfügen der Tabelle wurde blockiert, weil die Tabellenunterstützung nicht bestätigt werden konnte.',
     'pasteCleanup.diagnostic.destinationHeadingLevelAdapted': 'Einige Überschriften wurden in eine Überschriftenebene geändert, die dieser Editor unterstützt.',
     'pasteCleanup.diagnostic.hiddenTextRemoved': 'Ausgeblendeter Text aus Word wurde nicht eingefügt.',

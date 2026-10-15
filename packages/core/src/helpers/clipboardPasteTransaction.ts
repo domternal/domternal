@@ -2,7 +2,7 @@ import type { PluginKey, Transaction } from '@domternal/pm/state';
 import { EditorView } from '@domternal/pm/view';
 import type { EditorProps } from '@domternal/pm/view';
 import type { DOMSerializer } from '@domternal/pm/model';
-import { clipboardPreparationSomeProp, runClipboardPasteAttempt } from './clipboardHTMLPreparation.js';
+import { clipboardPreparationSomeProp, runClipboardPasteAttempt, runClipboardDropScope } from './clipboardHTMLPreparation.js';
 import { annotateClipboardSerializer } from './clipboardCopyAnnotation.js';
 import { guardSliceContextHTML } from '../utils/sliceContext.js';
 
@@ -54,6 +54,7 @@ export class ClipboardEditorView extends EditorView {
   }
 
   override dispatchEvent(event: Event): void {
+    if (event.type === 'drop') { runClipboardDropScope(this, event, () => { super.dispatchEvent(event); }); return; }
     if (event.type !== 'paste') { super.dispatchEvent(event); return; }
     clearPendingClipboardPasteTransaction(this);
     runClipboardPasteAttempt(this, event as ClipboardEvent, () => { super.dispatchEvent(event); }, 'native');

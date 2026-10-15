@@ -273,7 +273,7 @@ describe('paste loss feedback', () => {
     expect(dom.contains(notice)).toBe(false);
     expect(notice.hidden).toBe(true);
     expect(notice.contentEditable).toBe('false');
-    expect(notice.getAttribute('role')).toBe('region');
+    expect(notice.getAttribute('role')).toBe('group');
     expect(notice.getAttribute('aria-label')).toBe('Paste notice');
     expect(required(notice, '.dm-paste-feedback__status').textContent).toBe('');
   });

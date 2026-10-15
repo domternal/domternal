@@ -96,12 +96,12 @@
     "reason": "Compatible option descriptors. Built-in targets render through targetLabel and the message catalog; explicit turnIntoTargets remain application-owned even with identical English labels."
   },
   {
-    "file": "packages/extension-paste-cleanup/src/listCapabilities.ts",
-    "context": "officeListCapabilities.accepts",
-    "sink": "template:text",
-    "text": "Outer",
+    "file": "packages/extension-paste-cleanup/src/firstParagraph.ts",
+    "context": "expectedBackground",
+    "sink": "dom:textContent",
+    "text": "Probe",
     "occurrences": 1,
-    "reason": "Technical sentinel in a constant detached DOM schema capability probe. Outer and Inner are compared with parsed node text and never rendered in the editor or user interface."
+    "reason": "Detached destination parser probe. This text only keeps a synthetic paragraph nonempty while checking its background attribute and never reaches the editor or user interface."
   },
   {
     "file": "packages/react/src/bubble-menu/DomternalBubbleMenu.tsx",
@@ -142,5 +142,13 @@
     "text": "A",
     "occurrences": 1,
     "reason": "Typography color sample glyph. The surrounding control has a separately localized accessible name; this glyph is not a word label."
+  },
+  {
+    "file": "packages/extension-paste-cleanup/src/destinationValues.ts",
+    "context": "confirmDestinationValues.probe",
+    "sink": "dom:textContent",
+    "text": "x",
+    "occurrences": 1,
+    "reason": "Detached destination parser and serializer probe. The constant text keeps a synthetic block nonempty, never includes clipboard text and never reaches the editor or user interface."
   }
 ]

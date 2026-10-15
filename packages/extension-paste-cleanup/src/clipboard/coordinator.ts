@@ -1,14 +1,18 @@
-import { getClipboardImageDestination, getClipboardPasteAttemptEvent, pasteHasOwnText, registerClipboardHTMLPreparation } from '@domternal/core/clipboard';
+import { getClipboardImageDestination, getClipboardPasteAttemptEvent, getClipboardPasteAttemptIdentity, pasteHasOwnText, registerClipboardHTMLPreparation } from '@domternal/core/clipboard';
 import type { ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay } from '@domternal/core/clipboard';
 import type { Slice } from '@domternal/pm/model';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
-import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from '../html/types.js';
+import type { normalizeClipboardHTML } from '../html/normalize.js';
+import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteFormatting } from '../html/types.js';
+import type { createPasteFormattingPolicy, PasteFormattingSnapshot } from '../pasteFormatting.js';
+import { firstParagraphFormat } from '../html/firstParagraph.js';
+import type { FirstParagraphFormat } from '../html/firstParagraph.js';
 import { officeListCapabilities } from '../listCapabilities.js';
 import { isOwnCopyNonce } from './ownCopy.js';
 import { claimClipboardSlot } from './ownership.js';
-import { getUnsupportedDestinationFeatures } from '../destinationCapabilities.js';
+import { createDestinationCheck } from '../destinationCapabilities.js';
 import { pasteCleanupKey, pasteDocumentRevision } from '../operations.js';
 import type { PasteOperationRejectionReason } from '../operations.js';
 import type { createPasteTracking, PendingPasteOperation } from '../tracking.js';
@@ -20,8 +24,9 @@ import { resolveClipboardAssetLimits } from './limits.js';
 import type { ClipboardAssetLimits } from './limits.js';
 import { prepareClipboardBlobAssets, prepareClipboardEmbeddedAssets } from './localAssets.js';
 import type { ClipboardEmbeddedRejection } from './localAssets.js';
-import { discardPreparedClipboardHTML, materializeClipboardHTML, materializeResolvedClipboardHTML, prepareClipboardHTML, readPreparedClipboardHTMLNormalization } from './preparedHTML.js';
+import { consumePreparedClipboardHTMLWithoutAssets, discardPreparedClipboardHTML, materializeClipboardHTML, materializeResolvedClipboardHTML, prepareClipboardHTML, readPreparedClipboardHTMLNormalization } from './preparedHTML.js';
 import type { ClipboardHTMLPreparationResult } from './preparedHTML.js';
+import { isFirstHTMLTransformer, mayContainImageMarkup } from './preparedHTMLPassthrough.js';
 import { resolveClipboardImageBindings } from './references.js';
 import type { ClipboardImageBinding, ClipboardImageReference, ClipboardReferenceLimits } from './references.js';
 import { createClipboardResolverOperation } from './resolverLifecycle.js';
@@ -91,6 +96,7 @@ type Tracking = ReturnType<typeof createPasteTracking>;
 type Prepared = Extract<ClipboardHTMLPreparationResult, { status: 'prepared' }>;
 
 interface CaptureEntry {
+  readonly formatting: Readonly<PasteFormattingSnapshot>;
   readonly capture: ClipboardCaptureResult;
   readonly generation: number;
   readonly document: EditorState['doc'];
@@ -118,9 +124,18 @@ interface ReplayEntry {
   readonly view: EditorView;
   readonly asset: AssetOperation;
   readonly preserveOrderedListStart: boolean;
+  readonly firstParagraph: Readonly<FirstParagraphFormat> | undefined;
   attemptSeen: boolean;
   gateUsed: boolean;
   normalizationUsed: boolean;
+}
+
+interface HTMLPassthrough {
+  readonly html: string;
+  readonly event: ClipboardEvent;
+  readonly preparation: Prepared;
+  readonly target: CaptureEntry;
+  readonly state: EditorState;
 }
 
 export interface ClipboardReplayNormalization {
@@ -128,6 +143,7 @@ export interface ClipboardReplayNormalization {
   readonly html: string;
   readonly rejected: boolean;
   readonly preserveOrderedListStart: boolean;
+  readonly firstParagraph: Readonly<FirstParagraphFormat> | undefined;
 }
 
 export interface ClipboardReplayHandling {
@@ -137,7 +153,8 @@ export interface ClipboardReplayHandling {
 }
 
 interface CoordinatorHooks {
-  readonly create: (result: NormalizePasteHTMLResult) => PendingPasteOperation;
+  readonly create: (result: NormalizePasteHTMLResult, formatting?: PasteFormatting) => PendingPasteOperation;
+  readonly formatting: ReturnType<typeof createPasteFormattingPolicy>;
   readonly notify: (result: NormalizePasteHTMLResult, operation: PendingPasteOperation) => void;
   readonly progress: (progress: PastePreparationProgress) => void;
   readonly tracking: Tracking;
@@ -148,13 +165,15 @@ export interface ClipboardAssetCoordinator {
   capture(event: ClipboardEvent): boolean;
   /** Cancel an older operation when a normal text or HTML attempt starts. */
   ordinaryAttempt(): boolean;
+  /** Consume only this synchronous attempt's unchanged, image-free preflight result. */
+  ordinaryHTML(html: string): ReturnType<typeof normalizeClipboardHTML> | undefined;
   replayHTML(html: string): ClipboardReplayNormalization | undefined;
   handleReplay(event: ClipboardEvent, slice: Slice): ClipboardReplayHandling | undefined;
   /**
    * Prepares the clipboard's image files when the cleaned content has no text of its own. `removedText` says that
    * cleanup removed text the content held, Word's hidden text, which a picture of the selection can show.
    */
-  handleImageOnly(event: ClipboardEvent, slice: Slice, standIns?: readonly string[], removedText?: boolean): boolean;
+  handleImageOnly(event: ClipboardEvent, slice: Slice, standIns?: readonly string[], removedText?: boolean, sourceAlts?: readonly (string | null)[]): boolean;
   assetsHandled(event: ClipboardEvent): boolean;
   observe(): void;
   adopt(): void;
@@ -203,13 +222,15 @@ function resolverNonce(view: EditorView): string {
 }
 
 /** The alt text of the one image a pasted slice held, or the one stand-in cleanup left for it. */
-function singleImageAlt(slice: Slice, nodeTypeName: string | undefined, standIns: readonly string[]): string | undefined {
+function singleImageAlt(slice: Slice, nodeTypeName: string | undefined, standIns: readonly string[], sourceAlts?: readonly (string | null)[]): string | undefined {
   const alts: unknown[] = [];
   slice.content.descendants(node => {
     if (node.type.name === nodeTypeName) alts.push(node.attrs['alt']);
   });
-  if (alts.length === 1) return typeof alts[0] === 'string' && alts[0] !== '' ? alts[0] : undefined;
-  return alts.length === 0 && standIns.length === 1 && standIns[0] !== '' ? standIns[0] : undefined;
+  if (alts.length + standIns.length !== 1) return undefined;
+  if (alts.length === 1) return typeof alts[0] === 'string' ? alts[0] : undefined;
+  if (standIns.length === 1 && standIns[0] !== '') return standIns[0];
+  return standIns.length === 1 && sourceAlts?.length === 1 && sourceAlts[0] === '' ? '' : undefined;
 }
 
 /** A value written into a double-quoted HTML attribute. */
@@ -250,6 +271,12 @@ export function createClipboardAssetCoordinator(
   let active: AssetOperation | undefined;
   let destroyed = false;
   let generation = 0;
+  let passthrough: HTMLPassthrough | undefined;
+  const discardPassthrough = (): void => {
+    if (passthrough === undefined) return;
+    discardPreparedClipboardHTML(passthrough.preparation.handle);
+    passthrough = undefined;
+  };
   const readDestination = (): ClipboardImageDestination | undefined => {
     const policy = getClipboardImageDestination(view);
     if (policy === undefined) return undefined;
@@ -289,6 +316,7 @@ export function createClipboardAssetCoordinator(
   };
   const supersede = (): void => { if (active !== undefined) stop(active, 'superseded'); };
   const begin = (): number => {
+    discardPassthrough();
     const ownGeneration = ++generation;
     supersede();
     return ownGeneration;
@@ -304,6 +332,7 @@ export function createClipboardAssetCoordinator(
   };
   const capture = (event: ClipboardEvent, html?: string): CaptureEntry => {
     const ownGeneration = generation;
+    const formatting = hooks.formatting.read(getClipboardPasteAttemptIdentity(view));
     const state = view.state;
     const ownerDocument = view.dom.ownerDocument;
     const revision = pasteDocumentRevision(view);
@@ -318,7 +347,7 @@ export function createClipboardAssetCoordinator(
       } as DataTransfer;
       result = captureClipboard(input, captureLimits);
     } catch { result = { status: 'rejected', reason: 'unreadable-payload' }; }
-    return { capture: result, generation: ownGeneration, document: state.doc, selection: state.selection, schema: state.schema, revision, ownerDocument };
+    return { capture: result, formatting, generation: ownGeneration, document: state.doc, selection: state.selection, schema: state.schema, revision, ownerDocument };
   };
   const targetMatches = (entry: CaptureEntry): boolean => !view.isDestroyed && view.state.doc === entry.document &&
     view.state.schema === entry.schema && view.state.selection.eq(entry.selection) &&
@@ -326,22 +355,22 @@ export function createClipboardAssetCoordinator(
   const rejectCapture = (entry: CaptureEntry): void => {
     const limited = entry.capture.status === 'rejected' && entry.capture.reason === 'input-limit';
     const normalization = emptyResult(limited ? 'input-limit' : 'parse-failed');
-    const operation = hooks.create(normalization);
+    const operation = hooks.create(normalization, entry.formatting.formatting);
     void hooks.tracking.finish(view, operation, true, { reason: limited ? 'asset-limit' : 'assets-unavailable', normalization });
     hooks.notify(normalization, operation);
   };
-  const prepare = (html: string): ClipboardHTMLPreparationResult => {
+  const prepare = (html: string, formatting: Readonly<PasteFormattingSnapshot>): ClipboardHTMLPreparationResult => {
     const destination = readDestination();
     const inline = assetOptions.mode === 'resolver' && destination?.allowEmbedded === false
       ? { destination, assetLimits, sourceAllowDataImages: htmlOptions.allowDataImages !== false } : undefined;
-    return prepareClipboardHTML(html, preparationLimits, htmlOptions,
-      () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }), inline,
-      features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features), isOwnCopyNonce);
+    return prepareClipboardHTML(html, preparationLimits, { ...htmlOptions, formatting: formatting.formatting },
+      () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true, preserveLabels: true }), inline,
+      createDestinationCheck(view.state.schema, view.dom.ownerDocument), isOwnCopyNonce);
   };
   const makeOperation = (result: ClipboardHTMLPreparationResult, entry: CaptureEntry): AssetOperation => {
     const normalization = result.status === 'prepared'
       ? readPreparedClipboardHTMLNormalization(result.handle) ?? emptyResult('parse-failed') : result.normalization;
-    const operation = hooks.create(normalization);
+    const operation = hooks.create(normalization, entry.formatting.formatting);
     const targetReady = current(entry.generation) && targetMatches(entry);
     const destinationRejected = result.status === 'rejected' && result.destinationRejected === true;
     const started = targetReady && !destinationRejected ? sessions.start(operation.operationId) : undefined;
@@ -377,6 +406,7 @@ export function createClipboardAssetCoordinator(
     const event = replayEvent(view, html);
     const entry: ReplayEntry = { view, asset,
       preserveOrderedListStart: asset.preparation?.preserveOrderedListStart === true,
+      firstParagraph: firstParagraphFormat(normalization),
       attemptSeen: false, gateUsed: replay !== undefined, normalizationUsed: false };
     replays.set(event, entry);
     asset.applying = true;
@@ -531,10 +561,22 @@ export function createClipboardAssetCoordinator(
       return { onDeferred() { /* The source changed after its synchronous capture. */ } };
     }
     handledAssets.add(sourceEvent);
-    const result = prepare(html);
+    const preparationState = view.state;
+    const result = prepare(html, captured.formatting);
     if (result.status === 'prepared' && result.references.length === 0 && result.inlineAssets.placements.length === 0
       && !(assetOptions.mode === 'resolver' && readDestination()?.allowEmbedded === false && result.hasRemovedImages)) {
-      discardPreparedClipboardHTML(result.handle); return undefined;
+      // An earlier host transform may change schema behavior or own-copy identity even when
+      // returning identical HTML. Keep that route's second normalization. An omitted event
+      // also lacks the Core attempt identity needed to bind this private result safely.
+      if (context.event !== undefined && getClipboardPasteAttemptEvent(view) === context.event
+        && current(ownGeneration) && view.state === preparationState && targetMatches(captured)
+        && !result.hasRemovedImages && !mayContainImageMarkup(html) && isFirstHTMLTransformer(view)) {
+        discardPassthrough();
+        const entry: HTMLPassthrough = { html, event: context.event, preparation: result, target: captured, state: preparationState };
+        passthrough = entry;
+        queueMicrotask(() => { if (passthrough === entry) discardPassthrough(); });
+      } else discardPreparedClipboardHTML(result.handle);
+      return undefined;
     }
     const asset = makeOperation(result, captured);
     const references = result.status === 'prepared' ? result.references : Object.freeze([]);
@@ -551,9 +593,11 @@ export function createClipboardAssetCoordinator(
       const own = context.event === undefined ? undefined : replays.get(context.event);
       if (own?.view === view && !own.attemptSeen && !own.asset.done) {
         own.attemptSeen = true;
+        hooks.formatting.inherit(context.attempt, own.asset.target.formatting);
         return;
       }
       const ownGeneration = begin();
+      if (current(ownGeneration)) hooks.formatting.capture(context.attempt, context.origin);
       if (current(ownGeneration) && context.origin === 'native' && context.event !== undefined) {
         nativeAttempts.set(context.event, ownGeneration);
       }
@@ -585,6 +629,20 @@ export function createClipboardAssetCoordinator(
       if (event !== undefined) ordinaryAttempts.set(event, ownGeneration);
       return current(ownGeneration);
     },
+    ordinaryHTML(html) {
+      const entry = passthrough;
+      passthrough = undefined;
+      if (entry === undefined) return undefined;
+      if (entry.html !== html || entry.event !== getClipboardPasteAttemptEvent(view)
+        || !current(entry.target.generation) || view.state !== entry.state || !targetMatches(entry.target)
+        || !isFirstHTMLTransformer(view)) {
+        discardPreparedClipboardHTML(entry.preparation.handle);
+        return undefined;
+      }
+      const result = consumePreparedClipboardHTMLWithoutAssets(entry.preparation.handle);
+      return result === undefined ? undefined : { result,
+        preserveOrderedListStart: result.status !== 'rejected' && entry.preparation.preserveOrderedListStart };
+    },
     replayHTML(html) {
       const event = getClipboardPasteAttemptEvent(view);
       const own = event === undefined ? undefined : replays.get(event);
@@ -592,7 +650,7 @@ export function createClipboardAssetCoordinator(
       const rejected = own.normalizationUsed || own.asset.done;
       own.normalizationUsed = true;
       return { operation: own.asset.operation, html: rejected ? '' : html, rejected,
-        preserveOrderedListStart: own.preserveOrderedListStart };
+        preserveOrderedListStart: own.preserveOrderedListStart, firstParagraph: rejected ? undefined : own.firstParagraph };
     },
     handleReplay(event, slice) {
       const own = replays.get(event);
@@ -602,7 +660,7 @@ export function createClipboardAssetCoordinator(
       if (blocked && !own.asset.done) stop(own.asset, slice.content.size === 0 ? 'assets-unavailable' : cancellationReason(own.asset.session?.cancellation));
       return { operation: own.asset.operation, blocked, preserveOrderedListStart: own.preserveOrderedListStart };
     },
-    handleImageOnly(event, slice, standIns = [], removedText = false) {
+    handleImageOnly(event, slice, standIns = [], removedText = false, sourceAlts) {
       // Core's rule: white space, format characters and alt text left in place of removed images are not text of its
       // own, while text cleanup removed, Word's hidden text, is.
       if (destroyed || replays.has(event) || pasteHasOwnText(event, slice, { imageStandIns: standIns, removedText })) return false;
@@ -628,9 +686,9 @@ export function createClipboardAssetCoordinator(
       if (files.length === 0) return false;
       event.preventDefault();
       // One file stands for the one image the pasted content held and keeps its alt text.
-      const alt = files.length === 1 ? singleImageAlt(slice, readDestination()?.nodeTypeName, standIns) : undefined;
+      const alt = files.length === 1 ? singleImageAlt(slice, readDestination()?.nodeTypeName, standIns, sourceAlts) : undefined;
       const altAttribute = alt === undefined ? '' : ` alt="${escapeAttribute(alt)}"`;
-      const result = prepare(files.map(item => `<img src="cid:clipboard-item-${String(item.itemIndex)}"${altAttribute}>`).join(''));
+      const result = prepare(files.map(item => `<img src="cid:clipboard-item-${String(item.itemIndex)}"${altAttribute}>`).join(''), entry.formatting);
       const asset = makeOperation(result, entry);
       if (result.status !== 'prepared') return true;
       // Each source File is the explicitly selected image in this HTML-free route.
@@ -645,8 +703,8 @@ export function createClipboardAssetCoordinator(
     },
     assetsHandled: event => handledAssets.has(event) || replays.has(event),
     observe: () => { sessions.observe(); if (active?.session?.signal.aborted === true) stop(active, cancellationReason(active.session.cancellation)); },
-    adopt: () => { generation++; if (active !== undefined) stop(active, 'target-changed'); },
-    destroy() { destroyed = true; if (active !== undefined) stop(active, 'target-changed'); sessions.destroy(); unregister(); },
+    adopt: () => { discardPassthrough(); generation++; if (active !== undefined) stop(active, 'target-changed'); },
+    destroy() { discardPassthrough(); destroyed = true; if (active !== undefined) stop(active, 'target-changed'); sessions.destroy(); unregister(); },
     filterTransaction(transaction) {
       const asset = applyingOperation(transaction);
       if (asset === undefined) return true;

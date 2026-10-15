@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   OWN_BUNDLE_SUBPATHS,
+  STANDALONE_SUBPATHS,
   SUBPATHS,
   declarationExports,
   entryFiles,
@@ -250,6 +251,26 @@ test('only declared and locale subpaths may exist on a checked package', () => {
   assert.deepEqual(undeclaredSubpaths(manifest, new Set()), ['./clipboard']);
   assert.ok(OWN_BUNDLE_SUBPATHS.test('./locales/de'));
   assert.ok(!OWN_BUNDLE_SUBPATHS.test('./clipboard'));
+});
+
+test('only the qualified Core list-labels entry may have an independent nonlocale bundle', () => {
+  assert.deepEqual(STANDALONE_SUBPATHS, [
+    { package: '@domternal/core', directory: 'packages/core', subpath: './list-labels' },
+  ]);
+  const standalone = { ...manifest, exports: { ...manifest.exports, './list-labels': {} } };
+  assert.deepEqual(undeclaredSubpaths(standalone, new Set(['./clipboard'])), []);
+  assert.deepEqual(undeclaredSubpaths({ ...standalone, name: '@domternal/other' }, new Set(['./clipboard'])), ['./list-labels']);
+  assert.deepEqual(undeclaredSubpaths(standalone, new Set()), ['./clipboard']);
+  assert.ok(!OWN_BUNDLE_SUBPATHS.test('./list-labels'));
+  const unknown = ['../list-labels', './list-labels/private', './list-labels-extra', './unknown'];
+  assert.deepEqual(undeclaredSubpaths({
+    ...standalone, exports: { ...standalone.exports, ...Object.fromEntries(unknown.map(name => [name, {}])) },
+  }, new Set(['./clipboard'])), [...unknown].sort());
+});
+
+test('standalone inventory follows the published exports map', () => {
+  const published = { ...manifest, publishConfig: { exports: { './list-labels': {}, './unknown': {} } } };
+  assert.deepEqual(undeclaredSubpaths(published, new Set()), ['./unknown']);
 });
 
 test('the declared subpaths name workspace packages', () => {

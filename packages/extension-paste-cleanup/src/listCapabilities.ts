@@ -1,6 +1,8 @@
-import { DOMParser } from '@domternal/pm/model';
-import type { Node as PMNode, Schema } from '@domternal/pm/model';
+import { DOMParser, DOMSerializer } from '@domternal/pm/model';
+import type { DOMOutputSpec, Node as PMNode, Schema } from '@domternal/pm/model';
+import type { ListLabel } from '@domternal/core/list-labels';
 import { bulletListStyles, orderedListStyles } from './html/listStyles.js';
+import { officeLabelCapability } from './listLabelCapabilities.js';
 
 export interface OfficeListCapabilities {
   orderedLists: boolean;
@@ -8,6 +10,8 @@ export interface OfficeListCapabilities {
   nestedLists: boolean;
   /** With `preserveMarkers`: each marker class whose explicit value survived an actual parse. */
   markers?: ReadonlySet<string>;
+  /** With `preserveLabels`: exact optional labels the parser and serializer retain at this depth. */
+  labels?: (label: ListLabel, level: number) => boolean;
 }
 
 type ListKind = 'orderedList' | 'bulletList';
@@ -26,18 +30,19 @@ function listMatches(node: PMNode | null, probe: ListProbe, text: string): boole
 }
 
 /** Probe actual parse rules and content expressions before removing visible Office markers. */
-export function officeListCapabilities(schema: Schema, document: Document, options: { preserveMarkers?: boolean } = {}): OfficeListCapabilities {
+export function officeListCapabilities(schema: Schema, document: Document, options: { preserveMarkers?: boolean; preserveLabels?: boolean } = {}): OfficeListCapabilities {
   const parser = DOMParser.fromSchema(schema);
-  const markerStyle = (probe: ListProbe): string => probe.marker === undefined ? '' : ` style="list-style-type:${probe.marker}"`;
+  const listSpec = (probe: ListProbe, text: string, children: DOMOutputSpec[] = []): DOMOutputSpec => [
+    probe.kind === 'orderedList' ? 'ol' : 'ul',
+    { start: '7', ...(probe.marker === undefined ? {} : { style: `list-style-type:${probe.marker}` }) },
+    ['li', ['p', text], ...children],
+  ];
   const accepts = (probe: ListProbe, nested?: ListProbe): boolean => {
     try {
-      const tag = probe.kind === 'orderedList' ? 'ol' : 'ul';
-      const nestedTag = nested?.kind === 'orderedList' ? 'ol' : 'ul';
-      const child = nested === undefined ? ''
-        : `<${nestedTag} start="7"${markerStyle(nested)}><li><p>Inner</p></li></${nestedTag}>`;
       const container = document.createElement('div');
-      // This constant probe contains no source content or resource references.
-      container.innerHTML = `<${tag} start="7"${markerStyle(probe)}><li><p>Outer</p>${child}</li></${tag}>`;
+      // Constant specs require no HTML sink or host Trusted Types policy.
+      container.appendChild(DOMSerializer.renderSpec(document,
+        listSpec(probe, 'Outer', nested === undefined ? [] : [listSpec(nested, 'Inner')])).dom);
       const slice = parser.parseSlice(container);
       if (slice.content.childCount !== 1) return false;
       const list = slice.content.firstChild;
@@ -83,5 +88,6 @@ export function officeListCapabilities(schema: Schema, document: Document, optio
     bulletLists: bulletListStyles.some(marker => markers.has(marker)),
     nestedLists: nests(representatives),
     markers,
+    ...(options.preserveLabels === true ? { labels: officeLabelCapability(schema, document) } : {}),
   };
 }

@@ -639,7 +639,7 @@ for (const framework of FRAMEWORKS) {
         const codes = (diagnostics: readonly { code: string }[]): string[] => diagnostics.map(diagnostic => diagnostic.code);
         expect(codes(observed.results[0]?.diagnostics ?? [])).toEqual(['destination-heading-level-adapted']);
         expect(codes(result.diagnostics)).toEqual(smartPaste ? ['destination-heading-level-adapted'] : []);
-        const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
+        const notice = page.getByRole('group', { name: /^Paste notice(?:: .+)?$/u });
         if (smartPaste) await expect(notice.locator('li')).toHaveText([HEADING_NOTICE]);
         else await expect(notice).toBeHidden();
         await privateMetadataStaysOffUI(page);
