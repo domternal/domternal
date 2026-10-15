@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BulletList, Document, Editor, History, ListItem, ListLabels, OrderedList, Paragraph, Text } from '@domternal/core';
 import type { JSONAttribute, JSONContent } from '@domternal/core';
+import { Image } from '../../extension-image/dist/index.js';
 import { SmartPaste } from '../../extension-block-controls/dist/index.js';
 import { PasteCleanup } from './PasteCleanup.js';
 import type { NormalizePasteHTMLResult } from './html/types.js';
@@ -17,9 +18,10 @@ const wordItem = (marker: string, text: string, level = 1, list = 0): string =>
 const rules = '<style>@list l0:level1 {mso-level-number-format:alpha-upper;mso-level-text:"Section %1)";}'
   + '@list l0:level2 {mso-level-number-format:bullet;mso-level-text:"✓";}'
   + '@list l1:level1 {mso-level-text:"(%1)";}</style>';
-function receiving(labels: boolean, formatting: 'preserve' | 'adapt', results: NormalizePasteHTMLResult[]): Editor {
+function receiving(labels: boolean, formatting: 'preserve' | 'adapt', results: NormalizePasteHTMLResult[], imageAssets = false): Editor {
   const editor = new Editor({ extensions: [Document, Paragraph, Text, ListItem, OrderedList, BulletList, History, SmartPaste,
-    ...(labels ? [ListLabels] : []), PasteCleanup.configure({ formatting, onResult: result => { results.push(result); } })], content: '<p>Before</p>' });
+    ...(labels ? [ListLabels] : []), ...(imageAssets ? [Image.configure({ allowBase64: true })] : []), PasteCleanup.configure({ formatting,
+      ...(imageAssets ? { imageAssets: { mode: 'embedded' as const } } : {}), onResult: result => { results.push(result); } })], content: '<p>Before</p>' });
   editors.push(editor); return editor;
 }
 function paste(editor: Editor, html: string): void {
@@ -49,6 +51,24 @@ describe('Word labels in the receiving editor', () => {
     expect(editor.commands.redo()).toBe(true); expect(editor.getJSON()).toEqual(expected);
     paste(editor, html); expect(editor.getJSON()).toEqual(expected);
     expect(results[1]?.diagnostics).toEqual([]);
+  });
+
+  it.each([false, true])('retains labels through image preparation, with a picture=%s', async picture => {
+    const results: NormalizePasteHTMLResult[] = []; const editor = receiving(true, 'preserve', results, true);
+    const before = editor.getJSON();
+    const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+    paste(editor, rules + wordItem('Section A)', 'Outer') + wordItem('✓', 'Inner', 2)
+      + (picture ? `<p><img src="${image}" alt="Chart"></p>` : ''));
+    await vi.waitFor(() => { expect(results).toHaveLength(1); }, { interval: 1 });
+    await vi.waitFor(() => { expect(editor.getJSON().content?.[0]?.type).toBe('orderedList'); }, { interval: 1 });
+    expect(editor.getJSON().content?.[0]).toEqual(ordered(1, [entry('Outer', {
+      type: 'bulletList', attrs: { listStyleType: 'disc', listLabel: bullet }, content: [entry('Inner')],
+    })]));
+    expect(editor.view.dom.querySelector('img')?.getAttribute('src')).toBe(picture ? image : undefined);
+    expect(results[0]?.diagnostics).toEqual([]);
+    const after = editor.getJSON();
+    expect(editor.commands.undo()).toBe(true); expect(editor.getJSON()).toEqual(before);
+    expect(editor.commands.redo()).toBe(true); expect(editor.getJSON()).toEqual(after);
   });
 
   it('keeps unsupported source labels literal with a warning in a legacy editor', () => {

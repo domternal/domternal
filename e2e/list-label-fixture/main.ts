@@ -3,16 +3,19 @@ import type { AnyExtension, JSONContent } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { splitListItem } from '@domternal/pm/schema-list';
 import { SmartPaste, KeyboardReorder } from '@domternal/extension-block-controls';
+import { Image } from '@domternal/extension-image';
 import { PasteCleanup } from '@domternal/extension-paste-cleanup';
 import type { NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup';
 const controls = new URLSearchParams(location.search).has('controls');
 const cleanup = new URLSearchParams(location.search).has('cleanup');
+const imageAssets = new URLSearchParams(location.search).has('assets');
 const legacy = new URLSearchParams(location.search).has('legacy');
 const pasteResults: NormalizePasteHTMLResult[] = [];
 
 const extensions = (labels = !legacy, hosted = false): AnyExtension[] => [Document, Paragraph, Text, OrderedList, BulletList, History, BaseKeymap,
   ...(labels ? [ListLabels.configure({ injectCSS: !hosted, nonce: 'list-label-test' })] : []), ...(controls ? [SmartPaste, KeyboardReorder] : []),
-  ...(cleanup ? [PasteCleanup.configure({ onResult: result => { pasteResults.push(result); } })] : [])];
+  ...(imageAssets ? [Image.configure({ allowBase64: true })] : []),
+  ...(cleanup ? [PasteCleanup.configure({ ...(imageAssets ? { imageAssets: { mode: 'embedded' as const } } : {}), onResult: result => { pasteResults.push(result); } })] : [])];
 const sample = document.querySelector<HTMLElement>('#sample');
 if (!sample) throw new Error('Missing editor mount');
 const editor = new Editor({ element: sample, extensions: extensions(), content: '<p>Ready</p>' });

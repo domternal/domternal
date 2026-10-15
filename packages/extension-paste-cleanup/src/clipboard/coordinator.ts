@@ -364,7 +364,7 @@ export function createClipboardAssetCoordinator(
     const inline = assetOptions.mode === 'resolver' && destination?.allowEmbedded === false
       ? { destination, assetLimits, sourceAllowDataImages: htmlOptions.allowDataImages !== false } : undefined;
     return prepareClipboardHTML(html, preparationLimits, { ...htmlOptions, formatting: formatting.formatting },
-      () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }), inline,
+      () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true, preserveLabels: true }), inline,
       features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features), isOwnCopyNonce);
   };
   const makeOperation = (result: ClipboardHTMLPreparationResult, entry: CaptureEntry): AssetOperation => {

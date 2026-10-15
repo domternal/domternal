@@ -82,6 +82,27 @@ test('Word custom labels preserve visible numbering, nested bullets, restarts an
   expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.pasteResults.at(-1)?.diagnostics)).toEqual([]);
 });
 
+for (const picture of [false, true]) test(`Word custom labels survive image preparation, picture=${String(picture)}`, async ({ page }) => {
+  await open(page, doc({ type: 'paragraph', content: [{ type: 'text', text: 'Before' }] }), '?cleanup=1&controls=1&assets=1');
+  const before = await snapshot(page);
+  const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+  await page.evaluate(html => { const probe = (window as unknown as ProbeWindow).__listLabels; probe.editor.commands.selectAll(); probe.pasteHTML(html); },
+    wordLabelRules + wordLabelItem('Section A)', 'Outer') + wordLabelItem('✓', 'Inner', 0, 2)
+      + (picture ? `<p><img src="${image}" alt="Chart"></p>` : ''));
+  await expect(page.locator('#sample .ProseMirror ol')).toHaveCount(1);
+  await expect(page.locator('#sample .ProseMirror img')).toHaveCount(picture ? 1 : 0);
+  const pasted = await snapshot(page);
+  expect((JSON.parse(pasted.json) as JSONContent).content?.[0]).toEqual({ type: 'orderedList', attrs: {
+    start: 1, listStyleType: 'upper-alpha', listLabel: { kind: 'counter', format: 'upper-alpha', prefix: 'Section ', suffix: ') ' },
+  }, content: [item('Outer', { type: 'bulletList', attrs: { listStyleType: 'disc', listLabel: { kind: 'text', text: '✓' } }, content: [item('Inner')] })] });
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.pasteResults.map(result => result.diagnostics))).toEqual([[]]);
+  for (const list of await page.locator('#sample .ProseMirror ol,#sample .ProseMirror ul').all()) await expect(list).toHaveCSS('list-style-type', /^dm-ll-/u);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.undo())).toBe(true);
+  expect((await snapshot(page)).json).toBe(before.json);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.redo())).toBe(true);
+  expect((await snapshot(page)).json).toBe(pasted.json);
+});
+
 test('Word custom labels retain their literal marker when the destination has no ListLabels', async ({ page }) => {
   await open(page, doc({ type: 'paragraph', content: [{ type: 'text', text: 'Before' }] }), '?cleanup=1&legacy=1');
   await page.evaluate(html => { const probe = (window as unknown as ProbeWindow).__listLabels; probe.editor.commands.selectAll(); probe.pasteHTML(html); },
