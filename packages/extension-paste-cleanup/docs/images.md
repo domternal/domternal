@@ -140,15 +140,19 @@ markup, escaping and each repeated image URL count toward the output allowance;
 repeated placements also share the existing raster-pixel limit. File metadata,
 actual bytes, raster headers and current destination policy are rechecked.
 
-The file limits apply to the files a paste uses. Files count in clipboard order:
-a file over `maxFileBytes`, one that would take the files before it past
-`maxTotalFileBytes`, and every clipboard item after the first 256 are left out
-unread, and the paste goes ahead while no binding uses them, so a large unrelated
-attachment does not block a text paste. A binding to a left-out item rejects the
-paste with `asset-limit`, under `unresolved: 'omit'` too. So does an image-only
-paste that holds a left-out image file or more than 256 items, since it pastes
-every image file. In `match`, a left-out file has `available: false` with its type
-and size, and the items after the first 256 are not listed.
+The total file limit applies to the images selected for preparation after matching,
+before any file is read. Unused files do not consume that allowance, regardless of
+clipboard order. Repeated placements of the same `File` object count once toward
+`maxTotalFileBytes`; distinct `File` objects count separately even if their bytes
+are identical. Exceeding the total rejects the whole paste with `asset-limit`,
+under `unresolved: 'omit'` too, without reading files or inserting partial content.
+
+A file over `maxFileBytes` and every clipboard item after the first 256 are left
+out unread. A binding to a left-out item rejects with `asset-limit`. In `match`,
+an oversized file has `available: false` with its type and size; items after the
+first 256 are not listed. `available: true` means a file fits individually, not
+that all selected images fit together. An image-only paste selects every image
+file and enforces the same total limit; more than 256 items also rejects it.
 
 ## Progress, cancellation and target changes
 

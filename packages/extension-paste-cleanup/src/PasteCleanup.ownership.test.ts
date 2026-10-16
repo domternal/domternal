@@ -117,13 +117,18 @@ describe('PasteCleanup clipboard slot ownership', () => {
     expect(noticeCount()).toBe(0);
   });
 
-  it('reports an HTML preparation that an earlier plugin view holds as a configuration error and leaves nothing running', () => {
+  it.each([
+    { label: 'image assets', cleanup: { imageAssets: embedded } },
+    { label: 'per-paste formatting without image assets', cleanup: { imageAssets: false as const, formattingForPaste: (): 'adapt' => 'adapt' } },
+    { label: 'image assets and per-paste formatting', cleanup: { imageAssets: embedded, formattingForPaste: (): 'adapt' => 'adapt' } },
+  ])('reports an HTML preparation conflict for $label with actionable guidance and leaves nothing running', ({ cleanup }) => {
     const rival: Rival = { destroyed: 0 };
     const host = mountHost();
-    const error = thrown(() => construct({ imageAssets: embedded }, [rivalExtension('HTML preparation', 1300, rival)], host));
+    const error = thrown(() => construct(cleanup, [rivalExtension('HTML preparation', 1300, rival)], host));
 
     expectGuidance(error, 'HTML preparation');
-    expect(error.message).toContain('imageAssets');
+    expect(error.message).toContain('imageAssets is enabled or formattingForPaste is configured');
+    expect(error.message).toContain('set imageAssets to false and omit formattingForPaste');
     expect(required(rival.view).isDestroyed).toBe(true);
     expect(rival.destroyed).toBe(1);
     expect(host.childNodes).toHaveLength(0);
@@ -161,9 +166,9 @@ describe('PasteCleanup clipboard slot ownership', () => {
     registerClipboardHTMLPreparation(editor.view, () => undefined)();
   });
 
-  it.each([1300, 100])('leaves the HTML preparation to another registration when imageAssets is off (priority %i)', priority => {
+  it.each([1300, 100])('leaves the HTML preparation to another registration when imageAssets is off and formattingForPaste is omitted (priority %i)', priority => {
     const rival: Rival = { destroyed: 0 };
-    const editor = construct({}, [rivalExtension('HTML preparation', priority, rival)]);
+    const editor = construct({ imageAssets: false, formatting: 'adapt' }, [rivalExtension('HTML preparation', priority, rival)]);
 
     expect(rival.view).toBe(editor.view);
     expect(() => registerClipboardHTMLPreparation(editor.view, () => undefined)).toThrow(refusals['HTML preparation']);

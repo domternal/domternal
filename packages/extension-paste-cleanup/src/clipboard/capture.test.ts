@@ -44,7 +44,7 @@ describe('captureClipboard', () => {
       status: 'captured',
       snapshot: {
         text: { 'text/html': '', 'text/plain': '', Text: '' },
-        items: [], itemCount: 0, textBytes: 0, fileBytes: 0,
+        items: [], itemCount: 0, textBytes: 0,
       },
     });
   });
@@ -96,7 +96,6 @@ describe('captureClipboard', () => {
     expect(result.snapshot.items[0]).not.toBe(stringItem);
     items.splice(0, items.length);
     expect(result.snapshot.items).toHaveLength(4);
-    expect(result.snapshot.fileBytes).toBe(3);
   });
 
   it('freezes result containers without freezing or copying the File', () => {
@@ -137,7 +136,6 @@ describe('captureClipboard', () => {
       expect(result.status).toBe('captured');
       if (result.status !== 'captured') throw new Error('Expected captured clipboard');
       expect(result.snapshot.items[0]?.file).toBe(file);
-      expect(result.snapshot.fileBytes).toBe(3);
     } finally { frame.remove(); }
   });
 
@@ -277,21 +275,16 @@ describe('captureClipboard', () => {
       itemIndex: 0, kind: 'file', declaredType: 'application/octet-stream',
       file: null, fileType: 'application/octet-stream', fileSize: 5, overLimit: true,
     }]);
-    expect(left.snapshot.fileBytes).toBe(0);
     expect(left.snapshot.text['text/html']).toBe('<p>x</p>');
   });
 
-  it('counts repeated File references conservatively, leaving out the one past the total', () => {
-    const file = sizedFile(3);
-    const data = clipboard({}, [item('file', 'image/png', file), item('file', 'image/png', file)]);
-    const result = captureClipboard(data, { ...limits, maxTotalFileBytes: 6 });
-    expect(result.status).toBe('captured');
+  it('retains individually bounded File references until their bindings are known', () => {
+    const first = sizedFile(3);
+    const second = sizedFile(3);
+    const data = clipboard({}, [item('file', 'image/png', first), item('file', 'image/png', second), item('file', 'image/png', first)]);
+    const result = captureClipboard(data, { ...limits, maxTotalFileBytes: 3 });
     if (result.status !== 'captured') throw new Error('Expected captured clipboard');
-    expect(result.snapshot.fileBytes).toBe(6);
-    const left = captureClipboard(data, { ...limits, maxTotalFileBytes: 5 });
-    if (left.status !== 'captured') throw new Error('Expected captured clipboard');
-    expect(left.snapshot.items.map(entry => [entry.file, entry.overLimit])).toEqual([[file, false], [null, true]]);
-    expect(left.snapshot.fileBytes).toBe(3);
+    expect(result.snapshot.items.map(entry => [entry.file, entry.overLimit])).toEqual([[first, false], [second, false], [first, false]]);
   });
 
   it('keeps a later File that fits after one over the limits', () => {
@@ -301,13 +294,13 @@ describe('captureClipboard', () => {
     const result = captureClipboard(data, { ...limits, maxFileBytes: 4 });
     if (result.status !== 'captured') throw new Error('Expected captured clipboard');
     expect(result.snapshot.items.map(entry => [entry.file, entry.overLimit])).toEqual([[null, true], [small, false]]);
-    expect(result.snapshot.fileBytes).toBe(2);
   });
 
-  it('enforces a shared file and text budget at the exact byte boundary', () => {
+  it('bounds source text independently until selected file bytes are known', () => {
     const data = clipboard({ 'text/html': 'é' }, [item('file', 'image/png', sizedFile(3))]);
     expect(captureClipboard(data, { ...limits, maxClipboardBytes: 5 }).status).toBe('captured');
-    expect(captureClipboard(data, { ...limits, maxClipboardBytes: 4 })).toEqual(rejectedLimit);
+    expect(captureClipboard(data, { ...limits, maxClipboardBytes: 3 }).status).toBe('captured');
+    expect(captureClipboard(data, { ...limits, maxClipboardBytes: 1 })).toEqual(rejectedLimit);
   });
 
   it('leaves out a File past the shared budget and keeps the budget for the text', () => {
@@ -331,14 +324,13 @@ describe('captureClipboard', () => {
     expect(none.snapshot.itemCount).toBe(1);
   });
 
-  it('uses subtraction bounds so large synthetic file totals cannot overflow safe integers', () => {
+  it('retains bounded references without summing unused synthetic file sizes', () => {
     const maximum = Number.MAX_SAFE_INTEGER;
     const data = clipboard({}, [item('file', '', sizedFile(maximum)), item('file', '', sizedFile(1))]);
     const large = { ...limits, maxFileBytes: maximum, maxTotalFileBytes: maximum, maxClipboardBytes: maximum };
     const result = captureClipboard(data, large);
     if (result.status !== 'captured') throw new Error('Expected captured clipboard');
-    expect(result.snapshot.items.map(entry => entry.overLimit)).toEqual([false, true]);
-    expect(result.snapshot.fileBytes).toBe(maximum);
+    expect(result.snapshot.items.map(entry => entry.overLimit)).toEqual([false, false]);
   });
 
   it.each([NaN, Infinity, -1, 0.5, Number.MAX_SAFE_INTEGER + 1])('rejects malformed file size %s without partial output', size => {

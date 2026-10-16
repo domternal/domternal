@@ -381,6 +381,8 @@ test.describe('clipboard content a coordinated paste does not use', () => {
     flavors?: Record<string, string>;
     files: readonly ({ readonly png: true } | { readonly type: string; readonly size: number })[];
     bind?: number;
+    bindings?: readonly { readonly reference: string; readonly fileIndex: number }[];
+    route?: 'native' | 'programmatic';
   }): Promise<void> {
     await page.evaluate(({ options, png }) => {
       const probe = (window as unknown as ProbeWindow).__pasteCleanup;
@@ -395,11 +397,84 @@ test.describe('clipboard content a coordinated paste does not use', () => {
           ? new File([bytes], 'private-source.png', { type: 'image/png' })
           : new File([new Uint8Array(file.size)], 'private-unrelated.bin', { type: file.type }));
       }
-      probe.setAssetBindings(options.bind === undefined ? [] : [{ reference: 'cid:private-chart', itemIndex: first + options.bind }]);
+      const bindings = options.bindings ?? (options.bind === undefined ? [] : [{ reference: 'cid:private-chart', fileIndex: options.bind }]);
+      probe.setAssetBindings(bindings.map(binding => ({ reference: binding.reference, itemIndex: first + binding.fileIndex })));
       const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
       if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
-      probe.editor.view.dom.dispatchEvent(event);
+      if (options.route === 'programmatic') probe.editor.view.pasteHTML(options.html, event);
+      else probe.editor.view.dom.dispatchEvent(event);
     }, { options, png: PNG });
+  }
+
+  for (const framework of FRAMEWORKS) {
+    test.describe(`${framework}: bound clipboard file budget`, () => {
+      for (const assets of ['embedded', 'resolver']) {
+        for (const unused of ['before', 'after']) {
+          test(`${assets}: ignores an unused file ${unused} repeated placements at the exact byte limit`, async ({ page }) => {
+            await page.route('http://127.0.0.1:5895/__resolver-images__/**', route => route.fulfill({
+              contentType: 'image/png', body: Buffer.from(PNG, 'base64'),
+            }));
+            const before = await open(page, framework, { assets, 'asset-total-bytes': String(Buffer.from(PNG, 'base64').length) });
+            const unusedFile = { type: 'image/png', size: 1 };
+            const boundIndex = unused === 'before' ? 1 : 0;
+            await pasteItems(page, {
+              html: '<p><strong>New</strong></p><img src="cid:private-chart" alt="First"><img src="cid:private-repeat" alt="Repeat"><p>End</p>',
+              files: unused === 'before' ? [unusedFile, { png: true }] : [{ png: true }, unusedFile],
+              bindings: [
+                { reference: 'cid:private-chart', fileIndex: boundIndex },
+                { reference: 'cid:private-repeat', fileIndex: boundIndex },
+              ],
+              route: unused === 'before' ? 'native' : 'programmatic',
+            });
+            expect((await terminal(page)).status).toBe('applied');
+            const source = assets === 'embedded' ? PNG_URL : 'http://127.0.0.1:5895/__resolver-images__/1.png';
+            const images = page.locator('.ProseMirror img');
+            await expect(images).toHaveCount(2);
+            await expect(images.nth(0)).toHaveAttribute('src', source);
+            await expect(images.nth(0)).toHaveAttribute('alt', 'First');
+            await expect(images.nth(1)).toHaveAttribute('src', source);
+            await expect(images.nth(1)).toHaveAttribute('alt', 'Repeat');
+            await expect(page.locator('.ProseMirror strong')).toHaveText('New');
+            await expect(page.locator('.ProseMirror')).toHaveText('Before NewEnd after');
+            expect((await observations(page)).assetReads).toBe(1);
+            expect((await observations(page)).assetUploads).toBe(0);
+            expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history())).toEqual({ undo: 1, redo: 0 });
+            await undoRedo(page, before, await snapshot(page));
+            expect((await observations(page)).operations).toHaveLength(1);
+            expect((await observations(page)).assetReads).toBe(1);
+          });
+        }
+      }
+
+      test('rejects two bound files one byte over the aggregate before any read or history change', async ({ page }) => {
+        const before = await open(page, framework, { 'asset-total-bytes': String(Buffer.from(PNG, 'base64').length * 2 - 1) });
+        await pasteItems(page, {
+          html: '<p><strong>New</strong></p><img src="cid:private-chart"><img src="cid:private-second"><p>End</p>',
+          files: [{ png: true }, { png: true }],
+          bindings: [
+            { reference: 'cid:private-chart', fileIndex: 0 },
+            { reference: 'cid:private-second', fileIndex: 1 },
+          ],
+        });
+        expect(await terminal(page)).toMatchObject({ status: 'rejected', reason: 'asset-limit' });
+        expect(await snapshot(page)).toEqual(before);
+        expect((await observations(page)).assetReads).toBe(0);
+        expect((await observations(page)).assetUploads).toBe(0);
+        expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history())).toEqual({ undo: 0, redo: 0 });
+        await expect(page.locator('.ProseMirror img')).toHaveCount(0);
+      });
+
+      test('rejects image-only files one byte over the aggregate before any read or history change', async ({ page }) => {
+        const before = await open(page, framework, { 'asset-total-bytes': String(Buffer.from(PNG, 'base64').length * 2 - 1) });
+        await paste(page, { html: '', text: '', files: 2 });
+        expect(await terminal(page)).toMatchObject({ status: 'rejected', reason: 'asset-limit' });
+        expect(await snapshot(page)).toEqual(before);
+        expect((await observations(page)).assetReads).toBe(0);
+        expect((await observations(page)).assetUploads).toBe(0);
+        expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history())).toEqual({ undo: 0, redo: 0 });
+        await expect(page.locator('.ProseMirror img')).toHaveCount(0);
+      });
+    });
   }
 
   test('prepares the paste beside RTF and URI list flavors past the input ceiling, which the editor never reads', async ({ page }) => {
