@@ -157,6 +157,7 @@ The output is editor input, still subject to your destination schema, not a gene
 - Remote images are removed by default. `allowRemoteImages: true` keeps HTTP(S) references; rendering them can contact those hosts.
 - `allowDataImages: true` retains bounded PNG, JPEG, GIF and static WebP data images when the destination supports them. SVG, APNG and animated WebP are removed. Match this to the Image extension's `allowBase64` policy.
 - Local asset preparation is off by default. Use `imageAssets: { mode: 'embedded' }` for bounded local raster files, or an explicit application resolver for persistent storage. Mixed HTML needs application-supplied image bindings; there is no automatic Word/CID association. Image-only pastes can otherwise use the Image extension's existing upload or embedding behavior.
+- The total local file byte limit counts selected images, not unused clipboard attachments. Repeated placements of the same File count once; exceeding the selected total rejects the paste before file reads or partial insertion.
 - The HTML normalizer performs no network requests. An explicitly configured resolver or the destination's existing Image upload handler can perform application-owned network work.
 
 | Resource | Default ceiling |

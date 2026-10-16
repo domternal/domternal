@@ -188,7 +188,7 @@ describe('explicit clipboard image bindings', () => {
     const snapshot = capture([{ kind: 'file', type: 'image/png', file: image }, { kind: 'file', type: 'image/png', file: image }]);
     for (const override of [
       { maxItems: 1 }, { maxStringLength: 2 }, { maxTextBytes: snapshot.textBytes - 1 },
-      { maxFileBytes: 2 }, { maxTotalFileBytes: 5 }, { maxClipboardBytes: snapshot.textBytes + 5 },
+      { maxFileBytes: 2 }, { maxTotalFileBytes: 2 }, { maxClipboardBytes: snapshot.textBytes + 2 },
       { maxMetadataLength: 3 },
     ]) {
       const result = check(snapshot, [reference()], [binding()], destination(), { ...limits, ...override });
@@ -196,7 +196,7 @@ describe('explicit clipboard image bindings', () => {
       expect(result.matches).toEqual([]);
       expect(result.diagnostics[0]?.code).toBe('input-limit');
     }
-    expect(check(snapshot, [reference()], [binding()], destination(), { ...limits, maxClipboardBytes: snapshot.textBytes + 6 }).status).toBe('checked');
+    expect(check(snapshot, [reference()], [binding()], destination(), { ...limits, maxClipboardBytes: snapshot.textBytes + 3 }).status).toBe('checked');
   });
 
   it('rejects a binding to a File the capture left out over its budgets, instead of reporting it unavailable', () => {
@@ -207,6 +207,73 @@ describe('explicit clipboard image bindings', () => {
     const result = check(snapshot, [reference('a'), reference('b')], [binding('a', 0), binding('b', 1)]);
     expect(result).toMatchObject({ status: 'rejected', reason: 'input-limit', matches: [] });
     expect(result.diagnostics).toEqual([{ code: 'input-limit' }]);
+  });
+
+  it.each([0, 1])('charges only the selected file at index %i, including the exact text and file boundary', selected => {
+    const images = [file(), file()];
+    const snapshot = capture(images.map(image => ({ kind: 'file', type: 'image/png', file: image })), { ...limits, maxTotalFileBytes: 3 });
+    const cap = { ...limits, maxTotalFileBytes: 3, maxClipboardBytes: snapshot.textBytes + 3 };
+    const result = check(snapshot, [reference()], [binding('a', selected)], destination(), cap);
+    expect(result.status).toBe('checked');
+    expect(result.matches.map(match => match.file)).toEqual([images[selected]]);
+    expect(check(snapshot, [reference()], [binding('a', selected)], destination(), {
+      ...cap, maxClipboardBytes: cap.maxClipboardBytes - 1,
+    })).toMatchObject({ status: 'rejected', reason: 'input-limit', matches: [] });
+  });
+
+  it('charges repeated placements of one File once across original item indexes', () => {
+    const image = file();
+    const snapshot = capture([0, 1].map(() => ({ kind: 'file', type: 'image/png', file: image })), { ...limits, maxTotalFileBytes: 3 });
+    const result = check(snapshot, [reference('a'), reference('b')], [binding('a', 0), binding('b', 1)], destination(), {
+      ...limits, maxTotalFileBytes: 3, maxClipboardBytes: snapshot.textBytes + 3,
+    });
+    expect(result.status).toBe('checked');
+    expect(result.matches.map(match => match.itemIndex)).toEqual([0, 1]);
+  });
+
+  it('charges distinct equal-byte Files separately before content deduplication', () => {
+    const snapshot = capture([file(), file()].map(image => ({ kind: 'file', type: 'image/png', file: image })));
+    const refs = [reference('a'), reference('b')];
+    const bindings = [binding('a', 0), binding('b', 1)];
+    expect(check(snapshot, refs, bindings, destination(), { ...limits, maxTotalFileBytes: 6 }).matches).toHaveLength(2);
+    expect(check(snapshot, refs, bindings, destination(), { ...limits, maxTotalFileBytes: 5 }))
+      .toMatchObject({ status: 'rejected', reason: 'input-limit', matches: [] });
+  });
+
+  it('does not charge omitted unsupported files to the selected image budget', () => {
+    const snapshot = capture([
+      { kind: 'file', type: 'application/pdf', file: file('application/pdf') },
+      { kind: 'file', type: 'image/png', file: file() },
+    ], { ...limits, maxTotalFileBytes: 3 });
+    const result = check(snapshot, [reference('a'), reference('b')], [binding('a', 0), binding('b', 1)], destination(), {
+      ...limits, maxTotalFileBytes: 3,
+    });
+    expect(result.status).toBe('checked');
+    expect(result.matches.map(match => match.itemIndex)).toEqual([1]);
+    expect(result.diagnostics).toEqual([{ code: 'unsupported-image-type', placementId: 'a', offset: 4 }]);
+  });
+
+  it.each(['size', 'mime'] as const)('rejects inconsistent %s metadata for a repeated File identity', changed => {
+    const image = file();
+    const original = capture([0, 1].map(() => ({ kind: 'file', type: 'image/png', file: image })));
+    const snapshot = { ...original, items: original.items.map((item, index) => index === 0 ? item : {
+      ...item, ...(changed === 'size' ? { fileSize: 2 } : { fileType: 'image/jpeg', declaredType: 'image/jpeg' }),
+    }) };
+    expect(check(snapshot, [reference('a'), reference('b')], [binding('a', 0), binding('b', 1)]))
+      .toMatchObject({ status: 'rejected', reason: 'invalid-snapshot', matches: [] });
+  });
+
+  it('uses subtraction bounds when selected synthetic file sizes would overflow safe integers', () => {
+    const maximum = Number.MAX_SAFE_INTEGER;
+    const cap = { ...limits, maxFileBytes: maximum, maxTotalFileBytes: maximum, maxClipboardBytes: maximum };
+    const images = [maximum, 1].map(size => ({ size, type: 'image/png' } as File));
+    const snapshot = capture(images.map(image => ({ kind: 'file', type: 'image/png', file: image })), cap);
+    const emptyText = { ...snapshot, textBytes: 0, text: { 'text/html': '', 'text/plain': '', Text: '' } };
+    const refs = [reference('a', 'a', { sourceOffset: 0 }), reference('b', 'b', { sourceOffset: 0 })];
+    const policy = { ...destination(), maxFileBytes: maximum };
+    expect(check(emptyText, [refs[0]!], [binding('a', 0)], policy, cap).status).toBe('checked');
+    expect(check(emptyText, refs, [binding('a', 0), binding('b', 1)], policy, cap))
+      .toMatchObject({ status: 'rejected', reason: 'input-limit', matches: [] });
   });
 
   it('rejects a binding to an item past the item bound, and keeps an index past the clipboard invalid', () => {
@@ -238,7 +305,7 @@ describe('explicit clipboard image bindings', () => {
   it('rejects inconsistent captured counters or item indexes', () => {
     const snapshot = capture();
     for (const changed of [
-      { ...snapshot, fileBytes: 2 }, { ...snapshot, textBytes: -1 }, { ...snapshot, fileBytes: Infinity },
+      { ...snapshot, textBytes: -1 }, { ...snapshot, textBytes: Infinity },
       { ...snapshot, items: snapshot.items.map(entry => ({ ...entry, itemIndex: 1 })) },
       { ...snapshot, items: snapshot.items.map(entry => ({ ...entry, fileSize: -1 })) },
       { ...snapshot, items: snapshot.items.map(entry => ({ ...entry, file: null })) },

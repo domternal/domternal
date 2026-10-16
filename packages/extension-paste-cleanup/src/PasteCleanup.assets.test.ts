@@ -389,10 +389,16 @@ describe('coordinated embedded clipboard assets', () => {
     expect(Object.isFrozen(context?.references)).toBe(true);
   });
 
-  it('reads one explicitly bound File once for multiple placements without merging their attributes', async () => {
+  it.each([false, true])('charges and reads one File once for multiple placements at the exact budget: duplicate item=%s', async duplicateItem => {
     const asset = imageFile();
-    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded', match: explicitMatch({ 'cid:first': 1, 'cid:second': 1 }) } } });
-    paste(fixture.editor, { html: '<img src="cid:first" alt="First" width="12"><p>Between</p><img src="cid:second" alt="Second" width="20">', files: [asset.file] });
+    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded',
+      limits: { maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length },
+      match: explicitMatch({ 'cid:first': 1, 'cid:second': duplicateItem ? 2 : 1 }),
+    } } });
+    paste(fixture.editor, {
+      html: '<img src="cid:first" alt="First" width="12"><p>Between</p><img src="cid:second" alt="Second" width="20">',
+      files: duplicateItem ? [asset.file, asset.file] : [asset.file],
+    });
     await terminal(fixture, 'applied');
     expect(asset.read).toHaveBeenCalledOnce();
     expect(imageNodes(fixture.editor).map(image => [image.src, image.alt, image.width])).toEqual([[PNG_URL, 'First', '12'], [PNG_URL, 'Second', '20']]);
@@ -402,7 +408,10 @@ describe('coordinated embedded clipboard assets', () => {
   it('preserves two placements for byte-identical distinct Files while reading each File once', async () => {
     const first = imageFile();
     const second = imageFile();
-    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded', match: explicitMatch({ 'cid:first': 1, 'cid:second': 2 }) } } });
+    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded',
+      limits: { maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length * 2 },
+      match: explicitMatch({ 'cid:first': 1, 'cid:second': 2 }),
+    } } });
     paste(fixture.editor, { html: '<img src="cid:first" alt="First"><img src="cid:second" alt="Second">', files: [first.file, second.file] });
     await terminal(fixture, 'applied');
     expect(imageNodes(fixture.editor).map(image => [image.src, image.alt])).toEqual([[PNG_URL, 'First'], [PNG_URL, 'Second']]);
@@ -555,18 +564,66 @@ describe('coordinated embedded clipboard assets', () => {
     expect(fixture.upload).not.toHaveBeenCalled();
   });
 
-  it.each(['file', 'aggregate', 'output'] as const)('rejects the %s budget before any file read', async limit => {
+  it.each([
+    { limit: 'file', unresolved: 'reject' },
+    { limit: 'aggregate', unresolved: 'reject' },
+    { limit: 'aggregate', unresolved: 'omit' },
+    { limit: 'output', unresolved: 'reject' },
+  ] as const)('rejects the $limit budget before any file read, with unresolved $unresolved', async ({ limit, unresolved }) => {
     const first = imageFile();
     const second = imageFile();
     const limits = limit === 'file' ? { maxFileBytes: PNG.length - 1 } : limit === 'aggregate'
       ? { maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length } : { maxPreparedOutputUnits: 32 };
-    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded', limits, match: explicitMatch({ 'cid:first': 1, 'cid:second': 2 }) } } });
+    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded', limits, unresolved, match: explicitMatch({ 'cid:first': 1, 'cid:second': 2 }) } } });
     const before = snapshot(fixture.editor);
-    paste(fixture.editor, { html: '<img src="cid:first"><img src="cid:second">', files: [first.file, second.file] });
+    paste(fixture.editor, {
+      html: `<p>Caption</p><img src="cid:first"><img src="cid:second">${unresolved === 'omit' ? '<img src="cid:missing">' : ''}`,
+      files: [first.file, second.file],
+    });
     await terminal(fixture, 'rejected', 'asset-limit');
     expect(snapshot(fixture.editor)).toEqual(before);
     expect(first.read).not.toHaveBeenCalled();
     expect(second.read).not.toHaveBeenCalled();
+    expect(fixture.changes).toHaveLength(0);
+    expect(fixture.upload).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { route: 'html', unrelatedFirst: false },
+    { route: 'html', unrelatedFirst: true },
+    { route: 'file-only', unrelatedFirst: false },
+    { route: 'file-only', unrelatedFirst: true },
+  ] as const)('keeps the exact bound-file budget for $route with unrelatedFirst=$unrelatedFirst', async ({ route, unrelatedFirst }) => {
+    const asset = imageFile();
+    const unrelated = sizedFile(PNG.length, route === 'html' ? 'image/png' : 'application/octet-stream');
+    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded',
+      limits: { maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length },
+      match: explicitMatch({ 'cid:chart': unrelatedFirst ? 2 : 1 }),
+    } } });
+    paste(fixture.editor, {
+      ...(route === 'html' ? { html: '<p>Caption</p><img src="cid:chart" alt="Chart">' } : {}),
+      files: unrelatedFirst ? [unrelated.file, asset.file] : [asset.file, unrelated.file],
+    });
+    await terminal(fixture, 'applied');
+    expect(imageNodes(fixture.editor)).toEqual([expect.objectContaining({ src: PNG_URL })]);
+    if (route === 'html') expect(fixture.editor.state.doc.textContent).toBe('CaptionChart');
+    expect(asset.read).toHaveBeenCalledOnce();
+    expect(unrelated.read).not.toHaveBeenCalled();
+    expect(fixture.upload).not.toHaveBeenCalled();
+  });
+
+  it('pastes text without charging or reading unrelated files that exceed the aggregate allowance', async () => {
+    const first = sizedFile(PNG.length, 'image/png');
+    const second = sizedFile(PNG.length, 'image/png');
+    const fixture = mount({ cleanup: { imageAssets: { mode: 'embedded',
+      limits: { maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length },
+    } } });
+    paste(fixture.editor, { html: '<p><strong>Rich</strong> text</p>', text: 'Rich text', files: [first.file, second.file] });
+    await terminal(fixture, 'applied');
+    expect(fixture.editor.getHTML()).toBe('<p><strong>Rich</strong> text</p>');
+    expect(first.read).not.toHaveBeenCalled();
+    expect(second.read).not.toHaveBeenCalled();
+    expect(fixture.upload).not.toHaveBeenCalled();
   });
 
   it.each(['text/rtf', 'application/rtf', 'text/uri-list'])('prepares the paste when %s, a flavor the editor never reads, exceeds the input ceiling', async flavor => {

@@ -9,10 +9,11 @@ export interface ClipboardImageItemMetadata {
   readonly fileType: string | null;
   readonly fileSize: number | null;
   /**
-   * Whether the item holds a File the paste can read. A File over `maxFileBytes`, or past
-   * `maxTotalFileBytes` with the Files before it, is not, though its type and size are given,
-   * and a binding to it rejects the paste with `asset-limit`. The items past the first 256 are
-   * not listed, and a binding to one of them rejects the paste too.
+   * Whether the item holds an individually bounded File the paste can read. A File over
+   * `maxFileBytes` is unavailable, though its type and size are given. The total byte limit
+   * is checked on selected Files after matching, counting each File identity once.
+   * A binding to an unavailable oversized File or an item past the first 256 rejects with
+   * `asset-limit`. Items past that bound are not listed.
    */
   readonly available: boolean;
 }

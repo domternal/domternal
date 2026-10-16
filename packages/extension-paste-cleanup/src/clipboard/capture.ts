@@ -8,8 +8,8 @@ export type ClipboardTextFormat = typeof TEXT_FORMATS[number];
 
 /**
  * Explicit capture budgets. Zero is a zero allowance, never an unlimited setting. Items past
- * `maxItems` and Files past the byte budgets are left out rather than rejecting the paste: what
- * a paste uses is known only when its bindings are, and a binding to a left-out item rejects it.
+ * `maxItems` and Files that cannot fit individually are left out rather than rejecting the paste.
+ * Aggregate file bytes are checked after binding, before reading any selected File.
  */
 export interface ClipboardCaptureLimits {
   readonly maxItems: number;
@@ -43,8 +43,6 @@ export interface ClipboardSnapshot {
   /** How many items the clipboard held, including those past `maxItems`. */
   readonly itemCount: number;
   readonly textBytes: number;
-  /** The bytes of the Files kept, never those of a File over the limits. */
-  readonly fileBytes: number;
 }
 
 export type ClipboardCaptureResult =
@@ -102,7 +100,6 @@ export function captureClipboard(data: DataTransfer | null, inputLimits: Clipboa
     const count: unknown = sourceItems.length;
     if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) return unreadable;
     const items: CapturedClipboardItem[] = [];
-    let fileBytes = 0;
     // Items past the bound are never read.
     const read = Math.min(count, limits.maxItems);
     for (let itemIndex = 0; itemIndex < read; itemIndex++) {
@@ -124,12 +121,11 @@ export function captureClipboard(data: DataTransfer | null, inputLimits: Clipboa
         const type: unknown = captured.type;
         if (typeof size !== 'number' || !Number.isSafeInteger(size) || size < 0 || typeof type !== 'string') return unreadable;
         if (type.length > limits.maxMetadataLength) return inputLimit;
-        // Files count in clipboard order. One past the budgets keeps its metadata and loses its File.
-        if (size > limits.maxFileBytes || size > limits.maxTotalFileBytes - fileBytes || size > limits.maxClipboardBytes - fileBytes) {
+        // Retain only bounded File references here. Unused files must not spend the selected files' budget.
+        if (size > limits.maxFileBytes || size > limits.maxTotalFileBytes || size > limits.maxClipboardBytes) {
           items.push(Object.freeze({ itemIndex, kind, declaredType, file: null, fileType: type, fileSize: size, overLimit: true }));
           continue;
         }
-        fileBytes += size;
         file = captured;
         fileSize = size;
         fileType = type;
@@ -143,7 +139,7 @@ export function captureClipboard(data: DataTransfer | null, inputLimits: Clipboa
       const value: unknown = data.getData(format);
       if (typeof value !== 'string') return unreadable;
       if (value.length > limits.maxStringLength) return inputLimit;
-      const maximum = Math.min(limits.maxTextBytes - textBytes, limits.maxClipboardBytes - fileBytes - textBytes);
+      const maximum = Math.min(limits.maxTextBytes - textBytes, limits.maxClipboardBytes - textBytes);
       const bytes = utf8BytesWithin(value, maximum);
       if (bytes === undefined) return inputLimit;
       textBytes += bytes;
@@ -151,7 +147,7 @@ export function captureClipboard(data: DataTransfer | null, inputLimits: Clipboa
     }
     return Object.freeze({
       status: 'captured',
-      snapshot: Object.freeze({ text: Object.freeze(text), items: Object.freeze(items), itemCount: count, textBytes, fileBytes }),
+      snapshot: Object.freeze({ text: Object.freeze(text), items: Object.freeze(items), itemCount: count, textBytes }),
     });
   } catch {
     return unreadable;

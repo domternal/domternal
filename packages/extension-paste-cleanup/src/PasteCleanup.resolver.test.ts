@@ -404,6 +404,28 @@ describe('persistent clipboard resolver integration', () => {
     expect(value.upload).not.toHaveBeenCalled();
   });
 
+  it('resolves the bound file at the exact budget without charging or reading an earlier unused image', async () => {
+    const unused = file();
+    const image = file();
+    const unusedRead = vi.spyOn(unused, 'arrayBuffer');
+    const read = vi.spyOn(image, 'arrayBuffer');
+    const value = fixture({ assets: {
+      limits: { maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length },
+      match: context => context.references.map(reference => ({ placementId: reference.placementId, itemIndex: 2,
+        evidence: { kind: 'host', matcherId: 'bound-image-only' } })),
+    } });
+    paste(value.editor, '<p>Caption<img src="cid:chart" alt="Chart"></p>', [unused, image]);
+    await terminal(value, 'applied');
+    await recovery(value, 'accepted');
+    expect(images(value.editor)).toEqual([SRC]);
+    expect(value.editor.state.doc.textContent).toBe('CaptionChart');
+    expect(unusedRead).not.toHaveBeenCalled();
+    expect(read).toHaveBeenCalledOnce();
+    expect(value.adapter.resolve).toHaveBeenCalledOnce();
+    expect(value.adapter.releaseUncommitted).not.toHaveBeenCalled();
+    expect(value.upload).not.toHaveBeenCalled();
+  });
+
   it.each([false, true])('reserves combined inline and File bytes before File reads or resolver work: exact boundary=%s', async exact => {
     const value = fixture({ assets: { limits: { maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length * 2 - (exact ? 0 : 1) } } });
     const before = value.editor.getJSON();

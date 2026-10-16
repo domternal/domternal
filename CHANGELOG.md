@@ -5,6 +5,7 @@
 ### Fixes
 
 - Correct Paste Cleanup configuration guidance when another extension owns clipboard HTML preparation. Releasing that slot requires disabling image assets and omitting per-paste formatting selection.
+- Apply Paste Cleanup's total image byte limit to selected files instead of unrelated clipboard attachments. Repeated placements of one File count once; exceeding the selected total still rejects the entire paste before reading files or inserting content.
 
 ## 1.5.0 (2026-10-15)
 
