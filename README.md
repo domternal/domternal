@@ -125,9 +125,11 @@ check a translation for every current message.
 
 ## Version compatibility
 
-Upgrade installed `@domternal/*` packages together to **1.5.0**. Wrappers require
+Upgrade installed `@domternal/*` packages together to **1.5.1**. Wrappers require
 core `>=1.5.0 <2.0.0`, and extensions require both core and pm as peers in that
-range. Core 1.5.0 requires pm `>=1.5.0 <2.0.0` at runtime.
+range. Core 1.5.1 requires pm `>=1.5.1 <2.0.0` at runtime.
+
+Version 1.5.1 fixes Paste Cleanup image byte accounting and configuration guidance.
 
 Version 1.5.0 adds optional `ListLabels`, bounded Word stylesheet typography,
 literal block backgrounds and a formatting choice for each paste. Use matching

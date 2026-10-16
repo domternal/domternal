@@ -18,10 +18,10 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core
 ```
 
-Core has no framework dependency and includes `@domternal/pm`. Use version 1.5.0
+Core has no framework dependency and includes `@domternal/pm`. Use version 1.5.1
 for all installed Domternal Free packages. Wrappers and extensions require Core
-`>=1.5.0 <2.0.0`; extensions also require PM in that range. Core 1.5.0 requires
-PM `>=1.5.0 <2.0.0` at runtime.
+`>=1.5.0 <2.0.0`; extensions also require PM in that range. Core 1.5.1 requires
+PM `>=1.5.1 <2.0.0` at runtime.
 Import ProseMirror primitives from `@domternal/pm/*` to keep
 [one shared copy](https://domternal.dev/v1/guides/single-prosemirror-copy/).
 

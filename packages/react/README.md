@@ -14,7 +14,7 @@ pnpm add @domternal/react @domternal/core @domternal/theme react react-dom
 ```
 
 The package declares Node.js 22 or later for tooling. Requires React and React DOM 18 or later, and `@domternal/core >=1.5.0 <2.0.0`.
-Use version 1.5.0 for all installed Domternal Free packages. The theme supplies default
+Use version 1.5.1 for all installed Domternal Free packages. The theme supplies default
 styles; import it once in your application entry point.
 
 ## Quick start

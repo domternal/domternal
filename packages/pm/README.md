@@ -19,9 +19,9 @@ pnpm add @domternal/pm
 ```
 
 The package declares Node.js 22 or later for tooling and has no peer dependencies.
-Use version 1.5.0 for all installed Domternal Free packages. Free 1.5.0 extensions
+Use version 1.5.1 for all installed Domternal Free packages. Free 1.5.x extensions
 require `@domternal/core` and `@domternal/pm` peers in `>=1.5.0 <2.0.0`.
-Core 1.5.0 also requires PM `>=1.5.0 <2.0.0` at runtime.
+Core 1.5.1 requires PM `>=1.5.1 <2.0.0` at runtime.
 
 ## Usage
 

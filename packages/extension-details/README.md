@@ -19,7 +19,7 @@ pnpm add @domternal/core @domternal/pm @domternal/extension-details @domternal/t
 ```
 
 Requires `@domternal/core` and `@domternal/pm` `>=1.5.0 <2.0.0`.
-Use version 1.5.0 for all installed Domternal Free packages.
+Use version 1.5.1 for all installed Domternal Free packages.
 The theme is optional if you provide your own styles.
 
 ## Quick start
