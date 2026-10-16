@@ -3,7 +3,7 @@
  * Framework-agnostic ProseMirror editor engine
  */
 
-export const VERSION = '1.5.0';
+export const VERSION = '1.5.1';
 
 export { ListLabels, type ListLabelsOptions } from './extensions/ListLabels.js';
 export type { ListLabel, CounterListLabel, TextListLabel, ListLabelFormat } from './types/ListLabel.js';

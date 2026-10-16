@@ -1,6 +1,6 @@
 {
   "name": "@domternal/vue",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "MIT-licensed Vue 3 components for the Domternal rich text editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",

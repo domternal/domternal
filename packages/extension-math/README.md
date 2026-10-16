@@ -19,7 +19,7 @@ pnpm add @domternal/core @domternal/pm @domternal/extension-math katex @domterna
 
 Requires `@domternal/core` and `@domternal/pm` `>=1.5.0 <2.0.0`, plus the declared
 KaTeX peer `^0.16.0 || ^0.17.0`. The package does not import the engine itself.
-Use version 1.5.0 for all installed Domternal Free packages.
+Use version 1.5.1 for all installed Domternal Free packages.
 `@domternal/theme` styles editor controls; KaTeX's separate stylesheet renders
 math glyphs and must also be imported.
 
