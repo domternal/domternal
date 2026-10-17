@@ -7,9 +7,11 @@ export {
   Image,
   type ImageOptions,
   type SetImageOptions,
+  type SetImageTransformOptions,
   type ImageFloat,
   type ImageAlign,
   type ImagePlacement,
 } from './Image.js';
 export { imageUploadPluginKey } from './imageUploadPlugin.js';
 export { imageMessages } from './messages.js';
+export type { ImageTransform } from './imageTransform.js';

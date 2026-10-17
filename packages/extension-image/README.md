@@ -118,6 +118,7 @@ also covers HTML attributes and upload callbacks.
 | `setImage({ src, alt, ... })` | Insert an image with its attributes. |
 | `setImageFloat('left')` | Wrap text around the selected image. |
 | `setImageAlign('center')` | Align the selected image without text wrapping. |
+| `setImageTransform({ crop, rotation, flipX, flipY })` | Replace the selected image's non-destructive geometry; `null` resets it. |
 | `deleteImage()` | Remove the selected image. |
 
 Float and align each accept `'none'`, `'left'`, `'center'` and `'right'`; setting
@@ -126,6 +127,38 @@ one clears the other. Commands operate on the current selection.
 Use a descriptive `alt` for meaningful images. `alt: ''` marks an image as
 decorative and renders `alt=""`; `null` means no description has been supplied
 and omits the attribute. See [alt text editing](https://domternal.dev/v1/nodes/image/#editing-alt-text).
+
+## Crop, rotate and mirror images
+
+The optional `imageTransform` attribute keeps source bytes unchanged. Cropping
+uses fractions of the original image, followed by horizontal/vertical mirroring
+and clockwise rotation. The editor and saved HTML use a viewport with the rotated
+bounding box; resizing changes that box's width while preserving its aspect ratio.
+
+```ts
+editor.commands.setImageTransform({
+  naturalWidth: 1600,
+  naturalHeight: 900,
+  crop: { left: 0.1, right: 0.1 },
+  rotation: 90,
+  flipX: true,
+});
+```
+
+The command requires an image node selection. Omit `naturalWidth` and
+`naturalHeight` only when that image is loaded, or when its current transform
+already records them. `setImage({ src, imageTransform: { ... } })` always needs
+explicit intrinsic dimensions. A command replaces the complete transform and
+is undoable; loading, rendering and exporting never add geometry to the document.
+No crop/rotation controls are added to the default menu.
+
+Each crop edge must be between zero and one, with at least 1/65,536 of the image
+remaining in both directions. Intrinsic dimensions must be finite and between
+1 and 1,000,000; rotation must be finite within plus or minus 1,000,000 degrees.
+Whole turns are normalized away. Invalid commands return `false`, malformed
+stored geometry renders as an ordinary image, and null or identity transforms
+keep ordinary image markup unchanged. The `ImageTransform` and
+`SetImageTransformOptions` types are exported for application controls.
 
 ## Clipboard and source policy
 
