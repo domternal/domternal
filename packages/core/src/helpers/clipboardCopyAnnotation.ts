@@ -1,6 +1,8 @@
 import { DOMSerializer } from '@domternal/pm/model';
 import type { Fragment } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
+import { hasListLabelContract } from '../utils/listLabelAttribute.js';
+import { annotateCompoundListLabels } from '../utils/compoundListLabels.js';
 
 /**
  * Receives the serialized copy before ProseMirror adds its slice marker and its table
@@ -33,7 +35,8 @@ export function registerClipboardCopyAnnotation(view: EditorView, annotate: Clip
 /** @internal Wrap the resolved clipboard serializer so a registered annotator sees its output. */
 export function annotateClipboardSerializer(view: EditorView, serializer: DOMSerializer | undefined): DOMSerializer | undefined {
   const registration = annotations.get(view);
-  if (registration === undefined) return serializer;
+  const labels = hasListLabelContract(view.state.schema.nodes['orderedList']?.spec.attrs?.['listLabel']);
+  if (registration === undefined && !labels) return serializer;
   const base = serializer ?? DOMSerializer.fromSchema(view.state.schema);
   // Every other member resolves through the prototype, so callers see the same serializer.
   return Object.create(base, {
@@ -41,7 +44,8 @@ export function annotateClipboardSerializer(view: EditorView, serializer: DOMSer
       value: (fragment: Fragment, options?: { document?: Document }, target?: HTMLElement | DocumentFragment) => {
         const output = base.serializeFragment(fragment, options, target);
         if (target === undefined && output.nodeType === 11) {
-          try { registration.annotate(output as DocumentFragment); } catch { /* Annotation is advisory; the copy must succeed. */ }
+          try { registration?.annotate(output as DocumentFragment); } catch { /* Annotation is advisory; the copy must succeed. */ }
+          if (labels) annotateCompoundListLabels(output);
         }
         return output;
       },

@@ -15,5 +15,21 @@ export type TextListLabel = Readonly<{
   readonly text: string;
 }>;
 
+/** A reference to this item (0) or an enclosing list item (1 through 8). */
+export type CompoundListLabelCounter = Readonly<{
+  readonly ancestor: number;
+  readonly format: ListLabelFormat | 'inherit';
+}>;
+
+/** A bounded template whose counter references follow the actual list ancestry. */
+export type CompoundListLabel = Readonly<{
+  readonly kind: 'compound';
+  readonly parts: (string | CompoundListLabelCounter)[];
+  readonly fallback: ListLabelFormat;
+}>;
+
+/** Resolved enclosing counter, nearest parent first; null denotes an unordered parent. */
+export type ListLabelAncestor = Readonly<{ readonly ordinal: number; readonly format: ListLabelFormat }> | null;
+
 /** Optional marker presentation, separate from list identity and ordered starts. */
-export type ListLabel = Readonly<CounterListLabel> | Readonly<TextListLabel>;
+export type ListLabel = CounterListLabel | TextListLabel | CompoundListLabel;

@@ -8,13 +8,14 @@ import { listLabelStyleName, readCompanionListStyle, readHTMLListLabel } from '.
 
 const counter = { kind: 'counter', format: 'upper-alpha', prefix: 'Section ', suffix: ') ' } as const;
 const bullet = { kind: 'text', text: '✓' } as const;
+const compound: ListLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'decimal' }, ' '], fallback: 'decimal' };
 function attribute(value: unknown): string { return JSON.stringify(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;'); }
 function list(tag: string, label: unknown, style = ''): string {
   return `<${tag} data-dm-list-label="${attribute(label)}"${style === '' ? '' : ` style="${style}"`}><li><p>Item</p></li></${tag}>`;
 }
 
 describe('bounded list label clipboard metadata', () => {
-  it.each([['ol', counter, 'upper-alpha'], ['ul', bullet, 'disc']] as const)('retains %s metadata and its exact native companion style in both policies', (tag, label, fallback) => {
+  it.each([['ol', counter, 'upper-alpha'], ['ul', bullet, 'disc'], ['ol', compound, 'decimal']] as const)('retains %s metadata and its exact native companion style in both policies', (tag, label, fallback) => {
     const name = listLabelStyleName(label);
     for (const formatting of ['adapt', 'preserve'] as const) {
       const result = normalizePasteHTML(list(tag, label, `list-style-type:var(--${name}, ${fallback})`), { formatting });
@@ -24,6 +25,15 @@ describe('bounded list label clipboard metadata', () => {
       expect(result.html).toContain('data-dm-list-label=');
       expect(normalizePasteHTML(result.html, { formatting })).toEqual(result);
     }
+  });
+
+  it('retains compound source metadata but discards derived presentation supplied by the clipboard', () => {
+    const html = list('ol', compound).replace('<li>', '<li data-dm-compound-marker="spoofed">');
+    const result = normalizePasteHTML(html);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.html).toContain('data-dm-list-label');
+    expect(result.html).not.toContain('data-dm-compound-marker');
+    expect(result.html).not.toContain('spoofed');
   });
 
   it('canonicalizes the closed record without deriving an ordinal from its label', () => {

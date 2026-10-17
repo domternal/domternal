@@ -2,19 +2,23 @@ import { Editor, Document, Paragraph, Text, OrderedList, BulletList, ListLabels,
 import type { AnyExtension, JSONContent } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { splitListItem } from '@domternal/pm/schema-list';
+import { closeHistory } from '@domternal/pm/history';
 import { SmartPaste, KeyboardReorder } from '@domternal/extension-block-controls';
 import { Image } from '@domternal/extension-image';
+import { Table } from '@domternal/extension-table';
 import { PasteCleanup } from '@domternal/extension-paste-cleanup';
 import type { NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup';
 const controls = new URLSearchParams(location.search).has('controls');
 const cleanup = new URLSearchParams(location.search).has('cleanup');
 const imageAssets = new URLSearchParams(location.search).has('assets');
 const legacy = new URLSearchParams(location.search).has('legacy');
+const tables = new URLSearchParams(location.search).has('tables');
 const pasteResults: NormalizePasteHTMLResult[] = [];
 
 const extensions = (labels = !legacy, hosted = false): AnyExtension[] => [Document, Paragraph, Text, OrderedList, BulletList, History, BaseKeymap,
   ...(labels ? [ListLabels.configure({ injectCSS: !hosted, nonce: 'list-label-test' })] : []), ...(controls ? [SmartPaste, KeyboardReorder] : []),
   ...(imageAssets ? [Image.configure({ allowBase64: true })] : []),
+  ...(tables ? [Table] : []),
   ...(cleanup ? [PasteCleanup.configure({ ...(imageAssets ? { imageAssets: { mode: 'embedded' as const } } : {}), onResult: result => { pasteResults.push(result); } })] : [])];
 const sample = document.querySelector<HTMLElement>('#sample');
 if (!sample) throw new Error('Missing editor mount');
@@ -32,6 +36,12 @@ const probe = {
   pasteHTML,
   set(json: string) { editor.setContent(JSON.parse(json) as JSONContent, false); editor.view.dom.blur(); },
   snapshot() { return { json: JSON.stringify(editor.getJSON()), html: editor.getHTML(), text: editor.getText() }; },
+  changeParentCounter() {
+    const parent = editor.state.doc.firstChild;
+    if (parent === null) throw new Error('Missing parent list');
+    editor.view.dispatch(closeHistory(editor.state.tr).setNodeMarkup(0, undefined, { ...parent.attrs,
+      listLabel: { kind: 'counter', format: 'upper-alpha', prefix: 'Part ', suffix: ': ' } }));
+  },
   roundtrip() {
     const content = editor.getJSON(); const html = generateHTML(content, extensions());
     return { json: JSON.stringify(generateJSON(html, extensions())), html, css: getListLabelStyleSheet(content) };

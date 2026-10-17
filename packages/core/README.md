@@ -189,6 +189,14 @@ The pure `@domternal/core/list-labels` entry exposes the validator, formatter,
 stylesheet collector and label types for workers and server code without loading
 the editor runtime.
 
+Compound labels can reference enclosing ordered items without storing a copied
+number such as `1.2` in the document. For example, an inner list can use
+`{ kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'inherit' }, ') '], fallback: 'decimal' }`.
+The marker updates after an ancestor's number or format changes, including undo
+and collaborative edits. A missing or unordered referenced ancestor uses the
+ordinary fallback. Serialized HTML is a snapshot; regenerate it after editing
+the source document. See the contract below for the bounded template rules.
+
 All collaborative writers must enable the same list-label schema. An older
 writer without the extension can remove the unknown attribute when it edits a
 list. See the [list-label contract](docs/content.md#optional-list-labels) for

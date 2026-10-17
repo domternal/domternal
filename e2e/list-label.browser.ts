@@ -49,9 +49,56 @@ async function oracle(page: Page, labels: readonly string[], shadow = false): Pr
       return `@counter-style dm-oracle-${String(index)} {system:cyclic;symbols:"${quoted}";suffix:"";}`;
     }).join('\n');
     (root instanceof Document ? root.head : root).append(sheet);
-    items.forEach((item, index) => { item.style.listStyleType = `dm-oracle-${String(index)}`; });
+    items.forEach((item, index) => { item.removeAttribute('data-dm-compound-marker'); item.style.listStyleType = `dm-oracle-${String(index)}`; });
   }, { labels, shadow });
 }
+
+const compoundLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'inherit' }, ') '], fallback: 'decimal' };
+const compoundDoc = (): JSONContent => doc({ ...list(27, 'decimal', 'Part ', ': ', 1), content: [item('Parent', {
+  type: 'orderedList', attrs: { start: 0, listLabel: compoundLabel }, content: [item('First nested'), item('Second nested')],
+})] });
+
+for (const cleanup of [false, true]) test(`compound markers follow edited parents and native clipboard, cleanup=${String(cleanup)}`, async ({ page }) => {
+  await open(page, compoundDoc(), cleanup ? '?cleanup=1&controls=1' : '');
+  const before = await snapshot(page);
+  expect(await page.locator('#sample li[data-dm-compound-marker]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-dm-compound-marker'))))
+    .toEqual(['27.0) ', '27.1) ']);
+  const roundtrip = await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.roundtrip());
+  expect(roundtrip.json).toBe(before.json); expect(roundtrip.html).toContain('data-dm-compound-marker="27.0) "');
+  const copied = await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.pasteCopy());
+  expect(copied.text).not.toContain('27.0'); expect(copied.html).toContain('data-dm-compound-marker="27.0) "');
+  expect((await snapshot(page)).json).toBe(before.json);
+  await page.evaluate(() => { (window as unknown as ProbeWindow).__listLabels.changeParentCounter(); });
+  expect(await page.locator('#sample li[data-dm-compound-marker]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-dm-compound-marker'))))
+    .toEqual(['AA.0) ', 'AA.1) ']);
+  expect(await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.editor.commands.undo())).toBe(true);
+  expect((await snapshot(page)).json).toBe(before.json);
+  const rendered = await page.locator('#sample').screenshot();
+  await oracle(page, ['Part 27: ', '27.0) ', '27.1) ']);
+  expect((await page.locator('#sample').screenshot({ path: test.info().outputPath('compound.png') })).equals(rendered)).toBe(true);
+});
+
+test('compound markers render in a shadow root without inserting label text into the document', async ({ page }) => {
+  const content = compoundDoc(); await open(page, content);
+  await page.evaluate(json => (window as unknown as ProbeWindow).__listLabels.shadow(json), JSON.stringify(content));
+  const rendered = await page.locator('#shadow-sample').screenshot();
+  await oracle(page, ['Part 27: ', '27.0) ', '27.1) '], true);
+  expect((await page.locator('#shadow-sample').screenshot()).equals(rendered)).toBe(true);
+  expect((await snapshot(page)).text).toBe('Parent\n\nFirst nested\n\nSecond nested');
+});
+
+test('compound labels retain structural parents across a table cell with a fresh marker cycle', async ({ page }) => {
+  const deep = { ...compoundLabel, parts: [{ ancestor: 2, format: 'inherit' }, '.', ...compoundLabel.parts] };
+  const content = doc({ type: 'orderedList', attrs: { start: 4 }, content: [item('Outer', { type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [
+    { type: 'orderedList', attrs: { start: 7 }, content: [item('Cell parent', { type: 'orderedList', attrs: { start: 0, listLabel: deep }, content: [item('Deep child')] })] },
+  ] }] }] })] });
+  await open(page, content, '?tables=1');
+  expect(await page.locator('#sample li[data-dm-compound-marker]').getAttribute('data-dm-compound-marker')).toBe('4.7.0) ');
+  expect((await snapshot(page)).html).toContain('data-dm-compound-marker="4.7.0) "');
+  const rendered = await page.locator('#sample').screenshot();
+  await oracle(page, ['4. ', '7. ', '4.7.0) ']);
+  expect((await page.locator('#sample').screenshot()).equals(rendered)).toBe(true);
+});
 
 test('Word custom labels preserve visible numbering, nested bullets, restarts and editing', async ({ page }) => {
   await open(page, doc({ type: 'paragraph', content: [{ type: 'text', text: 'Before' }] }), '?cleanup=1&controls=1');

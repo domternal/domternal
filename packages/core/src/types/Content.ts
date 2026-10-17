@@ -55,7 +55,7 @@ export interface Range {
  * - `unknown-list-marker`: a list marker this version does not know became
  *   null, the default marker.
  * - `unsupported-list-label`: an optional list label outside the bounded
- *   text/counter contract became null, retaining the ordinary list marker.
+ *   text/counter/compound contract became null, retaining the ordinary list marker.
  * - `unsupported-heading-level`: a heading level the Heading configuration
  *   lacks, or a value that is not a level, became the nearest configured level.
  * - `unsafe-url`: a link whose href could run script or deceive was removed,

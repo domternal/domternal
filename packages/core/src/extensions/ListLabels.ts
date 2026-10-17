@@ -4,6 +4,7 @@ import type { Editor } from '../Editor.js';
 import { listLabelAttribute } from '../utils/listLabelAttribute.js';
 import { createListLabelStyleOwner } from '../utils/listLabelRuntime.js';
 import { pastedAttributesPlugin } from '../utils/pastedAttributes.js';
+import { compoundListLabelsPlugin } from '../utils/compoundListLabelsPlugin.js';
 
 export interface ListLabelsOptions {
   /** Install scoped companion CSS for live editors. Disable when the host supplies it. */
@@ -23,7 +24,7 @@ export const ListLabels = Extension.create<ListLabelsOptions>({
     ];
   },
   addProseMirrorPlugins() {
-    const plugins = [pastedAttributesPlugin('unsupported-list-label')];
+    const plugins = [pastedAttributesPlugin('unsupported-list-label'), compoundListLabelsPlugin()];
     if (!this.options.injectCSS) return plugins;
     const editor = this.editor as Editor | null;
     const nonce = this.options.nonce;

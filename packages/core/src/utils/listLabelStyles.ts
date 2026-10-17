@@ -23,9 +23,13 @@ export function compileListLabelStyles(values: readonly ListLabel[]): string {
   for (const [name, label] of [...labels].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)) {
     const definition = label.kind === 'counter'
       ? `system: extends ${label.format}; prefix: ${quoteListLabelCSS(label.prefix)}; suffix: ${quoteListLabelCSS(label.suffix)};`
+      : label.kind === 'compound' ? `system: extends ${label.fallback}; suffix: ". ";`
       : `system: cyclic; symbols: ${quoteListLabelCSS(label.text)}; suffix: " ";`;
     rules.push(`@counter-style ${name} { ${definition} }`);
     properties.push(`--${name}: ${name};`);
+  }
+  if ([...labels.values()].some(label => label.kind === 'compound')) {
+    rules.push('ol[data-dm-list-label] > li[data-dm-compound-marker]::marker { content: attr(data-dm-compound-marker); }');
   }
   if (properties.length > 0) {
     const variables = properties.join(' ');

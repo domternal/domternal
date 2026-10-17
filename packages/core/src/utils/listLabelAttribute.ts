@@ -30,7 +30,7 @@ export function listLabelAttribute(kind: ListKind): GlobalAttributeSpec {
       const name = listLabelStyleName(label);
       const marker = attributes['listStyleType'];
       const explicit = typeof marker === 'string' && (kind === 'orderedList' ? Object.hasOwn(ORDERED_TYPES, marker) : BULLET.has(marker)) ? marker : null;
-      const fallback = explicit ?? (label.kind === 'counter' ? label.format : 'disc');
+      const fallback = explicit ?? (label.kind === 'counter' ? label.format : label.kind === 'compound' ? label.fallback : 'disc');
       const result: Record<string, string> = {
         'data-dm-list-label': serializeListLabel(label) ?? '',
         style: `list-style-type: var(--${name}, ${fallback})`,

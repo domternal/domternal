@@ -1,4 +1,4 @@
-import type { ListLabel, ListLabelFormat } from '../types/ListLabel.js';
+import type { CompoundListLabel, CompoundListLabelCounter, ListLabel, ListLabelAncestor, ListLabelFormat } from '../types/ListLabel.js';
 
 const FORMATS: readonly ListLabelFormat[] = ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'];
 /** Text is bounded in Unicode code points, including both ordered affixes together. */
@@ -23,6 +23,48 @@ function textLength(value: unknown): number | undefined {
   return count;
 }
 
+function format(value: unknown): value is ListLabelFormat {
+  return typeof value === 'string' && (FORMATS as readonly string[]).includes(value);
+}
+
+function field(value: object, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor !== undefined && 'value' in descriptor && descriptor.enumerable ? descriptor.value as unknown : undefined;
+}
+
+function compound(parts: unknown, fallback: unknown): CompoundListLabel | null {
+  if (!format(fallback) || !Array.isArray(parts) || Object.getPrototypeOf(parts) !== Array.prototype) return null;
+  const length = Object.getOwnPropertyDescriptor(parts, 'length')?.value as unknown;
+  if (typeof length !== 'number' || length < 1 || length > 19 || Reflect.ownKeys(parts).length !== length + 1) return null;
+  const copy: (string | CompoundListLabelCounter)[] = [];
+  let previous = 9; let literals = 0;
+  for (let index = 0; index < length; index++) {
+    const part = field(parts, String(index));
+    if (typeof part === 'string') {
+      const count = textLength(part);
+      if (count === undefined || (literals += count) > LIST_LABEL_TEXT_LIMIT) return null;
+      if (part !== '') {
+        const last = copy.length - 1;
+        if (typeof copy[last] === 'string') copy[last] += part;
+        else copy.push(part);
+      }
+      continue;
+    }
+    if (part === null || typeof part !== 'object' || Array.isArray(part)) return null;
+    const prototype: unknown = Object.getPrototypeOf(part);
+    const keys = Reflect.ownKeys(part);
+    if (prototype !== null && prototype !== Object.prototype || keys.length !== 2 || !keys.every(key => key === 'ancestor' || key === 'format')) return null;
+    const ancestor = field(part, 'ancestor'); const marker = field(part, 'format');
+    if (typeof ancestor !== 'number' || !Number.isInteger(ancestor) || ancestor < 0 || ancestor >= previous
+      || marker !== 'inherit' && !format(marker)) return null;
+    previous = ancestor;
+    copy.push(Object.freeze({ ancestor, format: marker }));
+  }
+  if (previous !== 0) return null;
+  Object.freeze(copy);
+  return Object.freeze({ kind: 'compound', parts: copy, fallback });
+}
+
 /** Accept only data records, without invoking getters or retaining caller-owned objects. */
 export function readListLabel(value: unknown): ListLabel | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -30,19 +72,18 @@ export function readListLabel(value: unknown): ListLabel | null {
     const prototype: unknown = Object.getPrototypeOf(value);
     if (prototype !== null && prototype !== Object.prototype) return null;
     const keys = Reflect.ownKeys(value);
-    if (keys.length !== 2 && keys.length !== 4) return null;
-    const field = (key: string): unknown => {
-      const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      return descriptor !== undefined && 'value' in descriptor && descriptor.enumerable ? descriptor.value as unknown : undefined;
-    };
-    const kind = field('kind');
+    if (!(keys.length === 2 && keys.every(key => key === 'kind' || key === 'text'))
+      && !(keys.length === 3 && keys.every(key => key === 'kind' || key === 'parts' || key === 'fallback'))
+      && !(keys.length === 4 && keys.every(key => key === 'kind' || key === 'format' || key === 'prefix' || key === 'suffix'))) return null;
+    const kind = field(value, 'kind');
     if (kind === 'text' && keys.length === 2 && keys.every(key => key === 'kind' || key === 'text')) {
-      const text = field('text'); const length = textLength(text);
+      const text = field(value, 'text'); const length = textLength(text);
       if (length === undefined || length === 0 || typeof text !== 'string' || !/\S/u.test(text)) return null;
       return Object.freeze({ kind, text });
     }
+    if (kind === 'compound' && keys.length === 3) return compound(field(value, 'parts'), field(value, 'fallback'));
     if (kind !== 'counter' || keys.length !== 4 || !keys.every(key => key === 'kind' || key === 'format' || key === 'prefix' || key === 'suffix')) return null;
-    const format = field('format'); const prefix = field('prefix'); const suffix = field('suffix');
+    const format = field(value, 'format'); const prefix = field(value, 'prefix'); const suffix = field(value, 'suffix');
     const before = textLength(prefix); const after = textLength(suffix);
     if (typeof format !== 'string' || !(FORMATS as readonly string[]).includes(format)
       || typeof prefix !== 'string' || typeof suffix !== 'string' || before === undefined || after === undefined
@@ -56,7 +97,7 @@ export function readListLabel(value: unknown): ListLabel | null {
 /** A counter belongs to an ordered list; a literal marker belongs to a bullet list. */
 export function listLabelForKind(kind: string, value: unknown): ListLabel | null {
   const label = readListLabel(value);
-  return label !== null && (kind === 'orderedList' && label.kind === 'counter' || kind === 'bulletList' && label.kind === 'text') ? label : null;
+  return label !== null && (kind === 'orderedList' && label.kind !== 'text' || kind === 'bulletList' && label.kind === 'text') ? label : null;
 }
 
 export function parseListLabel(value: unknown): ListLabel | null {
@@ -97,11 +138,22 @@ function counter(value: number, format: ListLabelFormat): string {
 }
 
 /** Shared display/export formatting. An invalid ordinal never becomes a plausible marker. */
-export function formatListLabel(value: unknown, ordinal?: number): string | null {
+export function formatListLabel(value: unknown, ordinal?: number, ancestors: readonly ListLabelAncestor[] = []): string | null {
   const label = readListLabel(value);
   if (label === null) return null;
   if (label.kind === 'text') return label.text;
   if (ordinal === undefined || !Number.isSafeInteger(ordinal) || ordinal < 0 || ordinal > COUNTER_LIMIT) return null;
+  if (label.kind === 'compound') {
+    let result = '';
+    for (const part of label.parts) {
+      if (typeof part === 'string') { result += part; continue; }
+      const context = part.ancestor === 0 ? { ordinal, format: label.fallback } : ancestors[part.ancestor - 1];
+      if (context === null || context === undefined || !Number.isSafeInteger(context.ordinal) || context.ordinal < 0
+        || context.ordinal > COUNTER_LIMIT || !format(context.format)) return null;
+      result += counter(context.ordinal, part.format === 'inherit' ? context.format : part.format);
+    }
+    return result;
+  }
   return label.prefix + counter(ordinal, label.format) + label.suffix;
 }
 
@@ -114,6 +166,7 @@ export function quoteListLabelCSS(value: string): string {
 export function listLabelCSS(value: unknown): string | null {
   const label = readListLabel(value);
   if (label === null) return null;
+  if (label.kind === 'compound') return `counter(list-item, ${label.fallback}) ". "`;
   return label.kind === 'text' ? quoteListLabelCSS(label.text)
     : `${quoteListLabelCSS(label.prefix)} counter(list-item, ${label.format}) ${quoteListLabelCSS(label.suffix)}`;
 }

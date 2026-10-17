@@ -6,7 +6,7 @@ import { validListStyle } from './listStyles.js';
 /** Metadata belongs only to its matching semantic list, never to tasks or arbitrary nodes. */
 export function listLabelForTag(tag: string, value: unknown): ListLabel | null {
   const label = readListLabel(value);
-  return label !== null && (tag === 'ol' && label.kind === 'counter' || tag === 'ul' && label.kind === 'text') ? label : null;
+  return label !== null && (tag === 'ol' && label.kind !== 'text' || tag === 'ul' && label.kind === 'text') ? label : null;
 }
 
 export function readHTMLListLabel(properties: Properties, tag: string): ListLabel | null {
@@ -17,7 +17,7 @@ export function readHTMLListLabel(properties: Properties, tag: string): ListLabe
 
 /** The compiler owns this name. Pasted style declarations never supply its identity. */
 export function listLabelStyleName(label: ListLabel): string {
-  const stylesheet = getListLabelStyleSheet({ type: label.kind === 'counter' ? 'orderedList' : 'bulletList', attrs: { listLabel: label } });
+  const stylesheet = getListLabelStyleSheet({ type: label.kind === 'text' ? 'bulletList' : 'orderedList', attrs: { listLabel: label } });
   const name = /^@counter-style (dm-ll-[0-9a-f]+) \{/u.exec(stylesheet)?.[1];
   if (name === undefined) throw new Error('Missing compiled list label style');
   return name;

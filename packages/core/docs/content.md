@@ -30,6 +30,8 @@ Supported records have exactly these keys:
 { kind: 'counter', format: 'decimal', prefix: 'Section ', suffix: ') ' }
 // bulletList: a literal marker, independent of a source application's font
 { kind: 'text', text: '✓' }
+// orderedList: actual parent number, then this item's number
+{ kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'inherit' }, ') '], fallback: 'decimal' }
 ```
 
 Counter formats are `decimal`, `lower-alpha`, `upper-alpha`, `lower-roman` and
@@ -38,6 +40,26 @@ order, not stored in each label. Zero is valid; alphabetic zero and Roman values
 outside 1 to 3999 use decimal numbering. `formatListLabel(label, ordinal)` exposes
 the same plain-text formatting for consumers, accepting whole ordinals from 0 to
 2147483647. An invalid label or ordinal returns `null`.
+
+Compound templates contain at most 19 parts and nine counter references. A
+reference's `ancestor` is 0 for the current item, 1 for its nearest enclosing list
+item, through 8. References occur once each in descending order and must include
+0. A format is one of the counter formats above or `inherit`. Inherited own
+format uses `fallback`; inherited ancestor format follows that ancestor's
+counter label or ordinary list format. Explicit formats can display an ancestor
+as decimal even when its own marker uses letters. Starts of zero and separate
+list restarts retain their actual values. Intervening blockquotes or other block
+containers do not create a counter level. An unordered, unavailable or invalid
+referenced counter uses the list's ordinary fallback instead of inventing a
+partial compound marker.
+
+`formatListLabel(label, ordinal, ancestors)` accepts enclosing counter contexts,
+nearest first, as `{ ordinal, format }` or `null` for an unordered ancestor. It
+returns `null` when a required context is unavailable; callers then retain the
+ordinary marker. Compound literal parts share the same 64-code-point total
+limit. Adjacent literal parts are canonicalized together, empty literal parts
+are removed, and all parts are copied and frozen. Counters are derived from
+structure, never saved as text prefixes.
 
 The combined prefix and suffix, or a literal bullet, contain at most 64 Unicode
 code points. Literal bullets cannot be empty or only whitespace. Control
@@ -65,6 +87,15 @@ extension recovers the label. `getHTML`, `generateHTML` and clipboard HTML do no
 add visible label spans or embed stylesheets. `getText`, `generateText` and plain
 clipboard text keep only document text.
 
+For compound labels, the live view derives `data-dm-compound-marker` on list items
+through decorations. The HTML and clipboard serializers derive the same snapshot
+attribute from the serialized list structure. It is never read as source data,
+stored in JSON, added to undo history or sent as a collaboration update. An
+isolated copy without its referenced parent falls back until it has valid
+ancestry at its destination. Companion CSS displays the derived attribute with
+`::marker`. Standalone HTML does not recalculate after external DOM edits;
+regenerate it from the updated editor document.
+
 Live editors install native `@counter-style` rules in their document or shadow
 root. A shadow editor also retains the definitions in its owner document for
 browsers that resolve counter styles there. Owners in the same root share rules, and unused rules are removed when the
@@ -87,9 +118,9 @@ This pure entry loads no editor, ProseMirror runtime or DOM code. The main entry
 keeps the same helpers for editor consumers; the pure entry contains independent,
 stateless functions, so their function identities across entries are not a contract.
 
-This first contract represents one counter per ordered list or a literal bullet.
-It does not represent compound counters such as `1.2.3`, picture bullets,
-source-specific marker fonts or layout geometry. Office conversion adapters and
+The contract represents a single counter, a compound counter such as `1.2.3`, or
+a literal bullet. It does not represent picture bullets, source-specific marker
+fonts or layout geometry. Office conversion adapters and
 external exporters need their own explicit support for the optional contract;
 registering this extension alone does not add those adapters.
 
