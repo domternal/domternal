@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Keep export status and other metadata-only transactions from appending a trailing paragraph or creating an undo entry. TrailingNode still responds to editing and selection changes, preserves typing marks, and lets undo restore the exact original document.
+
 ## 1.5.1 (2026-10-16)
 
 ### Fixes
