@@ -10,7 +10,7 @@ import { ListLabels } from './ListLabels.js';
 import { History } from './History.js';
 import { generateHTML, generateJSON } from '../helpers/ssr.js';
 import { getListLabelStyleSheet } from '../utils/listLabelStyles.js';
-import { formatListLabel, readListLabel, parseListLabel, serializeListLabel } from '../utils/listLabel.js';
+import { formatExtendedListLabel, readExtendedListLabel, parseExtendedListLabel, serializeListLabel } from '../utils/listLabel.js';
 import type { JSONContent } from '../types/Content.js';
 import type { AnyExtension } from '../types/index.js';
 
@@ -26,8 +26,8 @@ function create(value: JSONContent = content): Editor { const editor = new Edito
 
 describe('optional local picture list markers', () => {
   it('preserves canonical data, explicit fallback, browser HTML, server HTML and native copy', () => {
-    expect(readListLabel(label)).toEqual(label); expect(Object.isFrozen(readListLabel(label))).toBe(true);
-    expect(parseListLabel(serializeListLabel(label))).toEqual(label); expect(formatListLabel(label)).toBe('◆');
+    expect(readExtendedListLabel(label)).toEqual(label); expect(Object.isFrozen(readExtendedListLabel(label))).toBe(true);
+    expect(parseExtendedListLabel(serializeListLabel(label))).toEqual(label); expect(formatExtendedListLabel(label)).toBe('◆');
     const editor = create(); const before = editor.getJSON();
     expect(editor.view.dom.querySelector('ul')?.style.listStyleImage).toContain('var(--dm-ll-png-');
     const html = editor.getHTML(); expect(html).toContain('list-style-image:'); expect(generateJSON(html, extensions())).toEqual(before);
@@ -40,7 +40,7 @@ describe('optional local picture list markers', () => {
   });
   it('keeps picture labels off ordered lists and refuses remote or active image sources', () => {
     for (const value of [{ ...label, src: 'https://example.test/marker.png' }, { ...label, src: 'data:image/svg+xml,<svg/>' },
-      { ...label, text: '' }, { ...label, text: '\n' }, { ...label, extra: true }]) expect(readListLabel(value)).toBeNull();
+      { ...label, text: '' }, { ...label, text: '\n' }, { ...label, extra: true }]) expect(readExtendedListLabel(value)).toBeNull();
     const editor = create({ type: 'doc', content: [{ ...content.content![0]!, type: 'orderedList' }] });
     expect(editor.state.doc.firstChild?.attrs['listLabel']).toBeNull();
     expect(editor.view.dom.querySelector('ol')?.style.listStyleImage ?? '').toBe('');

@@ -39,4 +39,7 @@ export type CompoundListLabel = Readonly<{
 export type ListLabelAncestor = Readonly<{ readonly ordinal: number; readonly format: ListLabelFormat }> | null;
 
 /** Optional marker presentation, separate from list identity and ordered starts. */
-export type ListLabel = CounterListLabel | TextListLabel | CompoundListLabel | ImageListLabel;
+export type ListLabel = CounterListLabel | TextListLabel;
+
+/** Opt-in marker contract including compound counters and bounded local pictures. */
+export type ExtendedListLabel = ListLabel | CompoundListLabel | ImageListLabel;

@@ -109,6 +109,7 @@ EditorOptions
 EditorPreset
 EmojiPresentationItem
 EventEmitter
+ExtendedListLabel
 Extension
 ExtensionConfig
 ExtensionConfigBase
@@ -142,6 +143,7 @@ FontFamily
 FontFamilyOptions
 FontSize
 FontSizeOptions
+formatExtendedListLabel
 formatListLabel
 Gapcursor
 generateHTML
@@ -154,6 +156,7 @@ getBubbleFormatItems
 getListItemCursorContext
 getListLabelStyleSheet
 getMarkRange
+getNodeExtendedListLabel
 getNodeListLabel
 GlobalAttributes
 GlobalAttributeSpec
@@ -278,7 +281,7 @@ OrderedListOptions
 outdentBlockFromListItem
 Paragraph
 ParagraphOptions
-parseListLabel
+parseExtendedListLabel
 pastedAttributesPlugin @experimental
 PickerLabel
 Placeholder
@@ -294,6 +297,7 @@ PrintStorage
 ProseMirrorCopyConflict
 Range
 RawCommands
+readExtendedListLabel
 readListLabel
 refocusEditorAfterCommand
 registerAttributeNormalizer @experimental

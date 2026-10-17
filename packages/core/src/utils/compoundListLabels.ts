@@ -1,14 +1,14 @@
 import type { Node as PMNode } from '@domternal/pm/model';
-import type { ListLabel, ListLabelAncestor, ListLabelFormat } from '../types/ListLabel.js';
-import { formatListLabel, listLabelForKind, parseListLabel } from './listLabel.js';
-import { nodeListLabel } from './listLabelAttribute.js';
+import type { ExtendedListLabel, ListLabelAncestor, ListLabelFormat } from '../types/ListLabel.js';
+import { formatExtendedListLabel, listLabelForKind, parseExtendedListLabel } from './listLabel.js';
+import { nodeExtendedListLabel } from './listLabelAttribute.js';
 import { listMarker, parseListMarker } from './listMarker.js';
 
 export const COMPOUND_MARKER_ATTRIBUTE = 'data-dm-compound-marker';
 const DEFAULTS: readonly ListLabelFormat[] = ['decimal', 'lower-alpha', 'lower-roman'];
 interface Frame { readonly counter: ListLabelAncestor; readonly parent: Frame | null; readonly depth: number }
 
-function formatFor(label: ListLabel | null, marker: unknown, depth: number): ListLabelFormat {
+function formatFor(label: ExtendedListLabel | null, marker: unknown, depth: number): ListLabelFormat {
   if (label?.kind === 'counter') return label.format;
   if (label?.kind === 'compound') {
     const own = label.parts.find(part => typeof part !== 'string' && part.ancestor === 0);
@@ -43,7 +43,7 @@ export function visitCompoundListLabels(doc: PMNode, visit: (node: PMNode, posit
       ? { ...current.frame, depth: 0 } : current.frame;
     const kind = node.type.name;
     const isList = kind === 'orderedList' || kind === 'bulletList' || kind === 'taskList';
-    const label = isList ? nodeListLabel(node) : null;
+    const label = isList ? nodeExtendedListLabel(node) : null;
     const format = formatFor(label, node.attrs['listStyleType'], frame?.depth ?? 0);
     const start = startFor(node.attrs['start']);
     const children: typeof pending = [];
@@ -54,7 +54,7 @@ export function visitCompoundListLabels(doc: PMNode, visit: (node: PMNode, posit
       if (isList && (child.type.name === 'listItem' || child.type.name === 'taskItem')) {
         nextFrame = frameFor(kind === 'orderedList', ordinal, format, frame);
         if (label?.kind === 'compound') {
-          const text = formatListLabel(label, ordinal, ancestors(frame));
+          const text = formatExtendedListLabel(label, ordinal, ancestors(frame));
           if (text !== null) visit(child, childPosition, text);
         }
         ordinal++;
@@ -81,7 +81,7 @@ export function annotateCompoundListLabels(root: Element | DocumentFragment): vo
     const isList = tag === 'ol' || tag === 'ul';
     const kind = tag === 'ol' ? 'orderedList' : 'bulletList';
     const task = element.getAttribute('data-type') === 'taskList';
-    const label = isList && !task ? listLabelForKind(kind, parseListLabel(element.getAttribute('data-dm-list-label'))) : null;
+    const label = isList && !task ? listLabelForKind(kind, parseExtendedListLabel(element.getAttribute('data-dm-list-label'))) : null;
     const format = formatFor(label, isList ? parseListMarker(kind, element) : null, frame?.depth ?? 0);
     const rawStart = element.getAttribute('start');
     let ordinal = startFor(rawStart === null ? 1 : Number.parseInt(rawStart, 10));
@@ -92,7 +92,7 @@ export function annotateCompoundListLabels(root: Element | DocumentFragment): vo
         nextFrame = frameFor(tag === 'ol' && !task, ordinal, format, frame);
         child.removeAttribute(COMPOUND_MARKER_ATTRIBUTE);
         if (label?.kind === 'compound') {
-          const text = formatListLabel(label, ordinal, ancestors(frame));
+          const text = formatExtendedListLabel(label, ordinal, ancestors(frame));
           if (text !== null) child.setAttribute(COMPOUND_MARKER_ATTRIBUTE, text);
         }
         ordinal++;

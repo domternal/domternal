@@ -359,8 +359,8 @@ const pureStyles: string = listLabels.getListLabelStyleSheet({ type: 'bulletList
 const compoundLabel: listLabels.CompoundListLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'decimal' }], fallback: 'decimal' };
 const imageLabel: core.ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload', text: '*' };
 const ancestors: readonly listLabels.ListLabelAncestor[] = [{ ordinal: 4, format: 'upper-alpha' }];
-const compoundText: string | null = listLabels.formatListLabel(compoundLabel, 0, ancestors);
-const parsedImage: listLabels.ListLabel | null = listLabels.parseListLabel(JSON.stringify(imageLabel));
+const compoundText: string | null = listLabels.formatExtendedListLabel(compoundLabel, 0, ancestors);
+const parsedImage: listLabels.ExtendedListLabel | null = listLabels.parseExtendedListLabel(JSON.stringify(imageLabel));
 const transform: image.ImageTransform = { naturalWidth: 1200, naturalHeight: 800, crop: { left: 0.1 }, rotation: 90 };
 const transformOptions: image.SetImageTransformOptions = { rotation: 90, flipX: true };
 editor.commands.setImage({ src: 'image.png', imageTransform: transform });
@@ -370,3 +370,20 @@ editor.commands.setImageTransform(null);
 editor.commands.setImageTransform({ rotation: '90deg' });
 // @ts-expect-error CommonJS picture labels also require fallback text.
 const missingPictureFallback: listLabels.ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload' };
+
+// Existing consumers can exhaust the original union after an additive minor update.
+function legacyLabelConsumer(label: core.ListLabel): string {
+  if (label.kind === 'counter') return label.format;
+  return label.text;
+}
+function legacyPureLabelConsumer(label: listLabels.ListLabel): string {
+  switch (label.kind) {
+    case 'counter': return label.format;
+    case 'text': return label.text;
+    default: { const unreachable: never = label; return unreachable; }
+  }
+}
+const legacyReadResult = core.readListLabel({ kind: 'text', text: '*' });
+if (legacyReadResult !== null) legacyLabelConsumer(legacyReadResult);
+const legacyNodeResult = core.getNodeListLabel(editor.state.doc);
+if (legacyNodeResult !== null) legacyPureLabelConsumer(legacyNodeResult);

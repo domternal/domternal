@@ -1,12 +1,15 @@
 CompoundListLabel
 CompoundListLabelCounter
 CounterListLabel
+ExtendedListLabel
+formatExtendedListLabel
 formatListLabel
 getListLabelStyleSheet
 ImageListLabel
 ListLabel
 ListLabelAncestor
 ListLabelFormat
-parseListLabel
+parseExtendedListLabel
+readExtendedListLabel
 readListLabel
 TextListLabel

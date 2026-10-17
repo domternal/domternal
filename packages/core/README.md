@@ -189,6 +189,15 @@ The pure `@domternal/core/list-labels` entry exposes the validator, formatter,
 stylesheet collector and label types for workers and server code without loading
 the editor runtime.
 
+For compatibility, `ListLabel`, `readListLabel`, `formatListLabel` and
+`getNodeListLabel` retain the original `counter` and `text` contract. The readers
+and formatter return `null` for compound and picture labels. Use
+`ExtendedListLabel`, `readExtendedListLabel`, `parseExtendedListLabel`,
+`formatExtendedListLabel` and `getNodeExtendedListLabel` when opting into the
+additional variants. All except the node reader are also available from the pure
+`@domternal/core/list-labels` entry. Existing exhaustive TypeScript switches do
+not need new cases.
+
 Compound labels can reference enclosing ordered items without storing a copied
 number such as `1.2` in the document. For example, an inner list can use
 `{ kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'inherit' }, ') '], fallback: 'decimal' }`.

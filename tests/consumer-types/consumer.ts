@@ -657,16 +657,33 @@ const pureStyles: string = pureListLabelStyleSheet({ type: 'bulletList', attrs: 
 
 
 import type { CompoundListLabel, ImageListLabel, ListLabelAncestor } from '@domternal/core';
-import { parseListLabel } from '@domternal/core/list-labels';
+import { parseExtendedListLabel, formatExtendedListLabel, type ExtendedListLabel } from '@domternal/core/list-labels';
 import type { ImageTransform } from '@domternal/extension-image';
 const compoundLabel: CompoundListLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'decimal' }], fallback: 'decimal' };
 const imageLabel: ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload', text: '*' };
 const ancestorLabels: readonly ListLabelAncestor[] = [{ ordinal: 4, format: 'upper-alpha' }];
-const compoundText: string | null = formatListLabel(compoundLabel, 0, ancestorLabels);
-const pureImageLabel: PureListLabel | null = parseListLabel(JSON.stringify(imageLabel));
+const compoundText: string | null = formatExtendedListLabel(compoundLabel, 0, ancestorLabels);
+const pureImageLabel: ExtendedListLabel | null = parseExtendedListLabel(JSON.stringify(imageLabel));
 const geometry: ImageTransform = { naturalWidth: 1200, naturalHeight: 800, crop: { left: 0.1 }, rotation: 90 };
 editor.commands.setImage({ src: 'image.png', imageTransform: geometry });
 // @ts-expect-error A picture label requires a readable text fallback.
 const missingImageFallback: ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload' };
 // @ts-expect-error Ancestor references are numeric, not string paths.
 const invalidCompoundPart: CompoundListLabel = { kind: 'compound', parts: [{ ancestor: 'parent', format: 'decimal' }], fallback: 'decimal' };
+
+// Existing consumers can exhaust the original union after an additive minor update.
+function legacyLabelConsumer(label: ListLabel): string {
+  if (label.kind === 'counter') return label.format;
+  return label.text;
+}
+function legacyPureLabelConsumer(label: PureListLabel): string {
+  switch (label.kind) {
+    case 'counter': return label.format;
+    case 'text': return label.text;
+    default: { const unreachable: never = label; return unreachable; }
+  }
+}
+const legacyReadResult = readListLabel({ kind: 'text', text: '*' });
+if (legacyReadResult !== null) legacyLabelConsumer(legacyReadResult);
+const legacyNodeResult = getNodeListLabel(editor.state.doc);
+if (legacyNodeResult !== null) legacyPureLabelConsumer(legacyNodeResult);

@@ -484,9 +484,9 @@ function main() {
       const label = `${declared.package}${declared.subpath.slice(1)} (${format})`;
       try {
         const declarations = declarationExports(checkListLabelBundle(directory, format));
-        const expected = ['formatListLabel', 'getListLabelStyleSheet', 'parseListLabel', 'readListLabel'];
+        const expected = ['formatExtendedListLabel', 'formatListLabel', 'getListLabelStyleSheet', 'parseExtendedListLabel', 'readExtendedListLabel', 'readListLabel'];
         if (!same(declarations.values, expected) || declarations.stars !== 0
-          || !same(declarations.types, ['CompoundListLabel', 'CompoundListLabelCounter', 'CounterListLabel', 'ImageListLabel', 'ListLabel', 'ListLabelAncestor', 'ListLabelFormat', 'TextListLabel'])) {
+          || !same(declarations.types, ['CompoundListLabel', 'CompoundListLabelCounter', 'CounterListLabel', 'ExtendedListLabel', 'ImageListLabel', 'ListLabel', 'ListLabelAncestor', 'ListLabelFormat', 'TextListLabel'])) {
           throw new Error('standalone declarations do not match the qualified public API');
         }
         console.log(`ok   ${label}: isolated bundle, declarations and data helper behavior`);

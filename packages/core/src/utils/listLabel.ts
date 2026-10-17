@@ -1,4 +1,4 @@
-import type { CompoundListLabel, CompoundListLabelCounter, ListLabel, ListLabelAncestor, ListLabelFormat } from '../types/ListLabel.js';
+import type { CompoundListLabel, CompoundListLabelCounter, ExtendedListLabel, ListLabel, ListLabelAncestor, ListLabelFormat } from '../types/ListLabel.js';
 import { validListLabelImage } from './listLabelImage.js';
 
 const FORMATS: readonly ListLabelFormat[] = ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'];
@@ -67,7 +67,7 @@ function compound(parts: unknown, fallback: unknown): CompoundListLabel | null {
 }
 
 /** Accept only data records, without invoking getters or retaining caller-owned objects. */
-export function readListLabel(value: unknown): ListLabel | null {
+export function readExtendedListLabel(value: unknown): ExtendedListLabel | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
   try {
     const prototype: unknown = Object.getPrototypeOf(value);
@@ -101,21 +101,37 @@ export function readListLabel(value: unknown): ListLabel | null {
   }
 }
 
+/** The original public contract stays closed to counter and text labels. */
+export function readListLabel(value: unknown): ListLabel | null {
+  const label = readExtendedListLabel(value);
+  return label?.kind === 'counter' || label?.kind === 'text' ? label : null;
+}
+
+export function parseListLabel(value: unknown): ListLabel | null {
+  if (typeof value !== 'string' || value.length > 1_024) return null;
+  try { return readListLabel(JSON.parse(value) as unknown); } catch { return null; }
+}
+
+/** Preserve the original formatter's supported values and return contract. */
+export function formatListLabel(value: unknown, ordinal?: number): string | null {
+  return formatExtendedListLabel(readListLabel(value), ordinal);
+}
+
 /** A counter belongs to an ordered list; a literal marker belongs to a bullet list. */
-export function listLabelForKind(kind: string, value: unknown): ListLabel | null {
-  const label = readListLabel(value);
+export function listLabelForKind(kind: string, value: unknown): ExtendedListLabel | null {
+  const label = readExtendedListLabel(value);
   return label !== null && (kind === 'orderedList' && (label.kind === 'counter' || label.kind === 'compound')
     || kind === 'bulletList' && (label.kind === 'text' || label.kind === 'image')) ? label : null;
 }
 
-export function parseListLabel(value: unknown): ListLabel | null {
+export function parseExtendedListLabel(value: unknown): ExtendedListLabel | null {
   if (typeof value !== 'string' || value.length > JSON_LIMIT) return null;
-  try { const label = readListLabel(JSON.parse(value) as unknown); return label?.kind !== 'image' && value.length > 1_024 ? null : label; } catch { return null; }
+  try { const label = readExtendedListLabel(JSON.parse(value) as unknown); return label?.kind !== 'image' && value.length > 1_024 ? null : label; } catch { return null; }
 }
 
 /** Canonical property order prevents equivalent labels from acquiring different HTML identities. */
 export function serializeListLabel(value: unknown): string | null {
-  const label = readListLabel(value);
+  const label = readExtendedListLabel(value);
   return label === null ? null : JSON.stringify(label);
 }
 
@@ -146,8 +162,8 @@ function counter(value: number, format: ListLabelFormat): string {
 }
 
 /** Shared display/export formatting. An invalid ordinal never becomes a plausible marker. */
-export function formatListLabel(value: unknown, ordinal?: number, ancestors: readonly ListLabelAncestor[] = []): string | null {
-  const label = readListLabel(value);
+export function formatExtendedListLabel(value: unknown, ordinal?: number, ancestors: readonly ListLabelAncestor[] = []): string | null {
+  const label = readExtendedListLabel(value);
   if (label === null) return null;
   if (label.kind === 'text' || label.kind === 'image') return label.text;
   if (ordinal === undefined || !Number.isSafeInteger(ordinal) || ordinal < 0 || ordinal > COUNTER_LIMIT) return null;
@@ -172,7 +188,7 @@ export function quoteListLabelCSS(value: string): string {
 
 /** Only the list-item counter and closed format enum can become CSS syntax. */
 export function listLabelCSS(value: unknown): string | null {
-  const label = readListLabel(value);
+  const label = readExtendedListLabel(value);
   if (label === null) return null;
   if (label.kind === 'compound') return `counter(list-item, ${label.fallback}) ". "`;
   return label.kind === 'text' || label.kind === 'image' ? quoteListLabelCSS(label.text)

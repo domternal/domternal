@@ -1,28 +1,36 @@
+import * as labelHelpers from '@domternal/core/list-labels';
 import { getListLabelStyleSheet, readListLabel } from '@domternal/core/list-labels';
-import type { ListLabel } from '@domternal/core/list-labels';
+import type { ExtendedListLabel } from '@domternal/core/list-labels';
 import type { Properties } from 'hast';
 import { validListStyle } from './listStyles.js';
 
+/** Optional newer helpers must not become imports missing from supported older peers. */
+function readAvailableListLabel(value: unknown): ExtendedListLabel | null {
+  const extended = Object.hasOwn(labelHelpers, 'readExtendedListLabel')
+    ? Reflect.get(labelHelpers, 'readExtendedListLabel') as typeof labelHelpers.readExtendedListLabel | undefined : undefined;
+  return typeof extended === 'function' ? extended(value) : readListLabel(value);
+}
+
 /** Metadata belongs only to its matching semantic list, never to tasks or arbitrary nodes. */
-export function listLabelForTag(tag: string, value: unknown): ListLabel | null {
-  const label = readListLabel(value);
+export function listLabelForTag(tag: string, value: unknown): ExtendedListLabel | null {
+  const label = readAvailableListLabel(value);
   return label !== null && (tag === 'ol' && (label.kind === 'counter' || label.kind === 'compound')
     || tag === 'ul' && (label.kind === 'text' || label.kind === 'image')) ? label : null;
 }
 
-export function readHTMLListLabel(properties: Properties, tag: string): ListLabel | null {
+export function readHTMLListLabel(properties: Properties, tag: string): ExtendedListLabel | null {
   const value = properties['dataDmListLabel'];
   if (properties.dataType === 'taskList' || typeof value !== 'string' || value.length > 8_192) return null;
   try {
-    // The supported Core peer range predates its public JSON parser. Keep using the original data validator.
-    const label = readListLabel(JSON.parse(value) as unknown);
+    // Older peers validate only their original label kinds; newer peers may preserve extended records.
+    const label = readAvailableListLabel(JSON.parse(value) as unknown);
     if (label?.kind !== 'image' && value.length > 1_024) return null;
     return listLabelForTag(tag, label);
   } catch { return null; }
 }
 
 /** The compiler owns this name. Pasted style declarations never supply its identity. */
-export function listLabelStyleName(label: ListLabel): string {
+export function listLabelStyleName(label: ExtendedListLabel): string {
   const stylesheet = getListLabelStyleSheet({ type: label.kind === 'text' || label.kind === 'image' ? 'bulletList' : 'orderedList', attrs: { listLabel: label } });
   const name = /^@counter-style (dm-ll-[A-Za-z0-9_-]+) \{/u.exec(stylesheet)?.[1];
   if (name === undefined) throw new Error('Missing compiled list label style');
