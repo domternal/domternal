@@ -6,8 +6,8 @@
 export const VERSION = '1.5.1';
 
 export { ListLabels, type ListLabelsOptions } from './extensions/ListLabels.js';
-export type { ListLabel, CounterListLabel, TextListLabel, CompoundListLabel, CompoundListLabelCounter, ListLabelAncestor, ListLabelFormat } from './types/ListLabel.js';
-export { formatListLabel, readListLabel } from './utils/listLabel.js';
+export type { ListLabel, CounterListLabel, TextListLabel, ImageListLabel, CompoundListLabel, CompoundListLabelCounter, ListLabelAncestor, ListLabelFormat } from './types/ListLabel.js';
+export { formatListLabel, parseListLabel, readListLabel } from './utils/listLabel.js';
 export { nodeListLabel as getNodeListLabel } from './utils/listLabelAttribute.js';
 export { getListLabelStyleSheet } from './utils/listLabelStyles.js';
 

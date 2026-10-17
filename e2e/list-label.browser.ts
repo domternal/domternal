@@ -54,6 +54,28 @@ async function oracle(page: Page, labels: readonly string[], shadow = false): Pr
 }
 
 const compoundLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'inherit' }, ') '], fallback: 'decimal' };
+const pictureSource = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAFklEQVR4nGO4o2zznxTMMKphVAN2DAArDECw1uKo8wAAAABJRU5ErkJggg==';
+const pictureDoc = (): JSONContent => doc({ type: 'bulletList', attrs: { listLabel: { kind: 'image', src: pictureSource, text: '◆' } }, content: [
+  item('Picture parent', { type: 'bulletList', content: [item('Ordinary child')] }), item('Picture sibling'),
+] });
+
+for (const cleanup of [false, true]) test(`picture markers keep local pixels, nested fallback and clipboard data, cleanup=${String(cleanup)}`, async ({ page }) => {
+  const external: string[] = []; page.on('request', request => { if (!request.url().startsWith('http://127.0.0.1:5896/') && !request.url().startsWith('data:')) external.push(request.url()); });
+  await open(page, pictureDoc(), cleanup ? '?cleanup=1&controls=1' : '');
+  const before = await snapshot(page);
+  expect(await page.locator('#sample ul').first().evaluate(node => getComputedStyle(node).listStyleImage)).toContain(pictureSource);
+  expect(await page.locator('#sample ul ul').evaluate(node => getComputedStyle(node).listStyleImage)).toBe('none');
+  const copied = await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.pasteCopy());
+  expect(copied.text).not.toContain('◆'); expect((await snapshot(page)).json).toBe(before.json);
+  expect((await page.evaluate(() => (window as unknown as ProbeWindow).__listLabels.roundtrip())).json).toBe(before.json);
+  const rendered = await page.locator('#sample').screenshot();
+  await page.evaluate(source => { const style = document.createElement('style'); style.id = 'picture-oracle';
+    style.setAttribute('nonce', 'list-label-test'); style.textContent = `#sample ul[data-dm-list-label] { list-style-image:url("${source}")!important; }`; document.head.append(style); }, pictureSource);
+  expect((await page.locator('#sample').screenshot()).equals(rendered)).toBe(true);
+  await page.evaluate(() => { document.querySelector('#picture-oracle')!.textContent = '#sample ul[data-dm-list-label] { list-style-image:none!important; }'; });
+  expect((await page.locator('#sample').screenshot()).equals(rendered)).toBe(false);
+  expect(external).toEqual([]); expect((await snapshot(page)).text).toBe(before.text);
+});
 const compoundDoc = (): JSONContent => doc({ ...list(27, 'decimal', 'Part ', ': ', 1), content: [item('Parent', {
   type: 'orderedList', attrs: { start: 0, listLabel: compoundLabel }, content: [item('First nested'), item('Second nested')],
 })] });

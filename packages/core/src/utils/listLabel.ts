@@ -1,10 +1,11 @@
 import type { CompoundListLabel, CompoundListLabelCounter, ListLabel, ListLabelAncestor, ListLabelFormat } from '../types/ListLabel.js';
+import { validListLabelImage } from './listLabelImage.js';
 
 const FORMATS: readonly ListLabelFormat[] = ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'];
 /** Text is bounded in Unicode code points, including both ordered affixes together. */
 export const LIST_LABEL_TEXT_LIMIT = 64;
 /** The closed JSON representation remains small even when every character is escaped. */
-const JSON_LIMIT = 1_024;
+const JSON_LIMIT = 8_192;
 const COUNTER_LIMIT = 2_147_483_647;
 // Formatting controls can conceal or reorder a marker. Joiners used by natural language and emoji remain text.
 function control(point: number): boolean {
@@ -74,6 +75,7 @@ export function readListLabel(value: unknown): ListLabel | null {
     const keys = Reflect.ownKeys(value);
     if (!(keys.length === 2 && keys.every(key => key === 'kind' || key === 'text'))
       && !(keys.length === 3 && keys.every(key => key === 'kind' || key === 'parts' || key === 'fallback'))
+      && !(keys.length === 3 && keys.every(key => key === 'kind' || key === 'src' || key === 'text'))
       && !(keys.length === 4 && keys.every(key => key === 'kind' || key === 'format' || key === 'prefix' || key === 'suffix'))) return null;
     const kind = field(value, 'kind');
     if (kind === 'text' && keys.length === 2 && keys.every(key => key === 'kind' || key === 'text')) {
@@ -82,6 +84,11 @@ export function readListLabel(value: unknown): ListLabel | null {
       return Object.freeze({ kind, text });
     }
     if (kind === 'compound' && keys.length === 3) return compound(field(value, 'parts'), field(value, 'fallback'));
+    if (kind === 'image' && keys.length === 3 && keys.every(key => key === 'kind' || key === 'src' || key === 'text')) {
+      const text = field(value, 'text'); const src = field(value, 'src'); const length = textLength(text);
+      if (typeof text !== 'string' || length === undefined || length === 0 || !/\S/u.test(text) || !validListLabelImage(src)) return null;
+      return Object.freeze({ kind, src, text });
+    }
     if (kind !== 'counter' || keys.length !== 4 || !keys.every(key => key === 'kind' || key === 'format' || key === 'prefix' || key === 'suffix')) return null;
     const format = field(value, 'format'); const prefix = field(value, 'prefix'); const suffix = field(value, 'suffix');
     const before = textLength(prefix); const after = textLength(suffix);
@@ -97,12 +104,13 @@ export function readListLabel(value: unknown): ListLabel | null {
 /** A counter belongs to an ordered list; a literal marker belongs to a bullet list. */
 export function listLabelForKind(kind: string, value: unknown): ListLabel | null {
   const label = readListLabel(value);
-  return label !== null && (kind === 'orderedList' && label.kind !== 'text' || kind === 'bulletList' && label.kind === 'text') ? label : null;
+  return label !== null && (kind === 'orderedList' && (label.kind === 'counter' || label.kind === 'compound')
+    || kind === 'bulletList' && (label.kind === 'text' || label.kind === 'image')) ? label : null;
 }
 
 export function parseListLabel(value: unknown): ListLabel | null {
   if (typeof value !== 'string' || value.length > JSON_LIMIT) return null;
-  try { return readListLabel(JSON.parse(value) as unknown); } catch { return null; }
+  try { const label = readListLabel(JSON.parse(value) as unknown); return label?.kind !== 'image' && value.length > 1_024 ? null : label; } catch { return null; }
 }
 
 /** Canonical property order prevents equivalent labels from acquiring different HTML identities. */
@@ -141,7 +149,7 @@ function counter(value: number, format: ListLabelFormat): string {
 export function formatListLabel(value: unknown, ordinal?: number, ancestors: readonly ListLabelAncestor[] = []): string | null {
   const label = readListLabel(value);
   if (label === null) return null;
-  if (label.kind === 'text') return label.text;
+  if (label.kind === 'text' || label.kind === 'image') return label.text;
   if (ordinal === undefined || !Number.isSafeInteger(ordinal) || ordinal < 0 || ordinal > COUNTER_LIMIT) return null;
   if (label.kind === 'compound') {
     let result = '';
@@ -167,6 +175,6 @@ export function listLabelCSS(value: unknown): string | null {
   const label = readListLabel(value);
   if (label === null) return null;
   if (label.kind === 'compound') return `counter(list-item, ${label.fallback}) ". "`;
-  return label.kind === 'text' ? quoteListLabelCSS(label.text)
+  return label.kind === 'text' || label.kind === 'image' ? quoteListLabelCSS(label.text)
     : `${quoteListLabelCSS(label.prefix)} counter(list-item, ${label.format}) ${quoteListLabelCSS(label.suffix)}`;
 }

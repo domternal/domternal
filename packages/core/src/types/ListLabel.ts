@@ -15,6 +15,13 @@ export type TextListLabel = Readonly<{
   readonly text: string;
 }>;
 
+/** A bounded local static PNG bullet with an explicit readable text fallback. */
+export type ImageListLabel = Readonly<{
+  readonly kind: 'image';
+  readonly src: string;
+  readonly text: string;
+}>;
+
 /** A reference to this item (0) or an enclosing list item (1 through 8). */
 export type CompoundListLabelCounter = Readonly<{
   readonly ancestor: number;
@@ -32,4 +39,4 @@ export type CompoundListLabel = Readonly<{
 export type ListLabelAncestor = Readonly<{ readonly ordinal: number; readonly format: ListLabelFormat }> | null;
 
 /** Optional marker presentation, separate from list identity and ordered starts. */
-export type ListLabel = CounterListLabel | TextListLabel | CompoundListLabel;
+export type ListLabel = CounterListLabel | TextListLabel | CompoundListLabel | ImageListLabel;

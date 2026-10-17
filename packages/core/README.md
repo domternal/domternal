@@ -197,6 +197,12 @@ and collaborative edits. A missing or unordered referenced ancestor uses the
 ordinary fallback. Serialized HTML is a snapshot; regenerate it after editing
 the source document. See the contract below for the bounded template rules.
 
+A bullet list can also use `{ kind: 'image', src: pngDataUrl, text: '◆' }` for a
+small local picture marker. The qualified profile accepts static 8-bit RGB/RGBA
+PNG up to 32×32 pixels and 4 KiB, with a required readable text fallback. It
+does not fetch remote marker assets or accept SVG. Companion CSS displays the
+picture; the existing marker remains available when that CSS is absent.
+
 All collaborative writers must enable the same list-label schema. An older
 writer without the extension can remove the unknown attribute when it edits a
 list. See the [list-label contract](docs/content.md#optional-list-labels) for

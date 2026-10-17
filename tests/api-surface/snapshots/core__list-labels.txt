@@ -1,7 +1,12 @@
+CompoundListLabel
+CompoundListLabelCounter
 CounterListLabel
 formatListLabel
 getListLabelStyleSheet
+ImageListLabel
 ListLabel
+ListLabelAncestor
 ListLabelFormat
+parseListLabel
 readListLabel
 TextListLabel

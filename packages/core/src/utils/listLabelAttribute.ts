@@ -33,7 +33,7 @@ export function listLabelAttribute(kind: ListKind): GlobalAttributeSpec {
       const fallback = explicit ?? (label.kind === 'counter' ? label.format : label.kind === 'compound' ? label.fallback : 'disc');
       const result: Record<string, string> = {
         'data-dm-list-label': serializeListLabel(label) ?? '',
-        style: `list-style-type: var(--${name}, ${fallback})`,
+        style: `list-style-type: var(--${name}, ${fallback})${label.kind === 'image' ? `; list-style-image: var(--${name}-image, none)` : ''}`,
       };
       // Keep an explicit existing marker available to older schemas while preserving a nullable default.
       if (explicit !== null) result['type'] = kind === 'orderedList' ? ORDERED_TYPES[explicit] ?? '1' : explicit;

@@ -4,5 +4,7 @@ ImageFloat
 imageMessages
 ImageOptions
 ImagePlacement
+ImageTransform
 imageUploadPluginKey
 SetImageOptions
+SetImageTransformOptions

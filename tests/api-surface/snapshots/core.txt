@@ -65,6 +65,8 @@ CommandProps
 CommandPropsEditor
 CommandSpec
 CompleteMessages
+CompoundListLabel
+CompoundListLabelCounter
 Content
 ContentDiagnostic
 ContentDiagnosticProps
@@ -176,6 +178,7 @@ I18nResolver
 I18nService
 I18nSnapshot
 IconSet
+ImageListLabel
 indentBlockAsListChild
 InlineStyleOverrides
 inlineStyles
@@ -233,6 +236,7 @@ ListItemOptions
 ListKeymap
 ListKeymapOptions
 ListLabel
+ListLabelAncestor
 ListLabelFormat
 ListLabels
 ListLabelsOptions
@@ -274,6 +278,7 @@ OrderedListOptions
 outdentBlockFromListItem
 Paragraph
 ParagraphOptions
+parseListLabel
 pastedAttributesPlugin @experimental
 PickerLabel
 Placeholder
