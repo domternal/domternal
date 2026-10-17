@@ -354,3 +354,19 @@ listLabelCore.ListLabels.configure({ nonce: 'host-nonce' });
 const pureLabel: listLabels.ListLabel | null = listLabels.readListLabel({ kind: 'text', text: '✓' });
 const pureMarker: string | null = listLabels.formatListLabel(pureLabel);
 const pureStyles: string = listLabels.getListLabelStyleSheet({ type: 'bulletList', attrs: { listLabel: pureLabel } });
+
+
+const compoundLabel: listLabels.CompoundListLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'decimal' }], fallback: 'decimal' };
+const imageLabel: core.ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload', text: '*' };
+const ancestors: readonly listLabels.ListLabelAncestor[] = [{ ordinal: 4, format: 'upper-alpha' }];
+const compoundText: string | null = listLabels.formatListLabel(compoundLabel, 0, ancestors);
+const parsedImage: listLabels.ListLabel | null = listLabels.parseListLabel(JSON.stringify(imageLabel));
+const transform: image.ImageTransform = { naturalWidth: 1200, naturalHeight: 800, crop: { left: 0.1 }, rotation: 90 };
+const transformOptions: image.SetImageTransformOptions = { rotation: 90, flipX: true };
+editor.commands.setImage({ src: 'image.png', imageTransform: transform });
+editor.commands.setImageTransform(transformOptions);
+editor.commands.setImageTransform(null);
+// @ts-expect-error CommonJS image geometry keeps numeric rotation.
+editor.commands.setImageTransform({ rotation: '90deg' });
+// @ts-expect-error CommonJS picture labels also require fallback text.
+const missingPictureFallback: listLabels.ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload' };

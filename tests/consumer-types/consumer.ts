@@ -427,6 +427,10 @@ editor.commands.insertEmoji({} as never);
 editor.commands.suggestEmoji();
 
 editor.commands.setImage({ src: 'x' });
+editor.commands.setImageTransform({ naturalWidth: 1200, naturalHeight: 800, crop: { left: 0.1 }, rotation: 90, flipX: true });
+editor.commands.setImageTransform(null);
+// @ts-expect-error Image rotation is numeric.
+editor.commands.setImageTransform({ rotation: '90deg' });
 editor.commands.setImageFloat('left');
 editor.commands.setImageAlign('center');
 editor.commands.deleteImage();
@@ -650,3 +654,19 @@ const nodeLabel: ListLabel | null = getNodeListLabel(editor.state.doc);
 const pureListLabel: PureListLabel | null = readPureListLabel({ kind: 'text', text: '✓' });
 const pureMarker: string | null = formatPureListLabel(pureListLabel);
 const pureStyles: string = pureListLabelStyleSheet({ type: 'bulletList', attrs: { listLabel: pureListLabel } });
+
+
+import type { CompoundListLabel, ImageListLabel, ListLabelAncestor } from '@domternal/core';
+import { parseListLabel } from '@domternal/core/list-labels';
+import type { ImageTransform } from '@domternal/extension-image';
+const compoundLabel: CompoundListLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'decimal' }], fallback: 'decimal' };
+const imageLabel: ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload', text: '*' };
+const ancestorLabels: readonly ListLabelAncestor[] = [{ ordinal: 4, format: 'upper-alpha' }];
+const compoundText: string | null = formatListLabel(compoundLabel, 0, ancestorLabels);
+const pureImageLabel: PureListLabel | null = parseListLabel(JSON.stringify(imageLabel));
+const geometry: ImageTransform = { naturalWidth: 1200, naturalHeight: 800, crop: { left: 0.1 }, rotation: 90 };
+editor.commands.setImage({ src: 'image.png', imageTransform: geometry });
+// @ts-expect-error A picture label requires a readable text fallback.
+const missingImageFallback: ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload' };
+// @ts-expect-error Ancestor references are numeric, not string paths.
+const invalidCompoundPart: CompoundListLabel = { kind: 'compound', parts: [{ ancestor: 'parent', format: 'decimal' }], fallback: 'decimal' };

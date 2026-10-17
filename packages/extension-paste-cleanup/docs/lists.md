@@ -37,7 +37,22 @@ Only the exact companion CSS variable compiled from the validated label is
 retained, with a native fallback from the existing marker vocabulary. Unknown
 variables, incompatible list kinds, task-list labels and invalid records are
 removed; invalid HTML records report `unsupported-formatting`. Arbitrary source
-CSS, custom counter-style definitions and picture assets are not accepted.
+CSS, custom counter-style definitions and arbitrary picture assets are not accepted.
+
+With a Core peer that supports the corresponding optional contract, canonical
+compound templates and bounded local PNG picture labels also survive metadata
+normalization in both policies. Compound labels are resolved from actual list
+ancestry after insertion; clipboard-supplied computed marker attributes are
+ignored. Picture labels accept only Core's static 8-bit RGB/RGBA PNG profile,
+up to 32×32 pixels and 4 KiB, with required readable text fallback. Only their
+exact compiler-owned `list-style-image` variable survives. Remote image URLs,
+SVG and unrelated image CSS do not become markers. The source contract and
+companion stylesheet are described in the [Core list-label reference](https://github.com/domternal/domternal/blob/main/packages/core/docs/content.md#optional-list-labels).
+
+Earlier supported Core peers keep validating their original counter and text
+records. They reject newer label kinds with a diagnostic while retaining the
+ordinary list and body text. Supporting this metadata does not add recognition
+of compound Word numbering or Word picture-bullet assets to cleanup.
 
 The standalone HTML entry validates and retains the same metadata without
 loading the editor runtime. Rendering custom labels still requires an opted-in

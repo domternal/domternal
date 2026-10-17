@@ -62,7 +62,7 @@
     ]
   },
   "@domternal/core": {
-    "maxPackedBytes": 1178000,
+    "maxPackedBytes": 1316000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
     "allowedPatterns": ["^dist/(index|clipboard|list-labels)\\.(js|cjs)(\\.map)?$", "^dist/(index|clipboard|list-labels)\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 24000
@@ -91,7 +91,7 @@
     "maxAdditionalLocaleBytes": 6000
   },
   "@domternal/extension-image": {
-    "maxPackedBytes": 104000,
+    "maxPackedBytes": 121000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 9000
