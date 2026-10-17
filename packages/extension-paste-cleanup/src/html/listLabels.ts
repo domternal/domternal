@@ -1,4 +1,4 @@
-import { getListLabelStyleSheet, parseListLabel, readListLabel } from '@domternal/core/list-labels';
+import { getListLabelStyleSheet, readListLabel } from '@domternal/core/list-labels';
 import type { ListLabel } from '@domternal/core/list-labels';
 import type { Properties } from 'hast';
 import { validListStyle } from './listStyles.js';
@@ -12,8 +12,13 @@ export function listLabelForTag(tag: string, value: unknown): ListLabel | null {
 
 export function readHTMLListLabel(properties: Properties, tag: string): ListLabel | null {
   const value = properties['dataDmListLabel'];
-  if (properties.dataType === 'taskList') return null;
-  return listLabelForTag(tag, parseListLabel(value));
+  if (properties.dataType === 'taskList' || typeof value !== 'string' || value.length > 8_192) return null;
+  try {
+    // The supported Core peer range predates its public JSON parser. Keep using the original data validator.
+    const label = readListLabel(JSON.parse(value) as unknown);
+    if (label?.kind !== 'image' && value.length > 1_024) return null;
+    return listLabelForTag(tag, label);
+  } catch { return null; }
 }
 
 /** The compiler owns this name. Pasted style declarations never supply its identity. */
