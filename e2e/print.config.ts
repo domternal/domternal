@@ -3,7 +3,7 @@ import { tutorialFixtureServer } from './tutorial-fixture-server.js';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: 'print-lifecycle.spec.ts',
+  testMatch: ['print-lifecycle.spec.ts', 'print-markers.spec.ts'],
   timeout: 30000,
   fullyParallel: true,
   workers: 3,
