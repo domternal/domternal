@@ -83,7 +83,7 @@ export {
 export { ClearFormatting } from './ClearFormatting.js';
 
 // Output
-export { Print, type PrintOptions, type PrintStorage } from './Print.js';
+export { Print, type PrintOptions, type PrintStorage, type PrintResourceOptions, type PrintPreparationResult } from './Print.js';
 
 // Link UI
 export { LinkPopover, type LinkPopoverOptions } from './LinkPopover.js';

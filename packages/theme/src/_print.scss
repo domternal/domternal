@@ -313,7 +313,7 @@
 
   // A split table has to carry its column labels onto every sheet, the way
   // `w:tblHeader` and pdfmake's `headerRows` do.
-  .dm-editor .ProseMirror table:has(> tbody > tr > td):has(> tbody > tr:first-child > th) > tbody {
+  .dm-editor .ProseMirror table:not([data-dm-print-headers]):has(> tbody > tr > td):has(> tbody > tr:first-child > th) > tbody {
     display: contents;
   }
 
@@ -322,7 +322,7 @@
   // where `toggleHeaderColumn` puts a `th` in every row.
   .dm-editor
     .ProseMirror
-    table:has(> tbody > tr > td)
+    table:not([data-dm-print-headers]):has(> tbody > tr > td)
     > tbody
     > tr:first-child:has(> th):not(:has(> td)):not(:has(> [rowspan])) {
     display: table-header-group;
@@ -330,6 +330,24 @@
     // blanket `tr` rule above no longer says that for every row. Declared here
     // so the header does not depend on a decision made for other rows.
     break-inside: avoid;
+  }
+
+  // The Print extension prepares a separate header group for multiple rows and
+  // closed rowspans. The live rows remain in place for ProseMirror and return
+  // unchanged when printing finishes.
+  .dm-editor .ProseMirror table[data-dm-print-headers] > thead.dm-print-table-head {
+    display: table-header-group !important;
+    break-inside: avoid;
+  }
+
+  .dm-editor .ProseMirror table[data-dm-print-headers] > tbody {
+    display: table-row-group;
+  }
+
+  .dm-editor .ProseMirror table[data-dm-print-headers] > tbody
+    > tr:has(> th):not(:has(> td)):not(tr:has(> td) ~ tr):not(tr:not(:has(> th)) ~ tr) {
+    // Structural matching keeps presentation attributes out of the live contentDOM.
+    display: none !important;
   }
 
   // The line-level half of the above.
@@ -376,7 +394,9 @@
   // ===========================================================================
   // 6.
   body.dm-printing .dm-print-ancestor > *:not(.dm-print-ancestor):not(.dm-print-root),
-  body.dm-printing > *:not(.dm-print-ancestor):not(.dm-print-root) {
+  body.dm-printing > *:not(.dm-print-ancestor):not(.dm-print-root),
+  .dm-print-ancestor > *:not(.dm-print-ancestor):not(.dm-print-root),
+  :host(.dm-print-ancestor) > *:not(.dm-print-ancestor):not(.dm-print-root) {
     display: none !important;
   }
 
@@ -392,7 +412,9 @@
   // neither is a descendant of the body.
   body.dm-printing .dm-print-ancestor,
   body.dm-printing,
-  html.dm-print-ancestor {
+  html.dm-print-ancestor,
+  .dm-print-ancestor,
+  :host(.dm-print-ancestor) {
     // A running animation or transition outranks `!important`, so without
     // these two nothing below is guaranteed to land: a host animating a
     // wrapper's transform keeps that transform through the whole print. The

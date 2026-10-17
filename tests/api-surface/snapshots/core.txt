@@ -293,6 +293,8 @@ positionFloatingOnce
 PositionFloatingOptions
 Print
 PrintOptions
+PrintPreparationResult
+PrintResourceOptions
 PrintStorage
 ProseMirrorCopyConflict
 Range

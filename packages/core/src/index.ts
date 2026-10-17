@@ -494,6 +494,8 @@ export {
   Print,
   type PrintOptions,
   type PrintStorage,
+  type PrintResourceOptions,
+  type PrintPreparationResult,
   // Link UI
   LinkPopover,
   type LinkPopoverOptions,
