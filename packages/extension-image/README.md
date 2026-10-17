@@ -100,6 +100,7 @@ for selection replacement, cancellation and collaborative edits.
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `inline` | `false` | Place images inside text instead of as blocks. |
+| `enableTransforms` | `false` | Opt into the image geometry schema attribute and crop, rotate and mirror commands. |
 | `placement` | `null` | Let the preset choose float or align controls; set `'float'` or `'align'` explicitly to override. |
 | `allowBase64` | `true` | Accept image data URLs and embed files when no upload handler is supplied. |
 | `uploadHandler` | `null` | Store a file and return its URL. |
@@ -118,7 +119,7 @@ also covers HTML attributes and upload callbacks.
 | `setImage({ src, alt, ... })` | Insert an image with its attributes. |
 | `setImageFloat('left')` | Wrap text around the selected image. |
 | `setImageAlign('center')` | Align the selected image without text wrapping. |
-| `setImageTransform({ crop, rotation, flipX, flipY })` | Replace the selected image's non-destructive geometry; `null` resets it. |
+| `setImageTransform({ crop, rotation, flipX, flipY })` | With `enableTransforms: true`, replace the selected image's non-destructive geometry; `null` resets it. |
 | `deleteImage()` | Remove the selected image. |
 
 Float and align each accept `'none'`, `'left'`, `'center'` and `'right'`; setting
@@ -130,7 +131,19 @@ and omits the attribute. See [alt text editing](https://domternal.dev/v1/nodes/i
 
 ## Crop, rotate and mirror images
 
-The optional `imageTransform` attribute keeps source bytes unchanged. Cropping
+Enable geometry explicitly in the editor's extension array:
+
+```ts
+Image.configure({ enableTransforms: true });
+```
+
+The default Image schema and ordinary image JSON stay unchanged. Enabling this
+option adds the `imageTransform` attribute, with a default of `null`. Update any
+strict application schema to allow that field and enable the option in every
+collaborating editor before storing transformed images. Editors without the
+option cannot preserve geometry from an enabled editor.
+
+The `imageTransform` attribute keeps source bytes unchanged. Cropping
 uses fractions of the original image, followed by horizontal/vertical mirroring
 and clockwise rotation. The editor and saved HTML use a viewport with the rotated
 bounding box; resizing changes that box's width while preserving its aspect ratio.
@@ -149,7 +162,9 @@ The command requires an image node selection. Omit `naturalWidth` and
 `naturalHeight` only when that image is loaded, or when its current transform
 already records them. `setImage({ src, imageTransform: { ... } })` always needs
 explicit intrinsic dimensions. A command replaces the complete transform and
-is undoable; loading, rendering and exporting never add geometry to the document.
+is undoable; loading, rendering and exporting never author geometry in the document.
+Without `enableTransforms: true`, `setImageTransform` and `setImage` with an
+explicit transform or `null` return `false` without changing the document.
 No crop/rotation controls are added to the default menu.
 
 Each crop edge must be between zero and one, with at least 1/65,536 of the image

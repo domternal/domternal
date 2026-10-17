@@ -61,7 +61,7 @@ export interface SetImageOptions {
   crossorigin?: 'anonymous' | 'use-credentials';
   float?: ImageFloat;
   align?: ImageAlign;
-  /** Crop, then mirror and rotate without changing the source image bytes. */
+  /** Crop, then mirror and rotate. Requires Image.configure({ enableTransforms: true }). */
   imageTransform?: ImageTransform | null;
 }
 
@@ -220,6 +220,13 @@ function readFileAsDataURL(file: File): Promise<string> {
 
 export interface ImageOptions {
   /**
+   * Add the imageTransform schema attribute and enable crop, rotation and mirroring.
+   * Leave disabled to retain the existing image JSON schema. Every collaborating
+   * editor that uses transformed images must enable the same option.
+   * @default false
+   */
+  enableTransforms?: boolean;
+  /**
    * Whether images are inline (within paragraphs) or block-level (default: false)
    * When true, images can appear alongside text within a paragraph.
    */
@@ -321,6 +328,7 @@ export const Image = Node.create<ImageOptions>({
 
   addOptions() {
     return {
+      enableTransforms: false,
       inline: false,
       allowBase64: true,
       HTMLAttributes: {},
@@ -379,14 +387,16 @@ export const Image = Node.create<ImageOptions>({
           return { width: attributes['width'] as string };
         },
       },
-      imageTransform: {
-        default: null,
-        parseHTML: (element: HTMLElement) => parseImageTransform(element.getAttribute('data-dm-image-transform')),
-        renderHTML: (attributes: Record<string, unknown>) => {
-          const transform = normalizeImageTransform(attributes['imageTransform']);
-          return transform ? { 'data-dm-image-transform': JSON.stringify(transform) } : {};
+      ...(this.options.enableTransforms === true ? {
+        imageTransform: {
+          default: null,
+          parseHTML: (element: HTMLElement) => parseImageTransform(element.getAttribute('data-dm-image-transform')),
+          renderHTML: (attributes: Record<string, unknown>) => {
+            const transform = normalizeImageTransform(attributes['imageTransform']);
+            return transform ? { 'data-dm-image-transform': JSON.stringify(transform) } : {};
+          },
         },
-      },
+      } : {}),
       height: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('height'),
@@ -475,7 +485,7 @@ export const Image = Node.create<ImageOptions>({
     // Checked again for a source stored by JSON or a collaborator.
     const attrs: Record<string, unknown> = { ...this.options.HTMLAttributes, ...HTMLAttributes,
       ...(src === null ? {} : { src: src ?? '' }) };
-    const transform = normalizeImageTransform(node.attrs['imageTransform']);
+    const transform = this.options.enableTransforms === true ? normalizeImageTransform(node.attrs['imageTransform']) : null;
     if (!transform) return ['img', attrs];
     const styles = imageTransformStyles(transform);
     const box = imageTransformBox(transform);
@@ -631,7 +641,7 @@ export const Image = Node.create<ImageOptions>({
       let crop: HTMLSpanElement | undefined;
       let geometryKey: string | undefined;
       const applyGeometry = (attrs: Record<string, unknown>): void => {
-        const transform = normalizeImageTransform(attrs['imageTransform']);
+        const transform = this.options.enableTransforms === true ? normalizeImageTransform(attrs['imageTransform']) : null;
         const key = JSON.stringify([transform ?? null, typeof attrs['width'] === 'string' || typeof attrs['width'] === 'number' ? attrs['width'] : null]);
         if (key === geometryKey) return;
         geometryKey = key;
@@ -760,6 +770,8 @@ export const Image = Node.create<ImageOptions>({
       setImage:
         (attributes: SetImageOptions) =>
         ({ state, tr, dispatch }) => {
+          // Do not report success after dropping geometry from a schema that cannot retain it.
+          if (attributes.imageTransform !== undefined && this.options.enableTransforms !== true) return false;
           // The same check as every other entry; an allowed source is stored cleaned.
           const src = imageSource(attributes.src, this.options.allowBase64);
           if (src === undefined) {
@@ -773,7 +785,8 @@ export const Image = Node.create<ImageOptions>({
 
           const imageTransform = normalizeImageTransform(attributes.imageTransform);
           if (imageTransform === undefined) return false;
-          const node = this.nodeType.create({ ...attributes, src: src ?? attributes.src, imageTransform });
+          const node = this.nodeType.create({ ...attributes, src: src ?? attributes.src,
+            ...(this.options.enableTransforms === true ? { imageTransform } : {}) });
           if (!dispatch) return true;
           // A chosen file's image goes through the same placement, see placeImage.
           if (placeImage(state, tr, node, this.options.inline) === 'list') tr.scrollIntoView();
@@ -784,6 +797,7 @@ export const Image = Node.create<ImageOptions>({
       setImageTransform:
         (transform: SetImageTransformOptions | null) =>
         ({ editor, tr, dispatch }) => {
+          if (this.options.enableTransforms !== true) return false;
           const { selection } = tr;
           if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'image') return false;
           const node = selection.node;

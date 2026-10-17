@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Document, Editor, Gapcursor, History, Paragraph, Text, TrailingNode } from '@domternal/core';
+import type { ChainedCommands, CommandProps } from '@domternal/core';
 import { NodeSelection } from '@domternal/pm/state';
 import { Image } from './Image.js';
 import { normalizeImageTransform } from './imageTransform.js';
@@ -8,7 +9,7 @@ const editors: Editor[] = [];
 const geometry = { naturalWidth: 400, naturalHeight: 200, crop: { left: .25, right: .25 }, rotation: 90, flipX: true };
 function editor(attrs: Record<string, unknown> = {}): Editor {
   const instance = new Editor({
-    element: document.createElement('div'), extensions: [Document, Paragraph, Text, History, Gapcursor, Image],
+    element: document.createElement('div'), extensions: [Document, Paragraph, Text, History, Gapcursor, Image.configure({ enableTransforms: true })],
     content: { type: 'doc', content: [{ type: 'image', attrs: { src: '/image.png', alt: '', ...attrs } }] },
   });
   editors.push(instance);
@@ -58,11 +59,13 @@ describe('image transform rendering and authoring', () => {
   });
   it('undoes a chained selection and transform with TrailingNode back to the exact source', () => {
     const instance = new Editor({ element: document.createElement('div'),
-      extensions: [Document, Paragraph, Text, History, TrailingNode, Image],
+      extensions: [Document, Paragraph, Text, History, TrailingNode, Image.configure({ enableTransforms: true })],
       content: { type: 'doc', content: [{ type: 'image', attrs: { src: '/image.png', imageTransform: geometry } }] } });
     editors.push(instance);
     const before = instance.state.doc.toJSON();
-    expect(instance.chain().command(({ tr }) => {
+    // The runtime command helper is not part of the public ChainedCommands type.
+    const chain = instance.chain() as ChainedCommands & { command: (fn: (props: CommandProps) => boolean) => ChainedCommands };
+    expect(chain.command(({ tr }) => {
       tr.setSelection(NodeSelection.create(tr.doc, 0)); return true;
     }).setImageTransform(null).run()).toBe(true);
     expect(instance.state.doc.lastChild?.type.name).toBe('paragraph');
