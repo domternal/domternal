@@ -150,5 +150,13 @@
     "text": "x",
     "occurrences": 1,
     "reason": "Detached destination parser and serializer probe. The constant text keeps a synthetic block nonempty, never includes clipboard text and never reaches the editor or user interface."
+  },
+  {
+    "file": "packages/core/src/nodes/DocumentNote.ts",
+    "context": "DocumentNote.renderHTML.message",
+    "sink": "property:label",
+    "text": "{label}",
+    "occurrences": 2,
+    "reason": "Serialized note-label placeholder inside a catalog message. The owned serializer substitutes a derived number or custom mark as text; the live node view localizes the complete label."
   }
 ]

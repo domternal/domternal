@@ -99,3 +99,5 @@ export {
 
 // Bundle
 export { StarterKit, type StarterKitOptions } from './StarterKit.js';
+
+export { DocumentNotes, type InsertDocumentNoteOptions, type DocumentNoteTarget } from './DocumentNotes.js';

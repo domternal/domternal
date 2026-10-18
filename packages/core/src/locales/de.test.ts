@@ -6,7 +6,7 @@ import type { Messages } from '../i18n/types.js';
 import { coreMessages } from '../messages/core.js';
 import { deMessages, deSearchAliases } from './de.js';
 
-const { colorTextSwatch, colorBackgroundSwatch, emojiItemName, headingLevel, ...staticMessages } = coreMessages;
+const { colorTextSwatch, colorBackgroundSwatch, emojiItemName, headingLevel, noteFootnote, noteEndnote, ...staticMessages } = coreMessages;
 
 describe('German core messages', () => {
   it('accepts a 1.2 catalog as partial overrides and falls back for a newly added message', () => {
@@ -58,6 +58,8 @@ describe('German core messages', () => {
     });
     try {
       expect(i18n.t(headingLevel, { level: 2 })).toBe('Überschrift [2]');
+      expect(i18n.t(noteFootnote, { label: '2' })).toBe('Fußnote 2');
+      expect(i18n.t(noteEndnote, { label: '*' })).toBe('Endnote *');
       expect(i18n.t(colorTextSwatch, { color: 'Brand #AABBCC' })).toBe('Textfarbe: Brand #AABBCC');
       expect(i18n.t(colorBackgroundSwatch, { color: 'Brand #AABBCC' })).toBe('Hintergrundfarbe: Brand #AABBCC');
       expect(i18n.t(emojiItemName, { name: 'custom_face' })).toBe('custom face');

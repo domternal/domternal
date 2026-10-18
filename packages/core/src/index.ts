@@ -509,3 +509,8 @@ export {
   StarterKit,
   type StarterKitOptions,
 } from './extensions/index.js';
+
+export { DocumentNotes, type InsertDocumentNoteOptions, type DocumentNoteTarget } from './extensions/DocumentNotes.js';
+export { DocumentNote } from './nodes/DocumentNote.js';
+export { DocumentNoteReference } from './nodes/DocumentNoteReference.js';
+export { getDocumentNoteTypes, getDocumentNotes, type DocumentNoteKind, type DocumentNoteIdentity, type DocumentNoteTypes, type DocumentNotesSnapshot, type DocumentNoteBodyRecord, type DocumentNoteReferenceRecord } from './utils/documentNotes.js';

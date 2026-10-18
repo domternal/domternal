@@ -1,6 +1,7 @@
 import { defineMessage } from '../i18n/index.js';
 import { corePickerMessages } from './pickers.js';
 import { coreActionMessages } from './actions.js';
+import { documentNoteMessages } from './documentNotes.js';
 
 declare module '@domternal/core' {
   interface MessageParameters {
@@ -133,6 +134,7 @@ declare module '@domternal/core' {
 /** English definitions stay with their owning package and contain no editor state. */
 export const coreMessages = {
   ...coreActionMessages,
+  ...documentNoteMessages,
   ...corePickerMessages,
   groupAdvanced: defineMessage({
     id: 'core.group.advanced',

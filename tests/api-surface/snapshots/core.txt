@@ -99,6 +99,16 @@ defineMessage
 deleteSelection
 detectBubbleContext
 Document
+DocumentNote
+DocumentNoteBodyRecord
+DocumentNoteIdentity
+DocumentNoteKind
+DocumentNoteReference
+DocumentNoteReferenceRecord
+DocumentNotes
+DocumentNotesSnapshot
+DocumentNoteTarget
+DocumentNoteTypes
 Dropcursor
 DropcursorOptions
 Editor
@@ -153,6 +163,8 @@ GenerateJSONOptions
 generateText
 GenerateTextOptions
 getBubbleFormatItems
+getDocumentNotes
+getDocumentNoteTypes
 getListItemCursorContext
 getListLabelStyleSheet
 getMarkRange
@@ -190,6 +202,7 @@ InsertAsListItemChildArgs
 InsertAsListItemChildResult
 insertChildrenZoneSibling
 insertContent
+InsertDocumentNoteOptions
 insertText
 InvisibleChars
 InvisibleCharsOptions

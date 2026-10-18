@@ -1,3 +1,5 @@
+import { annotateDocumentNotes } from '../utils/documentNotesDOM.js';
+import { getDocumentNotes, getDocumentNoteTypes } from '../utils/documentNotes.js';
 import { DOMSerializer } from '@domternal/pm/model';
 import type { Fragment } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
@@ -36,7 +38,8 @@ export function registerClipboardCopyAnnotation(view: EditorView, annotate: Clip
 export function annotateClipboardSerializer(view: EditorView, serializer: DOMSerializer | undefined): DOMSerializer | undefined {
   const registration = annotations.get(view);
   const labels = hasListLabelContract(view.state.schema.nodes['orderedList']?.spec.attrs?.['listLabel']);
-  if (registration === undefined && !labels) return serializer;
+  const notes = getDocumentNoteTypes(view.state.schema) !== undefined;
+  if (registration === undefined && !labels && !notes) return serializer;
   const base = serializer ?? DOMSerializer.fromSchema(view.state.schema);
   // Every other member resolves through the prototype, so callers see the same serializer.
   return Object.create(base, {
@@ -46,6 +49,7 @@ export function annotateClipboardSerializer(view: EditorView, serializer: DOMSer
         if (target === undefined && output.nodeType === 11) {
           try { registration?.annotate(output as DocumentFragment); } catch { /* Annotation is advisory; the copy must succeed. */ }
           if (labels) annotateCompoundListLabels(output);
+          if (notes) annotateDocumentNotes(output, getDocumentNotes(view.state.doc));
         }
         return output;
       },
