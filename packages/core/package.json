@@ -64,7 +64,7 @@
   ],
   "scripts": {
     "build": "node ../../scripts/locale-build.mjs",
-    "dev": "tsup --watch",
+    "dev": "tsup --watch src",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src",

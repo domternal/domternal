@@ -53,18 +53,18 @@ export default defineConfig({
   entry: { index: 'src/index.bundle.ts', clipboard: 'src/clipboard.ts', 'list-labels': 'src/list-labels.ts', ...locales },
   format: ['esm', 'cjs'],
   target: 'es2022',
-  dts: {
-    entry: { index: 'src/index.ts', clipboard: 'src/clipboard.ts', ...locales },
-    resolve: true,
-    compilerOptions: {
-      composite: false,
-    },
-  },
+  dts: false,
   sourcemap: true,
   splitting: false,
   treeshake: true,
   esbuildPlugins: [reexportMainBundle(['src/clipboard.ts'])],
   async onSuccess() {
+    // Run declarations after the JavaScript clean and in order. A parallel main DTS build
+    // can otherwise clean dist after the independent list-labels declarations are written.
+    await build({ config: false,
+      entry: { index: 'src/index.ts', clipboard: 'src/clipboard.ts', ...locales },
+      format: ['esm', 'cjs'],
+      dts: { only: true, resolve: true, compilerOptions: { composite: false } }, clean: false });
     // Separate declaration rollup keeps both entries self-contained. Shared hashed declarations
     // cannot be redirected to source by TypeScript workspace project references.
     await build({ config: false, entry: { 'list-labels': 'src/list-labels.ts' }, format: ['esm', 'cjs'],
