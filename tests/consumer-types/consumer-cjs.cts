@@ -399,3 +399,8 @@ const legacyReadResult = core.readListLabel({ kind: 'text', text: '*' });
 if (legacyReadResult !== null) legacyLabelConsumer(legacyReadResult);
 const legacyNodeResult = core.getNodeListLabel(editor.state.doc);
 if (legacyNodeResult !== null) legacyPureLabelConsumer(legacyNodeResult);
+
+editor.commands.insertDocumentNote({ noteId: 'commonjs-note', kind: 'endnote' });
+editor.commands.insertDocumentNoteReference({ noteId: 'commonjs-note', kind: 'endnote' });
+editor.commands.focusDocumentNote({ noteId: 'commonjs-note', kind: 'endnote' });
+void [core.DocumentNotes, core.DocumentNote, core.DocumentNoteReference, core.getDocumentNotes(editor.state.doc), core.getDocumentNoteTypes(editor.schema)];

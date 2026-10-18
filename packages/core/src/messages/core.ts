@@ -5,6 +5,13 @@ import { documentNoteMessages } from './documentNotes.js';
 
 declare module '@domternal/core' {
   interface MessageParameters {
+    'core.documentNotes.footnote': { label: string };
+    'core.documentNotes.endnote': { label: string };
+    'core.documentNotes.missing': undefined;
+    'core.documentNotes.duplicate': undefined;
+    'core.documentNotes.unreferenced': undefined;
+    'core.documentNotes.limit': undefined;
+
     'core.colorPicker.text': undefined;
     'core.colorPicker.background': undefined;
     'core.colorPicker.defaultText': undefined;

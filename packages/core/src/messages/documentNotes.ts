@@ -1,15 +1,5 @@
 import { defineMessage } from '../i18n/index.js';
 
-declare module '@domternal/core' {
-  interface MessageParameters {
-    'core.documentNotes.footnote': { label: string };
-    'core.documentNotes.endnote': { label: string };
-    'core.documentNotes.missing': undefined;
-    'core.documentNotes.duplicate': undefined;
-    'core.documentNotes.unreferenced': undefined;
-    'core.documentNotes.limit': undefined;
-  }
-}
 export const documentNoteMessages = {
   noteFootnote: defineMessage({ id: 'core.documentNotes.footnote', defaultValue: ({ label }) => `Footnote ${label}`, owner: '@domternal/core', description: 'A document footnote and its displayed number or custom mark.' }),
   noteEndnote: defineMessage({ id: 'core.documentNotes.endnote', defaultValue: ({ label }) => `Endnote ${label}`, owner: '@domternal/core', description: 'A document endnote and its displayed number or custom mark.' }),

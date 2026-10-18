@@ -708,3 +708,14 @@ const legacyReadResult = readListLabel({ kind: 'text', text: '*' });
 if (legacyReadResult !== null) legacyLabelConsumer(legacyReadResult);
 const legacyNodeResult = getNodeListLabel(editor.state.doc);
 if (legacyNodeResult !== null) legacyPureLabelConsumer(legacyNodeResult);
+
+// Editable notes are opt-in nodes with ordinary commands and immutable document snapshots.
+import { DocumentNotes, DocumentNote, DocumentNoteReference, getDocumentNotes, getDocumentNoteTypes } from '@domternal/core';
+import type { InsertDocumentNoteOptions, DocumentNoteTarget, DocumentNotesSnapshot } from '@domternal/core';
+const noteOptions: InsertDocumentNoteOptions = { noteId: 'consumer-note', kind: 'footnote', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Note body' }] }] };
+const noteTarget: DocumentNoteTarget = { noteId: 'consumer-note', kind: 'footnote' };
+editor.commands.insertDocumentNote(noteOptions);
+editor.commands.insertDocumentNoteReference(noteTarget);
+editor.commands.focusDocumentNote(noteTarget);
+const noteSnapshot: DocumentNotesSnapshot | undefined = getDocumentNotes(editor.state.doc);
+void [DocumentNotes, DocumentNote, DocumentNoteReference, getDocumentNoteTypes(editor.schema), noteSnapshot];
