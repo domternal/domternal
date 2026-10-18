@@ -78,6 +78,18 @@ describe('opt-in editable document notes', () => {
     expect(editor.getJSON()).toEqual(before);
     expect(editor.commands.focusDocumentNote({ noteId: 'duplicate' })).toBe(false);
   });
+  it('never resolves malformed remote note attributes by coercing them to another note kind', () => {
+    const editor = make(content([line(ref('n')), body('n')])); const schema = editor.schema;
+    const reference = editor.state.doc.firstChild!.firstChild!; const note = editor.state.doc.lastChild!;
+    for (const attrs of [{ kind: 'other' }, { noteRole: 'body' }, { label: '\u0000' }]) {
+      const invalid = reference.type.create({ ...reference.attrs, ...attrs });
+      const doc = schema.topNodeType.create(null, [editor.state.doc.firstChild!.copy(Fragment.from(invalid)), note]);
+      expect(getDocumentNotes(doc)?.references[0]?.body).toBeUndefined(); expect(getDocumentNotes(doc)?.references[0]?.displayLabel).toBe('?');
+    }
+    const invalidBody = note.type.create({ ...note.attrs, kind: 'other' }, note.content);
+    const doc = schema.topNodeType.create(null, [editor.state.doc.firstChild!, invalidBody]);
+    expect(getDocumentNotes(doc)?.references[0]?.body).toBeUndefined(); expect(getDocumentNotes(doc)?.bodies[0]?.referenced).toBe(false);
+  });
   it('deleting a reference leaves editable content and undo restores the relationship', () => {
     const editor = make(content([line(ref('n')), body('n')]));
     editor.view.dispatch(editor.state.tr.delete(1, 2));

@@ -74,29 +74,33 @@ export function getDocumentNotes(doc: PMNode): DocumentNotesSnapshot | undefined
     let offset = item.node.content.size;
     for (let index = item.node.childCount - 1; index >= 0; index--) { const child = item.node.child(index); offset -= child.nodeSize; pending.push({ node: child, pos: item.pos + 1 + offset, depth: item.depth + 1 }); }
   }
+  const valid = (node: PMNode): boolean => (node.attrs['kind'] === 'footnote' || node.attrs['kind'] === 'endnote')
+    && validDocumentNoteId(node.attrs['noteId']) && validDocumentNoteLabel(node.attrs['label'])
+    && node.attrs['noteRole'] === (node.type === types.body ? 'body' : 'reference');
   const key = (node: PMNode): string => `${node.attrs['kind'] === 'endnote' ? 'endnote' : 'footnote'}:${String(node.attrs['noteId'])}`;
-  const counts = new Map<string, number>(); const used = new Set(references.map(ref => key(ref.node)));
+  const counts = new Map<string, number>(); const used = new Set(references.filter(ref => valid(ref.node)).map(ref => key(ref.node)));
   for (const body of bodies) counts.set(key(body.node), (counts.get(key(body.node)) ?? 0) + 1);
   const labels = new Map<string, string>(); const ordinals = { footnote: 0, endnote: 0 };
   for (const ref of references) {
+    if (!valid(ref.node)) continue;
     const id = key(ref.node); if (labels.has(id)) continue;
     const body = bodies.find(body => key(body.node) === id);
     const kind = ref.node.attrs['kind'] === 'endnote' ? 'endnote' : 'footnote';
-    if (!body || counts.get(id) !== 1 || !validDocumentNoteId(ref.node.attrs['noteId']) || exceeded) { labels.set(id, '?'); continue; }
+    if (!body || counts.get(id) !== 1 || !valid(ref.node) || !valid(body.node) || exceeded) { labels.set(id, '?'); continue; }
     const label: unknown = body.node.attrs['label'];
     labels.set(id, typeof label === 'string' && validDocumentNoteLabel(label) ? label : String(++ordinals[kind]));
   }
   const bodyRecords: DocumentNoteBodyRecord[] = bodies.map(({ node, pos }) => Object.freeze({ node, pos,
     noteId: validDocumentNoteId(node.attrs['noteId']) ? node.attrs['noteId'] : '', kind: node.attrs['kind'] === 'endnote' ? 'endnote' as const : 'footnote' as const,
-    label: validDocumentNoteLabel(node.attrs['label']) ? node.attrs['label'] : null, referenced: used.has(key(node)), duplicate: (counts.get(key(node)) ?? 0) !== 1,
+    label: validDocumentNoteLabel(node.attrs['label']) ? node.attrs['label'] : null, referenced: valid(node) && used.has(key(node)), duplicate: (counts.get(key(node)) ?? 0) !== 1,
     displayLabel: labels.get(key(node)) ?? (typeof node.attrs['label'] === 'string' && validDocumentNoteLabel(node.attrs['label']) ? node.attrs['label'] : '?'),
   }));
-  const byKey = new Map(bodyRecords.filter(body => !body.duplicate && body.noteId !== '').map(body => [`${body.kind}:${body.noteId}`, body]));
+  const byKey = new Map(bodyRecords.filter(body => !body.duplicate && valid(body.node)).map(body => [`${body.kind}:${body.noteId}`, body]));
   const referenceRecords: DocumentNoteReferenceRecord[] = references.map(({ node, pos }) => {
-    const body = exceeded ? undefined : byKey.get(key(node));
+    const body = exceeded || !valid(node) ? undefined : byKey.get(key(node));
     return Object.freeze({ node, pos, noteId: validDocumentNoteId(node.attrs['noteId']) ? node.attrs['noteId'] : '',
       kind: node.attrs['kind'] === 'endnote' ? 'endnote' as const : 'footnote' as const, label: validDocumentNoteLabel(node.attrs['label']) ? node.attrs['label'] : null,
-      ...(body ? { body } : {}), displayLabel: labels.get(key(node)) ?? '?' });
+      ...(body ? { body } : {}), displayLabel: valid(node) ? labels.get(key(node)) ?? '?' : '?' });
   });
   const snapshot = Object.freeze({ bodies: Object.freeze(bodyRecords), references: Object.freeze(referenceRecords), exceeded });
   snapshots.set(doc, snapshot); return snapshot;

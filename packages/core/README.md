@@ -100,6 +100,53 @@ Only imported extensions enter your JavaScript bundle. `preset: 'notion'` select
 the Notion presentation and behavior; it does not install optional extensions.
 See the [configuration guide](https://domternal.dev/v1/guides/configuration/).
 
+### Editable document notes
+
+`DocumentNotes` is opt-in and is not part of `StarterKit`. It installs an inline
+`documentNoteReference` atom and an editable `documentNote` block. Both live in
+ordinary editor JSON and the shared ProseMirror document, so collaboration and
+history operate on the same content without a separate application note store.
+
+```ts
+import { DocumentNotes, Editor, StarterKit, getDocumentNotes } from '@domternal/core';
+
+const editor = new Editor({ extensions: [StarterKit, DocumentNotes] });
+editor.commands.insertDocumentNote({
+  noteId: 'source-note',
+  kind: 'footnote',
+  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Editable note body' }] }],
+});
+editor.commands.insertDocumentNoteReference({ noteId: 'source-note', kind: 'footnote' });
+editor.commands.focusDocumentNote({ noteId: 'source-note', kind: 'footnote' });
+const notes = getDocumentNotes(editor.state.doc);
+```
+
+The same commands accept `kind: 'endnote'`. `insertDocumentNote` can generate an
+identity when `noteId` is omitted and accepts an optional literal `label` for a
+custom mark. Bodies and references share `noteId` and `kind`; a repeated reference
+points to the existing body. Insertion is one undoable transaction. Clicking a
+reference, pressing Enter or Space on it, or calling `focusDocumentNote` selects
+the corresponding body. The body heading links back to its first reference.
+
+Automatic labels are derived from reference order independently for each kind;
+custom labels do not advance the counter. Rendering never rewrites JSON or Yjs
+state. Deleting a reference keeps its body visible for editing. Missing bodies
+and duplicate identities display an unresolved status instead of guessing or
+discarding content. Copying a body with its references remaps colliding identities;
+a reference copied alone retains its target identity.
+
+Identities are limited to 256 UTF-16 units and custom labels to 64 nonblank units,
+without control characters or unpaired surrogates. The derived navigation index
+is bounded to 512 bodies, 512 references, 100,000 nodes, 64 levels and two million
+text units. Exceeding the index bound keeps the content and disables unresolved
+navigation. `getDocumentNoteTypes(schema)` recognizes the actual first-party
+contract, including renamed nodes that retain its attributes. It does not adopt
+unrelated nodes just because they use the same names.
+
+Pro Import can populate this model and Pro Export can serialize it automatically.
+Word output uses native note parts; PDF keeps labeled note content in the main
+flow. This model is not a paginated footnote editor.
+
 ### Readable literal colors
 
 Core and theme 1.4.0 add an optional display policy for literal text colors.
