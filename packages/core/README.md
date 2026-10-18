@@ -282,6 +282,24 @@ const text = generateText(content, [StarterKit]);
 automatically; browser calls use the browser document. See
 [server-side utilities](https://domternal.dev/v1/guides/editor-api/#server-side-utilities).
 
+The next Free release adds `createSchema(extensions)` for a worker or headless
+conversion pipeline; it is not included in published 1.5.1. The helper builds
+only the ProseMirror schema using the same extension configuration as the editor:
+
+```ts
+import { createSchema, StarterKit } from '@domternal/core';
+
+const schema = createSchema([StarterKit.configure({ heading: { levels: [1, 2, 3] } })]);
+const doc = schema.nodeFromJSON(savedContent);
+doc.check();
+```
+
+This helper creates no editor view, plugins or editor lifecycle. Custom schema
+and storage factories must work without a browser or a live editor. Share one
+extension factory between the editor and worker, including custom nodes, marks
+and configured attributes. It does not normalize imported JSON; use the existing
+content normalization API when that is intended.
+
 ## Localization
 
 Custom translation catalogs use `CompleteMessages<typeof definitions>`. In Core

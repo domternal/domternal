@@ -24,9 +24,11 @@ declare const require: (id: string) => unknown;
 
 /**
  * Build a ProseMirror schema from extensions.
- * Used internally by SSR helpers.
+ * No editor view, plugins or lifecycle hooks are created. Extension schema and
+ * storage factories must work without a browser or a live editor.
+ * Share the same extension factory and configuration with the editing surface.
  */
-function buildSchemaFromExtensions(extensions: AnyExtension[]): Schema {
+export function createSchema(extensions: AnyExtension[]): Schema {
   // Create a minimal editor-like object for ExtensionManager
   const mockEditor = {
     state: null,
@@ -95,7 +97,7 @@ export function generateHTML(
   extensions: AnyExtension[],
   options: GenerateHTMLOptions = {}
 ): string {
-  const schema = buildSchemaFromExtensions(extensions);
+  const schema = createSchema(extensions);
   // Unknown list markers load as the default marker, unsupported heading levels as the nearest configured level.
   const doc = PMNode.fromJSON(schema, normalizeContent(content, schema, options));
   const targetDocument = options.document ?? getDocument();
@@ -142,7 +144,7 @@ export function generateJSON(
   extensions: AnyExtension[],
   options: GenerateJSONOptions = {}
 ): JSONContent {
-  const schema = buildSchemaFromExtensions(extensions);
+  const schema = createSchema(extensions);
   const targetDocument = options.document ?? getDocument();
 
   // Parse HTML into DOM
@@ -190,7 +192,7 @@ export function generateText(
   options: GenerateTextOptions = {}
 ): string {
   const { blockSeparator = '\n\n' } = options;
-  const schema = buildSchemaFromExtensions(extensions);
+  const schema = createSchema(extensions);
   const doc = PMNode.fromJSON(schema, normalizeContent(content, schema, options));
 
   return doc.textBetween(0, doc.content.size, blockSeparator);

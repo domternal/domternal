@@ -231,6 +231,7 @@ export {
   surfaceToneAttributes,
   type SurfaceTone,
   type SurfaceToneAttributes,
+  createSchema,
   generateHTML,
   generateJSON,
   generateText,

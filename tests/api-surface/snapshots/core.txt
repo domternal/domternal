@@ -86,6 +86,7 @@ CreateDocumentOptions
 CreateEventProps
 createFloatingMenuPlugin
 CreateFloatingMenuPluginOptions
+createSchema
 DEFAULT_BLOCK_COLOR_TYPES
 DEFAULT_BLOCK_COLORS
 DEFAULT_HIGHLIGHT_COLORS
