@@ -18,10 +18,10 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core
 ```
 
-Core has no framework dependency and includes `@domternal/pm`. Use version 1.5.1
+Core has no framework dependency and includes `@domternal/pm`. Use version 1.6.0
 for all installed Domternal Free packages. Wrappers and extensions require Core
-`>=1.5.0 <2.0.0`; extensions also require PM in that range. Core 1.5.1 requires
-PM `>=1.5.1 <2.0.0` at runtime.
+`>=1.6.0 <2.0.0`; extensions also require PM in that range. Core 1.6.0 requires
+PM `>=1.6.0 <2.0.0` at runtime.
 Import ProseMirror primitives from `@domternal/pm/*` to keep
 [one shared copy](https://domternal.dev/v1/guides/single-prosemirror-copy/).
 
@@ -102,10 +102,11 @@ See the [configuration guide](https://domternal.dev/v1/guides/configuration/).
 
 ### Editable document notes
 
-`DocumentNotes` is opt-in and is not part of `StarterKit`. It installs an inline
-`documentNoteReference` atom and an editable `documentNote` block. Both live in
+Free 1.6.0 adds opt-in `DocumentNotes`, which is not part of `StarterKit`. It installs
+an inline `documentNoteReference` atom and an editable `documentNote` block. Both live in
 ordinary editor JSON and the shared ProseMirror document, so collaboration and
 history operate on the same content without a separate application note store.
+Enable `DocumentNotes` on every collaborative writer before storing these nodes.
 
 ```ts
 import { DocumentNotes, Editor, StarterKit, getDocumentNotes } from '@domternal/core';
@@ -143,9 +144,9 @@ navigation. `getDocumentNoteTypes(schema)` recognizes the actual first-party
 contract, including renamed nodes that retain its attributes. It does not adopt
 unrelated nodes just because they use the same names.
 
-Pro Import can populate this model and Pro Export can serialize it automatically.
-Word output uses native note parts; PDF keeps labeled note content in the main
-flow. This model is not a paginated footnote editor.
+Integration with Pro Import and Pro Export belongs to a separate upcoming Pro
+release. Free 1.6.0 provides the editable note model; it does not publish those
+DOCX/PDF adapters. This model is not a paginated footnote editor.
 
 ### Readable literal colors
 
@@ -192,10 +193,10 @@ Applications with their own styles can use the same narrowly scoped rule:
 
 ## Optional print preparation
 
-The next release adds `Print.configure({ prepareResources: true })` to wait for
+Free 1.6.0 adds `Print.configure({ prepareResources: true })` to wait for
 live images and fonts before command-driven printing. The default stays
 immediate. A bounded timeout, `cancelPrintPreparation()` and the optional
-`storage.print.preparation` result let an application report or cancel waiting.
+`storage.print.preparation` promise let an application report or cancel waiting.
 The matching theme and standard Table node view also support eligible multirow
 print headers without changing document JSON or selection. Browser pagination
 and native-dialog limitations still apply. See the [Print guide](https://domternal.dev/v1/extensions/print/)
@@ -256,16 +257,16 @@ additional variants. All except the node reader are also available from the pure
 `@domternal/core/list-labels` entry. Existing exhaustive TypeScript switches do
 not need new cases.
 
-Compound labels can reference enclosing ordered items without storing a copied
-number such as `1.2` in the document. For example, an inner list can use
+In 1.6.0, compound labels can reference enclosing ordered items without storing
+a copied number such as `1.2` in the document. For example, an inner list can use
 `{ kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'inherit' }, ') '], fallback: 'decimal' }`.
 The marker updates after an ancestor's number or format changes, including undo
 and collaborative edits. A missing or unordered referenced ancestor uses the
 ordinary fallback. Serialized HTML is a snapshot; regenerate it after editing
 the source document. See the contract below for the bounded template rules.
 
-A bullet list can also use `{ kind: 'image', src: pngDataUrl, text: '◆' }` for a
-small local picture marker. The qualified profile accepts static 8-bit RGB/RGBA
+Free 1.6.0 also supports `{ kind: 'image', src: pngDataUrl, text: '◆' }` for a
+small local picture marker on a bullet list. The qualified profile accepts static 8-bit RGB/RGBA
 PNG up to 32×32 pixels and 4 KiB, with a required readable text fallback. It
 does not fetch remote marker assets or accept SVG. Companion CSS displays the
 picture; the existing marker remains available when that CSS is absent.
@@ -329,9 +330,9 @@ const text = generateText(content, [StarterKit]);
 automatically; browser calls use the browser document. See
 [server-side utilities](https://domternal.dev/v1/guides/editor-api/#server-side-utilities).
 
-The next Free release adds `createSchema(extensions)` for a worker or headless
-conversion pipeline; it is not included in published 1.5.1. The helper builds
-only the ProseMirror schema using the same extension configuration as the editor:
+Free 1.6.0 adds `createSchema(extensions)` for a worker or headless conversion
+pipeline. The helper builds only the ProseMirror schema using the same extension
+configuration as the editor:
 
 ```ts
 import { createSchema, StarterKit } from '@domternal/core';
@@ -355,6 +356,9 @@ marked `optionalTranslation: true` may fall back to its English default until th
 application translates it, so additive messages need not break existing catalogs. Use
 `Required<CompleteMessages<typeof definitions>>` to require every current message
 in a maintained language pack. Runtime `i18n.messages` overrides remain partial.
+The six `core.documentNotes.*` messages added in 1.6.0 are optional, so existing
+complete Core catalogs continue to type-check and use English note labels until
+those translations are supplied.
 
 ## Guides
 

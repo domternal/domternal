@@ -18,7 +18,7 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core @domternal/pm @domternal/extension-table @domternal/theme
 ```
 
-Core and pm are peers with the range `>=1.5.0 <2.0.0`. Use version 1.5.1 for all
+Core and pm are peers with the range `>=1.6.0 <2.0.0`. Use version 1.6.0 for all
 installed Domternal Free packages. The example uses the optional theme for table
 layout and UI; you can supply your own styles instead.
 
@@ -103,9 +103,10 @@ pressing Backspace or Delete removes the table.
 
 ## Optional table layout settings
 
-The next Free release adds opt-in `TableLayout`; it is not included in published
-1.5.1. Add it beside `Table` to store explicit row heights, cell padding/borders
-and page-break preferences. Without it, the existing table schema is unchanged.
+Free 1.6.0 adds opt-in `TableLayout`. Add it beside `Table` to store explicit row
+heights, cell padding/borders and page-break preferences. Without it, the existing
+table schema is unchanged.
+Enable it on every collaborative writer before storing these attributes.
 
 ```ts
 import { Table, TableLayout } from '@domternal/extension-table';
@@ -135,12 +136,14 @@ break to fit the available page.
 
 The read-only `getNodeTableLayout`, `getNodeTableRowLayout` and
 `getNodeTableCellLayout` helpers return validated settings only for nodes from
-the opt-in schema. Pro Export recognizes this same capability. Word supports
-the native settings; PDF uses the documented approximations and warnings in the
-[Export guide](https://domternal.dev/v1/pro/export/#table-layout-settings). For
-`allowSplit: false`, PDF keeps a body row together only after it fits a fresh
-page with its repeated headers and final fonts. Oversized or unmeasurable rows
-remain splittable with a warning, preserving their content.
+the opt-in schema.
+
+Pro Export support for these settings belongs to a separate upcoming Pro release,
+as described in the [Export guide](https://domternal.dev/v1/pro/export/#table-layout-settings).
+That implementation uses native Word settings and bounded PDF approximations.
+With `allowSplit: false`, its PDF output keeps a body row together only after it
+fits a fresh page with its repeated headers and final fonts. Oversized or
+unmeasurable rows remain splittable with a warning, preserving their content.
 
 ## Content and paste
 

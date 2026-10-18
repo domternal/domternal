@@ -242,6 +242,31 @@ normalizePasteFromMain('<p>Clipboard content</p>', { limits: { maxDepth: 'unlimi
 
 // Every built-in definition must retain its public parameter augmentation in dist.
 type PublishedCoreMessages = CompleteMessages<typeof coreMessages>;
+type DocumentNoteMessageId = 'core.documentNotes.footnote' | 'core.documentNotes.endnote'
+  | 'core.documentNotes.missing' | 'core.documentNotes.duplicate'
+  | 'core.documentNotes.unreferenced' | 'core.documentNotes.limit';
+declare const pre16CoreCatalog: Omit<PublishedCoreMessages, DocumentNoteMessageId>;
+const compatiblePre16CoreCatalog: PublishedCoreMessages = pre16CoreCatalog;
+const translatedNoteCatalog: PublishedCoreMessages = {
+  ...pre16CoreCatalog,
+  'core.documentNotes.footnote': ({ label }) => { const text: string = label; return `Footnote ${text}`; },
+  'core.documentNotes.endnote': ({ label }) => { const text: string = label; return `Endnote ${text}`; },
+};
+const everyNoteTranslated: Required<PublishedCoreMessages> = {
+  ...pre16CoreCatalog,
+  'core.documentNotes.footnote': ({ label }) => `Footnote ${label}`,
+  'core.documentNotes.endnote': ({ label }) => `Endnote ${label}`,
+  'core.documentNotes.missing': 'Missing note',
+  'core.documentNotes.duplicate': 'Duplicate note',
+  'core.documentNotes.unreferenced': 'Unreferenced note',
+  'core.documentNotes.limit': 'Note navigation unavailable',
+};
+// @ts-expect-error Strict catalogs still require every new note translation.
+const missingStrictNoteTranslations: Required<PublishedCoreMessages> = pre16CoreCatalog;
+// @ts-expect-error Optional note callbacks retain their string label parameter.
+const invalidNoteLabel: PublishedCoreMessages = { ...pre16CoreCatalog, 'core.documentNotes.footnote': ({ label }: { label: number }) => String(label) };
+// @ts-expect-error Endnote callbacks also require a string label.
+const invalidEndnoteLabel: PublishedCoreMessages = { ...pre16CoreCatalog, 'core.documentNotes.endnote': ({ label }: { label: number }) => String(label) };
 // A 1.2 catalog can opt into partial overrides or add the new 1.3 translation.
 declare const legacyCoreCatalog: Omit<PublishedCoreMessages, 'core.linkPopover.invalidUrl'>;
 const compatibleCoreCatalog: Messages = legacyCoreCatalog;

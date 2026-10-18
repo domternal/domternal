@@ -21,12 +21,14 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
 - **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
 - **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents, from `@domternal/extension-block-controls` and `@domternal/extension-toc`, with `preset: 'notion'` for the layout and preset-aware behavior
-- **Print to paper or PDF** - `printDocument()` leaves your app's chrome off the page, and the theme's paper layer applies to the reader's own Ctrl/Cmd+P with no code involved
+- **Print to paper or PDF** - `printDocument()` leaves your app's chrome off the page, with optional image/font preparation and eligible repeated table headers; the theme's paper layer also applies to Ctrl/Cmd+P
 - **70+ extensions across core and 11 extension packages** - nodes, marks, and behavior extensions
 - **130+ chainable commands** - `editor.chain().focus().toggleBold().run()`
-- **Full table support** - cell merging, column resize, row/column controls, cell toolbar
+- **Full table support** - cell merging, column resize, row/column controls, cell toolbar and opt-in row heights, cell padding/borders and page-break preferences
+- **Optional image geometry:** crop, rotate and mirror images without changing source bytes
+- **Editable document notes:** opt-in footnote/endnote bodies and references in ordinary editor JSON, with navigation and undo
 - **Office paste cleanup:** opt-in Word and Google Docs HTML normalization, preserve/adapt formatting, list reconstruction, and localized feedback about content the editor cannot keep
-- **Optional custom list labels:** native counters with text prefixes and suffixes, or literal Unicode bullets, with matching collaborative schemas and companion CSS for standalone HTML
+- **Optional custom list labels:** native counters, bounded compound templates, Unicode bullets and local PNG markers, with matching collaborative schemas and companion CSS for standalone HTML
 - **Tree-shakeable JavaScript** - import only the JavaScript exports you use; the optional `@domternal/theme` deliberately ships one complete stylesheet
 - **~94 KiB minified and gzipped** (own code), [**~176 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies: see Packages for the full bundle breakdown
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
@@ -35,7 +37,7 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **Optional text contrast:** improve literal text colors on supported backgrounds while preserving authored colors in stored content, HTML, clipboard output and print
 - **Per-editor UI localization:** replace labels at creation or runtime, keep English fallback text, and opt into complete German catalogs
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
-- **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
+- **Headless and SSR helpers** - `createSchema` for shared editor/worker schemas, plus `generateHTML`, `generateJSON` and `generateText` for server-side conversion
 
 ## Quick Start
 
@@ -125,11 +127,22 @@ check a translation for every current message.
 
 ## Version compatibility
 
-Upgrade installed `@domternal/*` packages together to **1.5.1**. Wrappers require
-core `>=1.5.0 <2.0.0`, and extensions require both core and pm as peers in that
-range. Core 1.5.1 requires pm `>=1.5.1 <2.0.0` at runtime.
+Upgrade installed `@domternal/*` packages together to **1.6.0**. Wrappers require
+core `>=1.6.0 <2.0.0`, and extensions require both core and pm as peers in that
+range. Core 1.6.0 requires pm `>=1.6.0 <2.0.0` at runtime.
 
-Version 1.5.1 fixes Paste Cleanup image byte accounting and configuration guidance.
+Version 1.6.0 adds opt-in [image transforms](packages/extension-image/README.md#crop-rotate-and-mirror-images),
+[document notes](packages/core/README.md#editable-document-notes) and
+[table layout settings](packages/extension-table/README.md#optional-table-layout-settings),
+plus compound and local PNG [list labels](packages/core/README.md#optional-list-labels).
+Enable the corresponding schema options on every collaborative writer before storing
+that content. The original `ListLabel` helpers keep their counter/text contract;
+use the additive `ExtendedListLabel` APIs for the new label kinds.
+Core also adds `createSchema` and optional print resource preparation, with matching
+Core, Table and theme support for eligible multirow print headers. Pro Import and
+Pro Export support for the new models belongs to a separate upcoming Pro release.
+
+Version 1.5.1 fixed Paste Cleanup image byte accounting and configuration guidance.
 
 Version 1.5.0 adds optional `ListLabels`, bounded Word stylesheet typography,
 literal block backgrounds and a formatting choice for each paste. Use matching
@@ -156,7 +169,7 @@ an explicit migration of a live document.
 
 | Package                                                                                                              | Description                                                                                                                                                                  |
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core)                                                   | Editor engine with built-in nodes and marks, optional behavior extensions, list-label helpers, toolbar controller and icons                                                                               |
+| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core)                                                   | Editor engine with built-in nodes and marks, optional document notes, list-label and headless schema helpers, toolbar controller and icons                                                                               |
 | [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)                                                 | Light and dark themes with 150+ CSS custom properties                                                                                                                        |
 | [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular)                                             | Angular wrapper: 6 components (editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker)                                                         |
 | [`@domternal/react`](https://www.npmjs.com/package/@domternal/react)                                                 | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views                                                  |
@@ -165,11 +178,11 @@ an explicit migration of a live document.
 | [`@domternal/pm`](https://www.npmjs.com/package/@domternal/pm)                                                       | ProseMirror re-exports (state, view, model, transform, commands, keymap, history, tables, and more)                                                                          |
 | [`@domternal/extension-block-controls`](https://www.npmjs.com/package/@domternal/extension-block-controls)           | Notion-style block UX: block handle, context menu, drag-to-reorder, keyboard reorder, slash command, floating menu, smart paste (formerly `@domternal/extension-block-menu`) |
 | [`@domternal/extension-toc`](https://www.npmjs.com/package/@domternal/extension-toc)                                 | Notion-style Table of Contents: floating outline, inline `/toc` block, `scrollToHeading` command                                                                             |
-| [`@domternal/extension-table`](https://www.npmjs.com/package/@domternal/extension-table)                             | Tables with 18 commands: merge, split, resize, cell styling, row/column controls                                                                                             |
+| [`@domternal/extension-table`](https://www.npmjs.com/package/@domternal/extension-table)                             | Tables with merge, split, resize, cell styling, row/column controls and opt-in row/cell layout settings                                                                                             |
 | [`@domternal/extension-math`](https://www.npmjs.com/package/@domternal/extension-math)                               | LaTeX math: inline and block equations with a pluggable renderer (KaTeX)                                                                                                     |
 | [`@domternal/extension-markdown`](https://www.npmjs.com/package/@domternal/extension-markdown)                       | GitHub-flavored Markdown import and export: markdown paste, `insertMarkdown`/`setMarkdownContent`, headless parser and serializer with fidelity warnings                     |
 | [`@domternal/extension-paste-cleanup`](https://www.npmjs.com/package/@domternal/extension-paste-cleanup)              | Opt-in Office HTML paste normalization, preserve/adapt formatting, and bounded diagnostics through the extension or standalone `/html` entry                                |
-| [`@domternal/extension-image`](https://www.npmjs.com/package/@domternal/extension-image)                             | Image with paste/drop upload, URL input, XSS protection, bubble menu                                                                                                         |
+| [`@domternal/extension-image`](https://www.npmjs.com/package/@domternal/extension-image)                             | Images with paste/drop upload, URL input, XSS protection, bubble menu and opt-in crop, rotate and mirror geometry                                                                                                         |
 | [`@domternal/extension-emoji`](https://www.npmjs.com/package/@domternal/extension-emoji)                             | Emoji picker panel and `:shortcode:` autocomplete                                                                                                                            |
 | [`@domternal/extension-mention`](https://www.npmjs.com/package/@domternal/extension-mention)                         | `@mention` autocomplete with multi-trigger and async support                                                                                                                 |
 | [`@domternal/extension-details`](https://www.npmjs.com/package/@domternal/extension-details)                         | Collapsible details/accordion blocks                                                                                                                                         |
