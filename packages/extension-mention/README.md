@@ -18,8 +18,8 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core @domternal/pm @domternal/extension-mention @domternal/theme
 ```
 
-Requires `@domternal/core` and `@domternal/pm` `>=1.5.0 <2.0.0`.
-Use version 1.5.1 for all installed Domternal Free packages.
+Requires `@domternal/core` and `@domternal/pm` `>=1.6.0 <2.0.0`.
+Use version 1.6.0 for all installed Domternal Free packages.
 The theme styles mentions and the suggestion dropdown; custom styles are also supported.
 
 ## Quick start

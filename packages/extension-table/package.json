@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-table",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "Table extension for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -51,8 +51,8 @@
     "prepack": "node ../../scripts/locale-build.mjs --check"
   },
   "peerDependencies": {
-    "@domternal/core": ">=1.5.0 <2.0.0",
-    "@domternal/pm": ">=1.5.0 <2.0.0"
+    "@domternal/core": ">=1.6.0 <2.0.0",
+    "@domternal/pm": ">=1.6.0 <2.0.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",

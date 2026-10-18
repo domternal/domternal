@@ -15,7 +15,7 @@ pnpm add @domternal/theme
 ```
 
 The package declares Node.js 22 or later for tooling and has no peer dependencies.
-Use version 1.5.1 for the theme, editor and framework wrapper so component markup
+Use version 1.6.0 for the theme, editor and framework wrapper so component markup
 and styles stay aligned.
 
 ## Usage
@@ -82,6 +82,11 @@ separately mounted UI, scrolling, Sass, and the complete
   UI, use the [Print extension](https://domternal.dev/v1/extensions/print/).
   Color overrides for print need `!important` in a later `@media print` rule;
   see [printing](https://domternal.dev/v1/guides/theming/#printing).
+- Core, Table and theme 1.6.0 support eligible multirow print headers through
+  the Print extension and standard Table node view. The print-only header group
+  leaves document JSON and selection unchanged; browser pagination still applies.
+  Core's optional resource preparation can wait for live images and fonts before
+  command-driven printing. See [optional print preparation](../core/README.md#optional-print-preparation).
 - Highlights and shaded table cells retain authored backgrounds. In the live
   editor, text without an authored color adapts to that background. This behavior
   is not serialized into `getHTML()`; use a read-only editor to display saved

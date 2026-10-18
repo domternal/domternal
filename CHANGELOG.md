@@ -1,17 +1,28 @@
 # Changelog
 
-## Unreleased
+## 1.6.0 (2026-10-18)
 
 ### Features
 
-- Add non-destructive image crop, rotation and mirroring geometry, with an undoable `setImageTransform` command, matching editor and HTML presentation, and unchanged source image bytes. Existing images without valid geometry keep their ordinary rendering.
-- Extend optional `ListLabels` with bounded compound counter templates that follow actual ancestor list items, including zero starts, restarts, undo and collaborative edits. HTML and clipboard serialization retain the source template and a current presentation snapshot without adding marker text to the document.
+- Add opt-in `DocumentNotes` for editable footnote and endnote bodies, repeated references, custom labels, derived numbering and keyboard navigation in ordinary editor JSON. Notes participate in undo and collaboration without a separate note store. The extension is not part of StarterKit, and its new translations are optional so existing complete message catalogs remain valid.
+- Add opt-in `TableLayout` beside `Table` for bounded row heights, row splitting, cell padding and borders, and page-break preferences, with undoable commands and HTML serialization. Existing table schemas remain unchanged when the extension is omitted; browser printing retains its own pagination rules.
+- Add non-destructive image crop, rotation and mirroring through `Image.configure({ enableTransforms: true })`, with an undoable `setImageTransform` command, matching editor and HTML presentation, and unchanged source image bytes. The option defaults to false, preserving the existing image schema and JSON. All collaborative writers must enable the same schema options before using image geometry, document notes or table layout settings.
+- Extend optional `ListLabels` with bounded compound counter templates that follow actual ancestor list items, including zero starts, restarts, undo and collaborative edits. HTML and clipboard serialization retain the source template and a current presentation snapshot without adding marker text to the document. Additive `ExtendedListLabel` types and helpers support the new variants while the original `ListLabel` helpers retain their counter/text contract.
 - Add bounded local PNG picture markers to optional bullet-list labels, with required readable text fallback and matching editor, HTML and clipboard handling. The profile accepts static 8-bit RGB/RGBA PNG up to 32×32 pixels and 4 KiB. It does not fetch remote marker assets or infer arbitrary Word picture bullets.
+- Expose `createSchema(extensions)` for headless and worker pipelines that need the editor's configured schema without creating an editor view, plugins or editor lifecycle. JSON normalization remains a separate step.
+- Add optional `Print.configure({ prepareResources: true })` to wait for live images and fonts before command-driven printing, with bounded waiting, cancellation and a completion result. The default remains immediate printing; native Ctrl/Cmd+P cannot wait for asynchronous preparation.
+- Support eligible multirow table headers during browser printing with matching Core, Table and theme packages. Temporary DOM changes restore the live editor after printing without changing document content or selection.
 
 ### Fixes
 
-- Keep Paste Cleanup compatible with the standalone list-label helpers exposed by earlier supported Core peers. New label kinds require a Core version that validates them; older peers retain ordinary list content with diagnostics.
+- Preserve ordinary pasted list content with diagnostics when the available Core list-label helpers cannot validate a newer label kind. This defensive fallback does not replace the coordinated package upgrade required by the 1.6.0 peer ranges.
 - Keep export status and other metadata-only transactions from appending a trailing paragraph or creating an undo entry. TrailingNode still responds to editing and selection changes, preserves typing marks, and lets undo restore the exact original document.
+- Keep native print isolation on the focused editor when multiple editors are present, use the editor's owner document and window, and restore print presentation after failures or editor destruction. Late print-media events no longer hide the page again after the dialog closes.
+- Build Core declarations in sequence so the main, clipboard and list-label entry points consistently retain their published type artifacts.
+
+### Docs
+
+- Update all package installation guidance for the coordinated 1.6.0 release. Document opt-in schema requirements, the extended list-label helpers, headless schemas and print preparation, and distinguish Free capabilities from the separate upcoming Pro Import and Export integration.
 
 ## 1.5.1 (2026-10-16)
 

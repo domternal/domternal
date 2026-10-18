@@ -2,13 +2,67 @@ import { describe, expect, it, vi } from 'vitest';
 import { Editor } from '../Editor.js';
 import { StarterKit } from '../extensions/StarterKit.js';
 import { I18nService } from '../i18n/I18nService.js';
-import type { Messages } from '../i18n/types.js';
+import type { CompleteMessages, Messages } from '../i18n/types.js';
 import { coreMessages } from '../messages/core.js';
 import { deMessages, deSearchAliases } from './de.js';
 
 const { colorTextSwatch, colorBackgroundSwatch, emojiItemName, headingLevel, noteFootnote, noteEndnote, ...staticMessages } = coreMessages;
 
 describe('German core messages', () => {
+  it('accepts a complete pre-1.6 catalog and falls back for optional document note messages', () => {
+    const {
+      'core.documentNotes.footnote': footnote,
+      'core.documentNotes.endnote': endnote,
+      'core.documentNotes.missing': missing,
+      'core.documentNotes.duplicate': duplicate,
+      'core.documentNotes.unreferenced': unreferenced,
+      'core.documentNotes.limit': limit,
+      ...legacyMessages
+    } = deMessages;
+    if (footnote === undefined || endnote === undefined || missing === undefined
+      || duplicate === undefined || unreferenced === undefined || limit === undefined) {
+      throw new Error('The German catalog must include every document note translation');
+    }
+    const compatibleMessages: CompleteMessages<typeof coreMessages> = legacyMessages;
+    const i18n = new I18nService({ locale: 'de', messages: compatibleMessages });
+    try {
+      expect(i18n.resolve(coreMessages.bold)).toEqual({ text: 'Fett', source: 'messages', language: 'de' });
+      expect(i18n.resolve(coreMessages.noteFootnote, { label: '2' })).toEqual({
+        text: 'Footnote 2', source: 'default', language: 'en',
+      });
+      expect(i18n.resolve(coreMessages.noteEndnote, { label: '*' })).toEqual({
+        text: 'Endnote *', source: 'default', language: 'en',
+      });
+      const statuses = [
+        [coreMessages.noteMissing, 'Note content is missing', missing],
+        [coreMessages.noteDuplicate, 'More than one note uses this identity', duplicate],
+        [coreMessages.noteUnreferenced, 'This note has no reference', unreferenced],
+        [coreMessages.noteLimit, 'Note navigation is unavailable for this document size', limit],
+      ] as const;
+      for (const [definition, text] of statuses) {
+        expect(i18n.resolve(definition)).toEqual({ text, source: 'default', language: 'en' });
+      }
+      i18n.set({ locale: 'de', messages: {
+        ...compatibleMessages,
+        'core.documentNotes.footnote': footnote,
+        'core.documentNotes.endnote': endnote,
+        'core.documentNotes.missing': missing,
+        'core.documentNotes.duplicate': duplicate,
+        'core.documentNotes.unreferenced': unreferenced,
+        'core.documentNotes.limit': limit,
+      } });
+      expect(i18n.resolve(coreMessages.noteFootnote, { label: '2' })).toEqual({
+        text: 'Fußnote 2', source: 'messages', language: 'de',
+      });
+      expect(i18n.resolve(coreMessages.noteEndnote, { label: '*' })).toEqual({
+        text: 'Endnote *', source: 'messages', language: 'de',
+      });
+      for (const [definition, , text] of statuses) {
+        expect(i18n.resolve(definition)).toEqual({ text, source: 'messages', language: 'de' });
+      }
+    } finally { i18n.destroy(); }
+  });
+
   it('accepts a 1.2 catalog as partial overrides and falls back for a newly added message', () => {
     const { 'core.linkPopover.invalidUrl': addedMessage, ...legacyMessages } = deMessages;
     const compatibleMessages: Messages = legacyMessages;

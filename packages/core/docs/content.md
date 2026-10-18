@@ -23,6 +23,8 @@ exact glyph font, punctuation or indentation.
 existing `listStyleType` fallback and `start`. It is not part of StarterKit and
 does not change task lists or a schema that does not include it.
 
+The original counter/text records are available since 1.5.0. Free 1.6.0 adds
+compound and picture labels through the additive `ExtendedListLabel` APIs.
 Supported records have exactly these keys:
 
 ```ts
@@ -55,7 +57,7 @@ containers do not create a counter level. An unordered, unavailable or invalid
 referenced counter uses the list's ordinary fallback instead of inventing a
 partial compound marker.
 
-`formatListLabel(label, ordinal, ancestors)` accepts enclosing counter contexts,
+`formatExtendedListLabel(label, ordinal, ancestors)` accepts enclosing counter contexts,
 nearest first, as `{ ordinal, format }` or `null` for an unordered ancestor. It
 returns `null` when a required context is unavailable; callers then retain the
 ordinary marker. Compound literal parts share the same 64-code-point total
@@ -85,10 +87,15 @@ characters, bidirectional formatting controls, line separators and unpaired
 surrogates are refused. Natural text, combining characters and emoji joiners are
 allowed. Records cannot supply extra properties, HTML, CSS, a font or
 an executable callback. Images follow the closed PNG profile above.
-`readListLabel` validates a value and returns a frozen
-copy, or `null`. `getNodeListLabel(node)` additionally checks that the node
+`readExtendedListLabel` validates any supported label and returns a frozen
+copy, or `null`. `getNodeExtendedListLabel(node)` additionally checks that the node
 uses the registered `ListLabels` attribute contract; an unrelated custom
 attribute with the same name is not treated as a label.
+
+For compatibility, `ListLabel`, `readListLabel`, `formatListLabel` and
+`getNodeListLabel` retain the original counter/text contract. These readers and
+the formatter return `null` for compound and picture labels. Use
+`ExtendedListLabel` and the extended helpers for all supported variants.
 
 With the extension enabled, invalid JSON labels become `null` with the
 `unsupported-list-label` diagnostic. Unsupported HTML labels fall back to the
@@ -131,11 +138,14 @@ alphabetic, Roman or bullet fallback. Custom prefixes and bullets are therefore
 not promised in an external clipboard consumer that discards the metadata or
 stylesheet. Fonts supplied by the application still determine glyph appearance.
 
-Workers and server code can import `readListLabel`, `parseListLabel`, `formatListLabel`,
+Workers and server code can import `readListLabel`, `formatListLabel`,
+`readExtendedListLabel`, `parseExtendedListLabel`, `formatExtendedListLabel`,
 `getListLabelStyleSheet` and the label types from `@domternal/core/list-labels`.
 This pure entry loads no editor, ProseMirror runtime or DOM code. The main entry
-keeps the same helpers for editor consumers; the pure entry contains independent,
-stateless functions, so their function identities across entries are not a contract.
+keeps the same helpers for editor consumers and additionally exposes
+`getNodeListLabel` and `getNodeExtendedListLabel`. The pure entry contains
+independent, stateless functions, so their function identities across entries
+are not a contract.
 
 The contract represents a single counter, a compound counter such as `1.2.3`,
 a literal bullet or the bounded local PNG picture profile above. It does not
