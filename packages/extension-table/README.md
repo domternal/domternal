@@ -137,7 +137,10 @@ The read-only `getNodeTableLayout`, `getNodeTableRowLayout` and
 `getNodeTableCellLayout` helpers return validated settings only for nodes from
 the opt-in schema. Pro Export recognizes this same capability. Word supports
 the native settings; PDF uses the documented approximations and warnings in the
-[Export guide](https://domternal.dev/v1/pro/export/#table-layout-settings).
+[Export guide](https://domternal.dev/v1/pro/export/#table-layout-settings). For
+`allowSplit: false`, PDF keeps a body row together only after it fits a fresh
+page with its repeated headers and final fonts. Oversized or unmeasurable rows
+remain splittable with a warning, preserving their content.
 
 ## Content and paste
 
