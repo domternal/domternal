@@ -19,6 +19,10 @@ describe('German core messages', () => {
       'core.documentNotes.limit': limit,
       ...legacyMessages
     } = deMessages;
+    if (footnote === undefined || endnote === undefined || missing === undefined
+      || duplicate === undefined || unreferenced === undefined || limit === undefined) {
+      throw new Error('The German catalog must include every document note translation');
+    }
     const compatibleMessages: CompleteMessages<typeof coreMessages> = legacyMessages;
     const i18n = new I18nService({ locale: 'de', messages: compatibleMessages });
     try {
