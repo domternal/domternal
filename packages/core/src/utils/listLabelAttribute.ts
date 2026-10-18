@@ -1,7 +1,7 @@
 import type { AttributeSpec } from '../types/AttributeSpec.js';
 import type { GlobalAttributeSpec } from '../types/ExtensionConfig.js';
-import type { ListLabel } from '../types/ListLabel.js';
-import { listLabelForKind, parseListLabel, serializeListLabel } from './listLabel.js';
+import type { ExtendedListLabel, ListLabel } from '../types/ListLabel.js';
+import { listLabelForKind, parseExtendedListLabel, readListLabel, serializeListLabel } from './listLabel.js';
 import { listLabelStyleName } from './listLabelStyles.js';
 import { registerAttributeNormalizer } from './normalizedAttributes.js';
 
@@ -23,17 +23,17 @@ export function listLabelAttribute(kind: ListKind): GlobalAttributeSpec {
   return {
     default: null,
     validate,
-    parseHTML: element => listLabelForKind(kind, parseListLabel(element.getAttribute('data-dm-list-label'))),
+    parseHTML: element => listLabelForKind(kind, parseExtendedListLabel(element.getAttribute('data-dm-list-label'))),
     renderHTML: attributes => {
       const label = listLabelForKind(kind, attributes['listLabel']);
       if (label === null) return null;
       const name = listLabelStyleName(label);
       const marker = attributes['listStyleType'];
       const explicit = typeof marker === 'string' && (kind === 'orderedList' ? Object.hasOwn(ORDERED_TYPES, marker) : BULLET.has(marker)) ? marker : null;
-      const fallback = explicit ?? (label.kind === 'counter' ? label.format : 'disc');
+      const fallback = explicit ?? (label.kind === 'counter' ? label.format : label.kind === 'compound' ? label.fallback : 'disc');
       const result: Record<string, string> = {
         'data-dm-list-label': serializeListLabel(label) ?? '',
-        style: `list-style-type: var(--${name}, ${fallback})`,
+        style: `list-style-type: var(--${name}, ${fallback})${label.kind === 'image' ? `; list-style-image: var(--${name}-image, none)` : ''}`,
       };
       // Keep an explicit existing marker available to older schemas while preserving a nullable default.
       if (explicit !== null) result['type'] = kind === 'orderedList' ? ORDERED_TYPES[explicit] ?? '1' : explicit;
@@ -43,6 +43,11 @@ export function listLabelAttribute(kind: ListKind): GlobalAttributeSpec {
 }
 
 /** Values stored by foreign attributes named listLabel are not our presentation contract. */
-export function nodeListLabel(node: { readonly type: { readonly name: string; readonly spec: { readonly attrs?: Readonly<Record<string, Pick<AttributeSpec, 'validate'>>> } }; readonly attrs: Readonly<Record<string, unknown>> }): ListLabel | null {
+export function nodeExtendedListLabel(node: { readonly type: { readonly name: string; readonly spec: { readonly attrs?: Readonly<Record<string, Pick<AttributeSpec, 'validate'>>> } }; readonly attrs: Readonly<Record<string, unknown>> }): ExtendedListLabel | null {
   return hasListLabelContract(node.type.spec.attrs?.['listLabel']) ? listLabelForKind(node.type.name, node.attrs['listLabel']) : null;
+}
+
+/** Preserve the original public node reader for existing exhaustive consumers. */
+export function nodeListLabel(node: Parameters<typeof nodeExtendedListLabel>[0]): ListLabel | null {
+  return readListLabel(nodeExtendedListLabel(node));
 }

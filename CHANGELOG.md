@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Add non-destructive image crop, rotation and mirroring geometry, with an undoable `setImageTransform` command, matching editor and HTML presentation, and unchanged source image bytes. Existing images without valid geometry keep their ordinary rendering.
+- Extend optional `ListLabels` with bounded compound counter templates that follow actual ancestor list items, including zero starts, restarts, undo and collaborative edits. HTML and clipboard serialization retain the source template and a current presentation snapshot without adding marker text to the document.
+- Add bounded local PNG picture markers to optional bullet-list labels, with required readable text fallback and matching editor, HTML and clipboard handling. The profile accepts static 8-bit RGB/RGBA PNG up to 32×32 pixels and 4 KiB. It does not fetch remote marker assets or infer arbitrary Word picture bullets.
+
+### Fixes
+
+- Keep Paste Cleanup compatible with the standalone list-label helpers exposed by earlier supported Core peers. New label kinds require a Core version that validates them; older peers retain ordinary list content with diagnostics.
+- Keep export status and other metadata-only transactions from appending a trailing paragraph or creating an undo entry. TrailingNode still responds to editing and selection changes, preserves typing marks, and lets undo restore the exact original document.
+
 ## 1.5.1 (2026-10-16)
 
 ### Fixes

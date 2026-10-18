@@ -65,6 +65,8 @@ CommandProps
 CommandPropsEditor
 CommandSpec
 CompleteMessages
+CompoundListLabel
+CompoundListLabelCounter
 Content
 ContentDiagnostic
 ContentDiagnosticProps
@@ -84,6 +86,7 @@ CreateDocumentOptions
 CreateEventProps
 createFloatingMenuPlugin
 CreateFloatingMenuPluginOptions
+createSchema
 DEFAULT_BLOCK_COLOR_TYPES
 DEFAULT_BLOCK_COLORS
 DEFAULT_HIGHLIGHT_COLORS
@@ -97,6 +100,16 @@ defineMessage
 deleteSelection
 detectBubbleContext
 Document
+DocumentNote
+DocumentNoteBodyRecord
+DocumentNoteIdentity
+DocumentNoteKind
+DocumentNoteReference
+DocumentNoteReferenceRecord
+DocumentNotes
+DocumentNotesSnapshot
+DocumentNoteTarget
+DocumentNoteTypes
 Dropcursor
 DropcursorOptions
 Editor
@@ -107,6 +120,7 @@ EditorOptions
 EditorPreset
 EmojiPresentationItem
 EventEmitter
+ExtendedListLabel
 Extension
 ExtensionConfig
 ExtensionConfigBase
@@ -140,6 +154,7 @@ FontFamily
 FontFamilyOptions
 FontSize
 FontSizeOptions
+formatExtendedListLabel
 formatListLabel
 Gapcursor
 generateHTML
@@ -149,9 +164,12 @@ GenerateJSONOptions
 generateText
 GenerateTextOptions
 getBubbleFormatItems
+getDocumentNotes
+getDocumentNoteTypes
 getListItemCursorContext
 getListLabelStyleSheet
 getMarkRange
+getNodeExtendedListLabel
 getNodeListLabel
 GlobalAttributes
 GlobalAttributeSpec
@@ -176,6 +194,7 @@ I18nResolver
 I18nService
 I18nSnapshot
 IconSet
+ImageListLabel
 indentBlockAsListChild
 InlineStyleOverrides
 inlineStyles
@@ -184,6 +203,7 @@ InsertAsListItemChildArgs
 InsertAsListItemChildResult
 insertChildrenZoneSibling
 insertContent
+InsertDocumentNoteOptions
 insertText
 InvisibleChars
 InvisibleCharsOptions
@@ -233,6 +253,7 @@ ListItemOptions
 ListKeymap
 ListKeymapOptions
 ListLabel
+ListLabelAncestor
 ListLabelFormat
 ListLabels
 ListLabelsOptions
@@ -274,6 +295,7 @@ OrderedListOptions
 outdentBlockFromListItem
 Paragraph
 ParagraphOptions
+parseExtendedListLabel
 pastedAttributesPlugin @experimental
 PickerLabel
 Placeholder
@@ -285,10 +307,13 @@ positionFloatingOnce
 PositionFloatingOptions
 Print
 PrintOptions
+PrintPreparationResult
+PrintResourceOptions
 PrintStorage
 ProseMirrorCopyConflict
 Range
 RawCommands
+readExtendedListLabel
 readListLabel
 refocusEditorAfterCommand
 registerAttributeNormalizer @experimental

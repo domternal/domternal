@@ -261,7 +261,18 @@ editor.commands.deleteImage();
 editor.commands.insertMarkdown('# hi');
 editor.commands.insertMathInline('a^2');
 editor.commands.deleteMention();
+editor.commands.cancelPrintPreparation();
 editor.commands.deleteTable();
+const tableRowLayout: table.TableRowLayout = { height: 80, allowSplit: false };
+const tableCellLayout: table.TableCellLayout = { padding: { top: 12 } };
+editor.commands.setTableLayout({ breakBefore: 'page' });
+editor.commands.setTableRowLayout(tableRowLayout);
+editor.commands.setTableCellLayout(tableCellLayout);
+const tableJSON: core.JSONContent = { type: 'tableRow', attrs: { rowLayout: tableRowLayout }, content: [
+  { type: 'tableCell', attrs: { cellLayout: tableCellLayout }, content: [{ type: 'paragraph' }] },
+] };
+const cjsCellLayout: table.TableCellLayout | null = table.getNodeTableCellLayout(editor.state.doc);
+
 editor.commands.scrollToHeading('heading-id');
 editor.chain().focus().toggleBold().run();
 
@@ -280,6 +291,7 @@ extensions.push(
   mention.Mention,
   pasteCleanup.PasteCleanup,
   table.Table,
+  table.TableLayout,
   toc.TableOfContents
 );
 
@@ -354,3 +366,41 @@ listLabelCore.ListLabels.configure({ nonce: 'host-nonce' });
 const pureLabel: listLabels.ListLabel | null = listLabels.readListLabel({ kind: 'text', text: '✓' });
 const pureMarker: string | null = listLabels.formatListLabel(pureLabel);
 const pureStyles: string = listLabels.getListLabelStyleSheet({ type: 'bulletList', attrs: { listLabel: pureLabel } });
+
+
+const compoundLabel: listLabels.CompoundListLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'decimal' }], fallback: 'decimal' };
+const imageLabel: core.ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload', text: '*' };
+const ancestors: readonly listLabels.ListLabelAncestor[] = [{ ordinal: 4, format: 'upper-alpha' }];
+const compoundText: string | null = listLabels.formatExtendedListLabel(compoundLabel, 0, ancestors);
+const parsedImage: listLabels.ExtendedListLabel | null = listLabels.parseExtendedListLabel(JSON.stringify(imageLabel));
+const transform: image.ImageTransform = { naturalWidth: 1200, naturalHeight: 800, crop: { left: 0.1 }, rotation: 90 };
+const transformOptions: image.SetImageTransformOptions = { rotation: 90, flipX: true };
+editor.commands.setImage({ src: 'image.png', imageTransform: transform });
+editor.commands.setImageTransform(transformOptions);
+editor.commands.setImageTransform(null);
+// @ts-expect-error CommonJS image geometry keeps numeric rotation.
+editor.commands.setImageTransform({ rotation: '90deg' });
+// @ts-expect-error CommonJS picture labels also require fallback text.
+const missingPictureFallback: listLabels.ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload' };
+
+// Existing consumers can exhaust the original union after an additive minor update.
+function legacyLabelConsumer(label: core.ListLabel): string {
+  if (label.kind === 'counter') return label.format;
+  return label.text;
+}
+function legacyPureLabelConsumer(label: listLabels.ListLabel): string {
+  switch (label.kind) {
+    case 'counter': return label.format;
+    case 'text': return label.text;
+    default: { const unreachable: never = label; return unreachable; }
+  }
+}
+const legacyReadResult = core.readListLabel({ kind: 'text', text: '*' });
+if (legacyReadResult !== null) legacyLabelConsumer(legacyReadResult);
+const legacyNodeResult = core.getNodeListLabel(editor.state.doc);
+if (legacyNodeResult !== null) legacyPureLabelConsumer(legacyNodeResult);
+
+editor.commands.insertDocumentNote({ noteId: 'commonjs-note', kind: 'endnote' });
+editor.commands.insertDocumentNoteReference({ noteId: 'commonjs-note', kind: 'endnote' });
+editor.commands.focusDocumentNote({ noteId: 'commonjs-note', kind: 'endnote' });
+void [core.DocumentNotes, core.DocumentNote, core.DocumentNoteReference, core.getDocumentNotes(editor.state.doc), core.getDocumentNoteTypes(editor.schema)];

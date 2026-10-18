@@ -218,6 +218,9 @@ export interface EditorEvents {
 
   /** Fired once the print dialog is done and the print marks are removed. */
   afterPrint: undefined;
+
+  /** Failed opt-in resource preparation or an asynchronous print request. No print is retried automatically. */
+  printPreparationError: { root: HTMLElement; error: Error };
 }
 
 /**

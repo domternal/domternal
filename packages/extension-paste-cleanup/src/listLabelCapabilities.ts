@@ -11,8 +11,8 @@ export function officeLabelCapability(schema: Schema, document: Document): (labe
   const serializer = DOMSerializer.fromSchema(schema);
   const cache = new Map<string, boolean>();
   const accepts = (label: ListLabel, level: number, start: number): boolean => {
-    const kind = label.kind === 'counter' ? 'orderedList' : 'bulletList';
-    const tag = label.kind === 'counter' ? 'ol' : 'ul';
+    const kind = label.kind === 'text' ? 'bulletList' : 'orderedList';
+    const tag = kind === 'bulletList' ? 'ul' : 'ol';
     const marker = label.kind === 'counter' ? label.format : 'disc';
     const serialized = JSON.stringify(label);
     const name = listLabelStyleName(label);
@@ -57,7 +57,7 @@ export function officeLabelCapability(schema: Schema, document: Document): (labe
     // One paste can contain many items, but only a bounded number of distinct presentation probes.
     if (cache.size >= 256) return false;
     let supported = false;
-    try { supported = accepts(label, level, 7) && (label.kind !== 'counter' || accepts(label, level, 0)); } catch {
+    try { supported = accepts(label, level, 7) && (label.kind === 'text' || accepts(label, level, 0)); } catch {
       // A host parser or renderer that cannot preserve the contract keeps the original marker text.
     }
     cache.set(key, supported);

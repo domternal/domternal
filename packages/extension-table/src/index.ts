@@ -7,6 +7,7 @@
  */
 
 export { Table, type TableOptions } from './Table.js';
+export { TableLayout, type TableCellLayout, type TableLayoutSettings, type TableRowLayout, type TableSides, type TableBorder } from './TableLayout.js';
 export { TableRow, type TableRowOptions } from './TableRow.js';
 export { TableCell, type TableCellOptions } from './TableCell.js';
 export { TableHeader, type TableHeaderOptions } from './TableHeader.js';
@@ -18,3 +19,5 @@ export { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCel
 export { CellSelection, TableMap } from '@domternal/pm/tables';
 
 export { tableMessages } from './messages.js';
+
+export { getNodeTableLayout, getNodeTableRowLayout, getNodeTableCellLayout } from './helpers/tableLayout.js';

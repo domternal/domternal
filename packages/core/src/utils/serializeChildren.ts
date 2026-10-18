@@ -5,6 +5,9 @@
  * the HTML standard serializes it, whatever DOM implementation built them.
  */
 
+import { annotateDocumentNotes } from './documentNotesDOM.js';
+import { annotateCompoundListLabels } from './compoundListLabels.js';
+
 /** Documents whose own serializer escapes `&` in attribute values, as browsers and jsdom do. */
 const escapesAmpersand = new WeakMap<Document, boolean>();
 
@@ -33,6 +36,8 @@ function serializerEscapesAmpersand(document: Document): boolean {
  * caller built for serializing.
  */
 export function serializeChildren(container: Element): string {
+  annotateCompoundListLabels(container);
+  annotateDocumentNotes(container);
   if (!serializerEscapesAmpersand(container.ownerDocument)) {
     for (const element of Array.from(container.querySelectorAll('*'))) {
       for (const attribute of Array.from(element.attributes)) {

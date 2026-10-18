@@ -31,6 +31,7 @@ describe('Image', () => {
 
     it('has default options', () => {
       expect(Image.options).toEqual({
+        enableTransforms: false,
         inline: false,
         allowBase64: true,
         HTMLAttributes: {},

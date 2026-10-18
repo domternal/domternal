@@ -1,21 +1,23 @@
 import type { JSONContent } from '../types/Content.js';
-import type { ListLabel } from '../types/ListLabel.js';
-import { listLabelForKind, quoteListLabelCSS, readListLabel, serializeListLabel } from './listLabel.js';
+import type { ExtendedListLabel } from '../types/ListLabel.js';
+import { listLabelForKind, quoteListLabelCSS, readExtendedListLabel, serializeListLabel } from './listLabel.js';
+import { listLabelImageIdentifier } from './listLabelImage.js';
 
 /** Full canonical UTF-16 encoding gives bounded, collision-free CSS identifiers. */
-export function listLabelStyleName(label: ListLabel): string {
+export function listLabelStyleName(label: ExtendedListLabel): string {
   const canonical = serializeListLabel(label);
   if (canonical === null) throw new RangeError('Invalid list label');
+  if (label.kind === 'image') return listLabelImageIdentifier(label.src, label.text);
   let name = 'dm-ll-';
   for (let index = 0; index < canonical.length; index++) name += canonical.charCodeAt(index).toString(16).padStart(4, '0');
   return name;
 }
 
 /** Compile only closed records. CSS never contains a document-supplied identifier or declaration. */
-export function compileListLabelStyles(values: readonly ListLabel[]): string {
-  const labels = new Map<string, ListLabel>();
+export function compileListLabelStyles(values: readonly ExtendedListLabel[]): string {
+  const labels = new Map<string, ExtendedListLabel>();
   for (const value of values) {
-    const label = readListLabel(value);
+    const label = readExtendedListLabel(value);
     if (label !== null) labels.set(listLabelStyleName(label), label);
   }
   const rules: string[] = [];
@@ -23,9 +25,17 @@ export function compileListLabelStyles(values: readonly ListLabel[]): string {
   for (const [name, label] of [...labels].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)) {
     const definition = label.kind === 'counter'
       ? `system: extends ${label.format}; prefix: ${quoteListLabelCSS(label.prefix)}; suffix: ${quoteListLabelCSS(label.suffix)};`
+      : label.kind === 'compound' ? `system: extends ${label.fallback}; suffix: ". ";`
       : `system: cyclic; symbols: ${quoteListLabelCSS(label.text)}; suffix: " ";`;
     rules.push(`@counter-style ${name} { ${definition} }`);
     properties.push(`--${name}: ${name};`);
+    if (label.kind === 'image') properties.push(`--${name}-image: url(${quoteListLabelCSS(label.src)});`);
+  }
+  if ([...labels.values()].some(label => label.kind === 'compound')) {
+    rules.push('ol[data-dm-list-label] > li[data-dm-compound-marker]::marker { content: attr(data-dm-compound-marker); }');
+  }
+  if ([...labels.values()].some(label => label.kind === 'image')) {
+    rules.push('ul[data-dm-list-label] :is(ol, ul) { list-style-image: none; }');
   }
   if (properties.length > 0) {
     const variables = properties.join(' ');
@@ -41,7 +51,7 @@ export function compileListLabelStyles(values: readonly ListLabel[]): string {
 export function getListLabelStyleSheet(content: JSONContent | readonly JSONContent[]): string {
   const pending: JSONContent[] = Array.isArray(content) ? [...content as readonly JSONContent[]] : [content as JSONContent];
   const seen = new WeakSet<JSONContent>();
-  const labels: ListLabel[] = [];
+  const labels: ExtendedListLabel[] = [];
   while (pending.length > 0) {
     const node = pending.pop();
     if (node === undefined || seen.has(node)) continue;

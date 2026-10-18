@@ -770,6 +770,126 @@
       "searchable": false
     },
     {
+      "id": "core.documentNotes.duplicate",
+      "owner": "@domternal/core",
+      "description": "Ambiguous document note bodies are kept visible for correction.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "More than one note uses this identity"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/documentNotes.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.documentNotes.endnote",
+      "owner": "@domternal/core",
+      "description": "A document endnote and its displayed number or custom mark.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ label }) => `Endnote ${label}`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/documentNotes.ts",
+      "parameters": {
+        "type": "{\n    label: string;\n}",
+        "fields": [
+          {
+            "name": "label",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.documentNotes.footnote",
+      "owner": "@domternal/core",
+      "description": "A document footnote and its displayed number or custom mark.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "function",
+        "source": "({ label }) => `Footnote ${label}`"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/documentNotes.ts",
+      "parameters": {
+        "type": "{\n    label: string;\n}",
+        "fields": [
+          {
+            "name": "label",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.documentNotes.limit",
+      "owner": "@domternal/core",
+      "description": "The bounded note index cannot safely resolve this document.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Note navigation is unavailable for this document size"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/documentNotes.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.documentNotes.missing",
+      "owner": "@domternal/core",
+      "description": "A reference without one matching note body.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Note content is missing"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/documentNotes.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "core.documentNotes.unreferenced",
+      "owner": "@domternal/core",
+      "description": "An editable note whose reference was removed.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "This note has no reference"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/core/src/messages/documentNotes.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "core.editor.label",
       "owner": "@domternal/core",
       "description": "Default accessible name for the editable document.",

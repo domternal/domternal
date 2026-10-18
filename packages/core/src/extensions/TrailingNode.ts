@@ -6,6 +6,7 @@
  * code blocks, images, or tables.
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
+import { isHistoryTransaction } from '@domternal/pm/history';
 import type { NodeType } from '@domternal/pm/model';
 import { Extension } from '../Extension.js';
 
@@ -45,9 +46,19 @@ export const TrailingNode = Extension.create<TrailingNodeOptions>({
     return [
       new Plugin({
         key: trailingNodeKey,
-        appendTransaction(_, __, state) {
+        appendTransaction(transactions, __, state) {
+          // UI notifications must not edit the document. Selection-driven
+          // initialization retains the existing editing behavior.
+          // Undo restores its original snapshot, including an initially absent tail.
+          if (!transactions.some(transaction => transaction.docChanged
+            || (transaction.selectionSet && transaction.getMeta('addToHistory') !== false))
+            || transactions.some(isHistoryTransaction)) return;
           if (!trailingNodeKey.getState(state)) return;
-          return state.tr.insert(state.doc.content.size, type.create());
+          const transaction = state.tr.insert(state.doc.content.size, type.create());
+          if (state.storedMarks !== null) transaction.setStoredMarks(state.storedMarks);
+          const followsUserEdit = transactions.some(change => change.docChanged && change.getMeta('addToHistory') !== false);
+          if (!followsUserEdit) transaction.setMeta('addToHistory', false);
+          return transaction;
         },
         state: {
           init(_, { doc, schema }) {

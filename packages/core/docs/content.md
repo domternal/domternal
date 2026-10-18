@@ -30,6 +30,10 @@ Supported records have exactly these keys:
 { kind: 'counter', format: 'decimal', prefix: 'Section ', suffix: ') ' }
 // bulletList: a literal marker, independent of a source application's font
 { kind: 'text', text: '✓' }
+// orderedList: actual parent number, then this item's number
+{ kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'inherit' }, ') '], fallback: 'decimal' }
+// bulletList: a small local PNG picture and its readable fallback
+{ kind: 'image', src: pngDataUrl, text: '◆' }
 ```
 
 Counter formats are `decimal`, `lower-alpha`, `upper-alpha`, `lower-roman` and
@@ -39,12 +43,49 @@ outside 1 to 3999 use decimal numbering. `formatListLabel(label, ordinal)` expos
 the same plain-text formatting for consumers, accepting whole ordinals from 0 to
 2147483647. An invalid label or ordinal returns `null`.
 
+Compound templates contain at most 19 parts and nine counter references. A
+reference's `ancestor` is 0 for the current item, 1 for its nearest enclosing list
+item, through 8. References occur once each in descending order and must include
+0. A format is one of the counter formats above or `inherit`. Inherited own
+format uses `fallback`; inherited ancestor format follows that ancestor's
+counter label or ordinary list format. Explicit formats can display an ancestor
+as decimal even when its own marker uses letters. Starts of zero and separate
+list restarts retain their actual values. Intervening blockquotes or other block
+containers do not create a counter level. An unordered, unavailable or invalid
+referenced counter uses the list's ordinary fallback instead of inventing a
+partial compound marker.
+
+`formatListLabel(label, ordinal, ancestors)` accepts enclosing counter contexts,
+nearest first, as `{ ordinal, format }` or `null` for an unordered ancestor. It
+returns `null` when a required context is unavailable; callers then retain the
+ordinary marker. Compound literal parts share the same 64-code-point total
+limit. Adjacent literal parts are canonicalized together, empty literal parts
+are removed, and all parts are copied and frozen. Counters are derived from
+structure, never saved as text prefixes.
+
+Picture markers accept a canonical `data:image/png;base64,` source only. The
+qualified profile is a static, non-interlaced, 8-bit RGB/RGBA PNG, at most 4096
+encoded file bytes and 32 pixels on each side. PNG structure and chunk checksums
+are checked; the renderer decodes pixels. The profile allows IHDR, IDAT and IEND
+plus sRGB, gAMA, cHRM and pHYs metadata. Indexed/grayscale, animated, interlaced,
+remote and SVG images are outside this profile. `text` is required and follows
+the same nonempty, 64-code-point bounds as a literal bullet.
+
+The companion stylesheet uses the picture's intrinsic dimensions and the
+browser's native list-marker placement. It provides the text fallback if the
+browser cannot display that picture, and prevents ordinary nested lists from
+inheriting it. Without the companion CSS, semantic ordinary bullets remain.
+No image element or marker text is inserted into document content. The canonical
+record survives JSON, HTML, native copy and matching collaborative schemas.
+This source contract does not automatically extract picture bullets from Word.
+
 The combined prefix and suffix, or a literal bullet, contain at most 64 Unicode
 code points. Literal bullets cannot be empty or only whitespace. Control
 characters, bidirectional formatting controls, line separators and unpaired
 surrogates are refused. Natural text, combining characters and emoji joiners are
-allowed. Records cannot supply extra properties, HTML, CSS, a font, an image or
-an executable callback. `readListLabel` validates a value and returns a frozen
+allowed. Records cannot supply extra properties, HTML, CSS, a font or
+an executable callback. Images follow the closed PNG profile above.
+`readListLabel` validates a value and returns a frozen
 copy, or `null`. `getNodeListLabel(node)` additionally checks that the node
 uses the registered `ListLabels` attribute contract; an unrelated custom
 attribute with the same name is not treated as a label.
@@ -65,6 +106,15 @@ extension recovers the label. `getHTML`, `generateHTML` and clipboard HTML do no
 add visible label spans or embed stylesheets. `getText`, `generateText` and plain
 clipboard text keep only document text.
 
+For compound labels, the live view derives `data-dm-compound-marker` on list items
+through decorations. The HTML and clipboard serializers derive the same snapshot
+attribute from the serialized list structure. It is never read as source data,
+stored in JSON, added to undo history or sent as a collaboration update. An
+isolated copy without its referenced parent falls back until it has valid
+ancestry at its destination. Companion CSS displays the derived attribute with
+`::marker`. Standalone HTML does not recalculate after external DOM edits;
+regenerate it from the updated editor document.
+
 Live editors install native `@counter-style` rules in their document or shadow
 root. A shadow editor also retains the definitions in its owner document for
 browsers that resolve counter styles there. Owners in the same root share rules, and unused rules are removed when the
@@ -81,15 +131,16 @@ alphabetic, Roman or bullet fallback. Custom prefixes and bullets are therefore
 not promised in an external clipboard consumer that discards the metadata or
 stylesheet. Fonts supplied by the application still determine glyph appearance.
 
-Workers and server code can import `readListLabel`, `formatListLabel`,
+Workers and server code can import `readListLabel`, `parseListLabel`, `formatListLabel`,
 `getListLabelStyleSheet` and the label types from `@domternal/core/list-labels`.
 This pure entry loads no editor, ProseMirror runtime or DOM code. The main entry
 keeps the same helpers for editor consumers; the pure entry contains independent,
 stateless functions, so their function identities across entries are not a contract.
 
-This first contract represents one counter per ordered list or a literal bullet.
-It does not represent compound counters such as `1.2.3`, picture bullets,
-source-specific marker fonts or layout geometry. Office conversion adapters and
+The contract represents a single counter, a compound counter such as `1.2.3`,
+a literal bullet or the bounded local PNG picture profile above. It does not
+represent arbitrary picture formats, source-specific marker fonts or layout
+geometry. Office conversion adapters and
 external exporters need their own explicit support for the optional contract;
 registering this extension alone does not add those adapters.
 

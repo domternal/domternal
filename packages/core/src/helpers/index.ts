@@ -44,6 +44,7 @@ export {
 export { isSafeCssValue } from './isSafeCssValue.js';
 export { surfaceTone, surfaceToneAttributes, type SurfaceTone, type SurfaceToneAttributes } from './surfaceTone.js';
 export {
+  createSchema,
   generateHTML,
   generateJSON,
   generateText,

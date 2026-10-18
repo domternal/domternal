@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import type { ListLabel } from '@domternal/core/list-labels';
+import type { ExtendedListLabel } from '@domternal/core/list-labels';
 import { DEFAULT_PASTE_HTML_LIMITS, normalizePasteHTML } from './normalize.js';
 import { parseBoundedHTML } from './parse.js';
 import { cleanSliceContext } from './metadata.js';
@@ -8,13 +8,29 @@ import { listLabelStyleName, readCompanionListStyle, readHTMLListLabel } from '.
 
 const counter = { kind: 'counter', format: 'upper-alpha', prefix: 'Section ', suffix: ') ' } as const;
 const bullet = { kind: 'text', text: '✓' } as const;
+const compound: ExtendedListLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'decimal' }, ' '], fallback: 'decimal' };
+const image: ExtendedListLabel = { kind: 'image', src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAFklEQVR4nGO4o2zznxTMMKphVAN2DAArDECw1uKo8wAAAABJRU5ErkJggg==', text: '◆' };
 function attribute(value: unknown): string { return JSON.stringify(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;'); }
 function list(tag: string, label: unknown, style = ''): string {
   return `<${tag} data-dm-list-label="${attribute(label)}"${style === '' ? '' : ` style="${style}"`}><li><p>Item</p></li></${tag}>`;
 }
 
 describe('bounded list label clipboard metadata', () => {
-  it.each([['ol', counter, 'upper-alpha'], ['ul', bullet, 'disc']] as const)('retains %s metadata and its exact native companion style in both policies', (tag, label, fallback) => {
+  it('retains a validated local PNG marker and only its compiler-owned image variable', () => {
+    const name = listLabelStyleName(image);
+    const style = `list-style-type:var(--${name}, disc);list-style-image:var(--${name}-image, none)`;
+    for (const formatting of ['adapt', 'preserve'] as const) {
+      const result = normalizePasteHTML(list('ul', image, style), { formatting });
+      expect(result.diagnostics).toEqual([]); expect(result.html).toContain('list-style-image:');
+      expect(result.html).toContain('data-dm-list-label'); expect(normalizePasteHTML(result.html, { formatting })).toEqual(result);
+    }
+    for (const value of ['url(https://example.test/remote.png)', `var(--${name}-other, none)`, 'var(--host-image)']) {
+      const result = normalizePasteHTML(list('ul', image, `list-style-image:${value}`));
+      expect(result.html).not.toContain('list-style-image:');
+      expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'unsupported-formatting' }));
+    }
+  });
+  it.each([['ol', counter, 'upper-alpha'], ['ul', bullet, 'disc'], ['ol', compound, 'decimal']] as const)('retains %s metadata and its exact native companion style in both policies', (tag, label, fallback) => {
     const name = listLabelStyleName(label);
     for (const formatting of ['adapt', 'preserve'] as const) {
       const result = normalizePasteHTML(list(tag, label, `list-style-type:var(--${name}, ${fallback})`), { formatting });
@@ -24,6 +40,15 @@ describe('bounded list label clipboard metadata', () => {
       expect(result.html).toContain('data-dm-list-label=');
       expect(normalizePasteHTML(result.html, { formatting })).toEqual(result);
     }
+  });
+
+  it('retains compound source metadata but discards derived presentation supplied by the clipboard', () => {
+    const html = list('ol', compound).replace('<li>', '<li data-dm-compound-marker="spoofed">');
+    const result = normalizePasteHTML(html);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.html).toContain('data-dm-list-label');
+    expect(result.html).not.toContain('data-dm-compound-marker');
+    expect(result.html).not.toContain('spoofed');
   });
 
   it('canonicalizes the closed record without deriving an ordinal from its label', () => {
@@ -69,7 +94,7 @@ describe('bounded list label clipboard metadata', () => {
   });
 
   it('keeps quote and markup characters as data, never inline CSS or HTML', () => {
-    const label: ListLabel = { kind: 'text', text: '"><script>test()</script>\\' };
+    const label: ExtendedListLabel = { kind: 'text', text: '"><script>test()</script>\\' };
     const result = normalizePasteHTML(list('ul', label, `list-style-type:var(--${listLabelStyleName(label)}, disc)`));
     expect(result.diagnostics).toEqual([]);
     const parsed = parseBoundedHTML(result.html, DEFAULT_PASTE_HTML_LIMITS);

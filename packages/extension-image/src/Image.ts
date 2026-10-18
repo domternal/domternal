@@ -18,6 +18,8 @@ import type { Node as PmNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { imageMessages } from './messages.js';
 import { imageFileInsertion } from './imageUploadPlugin.js';
+import { imageTransformBox, imageTransformStyles, normalizeImageTransform, parseImageTransform } from './imageTransform.js';
+import type { ImageTransform } from './imageTransform.js';
 
 /** Float values for image text wrapping. */
 export type ImageFloat = 'none' | 'left' | 'right' | 'center';
@@ -59,13 +61,20 @@ export interface SetImageOptions {
   crossorigin?: 'anonymous' | 'use-credentials';
   float?: ImageFloat;
   align?: ImageAlign;
+  /** Crop, then mirror and rotate. Requires Image.configure({ enableTransforms: true }). */
+  imageTransform?: ImageTransform | null;
 }
+
+/** Missing intrinsic dimensions are read from the selected, loaded image. */
+export type SetImageTransformOptions = Omit<ImageTransform, 'naturalWidth' | 'naturalHeight'>
+  & Partial<Pick<ImageTransform, 'naturalWidth' | 'naturalHeight'>>;
 
 declare module '@domternal/core' {
   interface RawCommands {
     setImage: CommandSpec<[attributes: SetImageOptions]>;
     setImageFloat: CommandSpec<[float: ImageFloat]>;
     setImageAlign: CommandSpec<[align: ImageAlign]>;
+    setImageTransform: CommandSpec<[transform: SetImageTransformOptions | null]>;
     deleteImage: CommandSpec;
   }
 }
@@ -142,7 +151,7 @@ function applyAlt(img: HTMLImageElement, value: unknown): void {
  * intrinsic size on screen while both export backends sized it at 300. Same
  * document, half the width on paper.
  */
-function applyWidth(img: HTMLImageElement, value: unknown): void {
+function applyWidth(img: HTMLElement, value: unknown): void {
   const px =
     typeof value === 'number'
       ? value
@@ -210,6 +219,13 @@ function readFileAsDataURL(file: File): Promise<string> {
 }
 
 export interface ImageOptions {
+  /**
+   * Add the imageTransform schema attribute and enable crop, rotation and mirroring.
+   * Leave disabled to retain the existing image JSON schema. Every collaborating
+   * editor that uses transformed images must enable the same option.
+   * @default false
+   */
+  enableTransforms?: boolean;
   /**
    * Whether images are inline (within paragraphs) or block-level (default: false)
    * When true, images can appear alongside text within a paragraph.
@@ -312,6 +328,7 @@ export const Image = Node.create<ImageOptions>({
 
   addOptions() {
     return {
+      enableTransforms: false,
       inline: false,
       allowBase64: true,
       HTMLAttributes: {},
@@ -370,6 +387,16 @@ export const Image = Node.create<ImageOptions>({
           return { width: attributes['width'] as string };
         },
       },
+      ...(this.options.enableTransforms === true ? {
+        imageTransform: {
+          default: null,
+          parseHTML: (element: HTMLElement) => parseImageTransform(element.getAttribute('data-dm-image-transform')),
+          renderHTML: (attributes: Record<string, unknown>) => {
+            const transform = normalizeImageTransform(attributes['imageTransform']);
+            return transform ? { 'data-dm-image-transform': JSON.stringify(transform) } : {};
+          },
+        },
+      } : {}),
       height: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('height'),
@@ -397,6 +424,10 @@ export const Image = Node.create<ImageOptions>({
       float: {
         default: 'none',
         parseHTML: (element: HTMLElement) => {
+          if (parseImageTransform(element.getAttribute('data-dm-image-transform'))) {
+            const stored = element.getAttribute('data-dm-image-float');
+            if (stored === 'left' || stored === 'right' || stored === 'center') return stored;
+          }
           const style = element.style;
           if (style.float === 'left') return 'left';
           if (style.float === 'right') return 'right';
@@ -451,15 +482,21 @@ export const Image = Node.create<ImageOptions>({
   renderHTML({ node, HTMLAttributes }) {
     const src = nodeSource(node.attrs, this.options.allowBase64);
 
-    // Checked again on render, for a source stored by JSON or a collaborator:
-    // a refused one renders an empty src, so an HTML round trip keeps the node.
-    if (src === undefined) {
-      return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes, src: '' }];
-    }
-    if (src === null) {
-      return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
-    }
-    return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes, src }];
+    // Checked again for a source stored by JSON or a collaborator.
+    const attrs: Record<string, unknown> = { ...this.options.HTMLAttributes, ...HTMLAttributes,
+      ...(src === null ? {} : { src: src ?? '' }) };
+    const transform = this.options.enableTransforms === true ? normalizeImageTransform(node.attrs['imageTransform']) : null;
+    if (!transform) return ['img', attrs];
+    const styles = imageTransformStyles(transform);
+    const box = imageTransformBox(transform);
+    const value: unknown = node.attrs['width'];
+    const width = typeof value === 'number' ? value
+      : typeof value === 'string' && /^\s*\d+(?:\.\d+)?(?:px)?\s*$/.test(value) ? Number.parseFloat(value) : box.width;
+    const size = Number.isFinite(width) && width > 0 ? Math.min(width, 1_000_000) : box.width;
+    const placement = typeof attrs['style'] === 'string' ? attrs['style'] : '';
+    return ['span', { 'data-dm-image-viewport': '', style: `${styles.viewport}${placement};width:${String(size)}px;` },
+      ['span', { style: styles.crop },
+        ['img', { ...attrs, 'data-dm-image-float': typeof node.attrs['float'] === 'string' ? node.attrs['float'] : 'none', style: styles.image }]]];
   },
 
   leafText(node) {
@@ -600,8 +637,41 @@ export const Image = Node.create<ImageOptions>({
       applySource(img, node.attrs, allowBase64());
       applyAlt(img, node.attrs['alt']);
       if (node.attrs['title']) img.title = node.attrs['title'] as string;
-      applyWidth(img, node.attrs['width']);
-      dom.appendChild(img);
+      let viewport: HTMLSpanElement | undefined;
+      let crop: HTMLSpanElement | undefined;
+      let geometryKey: string | undefined;
+      const applyGeometry = (attrs: Record<string, unknown>): void => {
+        const transform = this.options.enableTransforms === true ? normalizeImageTransform(attrs['imageTransform']) : null;
+        const key = JSON.stringify([transform ?? null, typeof attrs['width'] === 'string' || typeof attrs['width'] === 'number' ? attrs['width'] : null]);
+        if (key === geometryKey) return;
+        geometryKey = key;
+        if (!transform) {
+          img.style.cssText = '';
+          applyWidth(img, attrs['width']);
+          dom.insertBefore(img, dom.firstChild);
+          viewport?.remove();
+          viewport = undefined;
+          crop = undefined;
+          return;
+        }
+        const styles = imageTransformStyles(transform);
+        viewport ??= document.createElement('span');
+        crop ??= document.createElement('span');
+        viewport.dataset['dmImageViewport'] = '';
+        viewport.style.cssText = styles.viewport;
+        const storedWidth: unknown = attrs['width'];
+        const parsedWidth = typeof storedWidth === 'string'
+          ? Number.parseFloat(/^\s*(\d+(?:\.\d+)?)(?:px)?\s*$/.exec(storedWidth)?.[1] ?? '') : storedWidth;
+        const width = typeof parsedWidth === 'number' && Number.isFinite(parsedWidth) ? Math.min(parsedWidth, 1_000_000) : null;
+        applyWidth(viewport, width);
+        if (!viewport.style.width) applyWidth(viewport, imageTransformBox(transform).width);
+        crop.style.cssText = styles.crop;
+        img.style.cssText = styles.image;
+        crop.appendChild(img);
+        viewport.appendChild(crop);
+        dom.insertBefore(viewport, dom.firstChild);
+      };
+      applyGeometry(node.attrs);
 
       // Click-to-select: floated images confuse ProseMirror's posAtCoords,
       // so we explicitly create a NodeSelection on mousedown.
@@ -611,7 +681,10 @@ export const Image = Node.create<ImageOptions>({
         if (pos === undefined) return;
         const { selection } = view.state;
         // Already selected → let default (drag) proceed
-        if (selection instanceof NodeSelection && selection.from === pos) return;
+        if (selection instanceof NodeSelection && selection.from === pos) {
+          if (viewport) view.focus();
+          return;
+        }
         e.preventDefault();
         view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
         view.focus();
@@ -628,13 +701,14 @@ export const Image = Node.create<ImageOptions>({
           e.stopPropagation();
 
           const startX = e.clientX;
-          const startWidth = img.offsetWidth;
+          const resizeTarget = viewport ?? img;
+          const startWidth = resizeTarget.offsetWidth;
           const isLeft = corner.includes('w');
 
           const onMouseMove = (ev: MouseEvent): void => {
             const dx = isLeft ? startX - ev.clientX : ev.clientX - startX;
             const newWidth = Math.max(50, startWidth + dx);
-            img.style.width = `${String(newWidth)}px`;
+            resizeTarget.style.width = `${String(newWidth)}px`;
           };
 
           const onMouseUp = (): void => {
@@ -649,7 +723,7 @@ export const Image = Node.create<ImageOptions>({
             if (!currentNode) return;
             const tr = view.state.tr.setNodeMarkup(pos, undefined, {
               ...currentNode.attrs,
-              width: img.offsetWidth,
+              width: resizeTarget.offsetWidth,
             });
             view.dispatch(tr);
           };
@@ -664,13 +738,19 @@ export const Image = Node.create<ImageOptions>({
 
       return {
         dom,
+        // Our mousedown selects the image. Do not start ProseMirror's
+        // coordinate-based click handling on the transformed crop wrapper.
+        // Native dragstart still reaches ProseMirror with that NodeSelection.
+        stopEvent(event: Event) {
+          return viewport !== undefined && event.type === 'mousedown';
+        },
         update(updatedNode: PmNode) {
           if (updatedNode.type.name !== 'image') return false;
           applySource(img, updatedNode.attrs, allowBase64());
           applyAlt(img, updatedNode.attrs['alt']);
           // A null title would be written as the literal string "null".
           img.title = (updatedNode.attrs['title'] as string | null) ?? '';
-          applyWidth(img, updatedNode.attrs['width']);
+          applyGeometry(updatedNode.attrs);
           applyPlacement(updatedNode.attrs['float'], updatedNode.attrs['align']);
           node = updatedNode;
           return true;
@@ -690,6 +770,8 @@ export const Image = Node.create<ImageOptions>({
       setImage:
         (attributes: SetImageOptions) =>
         ({ state, tr, dispatch }) => {
+          // Do not report success after dropping geometry from a schema that cannot retain it.
+          if (attributes.imageTransform !== undefined && this.options.enableTransforms !== true) return false;
           // The same check as every other entry; an allowed source is stored cleaned.
           const src = imageSource(attributes.src, this.options.allowBase64);
           if (src === undefined) {
@@ -701,11 +783,39 @@ export const Image = Node.create<ImageOptions>({
           // Refuse insertion inside code blocks
           if (tr.selection.$from.parent.type.spec.code) return false;
 
-          const node = this.nodeType.create({ ...attributes, src: src ?? attributes.src });
+          const imageTransform = normalizeImageTransform(attributes.imageTransform);
+          if (imageTransform === undefined) return false;
+          const node = this.nodeType.create({ ...attributes, src: src ?? attributes.src,
+            ...(this.options.enableTransforms === true ? { imageTransform } : {}) });
           if (!dispatch) return true;
           // A chosen file's image goes through the same placement, see placeImage.
           if (placeImage(state, tr, node, this.options.inline) === 'list') tr.scrollIntoView();
           dispatch(tr);
+          return true;
+        },
+
+      setImageTransform:
+        (transform: SetImageTransformOptions | null) =>
+        ({ editor, tr, dispatch }) => {
+          if (this.options.enableTransforms !== true) return false;
+          const { selection } = tr;
+          if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'image') return false;
+          const node = selection.node;
+          let imageTransform: ReturnType<typeof normalizeImageTransform> = null;
+          if (transform !== null) {
+            if (typeof transform !== 'object' || Array.isArray(transform)) return false;
+            const current = normalizeImageTransform(node.attrs['imageTransform']);
+            const dom = (editor.view as EditorView).nodeDOM(selection.from);
+            const img = dom instanceof HTMLElement ? (dom instanceof HTMLImageElement ? dom : dom.querySelector('img')) : null;
+            imageTransform = normalizeImageTransform({ ...transform,
+              naturalWidth: transform.naturalWidth ?? current?.naturalWidth ?? img?.naturalWidth,
+              naturalHeight: transform.naturalHeight ?? current?.naturalHeight ?? img?.naturalHeight });
+            if (imageTransform === undefined) return false;
+          }
+          if (dispatch) {
+            tr.setNodeMarkup(selection.from, undefined, { ...node.attrs, imageTransform });
+            dispatch(tr);
+          }
           return true;
         },
 

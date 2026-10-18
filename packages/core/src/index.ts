@@ -6,9 +6,9 @@
 export const VERSION = '1.5.1';
 
 export { ListLabels, type ListLabelsOptions } from './extensions/ListLabels.js';
-export type { ListLabel, CounterListLabel, TextListLabel, ListLabelFormat } from './types/ListLabel.js';
-export { formatListLabel, readListLabel } from './utils/listLabel.js';
-export { nodeListLabel as getNodeListLabel } from './utils/listLabelAttribute.js';
+export type { ExtendedListLabel, ListLabel, CounterListLabel, TextListLabel, ImageListLabel, CompoundListLabel, CompoundListLabelCounter, ListLabelAncestor, ListLabelFormat } from './types/ListLabel.js';
+export { formatListLabel, parseExtendedListLabel, readExtendedListLabel, formatExtendedListLabel, readListLabel } from './utils/listLabel.js';
+export { nodeListLabel as getNodeListLabel, nodeExtendedListLabel as getNodeExtendedListLabel } from './utils/listLabelAttribute.js';
 export { getListLabelStyleSheet } from './utils/listLabelStyles.js';
 
 export * from './i18n/index.js';
@@ -231,6 +231,7 @@ export {
   surfaceToneAttributes,
   type SurfaceTone,
   type SurfaceToneAttributes,
+  createSchema,
   generateHTML,
   generateJSON,
   generateText,
@@ -494,6 +495,8 @@ export {
   Print,
   type PrintOptions,
   type PrintStorage,
+  type PrintResourceOptions,
+  type PrintPreparationResult,
   // Link UI
   LinkPopover,
   type LinkPopoverOptions,
@@ -507,3 +510,8 @@ export {
   StarterKit,
   type StarterKitOptions,
 } from './extensions/index.js';
+
+export { DocumentNotes, type InsertDocumentNoteOptions, type DocumentNoteTarget } from './extensions/DocumentNotes.js';
+export { DocumentNote } from './nodes/DocumentNote.js';
+export { DocumentNoteReference } from './nodes/DocumentNoteReference.js';
+export { getDocumentNoteTypes, getDocumentNotes, type DocumentNoteKind, type DocumentNoteIdentity, type DocumentNoteTypes, type DocumentNotesSnapshot, type DocumentNoteBodyRecord, type DocumentNoteReferenceRecord } from './utils/documentNotes.js';

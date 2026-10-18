@@ -29,10 +29,15 @@ export function checkListLabelBundle(packageDirectory, format) {
         }
         const loaded = await import('./labels.${format}');
         const labels = ${format === 'cjs' ? 'loaded.default' : 'loaded'};
-        assert.deepEqual(Object.keys(labels).sort(), ['formatListLabel', 'getListLabelStyleSheet', 'readListLabel']);
+        assert.deepEqual(Object.keys(labels).sort(), ['formatExtendedListLabel', 'formatListLabel', 'getListLabelStyleSheet', 'parseExtendedListLabel', 'readExtendedListLabel', 'readListLabel']);
         const label = labels.readListLabel({ kind: 'counter', format: 'upper-alpha', prefix: 'Section ', suffix: ')' });
         assert.deepEqual(label, { kind: 'counter', format: 'upper-alpha', prefix: 'Section ', suffix: ')' });
         assert.equal(labels.formatListLabel(label, 27), 'Section AA)');
+        assert.deepEqual(labels.parseExtendedListLabel(JSON.stringify(label)), label);
+        const picture = labels.readExtendedListLabel({ kind: 'image', text: '*', src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAFklEQVR4nGO4o2zznxTMMKphVAN2DAArDECw1uKo8wAAAABJRU5ErkJggg==' });
+        assert.equal(labels.formatExtendedListLabel(picture), '*');
+        assert.match(labels.getListLabelStyleSheet({ type: 'bulletList', attrs: { listLabel: picture } }), /--dm-ll-png-/);
+        assert.deepEqual(labels.parseExtendedListLabel(JSON.stringify(picture)), picture);
         const styles = labels.getListLabelStyleSheet({ type: 'orderedList', attrs: { listLabel: label } });
         assert.match(styles, /system: extends upper-alpha/);
         assert.match(styles, /prefix: "Section "/);

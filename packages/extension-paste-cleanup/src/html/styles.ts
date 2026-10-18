@@ -225,6 +225,12 @@ export function readSafeStyles(value: unknown, imagePlacement = false, tag = '',
     const name = declaration.slice(0, separator).trim().toLowerCase();
     const written = declaration.slice(separator + 1).trim();
     const content = numericProperties.has(name) ? withoutFloatNoise(written) : written;
+    if (name === 'list-style-image') {
+      if (tag === 'ul' && labelStyleName?.startsWith('dm-ll-png-') === true
+        && content === `var(--${labelStyleName}-image, none)`) keep(name, content);
+      else removedNames.push(name);
+      continue;
+    }
     if (name === 'list-style-type') {
       const marker = content.toLowerCase();
       if (validListStyle(tag, marker)) keep(name, marker);

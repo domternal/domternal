@@ -100,6 +100,53 @@ Only imported extensions enter your JavaScript bundle. `preset: 'notion'` select
 the Notion presentation and behavior; it does not install optional extensions.
 See the [configuration guide](https://domternal.dev/v1/guides/configuration/).
 
+### Editable document notes
+
+`DocumentNotes` is opt-in and is not part of `StarterKit`. It installs an inline
+`documentNoteReference` atom and an editable `documentNote` block. Both live in
+ordinary editor JSON and the shared ProseMirror document, so collaboration and
+history operate on the same content without a separate application note store.
+
+```ts
+import { DocumentNotes, Editor, StarterKit, getDocumentNotes } from '@domternal/core';
+
+const editor = new Editor({ extensions: [StarterKit, DocumentNotes] });
+editor.commands.insertDocumentNote({
+  noteId: 'source-note',
+  kind: 'footnote',
+  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Editable note body' }] }],
+});
+editor.commands.insertDocumentNoteReference({ noteId: 'source-note', kind: 'footnote' });
+editor.commands.focusDocumentNote({ noteId: 'source-note', kind: 'footnote' });
+const notes = getDocumentNotes(editor.state.doc);
+```
+
+The same commands accept `kind: 'endnote'`. `insertDocumentNote` can generate an
+identity when `noteId` is omitted and accepts an optional literal `label` for a
+custom mark. Bodies and references share `noteId` and `kind`; a repeated reference
+points to the existing body. Insertion is one undoable transaction. Clicking a
+reference, pressing Enter or Space on it, or calling `focusDocumentNote` selects
+the corresponding body. The body heading links back to its first reference.
+
+Automatic labels are derived from reference order independently for each kind;
+custom labels do not advance the counter. Rendering never rewrites JSON or Yjs
+state. Deleting a reference keeps its body visible for editing. Missing bodies
+and duplicate identities display an unresolved status instead of guessing or
+discarding content. Copying a body with its references remaps colliding identities;
+a reference copied alone retains its target identity.
+
+Identities are limited to 256 UTF-16 units and custom labels to 64 nonblank units,
+without control characters or unpaired surrogates. The derived navigation index
+is bounded to 512 bodies, 512 references, 100,000 nodes, 64 levels and two million
+text units. Exceeding the index bound keeps the content and disables unresolved
+navigation. `getDocumentNoteTypes(schema)` recognizes the actual first-party
+contract, including renamed nodes that retain its attributes. It does not adopt
+unrelated nodes just because they use the same names.
+
+Pro Import can populate this model and Pro Export can serialize it automatically.
+Word output uses native note parts; PDF keeps labeled note content in the main
+flow. This model is not a paginated footnote editor.
+
 ### Readable literal colors
 
 Core and theme 1.4.0 add an optional display policy for literal text colors.
@@ -142,6 +189,17 @@ Applications with their own styles can use the same narrowly scoped rule:
   }
 }
 ```
+
+## Optional print preparation
+
+The next release adds `Print.configure({ prepareResources: true })` to wait for
+live images and fonts before command-driven printing. The default stays
+immediate. A bounded timeout, `cancelPrintPreparation()` and the optional
+`storage.print.preparation` result let an application report or cancel waiting.
+The matching theme and standard Table node view also support eligible multirow
+print headers without changing document JSON or selection. Browser pagination
+and native-dialog limitations still apply. See the [Print guide](https://domternal.dev/v1/extensions/print/)
+for configuration, resource limits and supported header structures.
 
 ### Full block backgrounds
 
@@ -188,6 +246,29 @@ for rendered HTML. HTML without it retains ordinary list fallbacks.
 The pure `@domternal/core/list-labels` entry exposes the validator, formatter,
 stylesheet collector and label types for workers and server code without loading
 the editor runtime.
+
+For compatibility, `ListLabel`, `readListLabel`, `formatListLabel` and
+`getNodeListLabel` retain the original `counter` and `text` contract. The readers
+and formatter return `null` for compound and picture labels. Use
+`ExtendedListLabel`, `readExtendedListLabel`, `parseExtendedListLabel`,
+`formatExtendedListLabel` and `getNodeExtendedListLabel` when opting into the
+additional variants. All except the node reader are also available from the pure
+`@domternal/core/list-labels` entry. Existing exhaustive TypeScript switches do
+not need new cases.
+
+Compound labels can reference enclosing ordered items without storing a copied
+number such as `1.2` in the document. For example, an inner list can use
+`{ kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'inherit' }, ') '], fallback: 'decimal' }`.
+The marker updates after an ancestor's number or format changes, including undo
+and collaborative edits. A missing or unordered referenced ancestor uses the
+ordinary fallback. Serialized HTML is a snapshot; regenerate it after editing
+the source document. See the contract below for the bounded template rules.
+
+A bullet list can also use `{ kind: 'image', src: pngDataUrl, text: '◆' }` for a
+small local picture marker. The qualified profile accepts static 8-bit RGB/RGBA
+PNG up to 32×32 pixels and 4 KiB, with a required readable text fallback. It
+does not fetch remote marker assets or accept SVG. Companion CSS displays the
+picture; the existing marker remains available when that CSS is absent.
 
 All collaborative writers must enable the same list-label schema. An older
 writer without the extension can remove the unknown attribute when it edits a
@@ -247,6 +328,24 @@ const text = generateText(content, [StarterKit]);
 `generateText` does not need a DOM. CommonJS can load installed `linkedom`
 automatically; browser calls use the browser document. See
 [server-side utilities](https://domternal.dev/v1/guides/editor-api/#server-side-utilities).
+
+The next Free release adds `createSchema(extensions)` for a worker or headless
+conversion pipeline; it is not included in published 1.5.1. The helper builds
+only the ProseMirror schema using the same extension configuration as the editor:
+
+```ts
+import { createSchema, StarterKit } from '@domternal/core';
+
+const schema = createSchema([StarterKit.configure({ heading: { levels: [1, 2, 3] } })]);
+const doc = schema.nodeFromJSON(savedContent);
+doc.check();
+```
+
+This helper creates no editor view, plugins or editor lifecycle. Custom schema
+and storage factories must work without a browser or a live editor. Share one
+extension factory between the editor and worker, including custom nodes, marks
+and configured attributes. It does not normalize imported JSON; use the existing
+content normalization API when that is intended.
 
 ## Localization
 

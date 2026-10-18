@@ -81,7 +81,7 @@ describe('React transaction callbacks', () => {
     expect(calls).toEqual([]);
   });
 
-  it('applies a changed editable prop, and the paragraph TrailingNode adds on that dispatch reaches onUpdate', async () => {
+  it('applies a changed editable prop without appending document content or emitting onUpdate', async () => {
     const calls: string[] = [];
     const render = (editable: boolean): ReactNode => (
       <DomternalEditor extensions={[Heading, TrailingNode]} content="<p>intro</p><h2>Last</h2>" onCreate={onCreate}
@@ -93,7 +93,8 @@ describe('React transaction callbacks', () => {
 
     expect(liveEditor().isEditable).toBe(false);
     expect(liveEditor().view.dom.getAttribute('aria-readonly')).toBe('true');
-    expect(calls).toEqual(['update']);
+    expect(liveEditor().getHTML()).toBe('<p>intro</p><h2>Last</h2>');
+    expect(calls).toEqual([]);
   });
 
   it('reports nothing for a vetoed transaction and only the selection move of a skipUpdate root with an appended change', async () => {

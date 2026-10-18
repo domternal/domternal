@@ -105,6 +105,11 @@ When an external Preserve paste fills a completely empty paragraph, its first pa
 
 Word copies can also retain font family, size and color from bounded simple stylesheet selectors, with inline and `!important` precedence. Unicode font names retain their original spelling, including combining marks. Unsupported stylesheet constructs are reported; fonts are not downloaded. Neither policy reproduces page layout or arbitrary stylesheets. Recognized copies between PasteCleanup editors on the same page retain editor formatting in both modes. See [HTML and formatting](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/html-normalization.md) and [lists](https://github.com/domternal/domternal/blob/main/packages/extension-paste-cleanup/docs/lists.md) for supported shapes and fallbacks.
 
+Copies carrying Core's optional `ListLabels` metadata retain the label kinds
+supported by the installed Core peer, including compound counters and bounded
+local PNG markers when available. This preserves canonical editor metadata;
+it does not add general recognition of Word compound numbering or picture bullets.
+
 ## Observe the result
 
 Add `onPasteResult` to your configuration to observe an operation after synchronous insertion processing settles:

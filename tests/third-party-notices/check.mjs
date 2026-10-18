@@ -73,6 +73,7 @@
 import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
@@ -298,6 +299,64 @@ function configLiteralStart(text) {
   return text[from] === '{' || text[from] === '[' ? from : -1;
 }
 
+/** A direct entry or dts.entry spread in a literal config passed to the imported tsup build. */
+function isTsupBuildEntrySpread(text, from, spreadFrom) {
+  const filename = '/virtual/tsup.config.ts';
+  const source = ts.createSourceFile(filename, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  if (source.parseDiagnostics.length) return false;
+  let call;
+  let spread;
+  const visit = node => {
+    if (ts.isSpreadAssignment(node) && node.getStart(source) === spreadFrom) spread = node;
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      const first = node.arguments[0];
+      if (first && ts.isObjectLiteralExpression(first) && first.getStart(source) === from) call = node;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  if (!call || !spread) return false;
+  const namedProperty = (node, name) => ts.isPropertyAssignment(node)
+    && ts.isIdentifier(node.name) && node.name.text === name;
+  const entryObject = spread.parent;
+  const entry = entryObject.parent;
+  if (!namedProperty(entry, 'entry') || entry.initializer !== entryObject) return false;
+  let options = entry.parent;
+  if (options !== call.arguments[0]) {
+    const dts = options.parent;
+    if (!namedProperty(dts, 'dts') || dts.initializer !== options) return false;
+    options = dts.parent;
+  }
+  if (options !== call.arguments[0]) return false;
+
+  // Bind names inside this file without executing the config or loading any imported module.
+  // The local symbol distinguishes tsup's build from parameters and nested declarations.
+  const host = {
+    getSourceFile: path => path === filename ? source : undefined,
+    getDefaultLibFileName: () => '/virtual/lib.d.ts',
+    writeFile: () => undefined,
+    getCurrentDirectory: () => '/virtual',
+    getDirectories: () => [],
+    fileExists: path => path === filename,
+    readFile: path => path === filename ? text : undefined,
+    getCanonicalFileName: path => path,
+    useCaseSensitiveFileNames: () => true,
+    getNewLine: () => '\n',
+    resolveModuleNameLiterals: modules => modules.map(() => ({ resolvedModule: undefined })),
+  };
+  const program = ts.createProgram([filename], {
+    noResolve: true, noLib: true, types: [], target: ts.ScriptTarget.Latest, module: ts.ModuleKind.ESNext,
+  }, host);
+  const declarations = program.getTypeChecker().getSymbolAtLocation(call.expression)?.declarations;
+  if (declarations?.length !== 1 || !ts.isImportSpecifier(declarations[0])) return false;
+  const binding = declarations[0];
+  const clause = binding.parent.parent;
+  const statement = clause.parent;
+  return !binding.isTypeOnly && ts.isImportClause(clause) && !clause.isTypeOnly
+    && ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)
+    && statement.moduleSpecifier.text === 'tsup' && (binding.propertyName ?? binding.name).text === 'build';
+}
+
 /**
  * True only for a spread inside the `entry` object of a literal config, or
  * inside the `entry` object of its `dts` options.
@@ -306,7 +365,8 @@ function configLiteralStart(text) {
  * declaration entry, which only names the sources declarations are built from.
  * The accepted shapes are `defineConfig({ entry: { ...value } })`,
  * `defineConfig({ dts: { entry: { ...value } } })` and the same objects inside
- * a root config array. A spread on either config object, on `dts` itself, or on
+ * a root config array or passed directly to an imported tsup `build` call.
+ * A spread on either config object, on `dts` itself, or on
  * the root array remains unreadable because it can add `noExternal`.
  */
 export function isNestedEntrySpread(text, spreadFrom) {
@@ -341,7 +401,10 @@ export function isNestedEntrySpread(text, spreadFrom) {
   const entryObject = stack.at(-1);
   if (entryObject?.char !== '{' || !keyed(entryObject, 'entry')) return false;
   if (shape === '{{' || shape === '[{{') return true;
-  return (shape === '{{{' || shape === '[{{{') && keyed(stack.at(-2), 'dts');
+  const declarationEntry = stack.at(-2)?.char === '{' && keyed(stack.at(-2), 'dts');
+  if ((shape === '{{{' || shape === '[{{{') && declarationEntry) return true;
+  const config = stack.at(declarationEntry ? -3 : -2);
+  return config?.char === '{' && isTsupBuildEntrySpread(text, config.from, spreadFrom);
 }
 
 /**

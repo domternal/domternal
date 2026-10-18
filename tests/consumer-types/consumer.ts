@@ -44,7 +44,7 @@ import type { ClipboardAssetLimits, ClipboardImageBinding, ClipboardImageMatchCo
 import type { ClipboardResolverAdapter, ClipboardCreatedResource, ClipboardAssetRecoveryReport } from '@domternal/extension-paste-cleanup';
 import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
 import type { PasteHTMLLimits, NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup/html';
-import '@domternal/extension-table';
+import { TableLayout, getNodeTableLayout, getNodeTableRowLayout, getNodeTableCellLayout, type TableLayoutSettings, type TableRowLayout, type TableCellLayout } from '@domternal/extension-table';
 import '@domternal/extension-toc';
 
 // Standard ProseMirror content-element rules remain available through Node.create.
@@ -427,6 +427,10 @@ editor.commands.insertEmoji({} as never);
 editor.commands.suggestEmoji();
 
 editor.commands.setImage({ src: 'x' });
+editor.commands.setImageTransform({ naturalWidth: 1200, naturalHeight: 800, crop: { left: 0.1 }, rotation: 90, flipX: true });
+editor.commands.setImageTransform(null);
+// @ts-expect-error Image rotation is numeric.
+editor.commands.setImageTransform({ rotation: '90deg' });
 editor.commands.setImageFloat('left');
 editor.commands.setImageAlign('center');
 editor.commands.deleteImage();
@@ -458,10 +462,31 @@ editor.commands.goToNextCell();
 editor.commands.goToPreviousCell();
 editor.commands.fixTables();
 editor.commands.setCellSelection({} as never);
+const tableLayout: TableLayoutSettings = { breakBefore: 'page' };
+const rowLayout: TableRowLayout = { height: 80, heightRule: 'exact', allowSplit: false };
+const cellLayout: TableCellLayout = { padding: { left: 12 }, borders: { top: { width: 2, style: 'dashed', color: '#123456' } } };
+editor.commands.setTableLayout(tableLayout);
+editor.commands.setTableRowLayout(rowLayout);
+editor.commands.setTableCellLayout(cellLayout);
+editor.commands.setTableLayout(null);
+editor.commands.setTableRowLayout(null);
+editor.commands.setTableCellLayout(null);
+const tableGeometryJSON: import('@domternal/core').JSONContent = { type: 'table', attrs: { tableLayout }, content: [
+  { type: 'tableRow', attrs: { rowLayout }, content: [{ type: 'tableCell', attrs: { cellLayout }, content: [{ type: 'paragraph' }] }] },
+] };
+const readTableLayout: TableLayoutSettings | null = getNodeTableLayout(editor.state.doc);
+const readRowLayout: TableRowLayout | null = getNodeTableRowLayout(editor.state.doc);
+const readCellLayout: TableCellLayout | null = getNodeTableCellLayout(editor.state.doc);
+// @ts-expect-error Row heights are numeric CSS pixels.
+editor.commands.setTableRowLayout({ height: '20px' });
+// @ts-expect-error Border styles have a bounded public vocabulary.
+editor.commands.setTableCellLayout({ borders: { left: { width: 1, style: 'ridge', color: '#123456' } } });
+
 
 editor.commands.scrollToHeading('heading-id');
 
 editor.commands.printDocument();
+editor.commands.cancelPrintPreparation();
 
 editor.chain().focus().toggleBold().toggleItalic().run();
 editor.can().toggleBold();
@@ -650,3 +675,47 @@ const nodeLabel: ListLabel | null = getNodeListLabel(editor.state.doc);
 const pureListLabel: PureListLabel | null = readPureListLabel({ kind: 'text', text: '✓' });
 const pureMarker: string | null = formatPureListLabel(pureListLabel);
 const pureStyles: string = pureListLabelStyleSheet({ type: 'bulletList', attrs: { listLabel: pureListLabel } });
+
+
+import type { CompoundListLabel, ImageListLabel, ListLabelAncestor } from '@domternal/core';
+import { parseExtendedListLabel, formatExtendedListLabel, type ExtendedListLabel } from '@domternal/core/list-labels';
+import type { ImageTransform } from '@domternal/extension-image';
+const compoundLabel: CompoundListLabel = { kind: 'compound', parts: [{ ancestor: 1, format: 'inherit' }, '.', { ancestor: 0, format: 'decimal' }], fallback: 'decimal' };
+const imageLabel: ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload', text: '*' };
+const ancestorLabels: readonly ListLabelAncestor[] = [{ ordinal: 4, format: 'upper-alpha' }];
+const compoundText: string | null = formatExtendedListLabel(compoundLabel, 0, ancestorLabels);
+const pureImageLabel: ExtendedListLabel | null = parseExtendedListLabel(JSON.stringify(imageLabel));
+const geometry: ImageTransform = { naturalWidth: 1200, naturalHeight: 800, crop: { left: 0.1 }, rotation: 90 };
+editor.commands.setImage({ src: 'image.png', imageTransform: geometry });
+// @ts-expect-error A picture label requires a readable text fallback.
+const missingImageFallback: ImageListLabel = { kind: 'image', src: 'data:image/png;base64,applicationPayload' };
+// @ts-expect-error Ancestor references are numeric, not string paths.
+const invalidCompoundPart: CompoundListLabel = { kind: 'compound', parts: [{ ancestor: 'parent', format: 'decimal' }], fallback: 'decimal' };
+
+// Existing consumers can exhaust the original union after an additive minor update.
+function legacyLabelConsumer(label: ListLabel): string {
+  if (label.kind === 'counter') return label.format;
+  return label.text;
+}
+function legacyPureLabelConsumer(label: PureListLabel): string {
+  switch (label.kind) {
+    case 'counter': return label.format;
+    case 'text': return label.text;
+    default: { const unreachable: never = label; return unreachable; }
+  }
+}
+const legacyReadResult = readListLabel({ kind: 'text', text: '*' });
+if (legacyReadResult !== null) legacyLabelConsumer(legacyReadResult);
+const legacyNodeResult = getNodeListLabel(editor.state.doc);
+if (legacyNodeResult !== null) legacyPureLabelConsumer(legacyNodeResult);
+
+// Editable notes are opt-in nodes with ordinary commands and immutable document snapshots.
+import { DocumentNotes, DocumentNote, DocumentNoteReference, getDocumentNotes, getDocumentNoteTypes } from '@domternal/core';
+import type { InsertDocumentNoteOptions, DocumentNoteTarget, DocumentNotesSnapshot } from '@domternal/core';
+const noteOptions: InsertDocumentNoteOptions = { noteId: 'consumer-note', kind: 'footnote', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Note body' }] }] };
+const noteTarget: DocumentNoteTarget = { noteId: 'consumer-note', kind: 'footnote' };
+editor.commands.insertDocumentNote(noteOptions);
+editor.commands.insertDocumentNoteReference(noteTarget);
+editor.commands.focusDocumentNote(noteTarget);
+const noteSnapshot: DocumentNotesSnapshot | undefined = getDocumentNotes(editor.state.doc);
+void [DocumentNotes, DocumentNote, DocumentNoteReference, getDocumentNoteTypes(editor.schema), noteSnapshot];

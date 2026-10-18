@@ -301,6 +301,79 @@ test('a spread operand is read whole, brackets and all', () => {
   assert.equal(readSpreadOperand('...withBase({ a: 1 }), entry: []', 3), 'withBase({ a: 1 })');
 });
 
+test('serial tsup builds accept entry maps without confusing an unrelated local build parameter', () => {
+  for (const binding of ['build', 'build as buildDeclarations']) {
+    const name = binding.split(' as ').at(-1);
+    const body = `async onSuccess() {
+      await ${name}({ entry: { index: 'src/index.ts', ...locales }, dts: { only: true } });
+      await ${name}({ dts: { entry: { ...declarations }, only: true } });
+    }`;
+    for (const literal of [`{ ${body} }`, `[{ ${body} }]`]) {
+      const config = `import { ${binding}, defineConfig } from 'tsup';
+        function setup(build) { return build; }
+        export default defineConfig(${literal});`;
+      assert.deepEqual(readTsupBundling(config), [], config);
+    }
+  }
+});
+
+test('serial builds still reject spreads outside their direct entry and dts.entry maps', () => {
+  for (const options of [
+    '{ entry: { ...locales }, ...hidden }',
+    '{ entry: { ...locales }, dts: { ...hidden } }',
+    '{ entry: { ...locales }, other: { entry: { ...hidden } } }',
+    '{ entry: { nested: { ...hidden } } }',
+    '{ dts: { entry: { nested: { ...hidden } } } }',
+    '{ dts: flag ? entry : { ...hidden } }',
+    '{ other: flag ? entry : { ...hidden } }',
+    '{ dts: flag ? dts : { entry: { ...hidden } } }',
+  ]) {
+    const config = `import { build, defineConfig } from 'tsup';
+      export default defineConfig({ async onSuccess() { await build(${options}); } });`;
+    const spreads = findHiddenConfig(config).filter(declaration => declaration.origin === 'spread');
+    assert.deepEqual(spreads.map(declaration => declaration.value), ['...hidden'], options);
+    assert.ok(spreads.every(declaration => !declaration.readable), options);
+  }
+});
+
+test('entry spreads are not excused for helper calls, shadowed imports or nonliteral build arguments', () => {
+  const entry = '{ entry: { ...hidden } }';
+  const imported = "import { build, defineConfig } from 'tsup';";
+  const hook = (body, parameter = '') => `export default defineConfig({ async onSuccess(${parameter}) { ${body} } });`;
+  for (const config of [
+    `${imported} ${hook(`await helper(${entry});`)}`,
+    `${imported} ${hook(`await other.build(${entry});`)}`,
+    `${imported} ${hook(`await build({}, ${entry});`)}`,
+    `${imported} ${hook(`await build(${entry} as Options);`)}`,
+    `${imported} ${hook(`await build(${entry});`, 'build')}`,
+    `${imported} ${hook(`const build = helper; await build(${entry});`)}`,
+    `${imported} ${hook(`{ const { build } = helpers; await build(${entry}); }`)}`,
+    `${imported} ${hook(`await build(${entry}); function build(options) { return options; }`)}`,
+    `import { build } from 'another-builder'; ${hook(`await build(${entry});`)}`,
+    `import type { build } from 'tsup'; ${hook(`await build(${entry});`)}`,
+    `import { type build } from 'tsup'; ${hook(`await build(${entry});`)}`,
+    `${imported} ${hook(`const =; await build(${entry});`)}`,
+  ]) {
+    const spreads = findHiddenConfig(config).filter(declaration => declaration.origin === 'spread');
+    assert.deepEqual(spreads.map(declaration => declaration.value), ['...hidden'], config);
+    assert.ok(spreads.every(declaration => !declaration.readable), config);
+  }
+});
+
+test('serial entry maps never hide an explicit or dynamic noExternal option', () => {
+  for (const value of ["['remend']", 'bundledDeps']) {
+    const config = `import { build, defineConfig } from 'tsup';
+      export default defineConfig({ async onSuccess() {
+        await build({ entry: { ...locales }, noExternal: ${value} });
+      } });`;
+    assert.deepEqual(findHiddenConfig(config), [], value);
+    const [declaration] = readTsupBundling(config);
+    assert.equal(declaration.origin, 'noExternal');
+    assert.equal(declaration.readable, value !== 'bundledDeps');
+    assert.deepEqual(declaration.bundled, value === 'bundledDeps' ? [] : ['remend']);
+  }
+});
+
 test('every tsup config in this repository reads as self-contained', () => {
   // Reporting what it cannot read only costs something if a real config trips
   // it. None do, which is what makes the rule above free to keep.

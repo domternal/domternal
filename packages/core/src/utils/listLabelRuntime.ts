@@ -1,12 +1,12 @@
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
-import type { ListLabel } from '../types/ListLabel.js';
-import { nodeListLabel } from './listLabelAttribute.js';
+import type { ExtendedListLabel } from '../types/ListLabel.js';
+import { nodeExtendedListLabel } from './listLabelAttribute.js';
 import { compileListLabelStyles } from './listLabelStyles.js';
 
 type StyleRoot = Document | ShadowRoot;
 interface Registry {
-  readonly owners: Map<object, readonly ListLabel[]>;
+  readonly owners: Map<object, readonly ExtendedListLabel[]>;
   readonly element: HTMLStyleElement;
 }
 const roots = new WeakMap<StyleRoot, Map<string | undefined, Registry>>();
@@ -47,7 +47,7 @@ export function createListLabelStyleOwner(view: EditorView, nonce: string | unde
   let rootDocument: Document | undefined;
   let owned: { root: StyleRoot; registry: Registry }[] = [];
   let document: PMNode | undefined;
-  let labels: ListLabel[] = [];
+  let labels: ExtendedListLabel[] = [];
   const release = (): void => {
     for (const { root, registry } of owned) {
       registry.owners.delete(owner);
@@ -66,7 +66,7 @@ export function createListLabelStyleOwner(view: EditorView, nonce: string | unde
       if (!changed && !changedRoot) return;
       if (changed) {
         document = view.state.doc; labels = [];
-        document.descendants(node => { const label = nodeListLabel(node); if (label !== null) labels.push(label); });
+        document.descendants(node => { const label = nodeExtendedListLabel(node); if (label !== null) labels.push(label); });
       }
       if (labels.length === 0 || changedRoot) release();
       if (labels.length === 0) return;
