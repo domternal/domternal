@@ -143,6 +143,17 @@ Applications with their own styles can use the same narrowly scoped rule:
 }
 ```
 
+## Optional print preparation
+
+The next release adds `Print.configure({ prepareResources: true })` to wait for
+live images and fonts before command-driven printing. The default stays
+immediate. A bounded timeout, `cancelPrintPreparation()` and the optional
+`storage.print.preparation` result let an application report or cancel waiting.
+The matching theme and standard Table node view also support eligible multirow
+print headers without changing document JSON or selection. Browser pagination
+and native-dialog limitations still apply. See the [Print guide](https://domternal.dev/v1/extensions/print/)
+for configuration, resource limits and supported header structures.
+
 ### Full block backgrounds
 
 Since 1.5.0, `BlockColor` keeps explicit hex, `rgb()` and `rgba()` fills in its existing
