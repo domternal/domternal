@@ -37,6 +37,7 @@ import { tableMessages } from './messages.js';
 import { addColumnWithWidths } from './helpers/constrainedColumn.js';
 import { resolveSpan } from './helpers/cellAttributes.js';
 import { tableHoldsUnsupportedSpan } from './helpers/guardedTableEditing.js';
+import { getNodeTableLayout } from './helpers/tableLayout.js';
 import { resolveColumnWidths } from './helpers/columnWidths.js';
 
 import {
@@ -165,6 +166,7 @@ export class TableView implements NodeView {
     // Create table
     this.table = document.createElement('table');
     this.wrapper.appendChild(this.table);
+    this.updateLayout(node);
 
     // Create colgroup
     this.colgroup = document.createElement('colgroup');
@@ -196,6 +198,7 @@ export class TableView implements NodeView {
     }
     this.node = node;
     this.updateColumns(node);
+    this.updateLayout(node);
 
     // Reset stale hover references (handles reposition on next mousemove)
     this.hoveredCell = null;
@@ -212,6 +215,13 @@ export class TableView implements NodeView {
     }
 
     return true;
+  }
+
+  private updateLayout(node: PMNode): void {
+    const layout = getNodeTableLayout(node);
+    // The outer node-view box is the browser's fragmentation boundary.
+    this.dom.style.breakBefore = layout?.breakBefore ?? '';
+    this.dom.style.setProperty('page-break-before', layout?.breakBefore === 'page' ? 'always' : layout?.breakBefore ?? '');
   }
 
   destroy(): void {

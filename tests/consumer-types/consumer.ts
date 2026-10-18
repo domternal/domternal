@@ -44,7 +44,7 @@ import type { ClipboardAssetLimits, ClipboardImageBinding, ClipboardImageMatchCo
 import type { ClipboardResolverAdapter, ClipboardCreatedResource, ClipboardAssetRecoveryReport } from '@domternal/extension-paste-cleanup';
 import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
 import type { PasteHTMLLimits, NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup/html';
-import '@domternal/extension-table';
+import { TableLayout, getNodeTableLayout, getNodeTableRowLayout, getNodeTableCellLayout, type TableLayoutSettings, type TableRowLayout, type TableCellLayout } from '@domternal/extension-table';
 import '@domternal/extension-toc';
 
 // Standard ProseMirror content-element rules remain available through Node.create.
@@ -462,10 +462,31 @@ editor.commands.goToNextCell();
 editor.commands.goToPreviousCell();
 editor.commands.fixTables();
 editor.commands.setCellSelection({} as never);
+const tableLayout: TableLayoutSettings = { breakBefore: 'page' };
+const rowLayout: TableRowLayout = { height: 80, heightRule: 'exact', allowSplit: false };
+const cellLayout: TableCellLayout = { padding: { left: 12 }, borders: { top: { width: 2, style: 'dashed', color: '#123456' } } };
+editor.commands.setTableLayout(tableLayout);
+editor.commands.setTableRowLayout(rowLayout);
+editor.commands.setTableCellLayout(cellLayout);
+editor.commands.setTableLayout(null);
+editor.commands.setTableRowLayout(null);
+editor.commands.setTableCellLayout(null);
+const tableGeometryJSON: import('@domternal/core').JSONContent = { type: 'table', attrs: { tableLayout }, content: [
+  { type: 'tableRow', attrs: { rowLayout }, content: [{ type: 'tableCell', attrs: { cellLayout }, content: [{ type: 'paragraph' }] }] },
+] };
+const readTableLayout: TableLayoutSettings | null = getNodeTableLayout(editor.state.doc);
+const readRowLayout: TableRowLayout | null = getNodeTableRowLayout(editor.state.doc);
+const readCellLayout: TableCellLayout | null = getNodeTableCellLayout(editor.state.doc);
+// @ts-expect-error Row heights are numeric CSS pixels.
+editor.commands.setTableRowLayout({ height: '20px' });
+// @ts-expect-error Border styles have a bounded public vocabulary.
+editor.commands.setTableCellLayout({ borders: { left: { width: 1, style: 'ridge', color: '#123456' } } });
+
 
 editor.commands.scrollToHeading('heading-id');
 
 editor.commands.printDocument();
+editor.commands.cancelPrintPreparation();
 
 editor.chain().focus().toggleBold().toggleItalic().run();
 editor.can().toggleBold();

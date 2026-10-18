@@ -261,7 +261,18 @@ editor.commands.deleteImage();
 editor.commands.insertMarkdown('# hi');
 editor.commands.insertMathInline('a^2');
 editor.commands.deleteMention();
+editor.commands.cancelPrintPreparation();
 editor.commands.deleteTable();
+const tableRowLayout: table.TableRowLayout = { height: 80, allowSplit: false };
+const tableCellLayout: table.TableCellLayout = { padding: { top: 12 } };
+editor.commands.setTableLayout({ breakBefore: 'page' });
+editor.commands.setTableRowLayout(tableRowLayout);
+editor.commands.setTableCellLayout(tableCellLayout);
+const tableJSON: core.JSONContent = { type: 'tableRow', attrs: { rowLayout: tableRowLayout }, content: [
+  { type: 'tableCell', attrs: { cellLayout: tableCellLayout }, content: [{ type: 'paragraph' }] },
+] };
+const cjsCellLayout: table.TableCellLayout | null = table.getNodeTableCellLayout(editor.state.doc);
+
 editor.commands.scrollToHeading('heading-id');
 editor.chain().focus().toggleBold().run();
 
@@ -280,6 +291,7 @@ extensions.push(
   mention.Mention,
   pasteCleanup.PasteCleanup,
   table.Table,
+  table.TableLayout,
   toc.TableOfContents
 );
 

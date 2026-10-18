@@ -101,6 +101,44 @@ Tab moves to the next cell and can add a final row; Shift+Tab moves back. Inside
 list and task items, list indentation takes precedence. Selecting all cells and
 pressing Backspace or Delete removes the table.
 
+## Optional table layout settings
+
+The next Free release adds opt-in `TableLayout`; it is not included in published
+1.5.1. Add it beside `Table` to store explicit row heights, cell padding/borders
+and page-break preferences. Without it, the existing table schema is unchanged.
+
+```ts
+import { Table, TableLayout } from '@domternal/extension-table';
+
+const extensions = [StarterKit, Table, TableLayout];
+
+editor.commands.setTableLayout({ breakBefore: 'page' });
+editor.commands.setTableRowLayout({ height: 48, heightRule: 'atLeast', allowSplit: false });
+editor.commands.setTableCellLayout({
+  padding: { top: 8, right: 12, bottom: 8, left: 12 },
+  borders: { bottom: { width: 1, style: 'solid', color: '#445566' } },
+});
+```
+
+Commands act on the current table, rows or cells. Passing `null` clears the
+corresponding setting. They participate in editor transactions and undo; the
+extension does not add a settings panel. `editor.can()` checks availability.
+
+JSON stores `tableLayout`, `rowLayout` and `cellLayout`. Dimensions are CSS pixels:
+row height is 1–4,096, padding 0–256 per side and border width 0–16 per side.
+`heightRule` requires a height. Borders accept `solid`, `dashed`, `dotted`,
+`double` or `none` and an explicit six-digit hex color. HTML parsing also accepts
+absolute `px`, `pt`, `mm`, `cm` and `in` dimensions; percentages, `calc()` and
+`var()` are not resolved. Browsers treat row height as a minimum, even when the
+stored Word preference is `exact`. A browser can override a requested print
+break to fit the available page.
+
+The read-only `getNodeTableLayout`, `getNodeTableRowLayout` and
+`getNodeTableCellLayout` helpers return validated settings only for nodes from
+the opt-in schema. Pro Export recognizes this same capability. Word supports
+the native settings; PDF uses the documented approximations and warnings in the
+[Export guide](https://domternal.dev/v1/pro/export/#table-layout-settings).
+
 ## Content and paste
 
 Cell pastes preserve table structure and grow the destination when needed. Add
