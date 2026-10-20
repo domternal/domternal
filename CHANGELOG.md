@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Account for ancestor opacity in opt-in `TextColor` contrast adjustment, including completed task labels and nested translucent backgrounds. Keep original document colors and opacity unchanged, and retain the authored color when the painted contrast cannot reach the threshold.
+
 ## 1.7.0 (2026-10-20)
 
 ### Features

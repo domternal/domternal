@@ -11,7 +11,7 @@ import { Highlight } from './Highlight.js';
 import { History } from './History.js';
 import { TextColor } from './TextColor.js';
 import { generateHTML } from '../helpers/ssr.js';
-import { measuredContrastColor, textContrastRatio } from '../helpers/textColorContrast.js';
+import { measuredContrastColor, paintedTextColor, textContrastPaint, textContrastRatio } from '../helpers/textColorContrast.js';
 import type { JSONContent } from '../types/index.js';
 
 const editors: Editor[] = [];
@@ -89,11 +89,47 @@ describe('TextColor contrast presentation', () => {
     expect(own.style.color).toBe('rgb(16, 32, 64)');
   });
 
-  it.each(['background-image:linear-gradient(black, white)', 'opacity:.5', 'filter:blur(1px)', 'mix-blend-mode:multiply',
+  it.each(['background-image:linear-gradient(black, white)', 'filter:blur(1px)', 'mix-blend-mode:multiply',
     'box-shadow:inset 0 0 0 9999px white'])(
     'leaves uncertain paint unchanged: %s', async style => {
     const editor = mount(doc(run('ink', { color: '#000000' })));
     hosts[0]!.style.cssText += style;
+    await settle();
+    expect(adjusted(span(editor))).toBe('');
+  });
+
+  it('adjusts ink after paragraph opacity and remeasures opacity changes without rewriting content', async () => {
+    const editor = mount(doc(run('ink', { color: '#1a1a1a' })));
+    const own = span(editor); const paragraph = own.closest('p')!;
+    const before = { json: editor.getJSON(), html: editor.getHTML() };
+    const sheet = document.createElement('style');
+    sheet.textContent = '.readability-opacity p { opacity: .6 } .readability-faint p { opacity: .1 } .readability-hidden p { opacity: 0 }';
+    document.head.append(sheet);
+    hosts.push(sheet);
+    hosts[0]!.classList.add('readability-opacity');
+    const paint = textContrastPaint([
+      { background: [0, 0, 0, 0], opacity: .6 }, { background: [32, 32, 32, 1], opacity: 1 },
+    ])!;
+    await vi.waitFor(() => {
+      const color = measuredContrastColor(adjusted(own));
+      expect(color).not.toBeNull();
+      expect(textContrastRatio(paintedTextColor(color!, paint), paint.background)).toBeGreaterThanOrEqual(4.5);
+    });
+    expect(getComputedStyle(paragraph).opacity).toBe('0.6');
+    expect(own.style.color).toBe('rgb(26, 26, 26)');
+    hosts[0]!.classList.add('readability-faint');
+    await vi.waitFor(() => { expect(adjusted(own)).toBe(''); });
+    hosts[0]!.classList.add('readability-hidden');
+    await settle();
+    expect(adjusted(own)).toBe('');
+    hosts[0]!.classList.remove('readability-opacity', 'readability-faint', 'readability-hidden');
+    await vi.waitFor(() => { expect(adjusted(own)).not.toBe(''); });
+    expect({ json: editor.getJSON(), html: editor.getHTML() }).toEqual(before);
+  });
+
+  it('keeps a transparent outer canvas unknown when the editor itself has opacity', async () => {
+    const editor = mount(doc(run('ink', { color: '#000000' })));
+    hosts[0]!.style.opacity = '0.6';
     await settle();
     expect(adjusted(span(editor))).toBe('');
   });

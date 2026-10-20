@@ -180,9 +180,11 @@ Word import.
 The adjustment affects screen presentation only. JSON, HTML, clipboard HTML,
 export, print and shared document data retain the original color. Theme changes
 recalculate the presentation without editing the document. Transparent backgrounds
-are composited when the complete solid background is known. Translucent text,
+and ancestor opacity, including checked task labels, are composited when the
+complete solid background is known. The policy keeps opacity unchanged; if no text
+color can reach 4.5:1 through that opacity, the authored color stays unchanged. Translucent text,
 unresolved or unsupported color spaces, image or gradient backgrounds, painted
-pseudo-elements and compositing effects are left unchanged. A custom textStyle
+pseudo-elements and other compositing effects are left unchanged. A custom textStyle
 mark view of higher priority also takes precedence. This is a bounded readability
 aid, not an accessibility guarantee for arbitrary application CSS.
 

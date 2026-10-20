@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import type { Editor, JSONContent } from '@domternal/core';
-import { installContrastTools, type ContrastTools } from './contrast-tools.js';
+import { installContrastTools, type ContrastTools, type Rgba } from './contrast-tools.js';
 import { test } from './fixtures.js';
 
 interface ProbeWindow { __pasteCleanup: { ready: boolean; editor: Editor }; __contrastTools: ContrastTools }
@@ -17,6 +17,12 @@ const CONTENT: JSONContent = { type: 'doc', content: [
   paragraph(text('Authored link', '#000000', undefined, true)),
   { type: 'heading', attrs: { level: 6 }, content: [text('Heading ink', '#000000')] },
   { type: 'orderedList', content: [{ type: 'listItem', content: [paragraph(text('List ink', '#000000'))] }] },
+  { type: 'taskList', content: [
+    { type: 'taskItem', attrs: { checked: true }, content: [paragraph(
+      text('Checked black ink', '#000000'), { type: 'text', text: ' ' }, text('Checked Word ink', '#1a1a1a'),
+    )] },
+    { type: 'taskItem', attrs: { checked: false }, content: [paragraph(text('Unchecked ink', '#000000'))] },
+  ] },
   { type: 'table', content: [{ type: 'tableRow', content: [
     { type: 'tableCell', attrs: { background: '#002060' }, content: [paragraph(
       text('Cell ink', '#000000'), { type: 'text', text: ' ' }, text('Light island', '#ffffff', '#fef08a'),
@@ -44,7 +50,7 @@ async function open(page: Page, mode: 'light' | 'dark' | 'auto', automatic = tru
   await page.evaluate(installContrastTools);
 }
 
-async function reading(page: Page, label: string): Promise<{ ratio: number; color: string; authored: string; adjusted: string }> {
+async function reading(page: Page, label: string): Promise<{ ratio: number; color: string; authored: string; adjusted: string; opacity: number }> {
   return page.evaluate(label => {
     const { __pasteCleanup: { editor }, __contrastTools: tools } = window as unknown as ProbeWindow;
     const walker = document.createTreeWalker(editor.view.dom, NodeFilter.SHOW_TEXT);
@@ -52,11 +58,45 @@ async function reading(page: Page, label: string): Promise<{ ratio: number; colo
       if (node.textContent !== label || !node.parentElement) continue;
       const element = node.parentElement;
       const span = element.closest<HTMLElement>('span[style]');
-      return { ratio: tools.text(element).ratio, color: getComputedStyle(element).color, authored: span?.style.color ?? '',
-        adjusted: span?.style.getPropertyValue('--dm-readable-color') ?? '' };
+      // Measure two pixels in premultiplied sRGB: the glyph and the background beside it. Each CSS group paints its
+      // background behind the descendants, then fades the whole group. Checking only computed color misses task opacity.
+      const premultiplied = (color: Rgba): Rgba => [color[0] * color[3], color[1] * color[3], color[2] * color[3], color[3]];
+      const behind = (front: Rgba, back: Rgba): Rgba => [
+        front[0] + back[0] * (1 - front[3]), front[1] + back[1] * (1 - front[3]),
+        front[2] + back[2] * (1 - front[3]), front[3] + back[3] * (1 - front[3]),
+      ];
+      const fade = (pixel: Rgba, opacity: number): Rgba => [pixel[0] * opacity, pixel[1] * opacity, pixel[2] * opacity, pixel[3] * opacity];
+      let ink = premultiplied(tools.rgba(getComputedStyle(element).color));
+      let background: Rgba = [0, 0, 0, 0];
+      let opacity = 1;
+      for (let ancestor: Element | null = element; ancestor; ancestor = ancestor.parentElement) {
+        const style = getComputedStyle(ancestor);
+        const layer = premultiplied(tools.rgba(style.backgroundColor));
+        const groupOpacity = Number(style.opacity);
+        ink = fade(behind(ink, layer), groupOpacity);
+        background = fade(behind(background, layer), groupOpacity);
+        opacity *= groupOpacity;
+      }
+      if (matchMedia('print').matches) {
+        ink = behind(ink, [255, 255, 255, 1]);
+        background = behind(background, [255, 255, 255, 1]);
+      }
+      if (ink[3] !== 1 || background[3] !== 1) throw new Error('The readability fixture must provide an opaque canvas');
+      return { ratio: tools.ratio(ink, background), color: getComputedStyle(element).color, authored: span?.style.color ?? '',
+        adjusted: span?.style.getPropertyValue('--dm-readable-color') ?? '', opacity };
     }
     throw new Error(`Missing readability probe: ${label}`);
   }, label);
+}
+
+async function clipboard(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const editor = (window as unknown as ProbeWindow).__pasteCleanup.editor;
+    const { dom } = editor.view.serializeForClipboard(editor.state.doc.slice(0));
+    // Each copy gets a fresh private claim. Compare the serialized document, including its authored colors.
+    for (const element of dom.querySelectorAll('[data-domternal-copy]')) element.removeAttribute('data-domternal-copy');
+    return dom.innerHTML;
+  });
 }
 
 async function snapshot(page: Page): Promise<{ json: string; html: string }> {
@@ -85,6 +125,51 @@ for (const mode of ['light', 'dark'] as const) {
   }
 }
 
+for (const mode of ['light', 'dark'] as const) {
+  test(`checked tasks retain readable authored ink through group opacity in ${mode}`, async ({ page }) => {
+    await open(page, mode);
+    const before = await snapshot(page);
+    const copied = await clipboard(page);
+    for (const label of ['Checked black ink', 'Checked Word ink']) {
+      await expect.poll(async () => (await reading(page, label)).ratio, { message: label }).toBeGreaterThanOrEqual(4.5);
+      expect((await reading(page, label)).opacity).toBe(.6);
+    }
+    await expect.poll(async () => (await reading(page, 'Unchecked ink')).ratio).toBeGreaterThanOrEqual(4.5);
+    expect((await reading(page, 'Unchecked ink')).opacity).toBe(1);
+    expect((await reading(page, 'Checked black ink')).authored).toBe('rgb(0, 0, 0)');
+    expect((await reading(page, 'Checked Word ink')).authored).toBe('rgb(26, 26, 26)');
+    expect(await snapshot(page)).toEqual(before);
+    expect(await clipboard(page)).toBe(copied);
+    expect(copied).not.toContain('dm-readable');
+    expect(copied).not.toContain('data-dm-text-contrast');
+  });
+}
+
+test('nested faded backgrounds and opacity changes use the final painted contrast', async ({ page }) => {
+  await open(page, 'dark');
+  const before = await snapshot(page);
+  await page.addStyleTag({ content: `
+    .nested-fade .ProseMirror [data-type="taskItem"] > div { background-color: rgba(0, 32, 96, .8); opacity: .9; }
+    .faint-task .ProseMirror [data-type="taskItem"][data-checked="true"] > div > p:first-child { opacity: .1 !important; }
+    .hidden-task .ProseMirror [data-type="taskItem"][data-checked="true"] > div > p:first-child { opacity: 0 !important; }
+  ` });
+  await page.locator('body').evaluate(element => { element.classList.add('nested-fade'); });
+  for (const label of ['Checked black ink', 'Checked Word ink']) {
+    await expect.poll(async () => (await reading(page, label)).ratio, { message: label }).toBeGreaterThanOrEqual(4.5);
+    expect((await reading(page, label)).opacity).toBe(.54);
+  }
+  await page.locator('body').evaluate(element => { element.classList.add('faint-task'); });
+  expect((await reading(page, 'Checked black ink')).opacity).toBeCloseTo(.09);
+  await expect.poll(async () => (await reading(page, 'Checked black ink')).adjusted).toBe('');
+  expect((await reading(page, 'Checked black ink')).ratio).toBeLessThan(4.5);
+  await page.locator('body').evaluate(element => { element.classList.add('hidden-task'); });
+  await expect.poll(async () => (await reading(page, 'Checked black ink')).opacity).toBe(0);
+  expect((await reading(page, 'Checked black ink')).adjusted).toBe('');
+  await page.locator('body').evaluate(element => { element.classList.remove('faint-task', 'hidden-task', 'nested-fade'); });
+  await expect.poll(async () => (await reading(page, 'Checked black ink')).ratio).toBeGreaterThanOrEqual(4.5);
+  expect(await snapshot(page)).toEqual(before);
+});
+
 test('theme and system-mode changes repaint without document transactions or accumulated color drift', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await open(page, 'auto');
@@ -97,12 +182,15 @@ test('theme and system-mode changes repaint without document transactions or acc
   });
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect.poll(async () => (await reading(page, 'Dark ink')).ratio).toBeGreaterThanOrEqual(4.5);
+  await expect.poll(async () => (await reading(page, 'Checked Word ink')).ratio).toBeGreaterThanOrEqual(4.5);
   const dark = (await reading(page, 'Dark ink')).color;
   for (let index = 0; index < 2; index++) {
     await page.evaluate(() => { document.body.className = 'dm-theme-light'; });
     await expect.poll(async () => (await reading(page, 'Dark ink')).color).toBe('rgb(0, 0, 0)');
+    await expect.poll(async () => (await reading(page, 'Checked Word ink')).ratio).toBeGreaterThanOrEqual(4.5);
     await page.evaluate(() => { document.body.className = 'dm-theme-dark'; });
     await expect.poll(async () => (await reading(page, 'Dark ink')).color).toBe(dark);
+    await expect.poll(async () => (await reading(page, 'Checked Word ink')).ratio).toBeGreaterThanOrEqual(4.5);
   }
   expect(await snapshot(page)).toEqual(before);
   expect(await page.evaluate(() => (window as unknown as { __readabilityTransactions: number }).__readabilityTransactions)).toBe(0);
@@ -112,17 +200,23 @@ test('printing uses the original colors and returning to the screen restores rea
   await open(page, 'dark');
   const before = await snapshot(page);
   await expect.poll(async () => (await reading(page, 'Dark ink')).ratio).toBeGreaterThanOrEqual(4.5);
+  await expect.poll(async () => (await reading(page, 'Checked Word ink')).ratio).toBeGreaterThanOrEqual(4.5);
   await page.emulateMedia({ media: 'print' });
   await expect.poll(async () => (await reading(page, 'Dark ink')).color).toBe('rgb(0, 0, 0)');
   await expect.poll(async () => (await reading(page, 'Hidden gold')).color).toBe('rgb(255, 204, 0)');
+  await expect.poll(async () => (await reading(page, 'Checked black ink')).color).toBe('rgb(0, 0, 0)');
+  await expect.poll(async () => (await reading(page, 'Checked Word ink')).color).toBe('rgb(26, 26, 26)');
   await page.emulateMedia({ media: 'screen' });
   await expect.poll(async () => (await reading(page, 'Dark ink')).ratio).toBeGreaterThanOrEqual(4.5);
+  await expect.poll(async () => (await reading(page, 'Checked Word ink')).ratio).toBeGreaterThanOrEqual(4.5);
   expect(await snapshot(page)).toEqual(before);
 });
 
 test('the default policy retains original colors and unknown painted backgrounds are not guessed', async ({ page }) => {
   await open(page, 'dark', false);
   expect((await reading(page, 'Dark ink')).color).toBe('rgb(0, 0, 0)');
+  expect((await reading(page, 'Checked black ink')).color).toBe('rgb(0, 0, 0)');
+  expect((await reading(page, 'Checked black ink')).ratio).toBeLessThan(4.5);
   await expect(page.locator('[data-dm-text-contrast]')).toHaveCount(0);
   await open(page, 'dark');
   await expect.poll(async () => (await reading(page, 'Dark ink')).adjusted).not.toBe('');
