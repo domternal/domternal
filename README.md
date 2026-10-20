@@ -127,20 +127,29 @@ check a translation for every current message.
 
 ## Version compatibility
 
-Upgrade installed `@domternal/*` packages together to **1.6.0**. Wrappers require
-core `>=1.6.0 <2.0.0`, and extensions require both core and pm as peers in that
-range. Core 1.6.0 requires pm `>=1.6.0 <2.0.0` at runtime.
+Upgrade installed `@domternal/*` packages together to **1.7.0**. Wrappers require
+core `>=1.7.0 <2.0.0`, and extensions require both core and pm as peers in that
+range. Core 1.7.0 requires pm `>=1.7.0 <2.0.0` at runtime.
 
-Version 1.6.0 adds opt-in [image transforms](packages/extension-image/README.md#crop-rotate-and-mirror-images),
+Version 1.7.0 adds [`annotateDocumentNotes`](packages/core/docs/content.md#static-note-presentation)
+for application-owned static previews. Pass a full-document snapshot to keep
+footnote and endnote labels consistent across rendered fragments, and optionally
+pass the editor's presentation service for translated headings and accessible
+reference labels. The helper changes presentation only; existing JSON and schema
+configuration remain unchanged. An explicit snapshot keeps missing or duplicate
+identities unresolved instead of inventing local numbers.
+
+Version 1.6.0 introduced opt-in [image transforms](packages/extension-image/README.md#crop-rotate-and-mirror-images),
 [document notes](packages/core/README.md#editable-document-notes) and
 [table layout settings](packages/extension-table/README.md#optional-table-layout-settings),
 plus compound and local PNG [list labels](packages/core/README.md#optional-list-labels).
 Enable the corresponding schema options on every collaborative writer before storing
 that content. The original `ListLabel` helpers keep their counter/text contract;
 use the additive `ExtendedListLabel` APIs for the new label kinds.
-Core also adds `createSchema` and optional print resource preparation, with matching
-Core, Table and theme support for eligible multirow print headers. Pro Import and
-Pro Export support for the new models belongs to a separate upcoming Pro release.
+That release also introduced `createSchema` and optional print resource preparation, with matching
+Core, Table and theme support for eligible multirow print headers. DOCX/PDF
+adapters for supported models live in the separate Pro Import and Pro Export
+packages; this Free release does not publish those adapters.
 
 Version 1.5.1 fixed Paste Cleanup image byte accounting and configuration guidance.
 

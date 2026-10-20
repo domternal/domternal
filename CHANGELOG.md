@@ -1,10 +1,18 @@
 # Changelog
 
-## Unreleased
+## 1.7.0 (2026-10-20)
+
+### Features
+
+- Expose `annotateDocumentNotes` for application-owned static previews, with full-document footnote/endnote numbering and optional localized headings and accessible reference labels. The helper changes presentation only; existing document JSON and schema configuration remain unchanged.
 
 ### Fixes
 
-- Expose `annotateDocumentNotes` for application-owned static previews, with full-document numbering and optional localized headings. An explicit snapshot remains authoritative for missing or duplicate notes and exceeded indexes, so partial previews do not invent contradictory numbers. The helper changes presentation only.
+- Keep an explicit note snapshot authoritative for missing or duplicate identities and exceeded indexes, so partial previews do not invent contradictory local numbers.
+
+### Docs
+
+- Update coordinated package installation and peer guidance for 1.7.0, document static note presentation, and align the public Core bundle-size claim with its reproducible measurement.
 
 ## 1.6.0 (2026-10-18)
 
