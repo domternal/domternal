@@ -127,9 +127,14 @@ check a translation for every current message.
 
 ## Version compatibility
 
-Upgrade installed `@domternal/*` packages together to **1.7.0**. Wrappers require
-core `>=1.7.0 <2.0.0`, and extensions require both core and pm as peers in that
-range. Core 1.7.0 requires pm `>=1.7.0 <2.0.0` at runtime.
+Upgrade installed `@domternal/*` packages together to **1.8.0**. Wrappers require
+core `>=1.8.0 <2.0.0`, and extensions require both core and pm as peers in that
+range. Core 1.8.0 requires pm `>=1.8.0 <2.0.0` at runtime.
+
+Version 1.8.0 lets application-owned [read-only previews](packages/core/README.md#read-only-previews)
+reuse the configured `TextColor` screen-readability policy. It also accounts for
+supported ancestor opacity, including completed task labels. The feature remains
+opt-in: authored colors, document JSON, HTML and print output stay unchanged.
 
 Version 1.7.0 adds [`annotateDocumentNotes`](packages/core/docs/content.md#static-note-presentation)
 for application-owned static previews. Pass a full-document snapshot to keep

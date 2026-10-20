@@ -13,8 +13,8 @@ editor state, and custom node views written as Vue components.
 pnpm add @domternal/vue @domternal/core @domternal/theme vue
 ```
 
-The package declares Node.js 22 or later for tooling. Requires Vue 3.3 or later and `@domternal/core >=1.7.0 <2.0.0`.
-Use version 1.7.0 for all installed Domternal Free packages. Import the theme once in
+The package declares Node.js 22 or later for tooling. Requires Vue 3.3 or later and `@domternal/core >=1.8.0 <2.0.0`.
+Use version 1.8.0 for all installed Domternal Free packages. Import the theme once in
 your application for default styling.
 
 ## Quick start

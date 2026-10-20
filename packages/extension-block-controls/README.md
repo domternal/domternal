@@ -17,8 +17,8 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core @domternal/pm @domternal/extension-block-controls @domternal/vanilla @domternal/theme
 ```
 
-The extension requires `@domternal/core` and `@domternal/pm` `>=1.7.0 <2.0.0`.
-Use version 1.7.0 for all installed Domternal Free packages.
+The extension requires `@domternal/core` and `@domternal/pm` `>=1.8.0 <2.0.0`.
+Use version 1.8.0 for all installed Domternal Free packages.
 The example uses `@domternal/vanilla` for the rendered insert menu and
 `@domternal/theme` for styling; both are optional if you provide your own UI.
 
