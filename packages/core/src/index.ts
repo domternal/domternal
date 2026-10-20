@@ -515,3 +515,4 @@ export { DocumentNotes, type InsertDocumentNoteOptions, type DocumentNoteTarget 
 export { DocumentNote } from './nodes/DocumentNote.js';
 export { DocumentNoteReference } from './nodes/DocumentNoteReference.js';
 export { getDocumentNoteTypes, getDocumentNotes, type DocumentNoteKind, type DocumentNoteIdentity, type DocumentNoteTypes, type DocumentNotesSnapshot, type DocumentNoteBodyRecord, type DocumentNoteReferenceRecord } from './utils/documentNotes.js';
+export { annotateDocumentNotes } from './utils/documentNotesDOM.js';

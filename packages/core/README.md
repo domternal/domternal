@@ -144,9 +144,14 @@ navigation. `getDocumentNoteTypes(schema)` recognizes the actual first-party
 contract, including renamed nodes that retain its attributes. It does not adopt
 unrelated nodes just because they use the same names.
 
-Integration with Pro Import and Pro Export belongs to a separate upcoming Pro
-release. Free 1.6.0 provides the editable note model; it does not publish those
-DOCX/PDF adapters. This model is not a paginated footnote editor.
+For an application-owned, read-only DOM preview built with the schema serializer,
+`annotateDocumentNotes(root, getDocumentNotes(doc), editor.i18n)` derives the same
+labels without changing JSON. A full-document snapshot preserves numbering when
+only part of the document is rendered. See [static note presentation](docs/content.md#static-note-presentation).
+
+Pro Import and Pro Export 1.6.0 integrate with this optional model for supported
+DOCX notes. Free provides the editable model; those DOCX/PDF adapters belong to
+Pro. This model is not a paginated footnote editor.
 
 ### Readable literal colors
 

@@ -1,4 +1,5 @@
 AdoptEventProps
+annotateDocumentNotes
 announce
 AnyExtension
 AnyExtensionConfig

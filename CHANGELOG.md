@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Expose `annotateDocumentNotes` for application-owned static previews, with full-document numbering and optional localized headings. An explicit snapshot remains authoritative for missing or duplicate notes and exceeded indexes, so partial previews do not invent contradictory numbers. The helper changes presentation only.
+
 ## 1.6.0 (2026-10-18)
 
 ### Features

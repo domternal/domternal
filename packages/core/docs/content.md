@@ -164,6 +164,40 @@ rewrites a list. Reading with the extension does not rewrite an unknown future
 label; it renders the fallback until an explicit
 `normalizeContentAttributes({ codes: ['unsupported-list-label'] })` migration.
 
+## Static note presentation
+
+`getHTML` and `generateHTML` derive labels for editable `DocumentNotes` automatically.
+An application that builds its own read-only preview directly with the schema's
+`DOMSerializer` can apply the same presentation with `annotateDocumentNotes`:
+
+```ts
+import { annotateDocumentNotes, getDocumentNotes } from '@domternal/core';
+
+// root is the DOM fragment or element serialized by the application.
+const snapshot = getDocumentNotes(editor.state.doc);
+annotateDocumentNotes(root, snapshot, editor.i18n);
+```
+
+The helper changes only reference text, note headings and presentation language
+or accessibility attributes inside the supplied root. It does not change
+`noteId`, `kind`, literal `label` attributes, editor JSON, undo history or shared
+content. It does not add editing, navigation handlers or a language subscription.
+Call it again when the application's presentation language changes.
+
+Pass the snapshot of the complete document when presenting a fragment or rendering
+the document in chunks. That snapshot is authoritative: duplicate or missing note
+identities and an exceeded index stay unresolved instead of acquiring misleading
+local numbers. Prepare all chunks before annotating a complete preview. When the
+snapshot is omitted, the helper derives numbering from the supplied DOM alone;
+a reference outside that fragment cannot influence those numbers.
+
+The optional third argument uses the editor's `I18nService` for translated note
+headings and accessible reference labels, with ordinary English fallback for a
+missing translation. Without it, existing serialized heading templates are
+retained. Literal custom marks are written as text, never interpreted as HTML.
+The helper observes the note model's combined bound of 512 bodies and 512
+references per serialized root.
+
 ## Content normalization
 
 JSON content can hold values the editor cannot represent: a list marker this version does not
