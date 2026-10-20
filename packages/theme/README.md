@@ -15,7 +15,7 @@ pnpm add @domternal/theme
 ```
 
 The package declares Node.js 22 or later for tooling and has no peer dependencies.
-Use version 1.7.0 for the theme, editor and framework wrapper so component markup
+Use version 1.8.0 for the theme, editor and framework wrapper so component markup
 and styles stay aligned.
 
 ## Usage
@@ -107,6 +107,10 @@ separately mounted UI, scrolling, Sass, and the complete
   content, HTML, clipboard output, export and print. Tokens, translucent text and
   uncertain paint are unchanged. See the [Core README](../core/README.md#readable-literal-colors)
   for the supported paint, custom mark views and stylesheet requirements.
+- Core 1.8.0 exposes `TextColorStorage.preview(root, marks)` for literal-color
+  adjustment in isolated DOM previews using the same theme stylesheet. See
+  [read-only previews](../core/README.md#read-only-previews) for the required markup
+  and preview lifecycle.
 - The native `hidden` attribute hides themed elements;
   [`hidden="until-found"` keeps its browser behavior](https://domternal.dev/v1/guides/theming/#hiding-an-element).
 - The stylesheet includes [PasteCleanup feedback](https://domternal.dev/v1/extensions/paste-cleanup/)

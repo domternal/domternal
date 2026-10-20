@@ -18,8 +18,8 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core @domternal/pm @domternal/extension-code-block-lowlight lowlight@^3 @domternal/theme
 ```
 
-Requires `@domternal/core` and `@domternal/pm` `>=1.7.0 <2.0.0`, plus `lowlight`
-`^3.0.0`. Use version 1.7.0 for all installed Domternal Free packages.
+Requires `@domternal/core` and `@domternal/pm` `>=1.8.0 <2.0.0`, plus `lowlight`
+`^3.0.0`. Use version 1.8.0 for all installed Domternal Free packages.
 Supply a configured lowlight instance as shown below. The theme supplies
 syntax colors; you can use your own highlight.js-compatible stylesheet instead.
 

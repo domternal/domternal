@@ -18,10 +18,10 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core
 ```
 
-Core has no framework dependency and includes `@domternal/pm`. Use version 1.7.0
+Core has no framework dependency and includes `@domternal/pm`. Use version 1.8.0
 for all installed Domternal Free packages. Wrappers and extensions require Core
-`>=1.7.0 <2.0.0`; extensions also require PM in that range. Core 1.7.0 requires
-PM `>=1.7.0 <2.0.0` at runtime.
+`>=1.8.0 <2.0.0`; extensions also require PM in that range. Core 1.8.0 requires
+PM `>=1.8.0 <2.0.0` at runtime.
 Import ProseMirror primitives from `@domternal/pm/*` to keep
 [one shared copy](https://domternal.dev/v1/guides/single-prosemirror-copy/).
 
@@ -199,7 +199,9 @@ Applications with their own styles can use the same narrowly scoped rule:
 }
 ```
 
-The upcoming release also exposes `TextColorStorage.preview(root, marks)` for
+### Read-only previews
+
+Free 1.8.0 exposes `TextColorStorage.preview(root, marks)` for
 application-owned, schema-rendered read-only previews. Obtain the storage from
 the configured `TextColor` extension and pass the preview's `.ProseMirror` root
 with its rendered literal-color spans and their current inline `style.color`
@@ -207,8 +209,15 @@ values. It returns `null` when `contrast` is `original`; with `auto` it returns
 `refresh()` and `destroy()` methods. Call `refresh()` after attaching the preview
 and `destroy()` when removing it. The preview needs the same theme/readability
 CSS as the editor. The capability adds only temporary presentation attributes;
-it does not install editing plugins or rewrite document content. This additive
-capability is not part of the published Free 1.7.0 API.
+it does not install editing plugins or rewrite document content.
+
+Read the storage from `editor.storage['textColor']` as `TextColorStorage` after
+registering `TextColor`. Use `TextColorPreviewMark` for each supplied span/color
+pair and `TextColorPreview` for the returned lifecycle handle. Render spans from
+your trusted editor schema; the capability is not an HTML sanitizer. Attach the
+preview under the matching theme and `.dm-editor` screen styles before refreshing.
+Keep the supplied spans and literal colors unchanged for the handle's lifetime;
+destroy and recreate it when replacing the rendered content.
 
 ## Optional print preparation
 
