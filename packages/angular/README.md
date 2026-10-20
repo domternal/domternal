@@ -23,7 +23,7 @@ in [Angular library compatibility](https://angular.dev/tools/libraries/creating-
 The manifest still declares a broader `>=17.1.0` peer range; this is not a guarantee
 of compatibility with older Angular releases.
 
-Requires `@domternal/core >=1.6.0 <2.0.0`. Use version 1.6.0 for all installed
+Requires `@domternal/core >=1.7.0 <2.0.0`. Use version 1.7.0 for all installed
 Domternal Free packages. The package declares Node.js 22 or later for tooling; also follow
 your Angular version's [Node.js requirements](https://angular.dev/reference/versions).
 

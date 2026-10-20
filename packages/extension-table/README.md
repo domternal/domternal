@@ -18,7 +18,7 @@ The package declares Node.js 22 or later for tooling.
 pnpm add @domternal/core @domternal/pm @domternal/extension-table @domternal/theme
 ```
 
-Core and pm are peers with the range `>=1.6.0 <2.0.0`. Use version 1.6.0 for all
+Core and pm are peers with the range `>=1.7.0 <2.0.0`. Use version 1.7.0 for all
 installed Domternal Free packages. The example uses the optional theme for table
 layout and UI; you can supply your own styles instead.
 
@@ -138,7 +138,7 @@ The read-only `getNodeTableLayout`, `getNodeTableRowLayout` and
 `getNodeTableCellLayout` helpers return validated settings only for nodes from
 the opt-in schema.
 
-Pro Export support for these settings belongs to a separate upcoming Pro release,
+The separate Pro Export package supports a documented subset of these settings,
 as described in the [Export guide](https://domternal.dev/v1/pro/export/#table-layout-settings).
 That implementation uses native Word settings and bounded PDF approximations.
 With `allowSplit: false`, its PDF output keeps a body row together only after it

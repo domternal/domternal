@@ -51,7 +51,7 @@ companion stylesheet are described in the [Core list-label reference](https://gi
 
 As a defensive fallback, cleanup retains the ordinary list and body text with a
 diagnostic if the available Core helpers cannot validate a newer label kind.
-This does not widen the 1.6.0 package's declared Core and PM peer ranges:
+This does not widen the package's declared Core and PM peer ranges:
 upgrade installed Free packages together. Supporting this metadata does not add
 recognition of compound Word numbering or Word picture-bullet assets to cleanup.
 
