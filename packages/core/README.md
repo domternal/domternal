@@ -199,6 +199,17 @@ Applications with their own styles can use the same narrowly scoped rule:
 }
 ```
 
+The upcoming release also exposes `TextColorStorage.preview(root, marks)` for
+application-owned, schema-rendered read-only previews. Obtain the storage from
+the configured `TextColor` extension and pass the preview's `.ProseMirror` root
+with its rendered literal-color spans and their current inline `style.color`
+values. It returns `null` when `contrast` is `original`; with `auto` it returns
+`refresh()` and `destroy()` methods. Call `refresh()` after attaching the preview
+and `destroy()` when removing it. The preview needs the same theme/readability
+CSS as the editor. The capability adds only temporary presentation attributes;
+it does not install editing plugins or rewrite document content. This additive
+capability is not part of the published Free 1.7.0 API.
+
 ## Optional print preparation
 
 Free 1.6.0 adds `Print.configure({ prepareResources: true })` to wait for

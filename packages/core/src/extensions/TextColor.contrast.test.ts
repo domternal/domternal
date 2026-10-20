@@ -63,7 +63,7 @@ describe('TextColor contrast presentation', () => {
 
   it.each([['TextColor before Highlight', [Auto, Highlight]], ['Highlight before TextColor', [Highlight, Auto]], ['TextColor alone', [Auto]]] as const)(
     'composes with Highlight: %s', async (_name, extensions) => {
-    const chosen = [...extensions] as typeof Auto[];
+    const chosen = [...extensions];
     const editor = mount(doc(run('highlighted', { color: '#000000', backgroundColor: '#ffffff' }), run('plain', { color: '#010101' })), chosen);
     await vi.waitFor(() => { expect(adjusted(span(editor, 'plain'))).not.toBe(''); });
     if (chosen.includes(Highlight)) {

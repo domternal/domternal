@@ -374,6 +374,9 @@ textblockTypeInputRule
 TextblockTypeInputRuleOptions
 TextColor
 TextColorOptions
+TextColorPreview
+TextColorPreviewMark
+TextColorStorage
 textInputRule
 TextInputRuleOptions
 TextListLabel

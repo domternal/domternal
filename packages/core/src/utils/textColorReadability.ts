@@ -20,11 +20,13 @@ function effect(style: CSSStyleDeclaration): boolean {
     || !!style.getPropertyValue('backdrop-filter') && style.getPropertyValue('backdrop-filter') !== 'none';
 }
 
+export interface TextColorPreviewMark { readonly element: HTMLElement; readonly color: string }
+export interface TextColorPreview { refresh(): void; destroy(): void }
+
 /** View-only, with a bounded batch of measured spans per frame and one shared style cache per pass. */
-function readabilityView(view: EditorView): { update: (next: EditorView, previous: typeof view.state) => void; destroy: () => void } {
-  const root = view.dom;
+function readabilityRoot(root: HTMLElement): TextColorPreview {
   const win = root.ownerDocument.defaultView;
-  if (!win || typeof win.requestAnimationFrame !== 'function') return { update: () => undefined, destroy: () => undefined };
+  if (!win || typeof win.requestAnimationFrame !== 'function') return { refresh: () => undefined, destroy: () => undefined };
   const css = (win as unknown as { CSS?: { supports?: (condition: string) => boolean } }).CSS;
   let frame = 0;
   let destroyed = false;
@@ -201,11 +203,7 @@ function readabilityView(view: EditorView): { update: (next: EditorView, previou
   root.ownerDocument.addEventListener('transitionend', transition, true);
   schedule();
   return {
-    update(nextView, previous): void {
-      if (destroyed) return;
-      observe();
-      if (nextView.state.doc !== previous.doc) schedule();
-    },
+    refresh,
     destroy(): void {
       destroyed = true;
       if (frame) win.cancelAnimationFrame(frame);
@@ -221,6 +219,42 @@ function readabilityView(view: EditorView): { update: (next: EditorView, previou
       colors.clear();
       adjustments.clear();
     },
+  };
+}
+
+/** A private registry keeps detached read-only rendering separate from editable mark views. */
+export function textColorPreview(root: HTMLElement, marks: readonly TextColorPreviewMark[]): TextColorPreview {
+  const owned: HTMLElement[] = [];
+  for (const { element, color } of marks) {
+    if (!root.contains(element) || element.closest('.ProseMirror') !== root || readableTextMarks.has(element)
+      || element.style.color !== color || !color) continue;
+    readableTextMarks.set(element, { color, writtenStyle: null, writtenState: null });
+    element.setAttribute('data-dm-text-contrast', 'auto');
+    owned.push(element);
+  }
+  const presentation = readabilityRoot(root);
+  let destroyed = false;
+  return {
+    refresh: () => { if (!destroyed) presentation.refresh(); },
+    destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
+      presentation.destroy();
+      for (const element of owned) {
+        readableTextMarks.delete(element);
+        element.removeAttribute('data-dm-text-contrast');
+        element.style.removeProperty(PROPERTY);
+      }
+      owned.length = 0;
+    },
+  };
+}
+
+function readabilityView(view: EditorView): { update: (next: EditorView, previous: typeof view.state) => void; destroy: () => void } {
+  const presentation = readabilityRoot(view.dom);
+  return {
+    update(next, previous): void { if (next.state.doc !== previous.doc) presentation.refresh(); },
+    destroy: () => { presentation.destroy(); },
   };
 }
 
