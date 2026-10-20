@@ -29,7 +29,8 @@ import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import { TextStyle } from '../marks/TextStyle.js';
 import { isBlankStyleValue, isSafeCssValue } from '../helpers/isSafeCssValue.js';
-import { textColorReadabilityPlugin } from '../utils/textColorReadability.js';
+import { textColorPreview, textColorReadabilityPlugin } from '../utils/textColorReadability.js';
+import type { TextColorPreview, TextColorPreviewMark } from '../utils/textColorReadability.js';
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 
 declare module '@domternal/core' {
@@ -87,7 +88,13 @@ export interface TextColorOptions {
   contrast?: 'original' | 'auto';
 }
 
-export const TextColor = Extension.create<TextColorOptions>({
+export interface TextColorStorage {
+  /** Apply this extension's presentation policy to an isolated schema-rendered preview, without editing its content. */
+  preview(root: HTMLElement, marks: readonly TextColorPreviewMark[]): TextColorPreview | null;
+}
+export type { TextColorPreview, TextColorPreviewMark } from '../utils/textColorReadability.js';
+
+export const TextColor = Extension.create<TextColorOptions, TextColorStorage>({
   name: 'textColor',
 
   dependencies: ['textStyle'],
@@ -98,6 +105,10 @@ export const TextColor = Extension.create<TextColorOptions>({
       columns: 5,
       contrast: 'original',
     };
+  },
+
+  addStorage() {
+    return { preview: (root, marks) => this.options.contrast === 'auto' ? textColorPreview(root, marks) : null };
   },
 
   onBeforeCreate() {

@@ -1,8 +1,8 @@
 import { Plugin } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { surfaceTone } from '../helpers/surfaceTone.js';
-import { compositeContrastColor, measuredContrastColor, readableTextColor } from '../helpers/textColorContrast.js';
-import type { ContrastColor } from '../helpers/textColorContrast.js';
+import { measuredContrastColor, readableTextColor, textContrastPaint } from '../helpers/textColorContrast.js';
+import type { ContrastColor, ContrastPaintLayer, TextContrastPaint } from '../helpers/textColorContrast.js';
 import { textColorReadabilityKey } from './textColorReadabilityKey.js';
 import { readableTextMarks, textStyleMarkView } from './textStyleMarkView.js';
 
@@ -14,18 +14,19 @@ const clear: ContrastColor = [0, 0, 0, 0];
 
 /** A nonuniform surface, or a compositing effect that this deliberately narrow policy cannot measure. */
 function effect(style: CSSStyleDeclaration): boolean {
-  return style.opacity !== '' && Number(style.opacity) !== 1
-    || !!style.filter && style.filter !== 'none'
+  return !!style.filter && style.filter !== 'none'
     || !!style.mixBlendMode && style.mixBlendMode !== 'normal'
     || /\binset\b/u.test(style.boxShadow)
     || !!style.getPropertyValue('backdrop-filter') && style.getPropertyValue('backdrop-filter') !== 'none';
 }
 
+export interface TextColorPreviewMark { readonly element: HTMLElement; readonly color: string }
+export interface TextColorPreview { refresh(): void; destroy(): void }
+
 /** View-only, with a bounded batch of measured spans per frame and one shared style cache per pass. */
-function readabilityView(view: EditorView): { update: (next: EditorView, previous: typeof view.state) => void; destroy: () => void } {
-  const root = view.dom;
+function readabilityRoot(root: HTMLElement): TextColorPreview {
   const win = root.ownerDocument.defaultView;
-  if (!win || typeof win.requestAnimationFrame !== 'function') return { update: () => undefined, destroy: () => undefined };
+  if (!win || typeof win.requestAnimationFrame !== 'function') return { refresh: () => undefined, destroy: () => undefined };
   const css = (win as unknown as { CSS?: { supports?: (condition: string) => boolean } }).CSS;
   let frame = 0;
   let destroyed = false;
@@ -73,24 +74,30 @@ function readabilityView(view: EditorView): { update: (next: EditorView, previou
     colors.set(value, result);
     return result;
   };
-  const backdrop = (element: HTMLElement): ContrastColor | null => {
-    let paint = clear;
+  const backdrop = (element: HTMLElement): TextContrastPaint | null => {
+    const layers: ContrastPaintLayer[] = [];
+    let alpha = 0;
     let ancestor: HTMLElement | null = element;
     let depth = 0;
     while (ancestor && depth++ < DEPTH) {
       const style = styleOf(ancestor);
       // Effects on an ancestor still affect text even after an opaque background has been found.
       if (effect(style) || paintedPseudo(ancestor)) return null;
-      if (paint[3] < 1) {
+      const opacity = style.opacity === '' ? 1 : Number(style.opacity);
+      if (!Number.isFinite(opacity) || opacity <= 0 || opacity > 1) return null;
+      let background = clear;
+      if (alpha < 1) {
         if (style.backgroundImage && style.backgroundImage !== 'none' || style.backgroundClip === 'text') return null;
         const color = measuredContrastColor(style.backgroundColor);
         if (!color) return null;
-        paint = compositeContrastColor(paint, color);
+        background = color;
       }
+      layers.push({ background, opacity });
+      alpha = (alpha + background[3] * (1 - alpha)) * opacity;
       ancestor = ancestor.parentElement;
     }
     // Do not guess the browser canvas behind a transparent page, or the color beyond a depth bound.
-    return ancestor === null && paint[3] === 1 ? paint : null;
+    return ancestor === null ? textContrastPaint(layers) : null;
   };
   const run = (): void => {
     frame = 0;
@@ -110,13 +117,13 @@ function readabilityView(view: EditorView): { update: (next: EditorView, previou
       const record = readableTextMarks.get(element);
       if (!record) continue;
       const text = literal(record.color);
-      const surface = text?.[3] === 1 ? backdrop(element) : null;
+      const paint = text?.[3] === 1 ? backdrop(element) : null;
       let color: string | null = null;
-      if (text && surface) {
-        const key = `${text.join(',')}/${surface.join(',')}`;
+      if (text && paint) {
+        const key = `${text.join(',')}/${paint.background.join(',')}/${paint.black.join(',')}/${String(paint.opacity)}`;
         if (adjustments.has(key)) color = adjustments.get(key) ?? null;
         else {
-          color = readableTextColor(text, surface);
+          color = readableTextColor(text, paint.background, paint);
           if (adjustments.size >= 512) adjustments.clear();
           adjustments.set(key, color);
         }
@@ -196,11 +203,7 @@ function readabilityView(view: EditorView): { update: (next: EditorView, previou
   root.ownerDocument.addEventListener('transitionend', transition, true);
   schedule();
   return {
-    update(nextView, previous): void {
-      if (destroyed) return;
-      observe();
-      if (nextView.state.doc !== previous.doc) schedule();
-    },
+    refresh,
     destroy(): void {
       destroyed = true;
       if (frame) win.cancelAnimationFrame(frame);
@@ -216,6 +219,42 @@ function readabilityView(view: EditorView): { update: (next: EditorView, previou
       colors.clear();
       adjustments.clear();
     },
+  };
+}
+
+/** A private registry keeps detached read-only rendering separate from editable mark views. */
+export function textColorPreview(root: HTMLElement, marks: readonly TextColorPreviewMark[]): TextColorPreview {
+  const owned: HTMLElement[] = [];
+  for (const { element, color } of marks) {
+    if (!root.contains(element) || element.closest('.ProseMirror') !== root || readableTextMarks.has(element)
+      || element.style.color !== color || !color) continue;
+    readableTextMarks.set(element, { color, writtenStyle: null, writtenState: null });
+    element.setAttribute('data-dm-text-contrast', 'auto');
+    owned.push(element);
+  }
+  const presentation = readabilityRoot(root);
+  let destroyed = false;
+  return {
+    refresh: () => { if (!destroyed) presentation.refresh(); },
+    destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
+      presentation.destroy();
+      for (const element of owned) {
+        readableTextMarks.delete(element);
+        element.removeAttribute('data-dm-text-contrast');
+        element.style.removeProperty(PROPERTY);
+      }
+      owned.length = 0;
+    },
+  };
+}
+
+function readabilityView(view: EditorView): { update: (next: EditorView, previous: typeof view.state) => void; destroy: () => void } {
+  const presentation = readabilityRoot(view.dom);
+  return {
+    update(next, previous): void { if (next.state.doc !== previous.doc) presentation.refresh(); },
+    destroy: () => { presentation.destroy(); },
   };
 }
 

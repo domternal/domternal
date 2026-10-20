@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compositeContrastColor, measuredContrastColor, readableTextColor, textContrastRatio } from './textColorContrast.js';
+import { compositeContrastColor, measuredContrastColor, paintedTextColor, readableTextColor, textContrastPaint, textContrastRatio } from './textColorContrast.js';
 import type { ContrastColor } from './textColorContrast.js';
 
 describe('measured contrast colors', () => {
@@ -56,5 +56,58 @@ describe('readable text color', () => {
         expect(textContrastRatio(measuredContrastColor(adjusted!)!, surface)).toBeGreaterThanOrEqual(4.5);
       }
     }
+  });
+});
+
+describe('text inside groups with opacity', () => {
+  it('measures a checked task against the final canvas and keeps its opacity', () => {
+    const paint = textContrastPaint([
+      { background: [0, 0, 0, 0], opacity: .6 },
+      { background: [32, 32, 32, 1], opacity: 1 },
+    ])!;
+    expect(paint).toEqual({ background: [32, 32, 32, 1], black: [12.8, 12.8, 12.8, 1], opacity: .6 });
+    for (const value of [0, 26]) {
+      const authored: ContrastColor = [value, value, value, 1];
+      const adjusted = measuredContrastColor(readableTextColor(authored, paint.background, paint) ?? '')!;
+      expect(adjusted).not.toBeNull();
+      expect(textContrastRatio(paintedTextColor(adjusted, paint), paint.background)).toBeGreaterThanOrEqual(4.5);
+      // A color that reaches the threshold before group opacity is applied can still be unreadable on screen.
+      const naive = measuredContrastColor(readableTextColor(authored, paint.background) ?? '')!;
+      expect(textContrastRatio(paintedTextColor(naive, paint), paint.background)).toBeLessThan(4.5);
+    }
+  });
+
+  it('composites each background inside its own group before applying that group opacity', () => {
+    const paint = textContrastPaint([
+      { background: [10, 80, 160, .75], opacity: .8 },
+      { background: [220, 200, 160, 1], opacity: .6 },
+      { background: [32, 32, 32, 1], opacity: 1 },
+    ])!;
+    expect(paint.opacity).toBe(.48);
+    [69.2, 89.6, 108.8, 1].forEach((value, index) => { expect(paint.background[index]).toBeCloseTo(value); });
+    [39.2, 36.8, 32, 1].forEach((value, index) => { expect(paint.black[index]).toBeCloseTo(value); });
+    const white = paintedTextColor([255, 255, 255, 1], paint);
+    [161.6, 159.2, 154.4, 1].forEach((value, index) => { expect(white[index]).toBeCloseTo(value); });
+  });
+
+  it('keeps already readable colors and refuses impossible contrast instead of changing opacity or lowering the threshold', () => {
+    const readable = textContrastPaint([
+      { background: [0, 0, 0, 0], opacity: .6 }, { background: [32, 32, 32, 1], opacity: 1 },
+    ])!;
+    expect(readableTextColor([255, 255, 255, 1], readable.background, readable)).toBeNull();
+    const impossible = textContrastPaint([
+      { background: [0, 0, 0, 0], opacity: .1 }, { background: [32, 32, 32, 1], opacity: 1 },
+    ])!;
+    expect(readableTextColor([0, 0, 0, 1], impossible.background, impossible)).toBeNull();
+    expect(readableTextColor([0, 0, 0, .5], readable.background, readable)).toBeNull();
+  });
+
+  it.each([0, -1, 2, NaN, Infinity])('does not infer paint for hidden or invalid opacity %s', opacity => {
+    expect(textContrastPaint([{ background: [255, 255, 255, 1], opacity }])).toBeNull();
+  });
+
+  it('does not invent the canvas behind a translucent outer group', () => {
+    expect(textContrastPaint([{ background: [255, 255, 255, 1], opacity: .6 }])).toBeNull();
+    expect(textContrastPaint([])).toBeNull();
   });
 });
