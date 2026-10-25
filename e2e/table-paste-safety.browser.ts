@@ -51,17 +51,24 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       editor.setContent(seed, false);
       const positions: Record<string, number> = {};
       editor.state.doc.descendants((node, pos) => { if (node.type.name === 'tableCell') positions[node.textContent] = pos; });
-      editor.commands.setCellSelection({ anchorCell: positions['a']!, headCell: positions['d']! });
+      const cellAt = (text: string): number => {
+        const pos = positions[text];
+        if (pos === undefined) throw new Error(`No table cell holds "${text}"`);
+        return pos;
+      };
+      editor.commands.setCellSelection({ anchorCell: cellAt('a'), headCell: cellAt('d') });
       const before = editor.state.doc.toString();
-      const at = positions['b']!;
-      editor.view.dispatch(editor.state.tr.setNodeMarkup(at, undefined, { ...editor.state.doc.nodeAt(at)!.attrs, colspan: -1 }).setMeta('addToHistory', false));
+      const at = cellAt('b');
+      const cell = editor.state.doc.nodeAt(at);
+      if (!cell) throw new Error(`No node at position ${String(at)}`);
+      editor.view.dispatch(editor.state.tr.setNodeMarkup(at, undefined, { ...cell.attrs, colspan: -1 }).setMeta('addToHistory', false));
       const selectedText = editor.state.selection.$from.parent.textContent;
       select(editor.state.doc.content.size - 1);
       const canRepair = editor.can().fixTables();
       const repaired = editor.commands.fixTables();
       const after = editor.state.doc.toString();
       const normalized = editor.commands.normalizeContentAttributes({ codes: ['unsupported-table-span'] });
-      const selectedAgain = editor.commands.setCellSelection({ anchorCell: positions['a']!, headCell: positions['d']! });
+      const selectedAgain = editor.commands.setCellSelection({ anchorCell: cellAt('a'), headCell: cellAt('d') });
       editor.state.doc.check();
       return { before, after, selectedText, canRepair, repaired, normalized, selectedAgain,
         selectedCells: editor.view.dom.querySelectorAll('.selectedCell').length };

@@ -800,8 +800,10 @@ test.describe('stored style values in the browser', () => {
     const generated = await page.evaluate(json => (window as unknown as EditorWindow).__linkSecurity.generateHTML(json), content);
     for (const output of [html, generated]) expect(output).toMatch(/font-size: calc\(/);
     const size = await page.locator('#fixture').getByText('FLUID', { exact: true }).evaluate(element => getComputedStyle(element).fontSize);
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error('The page has no viewport size');
     // Half a rem plus one viewport width percent: never the 16px a dropped declaration would leave.
-    expect(Number.parseFloat(size)).toBeCloseTo(8 + page.viewportSize()!.width / 100, 0);
+    expect(Number.parseFloat(size)).toBeCloseTo(8 + viewport.width / 100, 0);
   });
 });
 

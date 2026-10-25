@@ -72,7 +72,9 @@ for (const cleanup of [false, true]) test(`picture markers keep local pixels, ne
   await page.evaluate(source => { const style = document.createElement('style'); style.id = 'picture-oracle';
     style.setAttribute('nonce', 'list-label-test'); style.textContent = `#sample ul[data-dm-list-label] { list-style-image:url("${source}")!important; }`; document.head.append(style); }, pictureSource);
   expect((await page.locator('#sample').screenshot()).equals(rendered)).toBe(true);
-  await page.evaluate(() => { document.querySelector('#picture-oracle')!.textContent = '#sample ul[data-dm-list-label] { list-style-image:none!important; }'; });
+  await page.evaluate(() => { const oracle = document.querySelector('#picture-oracle');
+    if (!oracle) throw new Error('The picture oracle style is missing');
+    oracle.textContent = '#sample ul[data-dm-list-label] { list-style-image:none!important; }'; });
   expect((await page.locator('#sample').screenshot()).equals(rendered)).toBe(false);
   expect(external).toEqual([]); expect((await snapshot(page)).text).toBe(before.text);
 });
