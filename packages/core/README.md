@@ -332,12 +332,17 @@ when connecting autosave or external state.
 ## Server-side rendering
 
 `generateHTML`, `generateJSON` and `generateText` work without an editor instance.
-HTML serialization and parsing need a DOM. For a Node.js ES module, install the
-optional `linkedom` peer and pass its document explicitly:
+HTML serialization and parsing need a DOM. In Node.js, install the optional
+`linkedom` peer:
 
 ```bash
 pnpm add linkedom
 ```
+
+With no `document` option, `generateHTML` and `generateJSON` load the installed
+`linkedom` themselves: from an ES module on Node.js 22.3 or later, and from
+CommonJS on every supported version. Pass a document explicitly to choose the DOM
+implementation, or where the runtime cannot load it:
 
 ```ts
 import { generateHTML, generateText, StarterKit } from '@domternal/core';
@@ -354,8 +359,7 @@ const text = generateText(content, [StarterKit]);
 ```
 
 `generateJSON(html, extensions, { document })` parses HTML into JSON.
-`generateText` does not need a DOM. CommonJS can load installed `linkedom`
-automatically; browser calls use the browser document. See
+`generateText` does not need a DOM. Browser calls use the browser document. See
 [server-side utilities](https://domternal.dev/v1/guides/editor-api/#server-side-utilities).
 
 Free 1.6.0 adds `createSchema(extensions)` for a worker or headless conversion

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Load the installed `linkedom` peer when `generateHTML` or `generateJSON` runs without a `document` option in a Node.js ES module, as CommonJS already did. This needs Node.js 22.3 or later, and the error for a missing DOM now also names the `document` option.
+
 ## 1.8.0 (2026-10-20)
 
 ### Features
