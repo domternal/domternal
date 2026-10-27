@@ -3,13 +3,17 @@ const MAX_BYTES = 4_096;
 const SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 const ANCILLARY = new Set(['sRGB', 'gAMA', 'cHRM', 'pHYs']);
 
+/** Callers check bounds first. A byte past the end reads as 0, as it did under the bitwise operators. */
+function byte(bytes: Uint8Array, index: number): number {
+  return bytes[index] ?? 0;
+}
 function uint32(bytes: Uint8Array, offset: number): number {
-  return ((bytes[offset]! << 24) | (bytes[offset + 1]! << 16) | (bytes[offset + 2]! << 8) | bytes[offset + 3]!) >>> 0;
+  return ((byte(bytes, offset) << 24) | (byte(bytes, offset + 1) << 16) | (byte(bytes, offset + 2) << 8) | byte(bytes, offset + 3)) >>> 0;
 }
 function crc32(bytes: Uint8Array, start: number, end: number): number {
   let value = 0xffff_ffff;
   for (let index = start; index < end; index++) {
-    value ^= bytes[index]!;
+    value ^= byte(bytes, index);
     for (let bit = 0; bit < 8; bit++) value = (value >>> 1) ^ (value & 1 ? 0xedb8_8320 : 0);
   }
   return (value ^ 0xffff_ffff) >>> 0;
@@ -38,7 +42,7 @@ export function validListLabelImage(source: unknown): source is string {
       if (header || offset !== 8 || length !== 13) return false;
       const width = uint32(bytes, offset + 8); const height = uint32(bytes, offset + 12);
       if (width < 1 || width > 32 || height < 1 || height > 32 || bytes[offset + 16] !== 8
-        || ![2, 6].includes(bytes[offset + 17]!) || bytes[offset + 18] !== 0 || bytes[offset + 19] !== 0 || bytes[offset + 20] !== 0) return false;
+        || ![2, 6].includes(byte(bytes, offset + 17)) || bytes[offset + 18] !== 0 || bytes[offset + 19] !== 0 || bytes[offset + 20] !== 0) return false;
       header = true;
     } else if (!header) return false;
     else if (name === 'IDAT') { if (dataEnded || length === 0) return false; data = true; }

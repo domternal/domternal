@@ -391,7 +391,8 @@ export class ExtensionManager {
         winners.set(ext.name, i);
         continue;
       }
-      const heldIsAuto = autoIncluded.has(extensions[held]!);
+      const heldExt = extensions[held];
+      const heldIsAuto = heldExt !== undefined && autoIncluded.has(heldExt);
       const nextIsAuto = autoIncluded.has(ext);
       if (nextIsAuto && !heldIsAuto) continue;
       winners.set(ext.name, i);

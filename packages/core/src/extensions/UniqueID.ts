@@ -265,13 +265,14 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
           else occurrences.set(id, [pos]);
         });
         for (const [id, positions] of occurrences) {
-          if (positions.length < 2) continue;
+          const [first, second] = positions;
+          if (first === undefined || second === undefined) continue;
           const incumbentPos = incumbents.get(id);
           winners.set(
             id,
             incumbentPos !== undefined && positions.includes(incumbentPos)
               ? incumbentPos
-              : positions[0]!
+              : first
           );
         }
       }
