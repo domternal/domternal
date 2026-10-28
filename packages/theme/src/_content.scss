@@ -2,6 +2,30 @@
 // Content Typography
 // =============================================================================.
 
+@use 'sass:list';
+
+// The marker cycle below as a chain of descendant selectors, for engines
+// without style queries. A list's level is the number of lists around it
+// inside `$scope`, so each rule names one more `:where(ul, ol)` ancestor than
+// the one before it. The rules share one weight, (0,2,1), and the last one that
+// matches wins, which is the deepest level a list reaches.
+@mixin marker-chain($scope, $depth) {
+  $bullets: disc, circle, square;
+  $numbers: decimal, lower-alpha, lower-roman;
+  $ancestors: '';
+  @for $level from 0 to $depth {
+    #{$scope}#{$ancestors}ul:where(:not([data-type="taskList"]):not(.dm-toc-block-list)) {
+      list-style-type: list.nth($bullets, $level % 3 + 1);
+    }
+
+    #{$scope}#{$ancestors}ol {
+      list-style-type: list.nth($numbers, $level % 3 + 1);
+    }
+
+    $ancestors: $ancestors + ':where(ul, ol) ';
+  }
+}
+
 .dm-editor .ProseMirror {
   // ---------------------------------------------------------------------------
   // Block inline padding
@@ -154,6 +178,16 @@
   :is(td, th) {
     --dm-list-level: 0;
   }
+
+  // Engines without style queries, Firefox at the time of writing, apply none
+  // of the rules after this one. The chain spells the same cycle out twelve
+  // lists deep, and a cell restarts it for the lists inside it. It comes first
+  // at the same weight, so wherever the queries apply they win on order and
+  // declare the same marker. Its limits: a list deeper than twelve keeps the
+  // twelfth level's marker, and a cell inside a list inside another cell
+  // counts from the outer cell.
+  @include marker-chain('', 12);
+  @include marker-chain(':where(td, th) ', 12);
 
   // Every list spends a level, task lists included: the exporters count one
   // even though it draws a checkbox rather than a marker, so a bullet list

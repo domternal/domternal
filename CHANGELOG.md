@@ -6,6 +6,7 @@
 
 - Load the installed `linkedom` peer when `generateHTML` or `generateJSON` runs without a `document` option in a Node.js ES module, as CommonJS already did. This needs Node.js 22.3 or later, and the error for a missing DOM now also names the `document` option.
 - Fill in the blocks the schema requires when JSON content lacks them, such as the paragraph a list item must start with when stored content starts it with a heading or a nested list, or the paragraph an empty document or blockquote must hold. Such content previously loaded as a document that later steps refused, and `UniqueID` threw from its initial ID pass. Nothing is removed or reordered, and valid content loads unchanged. `UniqueID` now also skips a node whose surrounding content cannot take a step instead of throwing.
+- Draw the theme's list marker cycle in engines without CSS style queries, Firefox at the time of writing, through a fallback chain of descendant selectors twelve lists deep that also restarts in a table cell. Engines with style queries draw what they drew before, and host overrides keep the same (0,2,1) weight. In the fallback, a list deeper than twelve keeps the twelfth level's marker, and a cell inside a list inside another cell counts from the outer cell.
 
 ## 1.8.0 (2026-10-20)
 
