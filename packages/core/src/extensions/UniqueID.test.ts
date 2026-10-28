@@ -2,7 +2,7 @@
  * Tests for UniqueID extension
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { Fragment, Slice } from '@domternal/pm/model';
+import { Fragment, Slice, type Node as PMNode } from '@domternal/pm/model';
 import { AllSelection, Plugin, TextSelection } from '@domternal/pm/state';
 import { Extension } from '../Extension.js';
 import { UniqueID } from './UniqueID.js';
@@ -12,6 +12,7 @@ import { Paragraph } from '../nodes/Paragraph.js';
 import { Heading } from '../nodes/Heading.js';
 import { History } from './History.js';
 import { Editor } from '../Editor.js';
+import { StarterKit } from './StarterKit.js';
 
 describe('UniqueID', () => {
   describe('configuration', () => {
@@ -710,6 +711,60 @@ describe('UniqueID', () => {
       // The node that already held the id keeps it wherever it now sits.
       expect(second.attrs['id']).toBe('anchor');
       expect(first.attrs['id']).not.toBe('anchor');
+    });
+  });
+
+  describe('content the schema does not allow', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    const ids = (doc: PMNode): unknown[] => {
+      const found: unknown[] = [];
+      doc.descendants((node) => {
+        if (node.type.name !== 'text' && node.type.name !== 'bulletList') found.push(node.attrs['id']);
+      });
+      return found;
+    };
+
+    it('gives every block of a stored list item that starts with a heading an id', async () => {
+      editor = new Editor({
+        extensions: [StarterKit, UniqueID],
+        content: { type: 'doc', content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Title' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'body' }] },
+        ] }] }] },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(() => { editor?.state.doc.check(); }).not.toThrow();
+      const item = editor.state.doc.child(0).child(0);
+      expect(item.childCount).toBe(3);
+      expect(item.child(1).textContent).toBe('Title');
+      expect(ids(editor.state.doc).every((id) => typeof id === 'string')).toBe(true);
+    });
+
+    it('skips nodes inside content no fill can repair instead of throwing', async () => {
+      editor = new Editor({
+        extensions: [StarterKit, UniqueID],
+        content: { type: 'doc', content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'valid' }] },
+          { type: 'bulletList', content: [{ type: 'listItem', content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'label' }] },
+            { type: 'text', text: 'stray' },
+          ] }] },
+        ] },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(typeof editor.state.doc.child(0).attrs['id']).toBe('string');
+      expect(() => {
+        editor?.view.dispatch(editor.state.tr.insertText('more ', 1));
+      }).not.toThrow();
+      expect(editor.state.doc.child(0).textContent).toBe('more valid');
+      expect(editor.state.doc.child(1).textContent).toBe('labelstray');
     });
   });
 });
