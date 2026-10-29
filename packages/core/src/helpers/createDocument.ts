@@ -8,6 +8,7 @@ import type { Schema} from '@domternal/pm/model';
 import { Node as PMNode, DOMParser, Fragment } from '@domternal/pm/model';
 import type { Content, ContentDiagnostic, JSONContent } from '../types/index.js';
 import { contentReport, deliverDiagnostics, normalizeInto, type ContentReport } from './normalizeContent.js';
+import { fillRequiredContent } from './fillRequiredContent.js';
 
 const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 
@@ -188,9 +189,10 @@ export function buildDocument(
   }
 
   // Handle JSON content: unknown list markers load as the default marker and
-  // unsupported heading levels as the nearest configured level.
+  // unsupported heading levels as the nearest configured level. Blocks the
+  // schema requires, such as a list item's first paragraph, are filled in.
   if (isJSONContent(content)) {
-    return PMNode.fromJSON(schema, normalizeInto(content, schema, report));
+    return fillRequiredContent(PMNode.fromJSON(schema, normalizeInto(content, schema, report)));
   }
 
   // Handle HTML string

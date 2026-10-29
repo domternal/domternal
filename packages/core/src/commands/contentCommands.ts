@@ -2,12 +2,13 @@
  * Content commands - setContent, clearContent, insertText, insertContent
  */
 import { TextSelection } from '@domternal/pm/state';
-import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from '@domternal/pm/model';
+import { Fragment, Slice, DOMParser as ProseMirrorDOMParser, type Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import type { Content } from '../types/index.js';
 import { createDocument } from '../helpers/index.js';
 import { buildDocument } from '../helpers/createDocument.js';
 import { contentReport, normalizeInto, recordContentDiagnostics } from '../helpers/normalizeContent.js';
+import { fillRequiredContent } from '../helpers/fillRequiredContent.js';
 
 /**
  * Options for setContent command
@@ -184,13 +185,20 @@ export const insertContent: CommandSpec<[content: Content]> =
           // An empty array would replace the selection with nothing, silently
           // deleting it; treat it as a no-op failure instead.
           if (content.length === 0) return false;
-          const nodes = normalizeInto(content, schema, report).map(item => schema.nodeFromJSON(item));
+          const nodes = normalizeInto(content, schema, report).map(item => fillRequiredContent(schema.nodeFromJSON(item)));
           fragment = Fragment.from(nodes);
         } else if ('type' in content) {
           // Single node or document
           const node = schema.nodeFromJSON(normalizeInto(content, schema, report));
-          // If it's a doc, use its content; otherwise wrap in fragment
-          fragment = node.type.name === 'doc' ? node.content : Fragment.from(node);
+          // If it's a doc, use its content; otherwise wrap in fragment. Either way
+          // the blocks the schema requires inside it are filled in.
+          if (node.type.name === 'doc') {
+            const children: PMNode[] = [];
+            node.forEach(child => children.push(fillRequiredContent(child)));
+            fragment = Fragment.fromArray(children);
+          } else {
+            fragment = Fragment.from(fillRequiredContent(node));
+          }
         } else {
           return false;
         }

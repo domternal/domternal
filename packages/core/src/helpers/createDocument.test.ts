@@ -47,6 +47,13 @@ describe('createDocument', () => {
   });
 
   describe('JSON content', () => {
+    it('gives an empty JSON document the paragraph its schema requires', () => {
+      const doc = createDocument({ type: 'doc', content: [] }, testSchema);
+
+      expect(() => { doc.check(); }).not.toThrow();
+      expect(doc.toJSON()).toEqual({ type: 'doc', content: [{ type: 'paragraph' }] });
+    });
+
     it('parses JSON content with type property', () => {
       const json = {
         type: 'doc',

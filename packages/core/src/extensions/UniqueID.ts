@@ -265,16 +265,39 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
           else occurrences.set(id, [pos]);
         });
         for (const [id, positions] of occurrences) {
-          if (positions.length < 2) continue;
+          const [first, second] = positions;
+          if (first === undefined || second === undefined) continue;
           const incumbentPos = incumbents.get(id);
           winners.set(
             id,
             incumbentPos !== undefined && positions.includes(incumbentPos)
               ? incumbentPos
-              : positions[0]!
+              : first
           );
         }
       }
+
+      /**
+       * Gives the node at `pos` a new id. A node whose content, or an
+       * ancestor's, breaks the schema refuses every step through it, so it
+       * keeps no id rather than throwing out of a timer or another
+       * transaction's dispatch. A refused step leaves `tr` unchanged.
+       */
+      const setID = (pos: number, node: PMNode, id: string): void => {
+        try {
+          // Map the position through steps already applied to `tr` so
+          // each setNodeMarkup lands at the right place even when the
+          // earlier iteration changed offsets. (`setNodeMarkup` is not
+          // length-changing, but the discipline matches the safer
+          // pattern that other plugins use.)
+          tr.setNodeMarkup(tr.mapping.map(pos), undefined, {
+            ...node.attrs,
+            [attributeName]: id,
+          });
+        } catch {
+          // Invalid content around this node: see above.
+        }
+      };
 
       const seen = new Set<string>();
       doc.descendants((node, pos) => {
@@ -288,15 +311,7 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
           let id = generateID();
           while (seen.has(id)) id = generateID();
           seen.add(id);
-          // Map the position through steps already applied to `tr` so
-          // each setNodeMarkup lands at the right place even when the
-          // earlier iteration changed offsets. (`setNodeMarkup` is not
-          // length-changing, but the discipline matches the safer
-          // pattern that other plugins use.)
-          tr.setNodeMarkup(tr.mapping.map(pos), undefined, {
-            ...node.attrs,
-            [attributeName]: id,
-          });
+          setID(pos, node, id);
           return;
         }
         // A node yields a CONTESTED id to whichever node held it before this
@@ -313,10 +328,7 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
           let id = generateID();
           while (seen.has(id)) id = generateID();
           seen.add(id);
-          tr.setNodeMarkup(tr.mapping.map(pos), undefined, {
-            ...node.attrs,
-            [attributeName]: id,
-          });
+          setID(pos, node, id);
           return;
         }
         seen.add(existingID);

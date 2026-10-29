@@ -6,6 +6,8 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Heading } from '../nodes/Heading.js';
 import { Bold } from '../marks/Bold.js';
+import { StarterKit } from '../extensions/StarterKit.js';
+import type { Content, JSONContent } from '../types/index.js';
 
 const extensions = [Document, Text, Paragraph, Heading, Bold];
 
@@ -140,6 +142,22 @@ describe('contentCommands', () => {
       editor = new Editor({ extensions, content: '<p>Text</p>' });
       const result = editor.commands.insertContent(42 as any);
       expect(result).toBe(false);
+    });
+
+    const headingFirstList = (): JSONContent => ({ type: 'bulletList', content: [{ type: 'listItem', content: [
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Title' }] },
+    ] }] });
+    it.each<[string, () => Content]>([
+      ['a node', headingFirstList],
+      ['an array', () => [headingFirstList()]],
+      ['a document', () => ({ type: 'doc', content: [headingFirstList()] })],
+    ])('starts an inserted list item that starts with a heading with an empty paragraph, given %s', (_form, content) => {
+      editor = new Editor({ extensions: [StarterKit], content: '<p>Text</p>' });
+      setSelection(editor, 5);
+      expect(editor.commands.insertContent(content())).toBe(true);
+      expect(() => { editor?.state.doc.check(); }).not.toThrow();
+      // StarterKit's TrailingNode keeps a paragraph after the list that ends the document.
+      expect(editor.getHTML()).toBe('<p>Text</p><ul><li><p></p><h2>Title</h2></li></ul><p></p>');
     });
   });
 });

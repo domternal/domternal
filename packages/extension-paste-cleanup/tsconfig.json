@@ -20,6 +20,13 @@
     "node_modules",
     "dist"
   ],
+  "nx": {
+    "sync": {
+      "ignoredDependencies": [
+        "@domternal/extension-markdown"
+      ]
+    }
+  },
   "references": [
     {
       "path": "../extension-block-controls"

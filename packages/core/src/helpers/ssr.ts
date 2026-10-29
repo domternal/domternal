@@ -22,6 +22,14 @@ import { serializeChildren } from '../utils/serializeChildren.js';
 // Declare global require for Node.js environment
 declare const require: (id: string) => unknown;
 
+interface Linkedom {
+  parseHTML: (html: string) => { document: Document };
+}
+
+interface NodeModuleBuiltin {
+  createRequire: (path: string) => (id: string) => unknown;
+}
+
 /**
  * Build a ProseMirror schema from extensions.
  * No editor view, plugins or lifecycle hooks are created. Extension schema and
@@ -45,6 +53,22 @@ export function createSchema(extensions: AnyExtension[]): Schema {
 }
 
 /**
+ * Load the optional linkedom peer synchronously.
+ * Dynamic require keeps linkedom out of browser builds.
+ */
+function loadLinkedom(): Linkedom {
+  // A Node.js ES module has no require. Node.js 20.16 and 22.3 expose the module
+  // built-in without an import, so both builds create a require that resolves
+  // linkedom from this file. The ES module build cannot test for require first:
+  // esbuild rewrites that test to its own require shim, which always exists.
+  const { process } = globalThis as { process?: { getBuiltinModule?: (id: string) => unknown } };
+  const nodeModule = process?.getBuiltinModule?.('node:module') as NodeModuleBuiltin | undefined;
+  if (nodeModule) return nodeModule.createRequire(import.meta.url)('linkedom') as Linkedom;
+  // Older Node.js versions, and other runtimes that provide require.
+  return require('linkedom') as Linkedom;
+}
+
+/**
  * Get a DOM document for parsing/serialization.
  * Uses native document in browser, linkedom in Node.js.
  */
@@ -55,16 +79,15 @@ function getDocument(): Document {
   }
 
   // Server environment - try linkedom
+  let linkedom: Linkedom;
   try {
-    // Dynamic require to avoid bundling linkedom in browser builds
-    const linkedom = require('linkedom') as { parseHTML: (html: string) => { document: Document } };
-    const { document } = linkedom.parseHTML('<!DOCTYPE html><html><body></body></html>');
-    return document;
+    linkedom = loadLinkedom();
   } catch {
     throw new Error(
-      'SSR requires "linkedom" package. Install it with: pnpm add linkedom'
+      'SSR requires "linkedom" package. Install it with: pnpm add linkedom, or pass options.document'
     );
   }
+  return linkedom.parseHTML('<!DOCTYPE html><html><body></body></html>').document;
 }
 
 export interface GenerateHTMLOptions extends NormalizeContentOptions {
