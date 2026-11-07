@@ -1,10 +1,11 @@
 import '@angular/compiler';
 import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { By } from '@angular/platform-browser';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Editor, Link, ListItem, OrderedList, type Content, type ContentDiagnosticProps, type JSONContent } from '@domternal/core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Editor, Link, ListItem, OrderedList, type AnyExtension, type Content, type ContentDiagnosticProps, type JSONContent } from '@domternal/core';
 import { DEFAULT_EXTENSIONS, DomternalEditorComponent } from './editor.component.js';
 
 TestBed.initTestEnvironment(BrowserTestingModule, platformBrowserTesting());
@@ -113,6 +114,31 @@ Component({
   imports: [ReactiveFormsModule, DomternalEditorComponent],
   template: `<domternal-editor [extensions]="linkExtensions" outputFormat="json" [formControl]="control" ${outputs} />`,
 })(LinkFormHost);
+
+class EditableFormHost extends Recorder {
+  readonly editable = signal(true);
+  readonly editorExtensions = signal<AnyExtension[]>(extensions);
+  readonly control = new FormControl<Content>('<p>text</p>', { nonNullable: true });
+}
+Component({
+  selector: 'editable-form-host',
+  imports: [ReactiveFormsModule, DomternalEditorComponent],
+  template: `<domternal-editor [extensions]="editorExtensions()" [editable]="editable()" [formControl]="control" ${outputs} />`,
+})(EditableFormHost);
+
+class NgModelHost extends Recorder {
+  value: Content = '<p>text</p>';
+  readonly disabled = signal(true);
+}
+Component({
+  selector: 'ng-model-host',
+  imports: [FormsModule, DomternalEditorComponent],
+  template: `<domternal-editor [(ngModel)]="value" [disabled]="disabled()" ${outputs} />`,
+})(NgModelHost);
+
+function editorComponent(fixture: ComponentFixture<unknown>): DomternalEditorComponent {
+  return fixture.debugElement.query(By.directive(DomternalEditorComponent)).componentInstance as DomternalEditorComponent;
+}
 
 beforeEach(() => {
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
@@ -230,5 +256,114 @@ describe('DomternalEditorComponent content reports', () => {
     expect(editor.state.selection.eq(selection)).toBe(true);
     expect(editor.getJSON().content?.[0]?.attrs?.['listStyleType']).toBe('bogus');
     expect(host.sources).toEqual(sources);
+  });
+});
+
+describe('DomternalEditorComponent editable state', () => {
+  it('starts read-only when the bound control is already disabled', async () => {
+    const fixture = TestBed.createComponent(EditableFormHost);
+    const host = fixture.componentInstance;
+    host.control.disable();
+    await fixture.whenStable();
+    const component = editorComponent(fixture);
+    expect(host.editor.isEditable).toBe(false);
+    expect(component.isEditable()).toBe(false);
+
+    // enable() reaches the editor at once, before change detection runs.
+    host.control.enable();
+    expect(host.editor.isEditable).toBe(true);
+    expect(component.isEditable()).toBe(true);
+  });
+
+  it('starts read-only when ngModel is bound with disabled', async () => {
+    const fixture = TestBed.createComponent(NgModelHost);
+    const host = fixture.componentInstance;
+    await fixture.whenStable();
+    expect(host.editor.isEditable).toBe(false);
+    expect(editorComponent(fixture).isEditable()).toBe(false);
+
+    host.disabled.set(false);
+    await fixture.whenStable();
+    expect(host.editor.isEditable).toBe(true);
+    expect(editorComponent(fixture).isEditable()).toBe(true);
+  });
+
+  it('lets the editable input and the form decide in the order they change', async () => {
+    const fixture = TestBed.createComponent(EditableFormHost);
+    const host = fixture.componentInstance;
+    await fixture.whenStable();
+    const component = editorComponent(fixture);
+    const state = (): boolean[] => [host.editor.isEditable, component.isEditable()];
+    expect(state()).toEqual([true, true]);
+
+    host.editable.set(false);
+    await fixture.whenStable();
+    expect(state()).toEqual([false, false]);
+    // enable() after the input unlocks the editor, as it did before.
+    host.control.disable();
+    host.control.enable();
+    await fixture.whenStable();
+    expect(state()).toEqual([true, true]);
+
+    // An input change after disable() decides in turn.
+    host.control.disable();
+    await fixture.whenStable();
+    expect(state()).toEqual([false, false]);
+    host.editable.set(true);
+    await fixture.whenStable();
+    expect(state()).toEqual([true, true]);
+
+    // A repeated disable() still counts as the latest change.
+    host.control.disable();
+    await fixture.whenStable();
+    expect(state()).toEqual([false, false]);
+  });
+
+  it('keeps [editable]="false" when Angular reports the enabled control it binds', async () => {
+    const fixture = TestBed.createComponent(EditableFormHost);
+    const host = fixture.componentInstance;
+    host.editable.set(false);
+    await fixture.whenStable();
+    expect(host.editor.isEditable).toBe(false);
+    expect(editorComponent(fixture).isEditable()).toBe(false);
+
+    // Once the editor exists, enable() unlocks it, as it did before.
+    host.control.enable();
+    expect(host.editor.isEditable).toBe(true);
+    expect(editorComponent(fixture).isEditable()).toBe(true);
+  });
+
+  it('keeps a disabled form read-only when changed extensions recreate the editor', async () => {
+    const fixture = TestBed.createComponent(EditableFormHost);
+    const host = fixture.componentInstance;
+    await fixture.whenStable();
+    host.control.disable();
+    host.editorExtensions.set([...extensions]);
+    await fixture.whenStable();
+    expect(host.created).toHaveLength(2);
+    expect(host.editor.isEditable).toBe(false);
+    expect(editorComponent(fixture).isEditable()).toBe(false);
+  });
+
+  it('applies each change of the editable state to the editor once', async () => {
+    const fixture = TestBed.createComponent(EditableFormHost);
+    const host = fixture.componentInstance;
+    await fixture.whenStable();
+    // setEditable dispatches a transaction, so a repeated call is not free.
+    const setEditable = vi.spyOn(host.editor, 'setEditable');
+
+    // Each step applies once: setDisabledState at once and the effect after it.
+    host.control.disable();
+    await fixture.whenStable();
+    host.control.enable();
+    await fixture.whenStable();
+    host.editable.set(false);
+    await fixture.whenStable();
+    // disable() of an editor the input already made read-only applies nothing.
+    host.control.disable();
+    await fixture.whenStable();
+    host.editable.set(true);
+    await fixture.whenStable();
+    expect(setEditable.mock.calls).toEqual([[false], [true], [false], [true]]);
   });
 });

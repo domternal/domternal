@@ -76,7 +76,8 @@ contribute. Subscribe to the form control's `valueChanges` to save content.
 
 - Form values are HTML by default. Use `outputFormat="json"` with a JSON content
   value for structured documents. Calling `disable()` or `enable()` on the form
-  control updates editability.
+  control updates editability, and a control created disabled starts the editor
+  read-only. The `editable` input and the control decide in the order they change.
 - Without a form, pass HTML or JSON through `[content]`, handle `(contentUpdated)`,
   and read `event.editor.getHTML()` or `getJSON()`. The component also exposes
   `htmlContent`, `jsonContent`, `isEmpty`, `isFocused`, and `isEditable` signals.
