@@ -127,9 +127,13 @@ check a translation for every current message.
 
 ## Version compatibility
 
-Upgrade installed `@domternal/*` packages together to **1.8.0**. Wrappers require
+Upgrade installed `@domternal/*` packages together to **1.8.1**. Wrappers require
 core `>=1.8.0 <2.0.0`, and extensions require both core and pm as peers in that
-range. Core 1.8.0 requires pm `>=1.8.0 <2.0.0` at runtime.
+range. Core 1.8.1 requires pm `>=1.8.1 <2.0.0` at runtime.
+
+Version 1.8.1 fixes server-side HTML and JSON generation in Node.js ES modules,
+repairs JSON content that lacks required blocks, draws list markers in Firefox and
+starts the Angular editor read-only when its form control is already disabled.
 
 Version 1.8.0 lets application-owned [read-only previews](packages/core/README.md#read-only-previews)
 reuse the configured `TextColor` screen-readability policy. It also accounts for

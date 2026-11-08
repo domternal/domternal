@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.8.1 (2026-11-08)
 
 ### Fixes
 
@@ -8,6 +8,10 @@
 - Fill in the blocks the schema requires when JSON content lacks them, such as the paragraph a list item must start with when stored content starts it with a heading or a nested list, or the paragraph an empty document or blockquote must hold. Such content previously loaded as a document that later steps refused, and `UniqueID` threw from its initial ID pass. Nothing is removed or reordered, and valid content loads unchanged. `UniqueID` now also skips a node whose surrounding content cannot take a step instead of throwing.
 - Draw the theme's list marker cycle in engines without CSS style queries, Firefox at the time of writing, through a fallback chain of descendant selectors twelve lists deep that also restarts in a table cell. Engines with style queries draw what they drew before, and host overrides keep the same (0,2,1) weight. In the fallback, a list deeper than twelve keeps the twelfth level's marker, and a cell inside a list inside another cell counts from the outer cell.
 - Start the Angular editor read-only when its form control is already disabled, such as `new FormControl({ value: '', disabled: true })`, and keep a disabled control's editor read-only when changed `extensions` recreate it. Both left the editor editable. The `editable` input and the control's `disable()` and `enable()` still decide in the order they change, and the enabled state Angular reports when it binds a control still leaves `[editable]="false"` in place.
+
+### Docs
+
+- Update installation guidance for 1.8.1 across all package READMEs, and describe in the Angular README how a disabled form control and the `editable` input set editability.
 
 ## 1.8.0 (2026-10-20)
 
