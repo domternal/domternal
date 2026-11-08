@@ -3,6 +3,7 @@ import {
   Component,
   ViewEncapsulation,
   afterNextRender,
+  computed,
   forwardRef,
   signal,
   ChangeDetectionStrategy,
@@ -126,17 +127,33 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   private _jsonContent = signal<JSONContent | null>(null);
   private _isEmpty = signal(true);
   private _isFocused = signal(false);
-  // Candidate for linkedSignal(editable) once min Angular version is >=20
-  private _isEditable = signal(true);
+  /**
+   * The `editable` input as a new object on each change, so a form report can
+   * name the input value it arrived after.
+   */
+  private _editableInput = computed(() => ({ editable: this.editable() }));
+  /** The disabled state a bound form control last reported, and the input value it arrived after. */
+  private _formReport = signal<{ disabled: boolean; after: { editable: boolean } } | null>(null);
 
   readonly htmlContent = this._htmlContent.asReadonly();
   readonly jsonContent = this._jsonContent.asReadonly();
   readonly isEmpty = this._isEmpty.asReadonly();
   readonly isFocused = this._isFocused.asReadonly();
-  readonly isEditable = this._isEditable.asReadonly();
+  /**
+   * Whether the editor accepts edits. The `editable` input and a bound form
+   * control's disabled state both set it, and whichever changed last decides,
+   * as a linked signal would.
+   */
+  readonly isEditable = computed(() => {
+    const input = this._editableInput();
+    const form = this._formReport();
+    return form?.after === input ? !form.disabled : input.editable;
+  });
 
   // === Editor instance ===
   private _editor: Editor | null = null;
+  /** The editable state the current editor was last given. */
+  private _appliedEditable: boolean | null = null;
   private _hadI18nInput = false;
 
   get editor(): Editor | null {
@@ -164,14 +181,11 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       });
     });
 
-    // React to editable input changes
+    // React to the editable input and the form's disabled state
     effect(() => {
-      const editable = this.editable();
-      if (!this._editor || this._editor.isDestroyed) return;
-      const ed = this._editor;
+      const editable = this.isEditable();
       untracked(() => {
-        ed.setEditable(editable);
-        this._isEditable.set(editable);
+        this.applyEditable(editable);
       });
     });
 
@@ -238,13 +252,29 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   }
 
   setDisabledState(isDisabled: boolean): void {
-    this._isEditable.set(!isDisabled);
-    if (this._editor && !this._editor.isDestroyed) {
-      this._editor.setEditable(!isDisabled);
-    }
+    untracked(() => {
+      // Until the editor exists an enabled control leaves the editable input in
+      // charge, so the state Angular reports when it binds one keeps
+      // [editable]="false". A disabled control holds from the start.
+      if (!isDisabled && !this._editor) {
+        this._formReport.set(null);
+        return;
+      }
+      this._formReport.set({ disabled: isDisabled, after: this._editableInput() });
+      // disable() and enable() reach the editor at once, not when the effect runs.
+      this.applyEditable(this.isEditable());
+    });
   }
 
   // === Private ===
+
+  /** Gives the editor `editable` unless it already has it: setEditable dispatches a transaction. */
+  private applyEditable(editable: boolean): void {
+    const editor = this._editor;
+    if (!editor || editor.isDestroyed || this._appliedEditable === editable) return;
+    this._appliedEditable = editable;
+    editor.setEditable(editable);
+  }
 
   private recreateEditor(): void {
     if (!this._editor || this._editor.isDestroyed) return;
@@ -264,6 +294,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       : DEFAULT_EXTENSIONS.filter((extension) => extension.name !== 'history');
     const preset = this.preset();
     const i18n = this.i18n();
+    const editable = this.isEditable();
     this._hadI18nInput = i18n !== undefined;
 
     // Reports the editor makes while it is constructed wait until it is
@@ -278,7 +309,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       element: this.editorRef().nativeElement,
       extensions: [...defaults, ...this.extensions()],
       content: initialContent,
-      editable: this.editable(),
+      editable,
       autofocus: this.autofocus(),
       ...(preset ? { preset } : {}),
       ...(i18n !== undefined ? { i18n } : {}),
@@ -290,8 +321,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       },
     });
     this._editor = editor;
-
-    this._isEditable.set(this.editable());
+    this._appliedEditable = editable;
 
     // Set initial signal values
     this._htmlContent.set(editor.getHTML());

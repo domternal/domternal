@@ -14,9 +14,9 @@
  * Tests below verify:
  *  - parse-time autofix kicks in for HTML where the first li child
  *    isn't a paragraph: a heading there, with nothing before it that
- *    the item holds, parses as the label paragraph's text, and on
- *    setContent a codeBlock, blockquote or bare nested ul is hoisted
- *    out of the item
+ *    the item holds, parses as the label paragraph's text, on
+ *    setContent a codeBlock or blockquote is hoisted out of the item,
+ *    and a bare nested ul stays nested under an empty label paragraph
  *  - the visual alignment bug is fixed: checkbox stays aligned with
  *    the paragraph label, never with a nested heading
  *  - DOM round-trip (setContent → getHTML → setContent) is stable
@@ -285,13 +285,11 @@ test.describe('Notion-strict list schema - parse-time autofix', () => {
     });
   });
 
-  test('<li><ul>...</ul></li> (bare nested-list-only li) is an HTML-parser pitfall - splits to top-level lists', async ({ page }) => {
-    // PM's HTML parser does NOT keep `<li><ul>...</ul></li>` as a
-    // single nested structure when the outer li has no direct text/p
-    // before the inner ul (a long-standing parser quirk, present even
-    // before strict schema). The inner UL ends up flattened to a
-    // sibling list at top level. This test pins that observable
-    // behaviour so we notice if the parser ever changes.
+  test('<li><ul>...</ul></li> (bare nested-list-only li) keeps the nesting under an empty label', async ({ page }) => {
+    // ProseMirror alone closes an item that starts with a nested list and
+    // moves that list to a sibling at top level. The li parse rule gives
+    // such an item the empty label paragraph the schema requires first, so
+    // it parses as `<li><p></p><ul>...</ul></li>` does (next test).
     await setContent(
       page,
       '<ul><li><ul><li><p>Inner only</p></li></ul></li></ul>',
@@ -304,12 +302,20 @@ test.describe('Notion-strict list schema - parse-time autofix', () => {
       ed?.state.doc.forEach((n) => types.push(n.type.name));
       return types;
     });
-    // Two flattened bulletLists - the empty outer li became its own list
-    // with an autofix-empty paragraph; the inner with "Inner only" is a
-    // sibling. Adding `<p></p>` BEFORE the nested `<ul>` is the supported
-    // way to keep them nested (covered by the next test).
-    expect(topLevel.length).toBeGreaterThanOrEqual(2);
-    expect(topLevel.every((t) => t === 'bulletList')).toBe(true);
+    expect(topLevel).toEqual(['bulletList']);
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      childCount: 2,
+      children: [
+        expect.objectContaining({ type: 'paragraph', text: '' }),
+        expect.objectContaining({ type: 'bulletList' }),
+      ],
+    });
+    expect(items[1]).toMatchObject({
+      childCount: 1,
+      text: 'Inner only',
+    });
   });
 
   test('<li><p></p><ul>...</ul></li> (explicit empty label) keeps the nesting', async ({ page }) => {
