@@ -11,7 +11,7 @@
 
 ### Docs
 
-- Update installation guidance for 1.8.1 across all package READMEs, and describe in the Angular README how a disabled form control and the `editable` input set editability.
+- Update installation guidance for 1.8.1 across all package READMEs. The Core README now says that `generateHTML` and `generateJSON` load an installed `linkedom` from an ES module on Node.js 22.3 or later, and the Angular README describes how a disabled form control and the `editable` input set editability.
 
 ## 1.8.0 (2026-10-20)
 
