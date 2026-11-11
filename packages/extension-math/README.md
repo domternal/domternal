@@ -62,8 +62,11 @@ extension, so the edit popover needs no separate registration. Call
 
 ## Writing and editing equations
 
-Type `$x^2$` to insert an inline equation, or `$$` at the start of an empty line to
-create a block equation. These rules do not run inside code blocks.
+Type `$x^2$` to insert an inline equation, or `$$` on an empty line to create a
+block equation. Neither rule runs inside a code block, and the inline rule also
+skips inline code. As in the Markdown parser, prices such as `$5 and $10`,
+`$10-$20` or `US$5 to US$10` stay text, and so does a span that starts or ends with
+a space (`$ x $`). A dollar written as `\$` never opens or closes an equation.
 
 ```ts
 editor.chain().focus().insertMathInline('x^2').run();

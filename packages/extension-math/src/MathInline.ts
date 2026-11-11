@@ -135,11 +135,29 @@ export const MathInline = Node.create<MathOptions>({
     if (!type) return [];
     return [
       new InputRule(
-        /\$([^$\n]+)\$$/,
+        // The opening dollar is not glued to an ASCII letter or digit ("US$5"),
+        // a backslash ("\$") or another dollar ("$$" never opens inline math, as
+        // in the Markdown parser). The check is ASCII only, so CJK text written
+        // right against an equation still converts. An escaped character such
+        // as "\$" stays inside the span, and the span never takes in an inline
+        // node, which the input rules read as U+FFFC.
+        /(?<![A-Za-z0-9\\$])\$((?:[^$\\\n\ufffc]|\\[^\n\ufffc])+)\$$/,
         (state: EditorState, match: RegExpMatchArray, start: number, end: number) => {
           const latex = match[1];
           if (!latex) return null;
           if (state.selection.$from.parent.type.spec.code) return null;
+          // Currency stays text, as in the Markdown parser: no whitespace right
+          // inside either dollar ("$5 and $10") and no digit right after the
+          // closing one ("$5$20"). A price range reaches its second dollar while
+          // the amount after it is still untyped, so a span that starts with a
+          // digit and ends in a range mark stays text too ("$10-$20", "$5/$10").
+          if (/^\s|\s$/.test(latex)) return null;
+          if (/^\d.*[-\u2010\u2011\u2013\u2014\u2212/,~\uff5e\u301c+]$/.test(latex)) return null;
+          const after = state.doc.resolve(end).nodeAfter;
+          if (after?.isText && /^\d/.test(after.text ?? '')) return null;
+          // Inline code is literal text.
+          const code = state.schema.marks['code'];
+          if (code && state.doc.rangeHasMark(start, end, code)) return null;
           const { tr } = state;
           tr.replaceWith(start, end, type.create({ latex }));
           return tr;

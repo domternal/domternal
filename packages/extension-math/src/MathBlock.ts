@@ -148,14 +148,34 @@ export const MathBlock = Node.create<MathOptions>({
     return [
       new InputRule(
         /^\$\$$/,
-        (state: EditorState, _match: RegExpMatchArray, start: number) => {
+        (state: EditorState, _match: RegExpMatchArray, start: number, end: number) => {
           const $start = state.doc.resolve(start);
-          if ($start.depth === 0 || $start.parent.type.spec.code) return null;
-          const from = $start.before();
-          const to = $start.after();
+          const depth = $start.depth;
+          if (depth === 0 || $start.parent.type.spec.code) return null;
+          // Only an otherwise empty line: the equation takes the place of the
+          // whole line, so text after the caret would be deleted with it. A
+          // selection that runs on past the end of the line stays ordinary typing.
+          if (end !== $start.end()) return null;
+          const container = $start.node(depth - 1);
+          const index = $start.index(depth - 1);
+          const node = type.create({ latex: '' });
           const { tr } = state;
-          tr.replaceWith(from, to, type.create({ latex: '' }));
-          tr.setMeta(mathEditPluginKey, { pos: from, latex: '', displayMode: true });
+          let pos: number;
+          if (container.canReplaceWith(index, index + 1, type)) {
+            pos = $start.before();
+            tr.replaceWith(pos, $start.after(), node);
+          } else if (container.canReplaceWith(index + 1, index + 1, type)) {
+            // The container needs its leading textblock (a list or task item is
+            // `paragraph block*`): keep the emptied line and put the equation
+            // after it, as insertMathBlock does, so the editor opens on it.
+            tr.delete(start, end);
+            pos = tr.mapping.map($start.after());
+            tr.insert(pos, node);
+          } else {
+            // No block equation fits here, such as in a details summary.
+            return null;
+          }
+          tr.setMeta(mathEditPluginKey, { pos, latex: '', displayMode: true });
           return tr;
         },
       ),
