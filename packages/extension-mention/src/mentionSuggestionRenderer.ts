@@ -200,7 +200,10 @@ export function createMentionSuggestionRenderer(): () => MentionSuggestionRender
       },
 
       onKeyDown(event: KeyboardEvent): boolean {
-        if (!currentProps || event.isComposing) return false;
+        // keyCode 229 marks an IME key, such as the Enter that Safari sends
+        // after compositionend to commit a conversion.
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
+        if (!currentProps || event.isComposing || event.keyCode === 229) return false;
 
         const maxIndex = Math.min(currentProps.items.length, MAX_ITEMS) - 1;
 

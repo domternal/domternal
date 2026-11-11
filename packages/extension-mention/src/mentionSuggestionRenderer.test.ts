@@ -301,6 +301,19 @@ describe('createMentionSuggestionRenderer', () => {
 
       renderer.onExit();
     });
+
+    it('ignores the Enter that commits an IME conversion (keyCode 229)', () => {
+      const command = vi.fn();
+      const renderer = createMentionSuggestionRenderer()();
+      renderer.onStart(makeProps({ command }));
+
+      const handled = renderer.onKeyDown(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 229 }));
+
+      expect(handled).toBe(false);
+      expect(command).not.toHaveBeenCalled();
+
+      renderer.onExit();
+    });
   });
 
   describe('item interactions', () => {

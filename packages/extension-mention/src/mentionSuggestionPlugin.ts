@@ -134,6 +134,18 @@ function getPluginKey(triggerName: string): PluginKey<SuggestionState> {
 
 // ─── Query Detection ─────────────────────────────────────────────────────────
 
+// Query characters: letters, combining marks and digits in any script, the
+// underscore, dot, plus sign and hyphen, and the zero width non-joiner and
+// joiner (U+200C, U+200D) that Persian and Sinhala names use inside a word.
+// The second pattern also accepts the space, for allowSpaces.
+const QUERY_CHARS = /^[\p{L}\p{M}\p{N}_.+\-\u200C\u200D]*$/u;
+const QUERY_CHARS_SPACED = /^[\p{L}\p{M}\p{N}_.+\- \u200C\u200D]*$/u;
+
+// What may precede the trigger: any whitespace, including the no-break and
+// ideographic spaces, or an inline leaf such as a hard break or another
+// mention, which textBetween below renders as U+FFFC.
+const TRIGGER_BOUNDARY = /[\s\ufffc]/;
+
 /**
  * Extracts the suggestion query from the current text before the cursor.
  * Returns null if no active suggestion is found.
@@ -173,15 +185,13 @@ function findMentionQuery(
   const triggerIndex = textBefore.lastIndexOf(triggerChar);
   if (triggerIndex === -1) return null;
 
-  // The trigger must be at the start of the textblock or preceded by a space
-  if (triggerIndex > 0 && textBefore[triggerIndex - 1] !== ' ') return null;
+  // The trigger must start the textblock or follow whitespace or an inline leaf
+  if (triggerIndex > 0 && !TRIGGER_BOUNDARY.test(textBefore[triggerIndex - 1] ?? '')) return null;
 
   const queryText = textBefore.slice(triggerIndex + triggerChar.length);
 
-  // Query must contain only valid chars (alphanumeric, underscore, dash, dot, plus; spaces if allowed)
-  const validPattern = allowSpaces
-    ? /^[a-zA-Z0-9_.\-+ ]*$/
-    : /^[a-zA-Z0-9_.\-+]*$/;
+  // A hard break or another leaf inside the query reads as U+FFFC and fails here
+  const validPattern = allowSpaces ? QUERY_CHARS_SPACED : QUERY_CHARS;
   if (!validPattern.test(queryText)) return null;
 
   const from = $from.start() + triggerIndex;
@@ -407,7 +417,11 @@ export function createMentionSuggestionPlugin(
       // handleKeyDown and would otherwise intercept Enter/ArrowUp/ArrowDown).
       handleDOMEvents: {
         keydown(view: EditorView, event: KeyboardEvent): boolean {
-          if (event.isComposing) return false;
+          // Keys that belong to an IME composition stay with the browser. Safari
+          // fires the Enter that commits a conversion after compositionend, so
+          // isComposing is false there and only keyCode 229 marks it.
+          // eslint-disable-next-line @typescript-eslint/no-deprecated
+          if (event.isComposing || event.keyCode === 229 || view.composing) return false;
           const state = key.getState(view.state);
           if (!state?.active) return false;
 
