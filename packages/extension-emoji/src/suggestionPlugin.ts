@@ -11,7 +11,7 @@ import type { I18nService } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
-import type { NodeType } from '@domternal/pm/model';
+import type { Node as PMNode, NodeType } from '@domternal/pm/model';
 import type { EmojiItem } from './emojis.js';
 import type { EmojiStorage } from './Emoji.js';
 
@@ -84,6 +84,15 @@ const INITIAL_STATE: SuggestionState = {
 };
 
 /**
+ * Flattens inline leaves for query detection: a hard break reads as a line
+ * start ('\n') and any other leaf as U+FFFC. Each leaf stays one character,
+ * so offsets in the text still match document positions.
+ */
+function leafText(leaf: PMNode): string {
+  return leaf.type.name === 'hardBreak' ? '\n' : '\ufffc';
+}
+
+/**
  * Extracts the suggestion query from the current text before the cursor.
  * Returns null if no active suggestion is found.
  */
@@ -108,22 +117,26 @@ function findSuggestionQuery(
     0,
     $from.parentOffset,
     undefined,
-    '\ufffc',
+    leafText,
   );
 
   // Find the last trigger character
   const triggerIndex = textBefore.lastIndexOf(triggerChar);
   if (triggerIndex === -1) return null;
 
-  // The trigger must be at the start or preceded by a space
-  if (triggerIndex > 0 && textBefore[triggerIndex - 1] !== ' ') return null;
+  // The trigger must start the textblock, start a line after a hard break or
+  // follow a plain space. Other inline nodes do not count, so a colon typed right
+  // after a mention stays text, and neither does the no-break space that French
+  // puts before a colon.
+  const before = textBefore[triggerIndex - 1];
+  if (triggerIndex > 0 && before !== ' ' && before !== '\n') return null;
 
   const queryText = textBefore.slice(triggerIndex + triggerChar.length);
 
   // Validate query: no spaces (unless allowed), only valid chars
   if (!allowSpaces && queryText.includes(' ')) return null;
 
-  // Query must be alphanumeric/underscore/dash/plus
+  // Query must be alphanumeric/underscore/dash/plus, so a hard break inside it fails too
   if (!/^[a-zA-Z0-9_+\- ]*$/.test(queryText)) return null;
 
   const from = $from.start() + triggerIndex;
