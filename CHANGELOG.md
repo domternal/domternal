@@ -9,6 +9,7 @@
 - Keep dollar amounts as text when typing with the math extension. `$10 to $20`, `$10-$20`, `US$5 or US$10` and an escaped `\$` no longer become an equation, nor does a span that starts or ends with a space (`$ x $`), as in the Markdown parser, and the inline rule no longer fires inside inline code or takes in a line break, mention or equation. Typing `$$` in front of existing text now keeps that text instead of replacing the line, and `$$` in an empty list or task item opens the editor on the new equation, so the LaTeX typed into it is applied.
 - Keep the mention suggestion open for names in any script, such as `@Jürgen`, `@Željko`, `@Иван` or `@李明`, where it closed at the first letter outside A to Z, and open it at the start of a line made with Shift+Enter, after a no-break or ideographic space, or right after another mention. The Enter that Safari sends to commit an IME conversion no longer inserts the highlighted mention.
 - Open the emoji suggestion at the start of a line made with Shift+Enter, as it already opened at the start of a paragraph. A colon typed right after a mention or another inline node still stays text.
+- Open the slash menu at the start of a line made with Shift+Enter, and close it when a line break is typed into its query, where the menu stayed open with the break inside the query.
 
 ## 1.8.1 (2026-11-08)
 

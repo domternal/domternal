@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import type { FloatingMenuItem } from '@domternal/core';
-import { Document, Text, Paragraph, Heading, Editor } from '@domternal/core';
+import { Document, Text, Paragraph, Heading, Editor, HardBreak, Node } from '@domternal/core';
 import {
   SlashCommand,
   slashCommandPluginKey,
@@ -972,5 +972,73 @@ describe('SlashCommand - typed-query tracking', () => {
     expect(s?.active).toBe(true);
     // The plugin should have re-pinned `to` to the new cursor position.
     expect(s?.range?.to).toBe(ed.state.selection.from);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hard breaks: a line started with Shift+Enter counts as a line start.
+// ─────────────────────────────────────────────────────────────────────────
+
+// A mention-like inline atom, so these tests need no mention package.
+const Chip = Node.create({
+  name: 'chip', group: 'inline', inline: true, atom: true,
+  parseHTML: () => [{ tag: 'span[data-chip]' }], renderHTML: () => ['span', { 'data-chip': '' }],
+});
+
+describe('SlashCommand: hard break boundary', () => {
+  let host: HTMLElement | undefined;
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    editor?.destroy();
+    editor = undefined;
+    host?.remove();
+    host = undefined;
+  });
+
+  function mount(content = '<p></p>'): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Heading, HardBreak, Chip, SlashCommand],
+      content,
+    });
+    editor.commands.focus('end');
+    return editor;
+  }
+
+  function typeText(ed: Editor, text: string): void {
+    for (const ch of text) ed.view.dispatch(ed.state.tr.insertText(ch));
+  }
+
+  it('typing `/` right after a hard break activates', () => {
+    const ed = mount('<p>Line</p>');
+    ed.commands.setHardBreak();
+    typeText(ed, '/he');
+
+    expect(slashCommandPluginKey.getState(ed.state)).toMatchObject({ active: true, query: 'he' });
+  });
+
+  it('typing `/` right after another inline node, such as a mention, does NOT activate', () => {
+    const ed = mount('<p>Hi</p>');
+    typeText(ed, ' ');
+    ed.view.dispatch(ed.state.tr.replaceSelectionWith(ed.schema.nodes['chip']!.create()));
+    ed.view.dispatch(ed.state.tr.insertText('/'));
+
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('a hard break typed into the query dismisses the session', () => {
+    const ed = mount('<p></p>');
+    typeText(ed, '/he');
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(true);
+
+    ed.commands.setHardBreak();
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+
+    typeText(ed, 'x');
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
   });
 });
