@@ -20,6 +20,10 @@ it('builds table controls and their menus when HTML string sinks are unavailable
     ] }] }] },
   });
   const root = editor.view.dom;
+  // A row or column handle opens its menu for the row and column the pointer is over. Column
+  // resizing reads the pointer's coordinates, which jsdom cannot map to a position.
+  vi.spyOn(editor.view, 'posAtCoords').mockReturnValue(null);
+  root.querySelector('td')?.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
   const buttons = [
     ['.dm-table-row-handle', '.dm-table-controls-dropdown-icon', 3],
     ['.dm-table-col-handle', '.dm-table-controls-dropdown-icon', 3],
