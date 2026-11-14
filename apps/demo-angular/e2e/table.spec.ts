@@ -3665,7 +3665,7 @@ test.describe('Table - Row handle centering on merged cells', () => {
     return box ? box.y + box.height / 2 : -1;
   }
 
-  test('row handle is vertically centered on a rowspan=2 cell', async ({ page }) => {
+  test('row handle sits on the first row of a rowspan=2 cell entered directly', async ({ page }) => {
     const TABLE_3ROWS = '<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr><tr><td>E</td><td>F</td></tr></table>';
     await mergeFirstColumnCells(page, TABLE_3ROWS);
 
@@ -3682,10 +3682,11 @@ test.describe('Table - Row handle centering on merged cells', () => {
     const rowHandle = page.locator('.dm-table-row-handle');
     await expect(rowHandle).toBeVisible();
 
-    // Row handle vertical center should be close to cell vertical center
+    // Entered directly, the merged cell targets its first row, so the handle sits on that row
+    // rather than on the middle of the merged cell.
     const handleCenter = await getRowHandleCenter(page);
-    const cellCenter = await getCellCenter(page, mergedCell);
-    expect(Math.abs(handleCenter - cellCenter)).toBeLessThan(5);
+    const firstRowCenter = await getCellCenter(page, page.locator(`${editorSelector} tr`).first());
+    expect(Math.abs(handleCenter - firstRowCenter)).toBeLessThan(5);
   });
 
   test('row handle is vertically centered on a normal (rowspan=1) cell', async ({ page }) => {
@@ -3726,9 +3727,10 @@ test.describe('Table - Row handle centering on merged cells', () => {
 
     const rowHandle = page.locator('.dm-table-row-handle');
     await expect(rowHandle).toBeVisible();
+    // Entered directly, the merged cell targets its first row.
     const mergedHandleCenter = await getRowHandleCenter(page);
-    const mergedCellCenter = await getCellCenter(page, mergedCell);
-    expect(Math.abs(mergedHandleCenter - mergedCellCenter)).toBeLessThan(5);
+    const firstRowCenter = await getCellCenter(page, page.locator(`${editorSelector} tr`).first());
+    expect(Math.abs(mergedHandleCenter - firstRowCenter)).toBeLessThan(5);
 
     // Now hover a normal cell in the last row
     const lastRowCell = page.locator(`${editorSelector} tr`).last().locator('td').first();
@@ -3739,7 +3741,7 @@ test.describe('Table - Row handle centering on merged cells', () => {
     const normalCellCenter = await getCellCenter(page, lastRowCell);
     expect(Math.abs(normalHandleCenter - normalCellCenter)).toBeLessThan(5);
 
-    // The two positions must differ (merged cell center is higher)
+    // The two positions must differ (the first row is higher)
     expect(Math.abs(mergedHandleCenter - normalHandleCenter)).toBeGreaterThan(10);
   });
 });
