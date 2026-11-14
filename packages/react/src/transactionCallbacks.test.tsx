@@ -91,6 +91,7 @@ describe('React transaction callbacks', () => {
 
     await update(() => { root.render(render(false)); });
 
+    expect(editors).toHaveLength(1);
     expect(liveEditor().isEditable).toBe(false);
     expect(liveEditor().view.dom.getAttribute('aria-readonly')).toBe('true');
     expect(liveEditor().getHTML()).toBe('<p>intro</p><h2>Last</h2>');

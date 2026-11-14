@@ -23,11 +23,19 @@ export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, Ba
 const EMPTY_EXTENSIONS: AnyExtension[] = [];
 
 export interface UseEditorOptions {
-  /** Custom extensions to add to the editor. */
+  /**
+   * Custom extensions to add to the editor. Items are compared one by one:
+   * adding, removing, reordering or replacing one recreates the editor and
+   * keeps its content, while a new array with the same items in the same
+   * order, such as an inline `[StarterKit]`, keeps the current editor. Each
+   * `configure()` call returns a new extension, so create configured
+   * extensions at module scope or in `useMemo`.
+   */
   extensions?: AnyExtension[];
   /**
    * Whether the built-in History extension is included. Disable it when an
    * extension brings its own undo/redo, such as collaborative editing.
+   * Read when the editor is created; pass `deps` to apply a change.
    * @default true
    */
   history?: boolean;
@@ -104,6 +112,17 @@ export function holdsJSONContent(editor: Editor, content: Content): boolean {
 }
 
 /**
+ * Whether `next` holds the same extension objects, in the same order, as
+ * `built`, the copy taken when the current editor was created. A new array
+ * with the same items, such as an inline `[StarterKit]` in JSX, is not a
+ * change. A `configure()` call during render returns a new extension, so it
+ * still counts as one.
+ */
+function sameExtensions(next: readonly AnyExtension[], built: readonly AnyExtension[]): boolean {
+  return next.length === built.length && next.every((extension, index) => extension === built[index]);
+}
+
+/**
  * Core hook for creating and managing a Domternal editor instance.
  *
  * @param options - Editor configuration
@@ -172,8 +191,10 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
   // disabling every mark button until the user clicks into the editor.
   const syncedContentRef = useRef<Content | null>(null);
 
-  // Track extensions reference for recreation
-  const extensionsRef = useRef(extensions);
+  // A copy of the extensions the current editor was built from. A new array is
+  // compared with it, so an item pushed into the original array in place still
+  // counts as a change once a copy of that array is passed.
+  const extensionsRef = useRef<readonly AnyExtension[]>(extensions);
 
   // Track deps for recreation
   const depsRef = useRef(deps);
@@ -245,7 +266,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
 
     wireEvents(ed);
     instanceRef.current = ed;
-    extensionsRef.current = extensions;
+    extensionsRef.current = [...extensions];
     depsRef.current = deps;
     syncedI18nRef.current = options.i18n;
     // The new editor carries the current prop value (directly, or as the
@@ -350,17 +371,22 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     ed.i18n.set(options.i18n ?? {});
   }, [options.i18n]);
 
-  // Recreate editor when extensions change
+  // Recreate the editor when its extension list changes: an item added,
+  // removed, reordered or replaced. A new array with the same items keeps the
+  // editor, so an inline array neither loops the hook pattern (each recreation
+  // renders a new array) nor drops focus, selection and undo history whenever
+  // a parent renders.
   useEffect(() => {
     if (!instanceRef.current || instanceRef.current.isDestroyed) return;
-    if (extensions === extensionsRef.current) return;
+    if (sameExtensions(extensions, extensionsRef.current)) return;
 
     const element = instanceRef.current.view.dom.parentElement ?? document.createElement('div');
     destroyCurrentEditor();
     const initialContent = pendingContentRef.current ?? '';
     pendingContentRef.current = null;
     createEditorInstance(element, initialContent, false);
-    // Recreate only when extensions reference changes. Other refs are stable.
+    // Runs when the array identity changes; sameExtensions then compares the
+    // items. Other refs are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extensions]);
 

@@ -42,9 +42,11 @@ export default function TextEditor() {
 ```
 
 `Domternal` owns the editor lifecycle and shares the instance with its children.
-The toolbar renders controls contributed by your extensions. Keep `extensions`
-stable, for example at module scope or with `useMemo`: a changed array recreates
-the editor while preserving its content.
+The toolbar renders controls contributed by your extensions. The editor compares
+`extensions` item by item: adding, removing, reordering or replacing an extension
+recreates the editor with its content kept, while a new array holding the same
+items keeps the current editor. Each `configure()` call returns a new extension,
+so create configured extensions at module scope or with `useMemo`.
 
 ## Working with the editor
 

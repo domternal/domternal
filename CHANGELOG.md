@@ -10,6 +10,7 @@
 - Keep the mention suggestion open for names in any script, such as `@Jürgen`, `@Željko`, `@Иван` or `@李明`, where it closed at the first letter outside A to Z, and open it at the start of a line made with Shift+Enter, after a no-break or ideographic space, or right after another mention. The Enter that Safari sends to commit an IME conversion no longer inserts the highlighted mention.
 - Open the emoji suggestion at the start of a line made with Shift+Enter, as it already opened at the start of a paragraph. A colon typed right after a mention or another inline node still stays text.
 - Open the slash menu at the start of a line made with Shift+Enter, and close it when a line break is typed into its query, where the menu stayed open with the break inside the query.
+- Keep the React editor when `useEditor`, `Domternal` or `DomternalEditor` receive a new `extensions` array with the same extensions in the same order, such as an inline `extensions={[StarterKit]}`. Such an array recreated the editor, so the documented hook and `EditorContent` examples created and destroyed editors without end, and the controlled example lost focus, caret position and undo history on every keystroke. Adding, removing, reordering or replacing an extension, including a `configure()` call during render, still recreates the editor with its content kept, and a changed `history` or `preset` value now applies at that recreation or at a `deps` change.
 
 ## 1.8.1 (2026-11-08)
 

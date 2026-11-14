@@ -229,6 +229,8 @@ describe('React content reports', () => {
     const selection = editor.state.selection;
 
     await update(() => { root.render(render(structuredClone(stored))); });
+    expect(editors).toHaveLength(1);
+    expect(liveEditor()).toBe(editor);
     expect(editor.state.doc).toBe(doc);
     expect(editor.state.selection.eq(selection)).toBe(true);
     expect(reports).toEqual(['content']);
