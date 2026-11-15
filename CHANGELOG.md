@@ -6,6 +6,7 @@
 
 - Indent every line a selection touches when Tab is pressed in a `CodeBlockLowlight` code block, including a selection inside one line, where Tab used to replace the selected code with spaces. Shift-Tab now outdents every touched line, also with the caret at or inside the indentation, and a selection that leaves the code block is left to other handlers instead of being deleted. A `tabSize` below 1 now turns tab indentation off, where 0 made Tab delete the selection and a negative value silently dropped every code block shortcut.
 - Keep the rest of a line when `---`, `___` or `***` and a space are typed in front of existing text. The horizontal rule shortcut now converts only an otherwise empty line, where it used to replace the whole paragraph and delete its text.
+- Keep dollar amounts as text when typing with the math extension. `$10 to $20`, `$10-$20`, `US$5 or US$10` and an escaped `\$` no longer become an equation, nor does a span that starts or ends with a space (`$ x $`), as in the Markdown parser, and the inline rule no longer fires inside inline code or takes in a line break, mention or equation. Typing `$$` in front of existing text now keeps that text instead of replacing the line, and `$$` in an empty list or task item opens the editor on the new equation, so the LaTeX typed into it is applied.
 
 ## 1.8.1 (2026-11-08)
 
