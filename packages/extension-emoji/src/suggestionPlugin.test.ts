@@ -1,10 +1,16 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { Document, Text, Paragraph, Editor } from '@domternal/core';
+import { Document, Text, Paragraph, Editor, HardBreak, Node } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { Emoji } from './Emoji.js';
 import { emojiSuggestionPluginKey } from './suggestionPlugin.js';
 import type { SuggestionRenderer } from './suggestionPlugin.js';
 import { emojis as defaultEmojis } from './emojis.js';
+
+// A mention-like inline atom, so the boundary tests need no mention package.
+const Chip = Node.create({
+  name: 'chip', group: 'inline', inline: true, atom: true,
+  parseHTML: () => [{ tag: 'span[data-chip]' }], renderHTML: () => ['span', { 'data-chip': '' }],
+});
 
 function makeRenderer(): {
   renderer: SuggestionRenderer;
@@ -526,6 +532,75 @@ describe('emojiSuggestionPlugin', () => {
 
       editor.destroy();
       expect(onExit).toHaveBeenCalled();
+    });
+  });
+
+  describe('trigger boundary', () => {
+    function mount(content = '<p></p>'): ReturnType<typeof makeRenderer> {
+      const mocks = makeRenderer();
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          HardBreak,
+          Chip,
+          Emoji.configure({ emojis: defaultEmojis, suggestion: { render: () => mocks.renderer } }),
+        ],
+        content,
+      });
+      editor.commands.focus('end');
+      return mocks;
+    }
+
+    // One character per transaction, as typing does.
+    function typeText(text: string): void {
+      for (const ch of text) editor!.view.dispatch(editor!.state.tr.insertText(ch));
+    }
+
+    it('activates at the start of a line created by a hard break', () => {
+      const { onStart } = mount('<p>Line</p>');
+      editor!.commands.setHardBreak();
+      typeText(':smi');
+
+      expect(onStart).toHaveBeenCalledTimes(1);
+      expect(emojiSuggestionPluginKey.getState(editor!.state)).toMatchObject({ active: true, query: 'smi' });
+    });
+
+    // A colon typed right after a mention ("@Ana:") must stay text: with the
+    // default minQueryLength of 0, Enter would otherwise insert an emoji.
+    it.each([
+      ['a mention-like inline node', 'chip', null],
+      ['an emoji node', 'emoji', { name: 'grinning_face' }],
+    ])('does not activate right after %s', (_name, nodeName, attrs) => {
+      const { onStart } = mount('<p>Hi</p>');
+      typeText(' ');
+      editor!.view.dispatch(editor!.state.tr.replaceSelectionWith(editor!.schema.nodes[nodeName]!.create(attrs)));
+      typeText(':');
+
+      expect(onStart).not.toHaveBeenCalled();
+      expect(emojiSuggestionPluginKey.getState(editor!.state)?.active).toBe(false);
+    });
+
+    it('does not activate after a no-break space', () => {
+      // French typography puts a no-break space before a colon
+      const { onStart } = mount();
+      typeText('Remarque\u00A0:');
+
+      expect(onStart).not.toHaveBeenCalled();
+    });
+
+    it('closes when a hard break lands inside the query', () => {
+      const { onStart, onExit } = mount();
+      typeText(':smi');
+      expect(onStart).toHaveBeenCalledTimes(1);
+
+      editor!.commands.setHardBreak();
+      expect(onExit).toHaveBeenCalledTimes(1);
+
+      typeText('le');
+      expect(onStart).toHaveBeenCalledTimes(1);
     });
   });
 });
