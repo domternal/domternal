@@ -148,11 +148,14 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
     return [
       new InputRule(
         /^(?:---|—-|___|\*\*\*)\s$/,
-        (state: EditorState, match: RegExpMatchArray, start: number) => {
+        (state: EditorState, match: RegExpMatchArray, start: number, end: number) => {
           const { tr } = state;
 
           if (match[0]) {
             const $start = state.doc.resolve(start);
+            // Only an otherwise empty line: the rule replaces the whole block,
+            // so text after the caret would be deleted with it.
+            if (end !== $start.end()) return null;
             // Replace the entire parent block (paragraph) with HR + new paragraph
             const from = $start.before();
             const to = $start.after();

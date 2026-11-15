@@ -5,6 +5,7 @@
 ### Fixes
 
 - Indent every line a selection touches when Tab is pressed in a `CodeBlockLowlight` code block, including a selection inside one line, where Tab used to replace the selected code with spaces. Shift-Tab now outdents every touched line, also with the caret at or inside the indentation, and a selection that leaves the code block is left to other handlers instead of being deleted. A `tabSize` below 1 now turns tab indentation off, where 0 made Tab delete the selection and a negative value silently dropped every code block shortcut.
+- Keep the rest of a line when `---`, `___` or `***` and a space are typed in front of existing text. The horizontal rule shortcut now converts only an otherwise empty line, where it used to replace the whole paragraph and delete its text.
 
 ## 1.8.1 (2026-11-08)
 
