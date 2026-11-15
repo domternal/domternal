@@ -153,7 +153,7 @@ for (const target of demoTargets) {
         expect(await page.evaluate(() => (window as unknown as DemoWindow).__DEMO_EDITOR__.extensionManager.extensions
           .some(extension => extension.name === 'pasteCleanup'))).toBe(false);
         await expect(page.locator('.ProseMirror ul')).toHaveCount(0);
-        await expect(page.locator('.ProseMirror')).toContainText('L02 Prva razina');
+        await expect(page.locator('.ProseMirror')).toContainText('L02 First level');
         await expect(page.locator('.dm-paste-feedback')).toHaveCount(0);
       });
 
