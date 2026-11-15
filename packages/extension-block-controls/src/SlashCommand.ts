@@ -18,6 +18,7 @@ import type {
 } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
+import type { Node as PMNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import { ReplaceStep } from '@domternal/pm/transform';
@@ -28,6 +29,15 @@ export const slashCommandPluginKey = new PluginKey<SlashCommandPluginState>('sla
 // Object Replacement Character (U+FFFC). ProseMirror uses it as the placeholder
 // for leaf nodes when flattening a range to a string.
 const PM_LEAF_PLACEHOLDER = '￼';
+
+/**
+ * Flattens inline leaves for query detection: a hard break reads as a line
+ * start ('\n') and any other leaf as PM_LEAF_PLACEHOLDER. Each leaf stays one
+ * character, so offsets in the text still match document positions.
+ */
+function queryLeafText(leaf: PMNode): string {
+  return leaf.type.name === 'hardBreak' ? '\n' : PM_LEAF_PLACEHOLDER;
+}
 
 // ─── Public renderer contract ─────────────────────────────────────────────
 
@@ -147,12 +157,13 @@ function findSlashQuery(
     0,
     $from.parentOffset,
     undefined,
-    PM_LEAF_PLACEHOLDER,
+    queryLeafText,
   );
   const triggerIndex = textBefore.lastIndexOf(triggerChar);
   if (triggerIndex === -1) return null;
 
-  // Trigger must be at textblock start OR preceded by whitespace.
+  // Trigger must be at textblock start OR preceded by whitespace. A hard break
+  // reads as '\n' and passes; any other inline node, such as a mention, does not.
   if (triggerIndex > 0 && !/\s/.test(textBefore[triggerIndex - 1] ?? '')) return null;
 
   const queryText = textBefore.slice(triggerIndex + triggerChar.length);
@@ -312,11 +323,12 @@ export function createSlashCommandPlugin(
             return { ...INITIAL_STATE };
           }
 
+          // A hard break typed into the query reads as '\n' and ends the session.
           const query = newState.doc.textBetween(
             from + 1,
             to,
             undefined,
-            PM_LEAF_PLACEHOLDER,
+            queryLeafText,
           );
           if (/[\n\t]/.test(query)) return { ...INITIAL_STATE };
 
