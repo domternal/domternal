@@ -78,7 +78,7 @@ set and register only the languages you need with `lowlight.register(name, synta
 | `lowlight` | `null` | Required configured lowlight instance. Without it, highlighting is skipped and an editor error is reported. |
 | `defaultLanguage` | `null` | Language to use when the block has no language. |
 | `autoDetect` | `true` | Detect a language when no registered explicit or default language applies. |
-| `tabIndentation` | `true` | Tab inserts spaces and Shift-Tab removes leading spaces in code blocks. |
+| `tabIndentation` | `true` | In code blocks, Tab inserts spaces at the caret or indents every selected line, and Shift-Tab removes leading spaces from those lines. |
 | `tabSize` | `2` | Spaces per indentation step. |
 
 Core `CodeBlock` options such as `languageClassPrefix`, `exitOnTripleEnter`, and
