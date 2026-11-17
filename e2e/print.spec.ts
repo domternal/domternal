@@ -152,6 +152,30 @@ async function styleOf(
   );
 }
 
+/**
+ * Print media with the Print extension's header groups in place, the way a real
+ * print starts: its `beforeprint` listener prepares them synchronously.
+ * `emulateMedia` alone only queues a media change the extension answers later,
+ * so a read taken right after it could see either state.
+ */
+async function beginPrint(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('beforeprint'));
+  });
+  await page.emulateMedia({ media: 'print' });
+}
+
+/**
+ * Removes those header groups the way `afterprint` does while the print media
+ * stays on, so the theme's own rules decide alone. The extension ignores a print
+ * media change that arrives after `afterprint`, so this state holds.
+ */
+async function withoutPrintHeaders(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('afterprint'));
+  });
+}
+
 for (const target of demoTargets) {
   test(`${target.name}: the toolbar keeps a print button that stays live in a read-only editor`, async ({
     page,
@@ -1620,13 +1644,18 @@ for (const target of demoTargets) {
     // The predicate the exporters count with, shape by shape. `:has(> th)` on
     // its own promotes the first row of a header-COLUMN table, where
     // `toggleHeaderColumn` puts a `th` in every row, and hoists it above rows it
-    // does not label.
+    // does not label. The Print extension goes further for a closed leading group
+    // of header rows, rowspans included: it repeats a copy of that group and
+    // hides the live rows, so each shape is read with that copy and without it.
     await openDemo(page, target);
-    const shapes: [string, string, string, string][] = [
+    // Name, markup, rows the Print extension repeats, then the theme's own tbody
+    // and first-row display.
+    const shapes: [string, string, number, string, string][] = [
       [
         'a leading all-header row',
         '<table><tbody><tr><th><p>A</p></th><th><p>B</p></th></tr>' +
           '<tr><td><p>1</p></td><td><p>2</p></td></tr></tbody></table>',
+        1,
         'contents',
         'table-header-group',
       ],
@@ -1634,6 +1663,7 @@ for (const target of demoTargets) {
         'no header row at all',
         '<table><tbody><tr><td><p>A</p></td><td><p>B</p></td></tr>' +
           '<tr><td><p>1</p></td><td><p>2</p></td></tr></tbody></table>',
+        0,
         'table-row-group',
         'table-row',
       ],
@@ -1641,6 +1671,7 @@ for (const target of demoTargets) {
         'a header column',
         '<table><tbody><tr><th><p>A</p></th><td><p>1</p></td></tr>' +
           '<tr><th><p>B</p></th><td><p>2</p></td></tr></tbody></table>',
+        0,
         'contents',
         'table-row',
       ],
@@ -1648,30 +1679,45 @@ for (const target of demoTargets) {
         'a rowspan in the leading row',
         '<table><tbody><tr><th rowspan="2"><p>A</p></th><th><p>B</p></th></tr>' +
           '<tr><th><p>C</p></th></tr><tr><td><p>1</p></td><td><p>2</p></td></tr></tbody></table>',
+        2,
         'contents',
         'table-row',
       ],
       [
         'a single column of header cells',
         '<table><tbody><tr><th><p>A</p></th></tr><tr><th><p>B</p></th></tr></tbody></table>',
+        0,
         'table-row-group',
         'table-row',
       ],
     ];
 
-    for (const [name, html, tbody, row] of shapes) {
-      await setContent(page, html);
-      await page.emulateMedia({ media: 'print' });
-      const shown = await page.evaluate((editor) => {
+    const read = (): Promise<{ head: string; headRows: number; tbody: string; row: string }> =>
+      page.evaluate((editor) => {
+        const head = document.querySelector(`${editor} thead.dm-print-table-head`);
         const group = document.querySelector(`${editor} tbody`);
         const first = document.querySelector(`${editor} tbody > tr`);
         return {
+          head: head ? getComputedStyle(head).display : 'missing',
+          headRows: head ? head.querySelectorAll('tr').length : 0,
           tbody: group ? getComputedStyle(group).display : 'missing',
           row: first ? getComputedStyle(first).display : 'missing',
         };
       }, EDITOR);
+
+    for (const [name, html, repeated, tbody, row] of shapes) {
+      await setContent(page, html);
+      await beginPrint(page);
+      const printed = await read();
+      await withoutPrintHeaders(page);
+      const themeOnly = await read();
       await page.emulateMedia({ media: null });
-      expect(shown, name).toEqual({ tbody, row });
+      expect(printed, name).toEqual(
+        repeated > 0
+          ? { head: 'table-header-group', headRows: repeated, tbody: 'table-row-group', row: 'none' }
+          : { head: 'missing', headRows: 0, tbody, row },
+      );
+      expect(themeOnly, `${name}, theme only`).toEqual({ head: 'missing', headRows: 0, tbody, row });
     }
   });
 
@@ -2697,7 +2743,17 @@ for (const target of demoTargets) {
         '</tbody></table>',
     );
 
-    await page.emulateMedia({ media: 'print' });
+    await beginPrint(page);
+    // While printing, the Print extension's copy of the header row is the group
+    // that repeats, so it is the one that must not split. The live row it copied
+    // is hidden.
+    expect(await styleOf(page, `${EDITOR} thead.dm-print-table-head`, 'display')).toBe('table-header-group');
+    expect(await styleOf(page, `${EDITOR} thead.dm-print-table-head`, 'break-inside')).toBe('avoid');
+    expect(await styleOf(page, 'tbody tr:first-child', 'display')).toBe('none');
+    expect(await styleOf(page, 'tbody tr:nth-child(2)', 'break-inside')).toBe('auto');
+    // Without that copy the theme promotes the live row, which then needs the
+    // same guarantee from its own rule.
+    await withoutPrintHeaders(page);
     expect(await styleOf(page, 'tbody tr:first-child', 'display')).toBe('table-header-group');
     expect(await styleOf(page, 'tbody tr:first-child', 'break-inside')).toBe('avoid');
     // The control, and the reason the header needs its own declaration: the
