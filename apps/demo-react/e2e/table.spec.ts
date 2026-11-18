@@ -3440,13 +3440,11 @@ test.describe('Table - Tab/Shift-Tab with lists in cells', () => {
         const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
         while (walker.nextNode()) {
           if (walker.currentNode.textContent?.trim() === t) {
-            const range = document.createRange();
-            range.setStart(walker.currentNode, 0);
-            range.collapse(true);
-            const s = window.getSelection();
-            s?.removeAllRanges();
-            s?.addRange(range);
-            if (editor instanceof HTMLElement) editor.focus();
+            // Through the editor state, not a DOM range: a range set right after
+            // setContent can be overwritten before ProseMirror reads it, which
+            // left the cursor in the last cell.
+            const demo = (window as any).__DEMO_EDITOR__;
+            demo.commands.focus(demo.view.posAtDOM(walker.currentNode, 0));
             return;
           }
         }
@@ -3564,10 +3562,10 @@ test.describe('Table - Tab/Shift-Tab with lists in cells', () => {
     await page.keyboard.press('Shift+Tab');
     await page.waitForTimeout(100);
 
-    // A should be lifted out of the list - first cell should contain <p>A</p> outside <ul>
+    // A is lifted out of the list: the cell starts with its paragraph and only B stays a list item
     const firstCell = page.locator(`${editorSelector} td`).nth(0);
-    const html = await firstCell.innerHTML();
-    expect(html).toContain('<p>A</p>');
+    expect(await firstCell.innerHTML()).toMatch(/^<p>A<\/p><ul>/);
+    await expect(firstCell.locator('li')).toHaveCount(1);
     // Cursor should still be in first cell
     const cellIdx = await typeThenFindCell(page, '§');
     expect(cellIdx).toBe(0);
