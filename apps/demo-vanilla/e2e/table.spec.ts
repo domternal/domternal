@@ -3440,13 +3440,11 @@ test.describe('Table - Tab/Shift-Tab with lists in cells', () => {
         const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
         while (walker.nextNode()) {
           if (walker.currentNode.textContent?.trim() === t) {
-            const range = document.createRange();
-            range.setStart(walker.currentNode, 0);
-            range.collapse(true);
-            const s = window.getSelection();
-            s?.removeAllRanges();
-            s?.addRange(range);
-            if (editor instanceof HTMLElement) editor.focus();
+            // Through the editor state, not a DOM range: a range set right after
+            // setContent can be overwritten before ProseMirror reads it, which
+            // left the cursor in the last cell.
+            const demo = (window as any).__DEMO_EDITOR__;
+            demo.commands.focus(demo.view.posAtDOM(walker.currentNode, 0));
             return;
           }
         }
@@ -3564,10 +3562,10 @@ test.describe('Table - Tab/Shift-Tab with lists in cells', () => {
     await page.keyboard.press('Shift+Tab');
     await page.waitForTimeout(100);
 
-    // A should be lifted out of the list - first cell should contain <p>A</p> outside <ul>
+    // A is lifted out of the list: the cell starts with its paragraph and only B stays a list item
     const firstCell = page.locator(`${editorSelector} td`).nth(0);
-    const html = await firstCell.innerHTML();
-    expect(html).toContain('<p>A</p>');
+    expect(await firstCell.innerHTML()).toMatch(/^<p>A<\/p><ul>/);
+    await expect(firstCell.locator('li')).toHaveCount(1);
     // Cursor should still be in first cell
     const cellIdx = await typeThenFindCell(page, '§');
     expect(cellIdx).toBe(0);
@@ -3665,7 +3663,7 @@ test.describe('Table - Row handle centering on merged cells', () => {
     return box ? box.y + box.height / 2 : -1;
   }
 
-  test('row handle is vertically centered on a rowspan=2 cell', async ({ page }) => {
+  test('row handle sits on the first row of a rowspan=2 cell entered directly', async ({ page }) => {
     const TABLE_3ROWS = '<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr><tr><td>E</td><td>F</td></tr></table>';
     await mergeFirstColumnCells(page, TABLE_3ROWS);
 
@@ -3682,10 +3680,11 @@ test.describe('Table - Row handle centering on merged cells', () => {
     const rowHandle = page.locator('.dm-table-row-handle');
     await expect(rowHandle).toBeVisible();
 
-    // Row handle vertical center should be close to cell vertical center
+    // Entered directly, the merged cell targets its first row, so the handle sits on that row
+    // rather than on the middle of the merged cell.
     const handleCenter = await getRowHandleCenter(page);
-    const cellCenter = await getCellCenter(page, mergedCell);
-    expect(Math.abs(handleCenter - cellCenter)).toBeLessThan(5);
+    const firstRowCenter = await getCellCenter(page, page.locator(`${editorSelector} tr`).first());
+    expect(Math.abs(handleCenter - firstRowCenter)).toBeLessThan(5);
   });
 
   test('row handle is vertically centered on a normal (rowspan=1) cell', async ({ page }) => {
@@ -3726,9 +3725,10 @@ test.describe('Table - Row handle centering on merged cells', () => {
 
     const rowHandle = page.locator('.dm-table-row-handle');
     await expect(rowHandle).toBeVisible();
+    // Entered directly, the merged cell targets its first row.
     const mergedHandleCenter = await getRowHandleCenter(page);
-    const mergedCellCenter = await getCellCenter(page, mergedCell);
-    expect(Math.abs(mergedHandleCenter - mergedCellCenter)).toBeLessThan(5);
+    const firstRowCenter = await getCellCenter(page, page.locator(`${editorSelector} tr`).first());
+    expect(Math.abs(mergedHandleCenter - firstRowCenter)).toBeLessThan(5);
 
     // Now hover a normal cell in the last row
     const lastRowCell = page.locator(`${editorSelector} tr`).last().locator('td').first();
@@ -3739,7 +3739,7 @@ test.describe('Table - Row handle centering on merged cells', () => {
     const normalCellCenter = await getCellCenter(page, lastRowCell);
     expect(Math.abs(normalHandleCenter - normalCellCenter)).toBeLessThan(5);
 
-    // The two positions must differ (merged cell center is higher)
+    // The two positions must differ (the first row is higher)
     expect(Math.abs(mergedHandleCenter - normalHandleCenter)).toBeGreaterThan(10);
   });
 });

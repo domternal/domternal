@@ -863,6 +863,8 @@ test.describe('HorizontalRule - copy/paste', () => {
       const dt = new DataTransfer();
       dt.setData('text/html', '<p>pasted above</p><hr><p>pasted below</p>');
       const event = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+      // Firefox drops the constructor's clipboardData and hands the editor an empty one.
+      if (event.clipboardData !== dt) Object.defineProperty(event, 'clipboardData', { value: dt });
       editor.dispatchEvent(event);
     }, editorSelector);
 

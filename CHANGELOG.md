@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Indent every line a selection touches when Tab is pressed in a `CodeBlockLowlight` code block, including a selection inside one line, where Tab used to replace the selected code with spaces. Shift-Tab now outdents every touched line, also with the caret at or inside the indentation, and a selection that leaves the code block is left to other handlers instead of being deleted. A `tabSize` below 1 now turns tab indentation off, where 0 made Tab delete the selection and a negative value silently dropped every code block shortcut.
+- Keep the rest of a line when `---`, `___` or `***` and a space are typed in front of existing text. The horizontal rule shortcut now converts only an otherwise empty line, where it used to replace the whole paragraph and delete its text.
+- Keep dollar amounts as text when typing with the math extension. `$10 to $20`, `$10-$20`, `US$5 or US$10` and an escaped `\$` no longer become an equation, nor does a span that starts or ends with a space (`$ x $`), as in the Markdown parser, and the inline rule no longer fires inside inline code or takes in a line break, mention or equation. Typing `$$` in front of existing text now keeps that text instead of replacing the line, and `$$` in an empty list or task item opens the editor on the new equation, so the LaTeX typed into it is applied.
+- Keep the mention suggestion open for names in any script, such as `@Jürgen`, `@Željko`, `@Иван` or `@李明`, where it closed at the first letter outside A to Z, and open it at the start of a line made with Shift+Enter, after a no-break or ideographic space, or right after another mention. The Enter that Safari sends to commit an IME conversion no longer inserts the highlighted mention.
+- Open the emoji suggestion at the start of a line made with Shift+Enter, as it already opened at the start of a paragraph. A colon typed right after a mention or another inline node still stays text.
+- Open the slash menu at the start of a line made with Shift+Enter, and close it when a line break is typed into its query, where the menu stayed open with the break inside the query.
+- Keep the React editor when `useEditor`, `Domternal` or `DomternalEditor` receive a new `extensions` array with the same extensions in the same order, such as an inline `extensions={[StarterKit]}`. Such an array recreated the editor, so the documented hook and `EditorContent` examples created and destroyed editors without end, and the controlled example lost focus, caret position and undo history on every keystroke. Adding, removing, reordering or replacing an extension, including a `configure()` call during render, still recreates the editor with its content kept, and a changed `history` or `preset` value now applies at that recreation or at a `deps` change.
+- Make the table row and column handles act on the one row or column they sit on when the table has merged cells. Under a title row merged across the table, Delete Column deleted the whole table and Insert Column Left or Right inserted at its edge, beside a merged first column Delete Row removed the merged rows or the whole table, and a table change between hovering and clicking could run the command on the selection in another table. A merged cell crossing that row or column now shrinks or grows by one, the highlight shows exactly the cells the command changes, the row handle beside a merged cell stays on its row, and a nested table no longer moves the outer table's handles.
+
 ## 1.8.1 (2026-11-08)
 
 ### Fixes

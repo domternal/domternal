@@ -6,6 +6,7 @@ import { Text } from './Text.js';
 import { Paragraph } from './Paragraph.js';
 import { Editor } from '../Editor.js';
 import { TextSelection } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
 
 const extensions = [Document, Text, Paragraph, HorizontalRule];
 
@@ -268,9 +269,42 @@ describe('HorizontalRule', () => {
 
       const rule = rules[0]!;
       const match = ['--- '] as RegExpMatchArray;
-      const result = ((rule).handler)(ed.state, match, 1);
+      // The parser drops the trailing space, so the line is "---" and the
+      // caret sits at its end, as when the space is typed.
+      const result = ((rule).handler)(ed.state, match, 1, 4);
       expect(result).not.toBeNull();
       ed.destroy();
+    });
+
+    function type(ed: Editor, text: string): void {
+      for (const char of text) {
+        const { from, to } = ed.state.selection;
+        const insert = (): Transaction => ed.state.tr.insertText(char, from, to);
+        const handled = ed.view.someProp('handleTextInput', (handler) => handler(ed.view, from, to, char, insert));
+        if (!handled) ed.view.dispatch(insert());
+      }
+    }
+
+    function blockNames(ed: Editor): string[] {
+      const names: string[] = [];
+      ed.state.doc.forEach((node) => { names.push(node.type.name); });
+      return names;
+    }
+
+    it('turns --- typed on an empty line into a rule', () => {
+      editor = new Editor({ extensions, content: '<p>Intro</p><p></p>' });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 8)));
+      type(editor, '--- ');
+      expect(blockNames(editor)).toEqual(['paragraph', 'horizontalRule', 'paragraph']);
+      expect(editor.state.doc.firstChild?.textContent).toBe('Intro');
+    });
+
+    it('keeps the text when --- is typed at the start of a non-empty paragraph', () => {
+      editor = new Editor({ extensions, content: '<p>Hello world</p>' });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
+      type(editor, '--- ');
+      expect(blockNames(editor)).toEqual(['paragraph']);
+      expect(editor.state.doc.textContent).toBe('--- Hello world');
     });
 
     it('returns empty array when nodeType is missing', () => {

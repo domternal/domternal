@@ -1,10 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createLowlight, common } from 'lowlight';
 import { CodeBlockLowlight } from './CodeBlockLowlight.js';
+import type { CodeBlockLowlightOptions } from './CodeBlockLowlight.js';
 import { lowlightPluginKey } from './lowlightPlugin.js';
 import { generateHighlightedHTML } from './generateHighlightedHTML.js';
 import { createCodeHighlighter } from './createCodeHighlighter.js';
-import { Document, Text, Paragraph, Editor, CodeBlock } from '@domternal/core';
+import { Document, Text, Paragraph, Editor, CodeBlock, History, BulletList, ListIndent } from '@domternal/core';
+import type { JSONContent } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import type { DecorationSet } from '@domternal/pm/view';
 
@@ -529,6 +531,57 @@ describe('createCodeHighlighter', () => {
 
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 
+/** Fires a keydown through the editor's real keymap. True when a handler took the key. */
+function press(editor: Editor, key: string, init: KeyboardEventInit = {}): boolean {
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init });
+  return editor.view.someProp('handleKeyDown', (f) => f(editor.view, event)) === true;
+}
+
+const pressTab = (editor: Editor): boolean => press(editor, 'Tab');
+const pressShiftTab = (editor: Editor): boolean => press(editor, 'Tab', { shiftKey: true });
+
+const SOURCE = 'if (ok) {\nfoo();\nbar();\n}';
+
+const doc = (...content: JSONContent[]): JSONContent => ({ type: 'doc', content });
+const paragraph = (text: string): JSONContent => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+const code = (text: string): JSONContent => ({
+  type: 'codeBlock',
+  attrs: { language: 'javascript' },
+  content: [{ type: 'text', text }],
+});
+const bulletList = (...items: JSONContent[][]): JSONContent => ({
+  type: 'bulletList',
+  content: items.map((content) => ({ type: 'listItem', content })),
+});
+
+/** Document position of the code block with the given index. */
+function codeBlockPos(editor: Editor, index = 0): number {
+  const found: number[] = [];
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name !== 'codeBlock') return true;
+    found.push(pos);
+    return false;
+  });
+  const pos = found[index];
+  if (pos === undefined) throw new Error('code block not found');
+  return pos;
+}
+
+const codeText = (editor: Editor, index = 0): string =>
+  editor.state.doc.nodeAt(codeBlockPos(editor, index))!.textContent;
+
+/** Selects from `anchor` to `head`, both offsets into the text of a code block. */
+function select(editor: Editor, anchor: number, head = anchor, index = 0): void {
+  const start = codeBlockPos(editor, index) + 1;
+  const { state } = editor;
+  editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, start + anchor, start + head)));
+}
+
+function selectedText(editor: Editor): string {
+  const { from, to } = editor.state.selection;
+  return editor.state.doc.textBetween(from, to, '\n');
+}
+
 describe('CodeBlockLowlight keyboard shortcuts', () => {
   let editor: Editor | undefined;
 
@@ -545,11 +598,8 @@ describe('CodeBlockLowlight keyboard shortcuts', () => {
     // Place cursor inside code block
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
 
-    const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor, options: { ...CodeBlockLowlight.options, tabSize: 2 } });
-    const result = (shortcuts?.['Tab'] as any)?.();
-
-    // Tab insertion succeeds or defers based on editor.commands
-    expect(typeof result).toBe('boolean');
+    expect(pressTab(editor)).toBe(true);
+    expect(editor.state.doc.child(0).textContent).toBe('f  oo');
   });
 
   it('Tab returns false when not in code block', () => {
@@ -579,10 +629,8 @@ describe('CodeBlockLowlight keyboard shortcuts', () => {
     // Place cursor after the leading spaces
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 4)));
 
-    const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor, options: { ...CodeBlockLowlight.options, tabSize: 2 } });
-    const result = (shortcuts?.['Shift-Tab'] as any)?.();
-
-    expect(typeof result).toBe('boolean');
+    expect(pressShiftTab(editor)).toBe(true);
+    expect(editor.state.doc.child(0).textContent).toBe('indented');
   });
 
   it('Shift-Tab returns false when no leading spaces', () => {
@@ -616,5 +664,326 @@ describe('CodeBlockLowlight keyboard shortcuts', () => {
     const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor: null, options: CodeBlockLowlight.options });
     const result = (shortcuts?.['Shift-Tab'] as any)?.();
     expect(result).toBe(false);
+  });
+});
+
+describe('CodeBlockLowlight tab indentation with a selection', () => {
+  const editors: Editor[] = [];
+
+  afterEach(() => {
+    for (const editor of editors.splice(0)) editor.destroy();
+  });
+
+  function createEditor(content: JSONContent, options: Partial<CodeBlockLowlightOptions> = {}): Editor {
+    const editor = new Editor({
+      extensions: [Document, Text, Paragraph, History, CodeBlockLowlight.configure({ lowlight, ...options })],
+      content,
+    });
+    editors.push(editor);
+    return editor;
+  }
+
+  describe('Tab', () => {
+    it('inserts tabSize spaces at a caret', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 12);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('if (ok) {\nfo  o();\nbar();\n}');
+      expect(editor.state.selection.empty).toBe(true);
+      expect(editor.state.selection.head).toBe(codeBlockPos(editor) + 1 + 14);
+    });
+
+    it('indents every line the selection touches and keeps the selected code', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 10, 23);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('if (ok) {\n  foo();\n  bar();\n}');
+      expect(selectedText(editor)).toBe('foo();\n  bar();');
+    });
+
+    it('indents a partly selected first line from its start', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 12, 19);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('if (ok) {\n  foo();\n  bar();\n}');
+      expect(selectedText(editor)).toBe('o();\n  ba');
+    });
+
+    it('skips a line the selection only reaches at its first column', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 10, 24);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('if (ok) {\n  foo();\n  bar();\n}');
+      expect(selectedText(editor)).toBe('foo();\n  bar();\n');
+    });
+
+    it('indents the line of a selection inside one line and keeps the selected text', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 11, 13);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('if (ok) {\n  foo();\nbar();\n}');
+      expect(selectedText(editor)).toBe('oo');
+    });
+
+    it('indents only the first line when the selection is just its line break', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 9, 10);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('  if (ok) {\nfoo();\nbar();\n}');
+    });
+
+    it('indents every line, the first one too, when the whole block is selected', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 0, SOURCE.length);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('  if (ok) {\n  foo();\n  bar();\n  }');
+    });
+
+    it('indents an empty first line', () => {
+      const editor = createEditor(doc(code('\nx\ny')));
+      select(editor, 0, 4);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('  \n  x\n  y');
+    });
+
+    it('skips the empty line after a trailing line break when everything is selected', () => {
+      const editor = createEditor(doc(code('a\nb\n')));
+      select(editor, 0, 4);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('  a\n  b\n');
+    });
+
+    it('keeps indenting the same lines on repeated presses', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 10, 23);
+      expect(pressTab(editor)).toBe(true);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('if (ok) {\n    foo();\n    bar();\n}');
+      expect(selectedText(editor)).toBe('foo();\n    bar();');
+    });
+
+    it('keeps a backward selection backward', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 13, 10);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('if (ok) {\n  foo();\nbar();\n}');
+      expect(selectedText(editor)).toBe('foo');
+      expect(editor.state.selection.anchor).toBeGreaterThan(editor.state.selection.head);
+    });
+
+    it('honours tabSize', () => {
+      const editor = createEditor(doc(code(SOURCE)), { tabSize: 4 });
+      select(editor, 10, 23);
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('if (ok) {\n    foo();\n    bar();\n}');
+    });
+
+    it('is one undo step that restores the code and the selection', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 10, 23);
+      const { anchor, head } = editor.state.selection;
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('if (ok) {\n  foo();\n  bar();\n}');
+      expect(editor.commands.undo()).toBe(true);
+      expect(codeText(editor)).toBe(SOURCE);
+      expect([editor.state.selection.anchor, editor.state.selection.head]).toEqual([anchor, head]);
+      expect(editor.commands.undo()).toBe(false);
+    });
+  });
+
+  describe('Shift-Tab', () => {
+    it('removes up to tabSize leading spaces from every selected line', () => {
+      const editor = createEditor(doc(code('    a\n b\nc\n  d')));
+      select(editor, 0, 14);
+      expect(pressShiftTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('  a\nb\nc\nd');
+    });
+
+    it('outdents every line of a backward selection', () => {
+      const editor = createEditor(doc(code('  a\n  b')));
+      select(editor, 7, 0);
+      expect(pressShiftTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('a\nb');
+    });
+
+    it('outdents the line with the caret before the indentation', () => {
+      const editor = createEditor(doc(code('  foo')));
+      select(editor, 0);
+      expect(pressShiftTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('foo');
+    });
+
+    it('removes a full step with the caret inside the indentation', () => {
+      const editor = createEditor(doc(code('    foo')));
+      select(editor, 1);
+      expect(pressShiftTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('  foo');
+    });
+
+    it('removes only the spaces a line has when it has fewer than tabSize', () => {
+      const editor = createEditor(doc(code(' a\n   b')));
+      select(editor, 0, 7);
+      expect(pressShiftTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('a\n b');
+    });
+
+    it('honours tabSize', () => {
+      const editor = createEditor(doc(code('      x\n  y')), { tabSize: 4 });
+      select(editor, 0, 11);
+      expect(pressShiftTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('  x\ny');
+    });
+
+    it('restores the text and the selection after Tab', () => {
+      const editor = createEditor(doc(code(SOURCE)));
+      select(editor, 10, 24);
+      expect(pressTab(editor)).toBe(true);
+      expect(pressShiftTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe(SOURCE);
+      expect(selectedText(editor)).toBe('foo();\nbar();\n');
+    });
+
+    it('leaves the key unhandled when no selected line has leading spaces', () => {
+      const editor = createEditor(doc(code('a\nb')));
+      select(editor, 0, 3);
+      expect(pressShiftTab(editor)).toBe(false);
+      expect(codeText(editor)).toBe('a\nb');
+    });
+
+    it('does not remove tab characters', () => {
+      const editor = createEditor(doc(code('\tfoo\n\tbar')));
+      select(editor, 0, 9);
+      expect(pressShiftTab(editor)).toBe(false);
+      expect(codeText(editor)).toBe('\tfoo\n\tbar');
+    });
+  });
+
+  it('indents and outdents CRLF lines without touching the carriage returns', () => {
+    const editor = createEditor(doc(code('a\r\nb\r\nc')));
+    select(editor, 0, 7);
+    expect(pressTab(editor)).toBe(true);
+    expect(codeText(editor)).toBe('  a\r\n  b\r\n  c');
+    expect(pressShiftTab(editor)).toBe(true);
+    expect(codeText(editor)).toBe('a\r\nb\r\nc');
+  });
+
+  describe('a selection that leaves the code block', () => {
+    it('from a paragraph into the block is not handled and deletes nothing', () => {
+      const editor = createEditor(doc(paragraph('Intro'), code(SOURCE)));
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 3, codeBlockPos(editor) + 1 + 12)));
+      const before = editor.state.doc;
+      expect(pressTab(editor)).toBe(false);
+      expect(pressShiftTab(editor)).toBe(false);
+      expect(editor.state.doc.eq(before)).toBe(true);
+    });
+
+    it('across two code blocks is not handled and deletes nothing', () => {
+      const editor = createEditor(doc(code(SOURCE), paragraph('between'), code('  block')));
+      const { state } = editor;
+      const anchor = codeBlockPos(editor, 0) + 1 + 10;
+      const head = codeBlockPos(editor, 1) + 1 + 4;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, anchor, head)));
+      const before = editor.state.doc;
+      expect(pressTab(editor)).toBe(false);
+      expect(pressShiftTab(editor)).toBe(false);
+      expect(editor.state.doc.eq(before)).toBe(true);
+    });
+
+    it('backward from the next paragraph into the block is not handled by either key', () => {
+      const editor = createEditor(doc(code(SOURCE), paragraph('after')));
+      const { state } = editor;
+      const anchor = state.doc.content.size - 1;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, anchor, codeBlockPos(editor) + 1 + 12)));
+      const before = editor.state.doc;
+      expect(pressTab(editor)).toBe(false);
+      expect(pressShiftTab(editor)).toBe(false);
+      expect(editor.state.doc.eq(before)).toBe(true);
+    });
+  });
+
+  describe('with ListIndent registered after CodeBlockLowlight', () => {
+    function createListEditor(content: JSONContent): Editor {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, CodeBlockLowlight.configure({ lowlight }), ListIndent],
+        content,
+      });
+      editors.push(editor);
+      return editor;
+    }
+
+    const blockTypes = (editor: Editor): string[] => {
+      const types: string[] = [];
+      editor.state.doc.forEach((node) => types.push(node.type.name));
+      return types;
+    };
+
+    it('Tab with a selection in a code block after a list indents its lines and leaves the block in place', () => {
+      const editor = createListEditor(doc(bulletList([paragraph('item')]), code(SOURCE)));
+      select(editor, 10, 23);
+      expect(pressTab(editor)).toBe(true);
+      expect(blockTypes(editor)).toEqual(['bulletList', 'codeBlock']);
+      expect(codeText(editor)).toBe('if (ok) {\n  foo();\n  bar();\n}');
+    });
+
+    it('Shift-Tab with a selection in a code block that ends a list item outdents its lines and leaves the block there', () => {
+      const editor = createListEditor(doc(bulletList([paragraph('item'), code('x\n  y\n  z')])));
+      select(editor, 2, 9);
+      expect(pressShiftTab(editor)).toBe(true);
+      expect(blockTypes(editor)).toEqual(['bulletList']);
+      const item = editor.state.doc.firstChild!.firstChild!;
+      expect([item.child(0).type.name, item.child(1).type.name]).toEqual(['paragraph', 'codeBlock']);
+      expect(codeText(editor)).toBe('x\ny\nz');
+    });
+  });
+
+  describe('an invalid tabSize', () => {
+    it.each([0, -1, 0.5, Number.NaN, Number.POSITIVE_INFINITY])(
+      '%s keeps the inherited shortcuts and binds no Tab',
+      (tabSize) => {
+        const configured = CodeBlockLowlight.configure({ lowlight, tabSize });
+        const shortcuts = configured.config.addKeyboardShortcuts?.call({
+          ...configured,
+          editor: undefined,
+          options: configured.options,
+        } as any);
+
+        expect(shortcuts).toHaveProperty('Mod-Alt-c');
+        expect(shortcuts).toHaveProperty('Enter');
+        expect(shortcuts).toHaveProperty('ArrowDown');
+        expect(shortcuts).not.toHaveProperty('Tab');
+        expect(shortcuts).not.toHaveProperty('Shift-Tab');
+      },
+    );
+
+    it('leaves Tab with a selection to the browser and keeps the selected code', () => {
+      const editor = createEditor(doc(code(SOURCE)), { tabSize: 0 });
+      select(editor, 10, 16);
+      expect(pressTab(editor)).toBe(false);
+      expect(codeText(editor)).toBe(SOURCE);
+    });
+
+    it('keeps the inherited ArrowDown exit in a live editor and reports no error', () => {
+      const errors: Error[] = [];
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlockLowlight.configure({ lowlight, tabSize: -1 })],
+        content: doc(code('x')),
+        onError: ({ error }) => errors.push(error),
+      });
+      editors.push(editor);
+      select(editor, 1);
+      expect(press(editor, 'ArrowDown')).toBe(true);
+      expect(editor.state.doc.lastChild?.type.name).toBe('paragraph');
+      expect(errors).toEqual([]);
+    });
+
+    it('steps by the whole part of a fractional tabSize in both directions', () => {
+      const editor = createEditor(doc(code('     x')), { tabSize: 2.5 });
+      select(editor, 0, 6);
+      expect(pressShiftTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('   x');
+      expect(pressTab(editor)).toBe(true);
+      expect(codeText(editor)).toBe('     x');
+    });
   });
 });

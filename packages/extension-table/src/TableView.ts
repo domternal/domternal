@@ -11,7 +11,6 @@
 import { DOMSerializer } from '@domternal/pm/model';
 import type { DOMOutputSpec, Node as PMNode } from '@domternal/pm/model';
 import type { EditorView, NodeView } from '@domternal/pm/view';
-import { TextSelection } from '@domternal/pm/state';
 import {
   TableMap,
   CellSelection,
@@ -29,6 +28,7 @@ import {
   isInTable,
   selectedRect,
 } from '@domternal/pm/tables';
+import type { Rect } from '@domternal/pm/tables';
 import { positionFloating, positionFloatingOnce, localizeMessage, observeI18nPresentation } from '@domternal/core';
 
 import type { I18nService, ResolvedMessage } from '@domternal/core';
@@ -57,6 +57,18 @@ type PMCommand = (
 
 /** Type-safe lookup from container DOM element → TableView instance. */
 export const tableViewMap = new WeakMap<HTMLElement, TableView>();
+
+/**
+ * Whether two versions of a table have as many rows and columns as each other. The later version
+ * holds only supported spans; an earlier one that held other spans builds no table map and
+ * counts as a different size.
+ */
+function sameGridSize(previous: PMNode, current: PMNode): boolean {
+  if (tableHoldsUnsupportedSpan(previous)) return false;
+  const before = TableMap.get(previous);
+  const after = TableMap.get(current);
+  return before.width === after.width && before.height === after.height;
+}
 
 export class TableView implements NodeView {
   node: PMNode;
@@ -93,8 +105,13 @@ export class TableView implements NodeView {
   private _resizeDragging = false;
 
   private hoveredCell: HTMLTableCellElement | null = null;
+  /** The row and column the handles target, as indices into this table's map, or -1. */
   private hoveredRow = -1;
   private hoveredCol = -1;
+  /** Which handle's menu is open. While it is, the handles stay on the row or column it acts on. */
+  private lineMenu: 'row' | 'column' | null = null;
+  /** True while a row or column menu item runs its command. */
+  private lineActionRunning = false;
   private hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Bound handlers for cleanup
@@ -196,22 +213,33 @@ export class TableView implements NodeView {
     if (node.type !== this.node.type) {
       return false;
     }
+    const previous = this.node;
     this.node = node;
     this.updateColumns(node);
     this.updateLayout(node);
 
-    // Reset stale hover references (handles reposition on next mousemove)
+    // The next mousemove places the handles again from the cell under the pointer. The targeted
+    // row and column stay: a selection redraw, a remote edit or a remote cursor in the table
+    // must not leave a handle that opens nothing.
     this.hoveredCell = null;
-    this.hoveredRow = -1;
-    this.hoveredCol = -1;
 
     if (this.cellHandleCell && !this.table.contains(this.cellHandleCell)) {
       this.hideCellHandle();
     }
     // A table that comes to hold an unsupported span, such as from a collaborator, loses its handles.
     if (this.holdsUnsupportedSpan) {
+      this.hoveredRow = -1;
+      this.hoveredCol = -1;
       this.hideCellHandle();
-      if (!this.dropdown) this.hideHandles();
+      this.hideHandles();
+    } else if (previous !== node && !sameGridSize(previous, node)) {
+      // Rows or columns came or went, so the targeted indices may now name other lines.
+      this.hoveredRow = -1;
+      this.hoveredCol = -1;
+      // An open row or column menu would act on whichever line took the place of its own. Its
+      // own command is left to finish: closing here would let the cell toolbar in over the line.
+      if (this.lineMenu && !this.lineActionRunning) this.closeDropdown();
+      this.hideHandles();
     }
 
     return true;
@@ -390,20 +418,25 @@ export class TableView implements NodeView {
       this.hoveredCell = null;
       return;
     }
+    // An open row or column menu keeps its line, and the handles stay on it. A cell toolbar
+    // dropdown keeps no line, so the pointer can still target one for a row or column handle.
+    if (this.lineMenu) return;
 
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
 
     const cell = target.closest<HTMLTableCellElement>('td, th');
-    if (!cell || !this.table.contains(cell)) return;
-    if (cell === this.hoveredCell) return;
+    if (!cell || cell === this.hoveredCell) return;
+    // A cell of a nested table is left to that table's own view.
+    const rect = this.cellRect(cell);
+    if (!rect) return;
 
     this.hoveredCell = cell;
-    const { row, col } = this.getCellIndices(cell);
-    this.hoveredRow = row;
-    this.hoveredCol = col;
+    // A merged cell keeps the row and column already targeted inside it, so crossing a title row
+    // or a merged first column on the way to a handle leaves that handle on its line.
+    if (this.hoveredRow < rect.top || this.hoveredRow >= rect.bottom) this.hoveredRow = rect.top;
+    if (this.hoveredCol < rect.left || this.hoveredCol >= rect.right) this.hoveredCol = rect.left;
     this.positionHandles(cell);
-    this.showHandles();
     this.cancelHide();
   }
 
@@ -422,9 +455,10 @@ export class TableView implements NodeView {
     }
   }
 
-  private showHandles(): void {
-    this.colHandle.style.display = 'flex';
-    this.rowHandle.style.display = 'flex';
+  /** Show the column and row handles. A handle passed false is hidden instead. */
+  private showHandles(column = true, row = true): void {
+    this.colHandle.style.display = column ? 'flex' : '';
+    this.rowHandle.style.display = row ? 'flex' : '';
   }
 
   private hideHandles(): void {
@@ -433,44 +467,75 @@ export class TableView implements NodeView {
     this.rowHandle.style.display = '';
   }
 
+  /**
+   * Put the column handle above the targeted column and the row handle beside the targeted row,
+   * each centred on that one line, also when the pointer is over a merged cell. A handle whose
+   * line has no cell of its own to select stays hidden. The boxes measured are cells and rows,
+   * never `<col>` elements, which WebKit gives empty boxes.
+   */
   private positionHandles(cell: HTMLTableCellElement): void {
     const containerRect = this.dom.getBoundingClientRect();
     const tableRect = this.table.getBoundingClientRect();
-    const cellRect = cell.getBoundingClientRect();
 
-    // Column handle: above the table, centered on the hovered cell
-    this.colHandle.style.left = String(cellRect.left - containerRect.left + cellRect.width / 2 - 12) + 'px';
+    // Column handle: above the table, centred on a cell lying wholly in the targeted column.
+    const columnCells = this.lineCells('column', this.hoveredCol);
+    const columnCell = columnCells ? this.view.nodeDOM(this.getTablePos() + 1 + columnCells[0]) : null;
+    const columnRect = (columnCell instanceof HTMLElement ? columnCell : cell).getBoundingClientRect();
+    this.colHandle.style.left = String(columnRect.left - containerRect.left + columnRect.width / 2 - 12) + 'px';
     this.colHandle.style.top = String(tableRect.top - containerRect.top - 16) + 'px';
 
-    // Row handle: left of the table, centered on the hovered row.
-    // For merged cells (rowspan > 1), use the cell rect (spans all rows)
-    // instead of the <tr> rect (only the first row of the span).
+    // Row handle: left of the table, centred on the targeted row.
+    const rowRect = (this.table.rows[this.hoveredRow] ?? cell).getBoundingClientRect();
     this.rowHandle.style.left = String(tableRect.left - containerRect.left - 16) + 'px';
-    if (cell.rowSpan > 1) {
-      this.rowHandle.style.top = String(cellRect.top - containerRect.top + cellRect.height / 2 - 12) + 'px';
-    } else {
-      const tr = cell.closest('tr');
-      if (tr) {
-        const trRect = tr.getBoundingClientRect();
-        this.rowHandle.style.top = String(trRect.top - containerRect.top + trRect.height / 2 - 12) + 'px';
-      }
-    }
+    this.rowHandle.style.top = String(rowRect.top - containerRect.top + rowRect.height / 2 - 12) + 'px';
+
+    this.showHandles(columnCells !== null, this.lineCells('row', this.hoveredRow) !== null);
   }
 
-  private getCellIndices(cell: HTMLTableCellElement): { row: number; col: number } {
-    const tr = cell.closest('tr');
-    if (!tr) return { row: 0, col: 0 };
-
-    const row = Array.from(this.contentDOM.querySelectorAll('tr')).indexOf(tr);
-
-    let col = 0;
-    let sibling = cell.previousElementSibling;
-    while (sibling) {
-      col += (sibling as HTMLTableCellElement).colSpan || 1;
-      sibling = sibling.previousElementSibling;
+  /**
+   * The cell's rectangle in this table's map, or null for a cell that is not one of this table's
+   * own, such as a cell of a nested table.
+   */
+  private cellRect(cell: HTMLTableCellElement): Rect | null {
+    if (cell.closest('table') !== this.table) return null;
+    const tableStart = this.getTablePos() + 1;
+    const $pos = this.view.state.doc.resolve(this.view.posAtDOM(cell, 0));
+    for (let depth = $pos.depth; depth > 0; depth--) {
+      if ($pos.start(depth) !== tableStart) continue;
+      // A cell sits two levels below its table, inside a row.
+      if ($pos.depth < depth + 2 || $pos.node(depth) !== this.node) return null;
+      return TableMap.get(this.node).findCell($pos.before(depth + 2) - tableStart);
     }
+    return null;
+  }
 
-    return { row, col };
+  /**
+   * The table offsets of the first and last cells lying wholly in one row or column, or null when
+   * merged cells cover all of it. A cell reaching into the line before or after is left out, so a
+   * selection between the two covers that one line, and a command run on it changes no other.
+   */
+  private lineCells(axis: 'row' | 'column', index: number): [number, number] | null {
+    const map = TableMap.get(this.node);
+    const { width } = map;
+    const column = axis === 'column';
+    if (index < 0 || index >= (column ? width : map.height)) return null;
+    let first: number | undefined;
+    let last: number | undefined;
+    for (let i = 0, length = column ? map.height : width; i < length; i++) {
+      const slot = column ? i * width + index : index * width + i;
+      const offset = map.map[slot];
+      if (offset === undefined || offset === last) continue;
+      // A cell spans into a neighbouring line when the slot next to it across the line holds it
+      // too: left or right for a column, above or below for a row. Past the first or last column
+      // the map goes on in another row, so those slots are not compared.
+      const spans = column
+        ? (index > 0 && map.map[slot - 1] === offset) || (index < width - 1 && map.map[slot + 1] === offset)
+        : map.map[slot - width] === offset || map.map[slot + width] === offset;
+      if (spans) continue;
+      first ??= offset;
+      last = offset;
+    }
+    return first === undefined || last === undefined ? null : [first, last];
   }
 
   // ─── Cell toolbar positioning (driven by CellSelection plugin) ────────
@@ -624,21 +689,28 @@ export class TableView implements NodeView {
   }
 
   private onColClick(): void {
-    if (!this.view.editable || this.holdsUnsupportedSpan) return;
-    this.suppressCellToolbar = true;
-    this.hideCellToolbar();
-    this.dismissOverlays();
-    this.selectColumn(this.hoveredCol);
-    this.showDropdown('column');
+    this.openLineMenu('column');
   }
 
   private onRowClick(): void {
+    this.openLineMenu('row');
+  }
+
+  /** Select the targeted row or column and open its menu, which keeps acting on that line. */
+  private openLineMenu(type: 'row' | 'column'): void {
     if (!this.view.editable || this.holdsUnsupportedSpan) return;
+    const index = type === 'row' ? this.hoveredRow : this.hoveredCol;
+    // A menu still open is closed first, since closing one lets the cell toolbar back in. The
+    // toolbar is then held back before the selection is dispatched, so it does not flash.
+    this.closeDropdown();
     this.suppressCellToolbar = true;
     this.hideCellToolbar();
     this.dismissOverlays();
-    this.selectRow(this.hoveredRow);
-    this.showDropdown('row');
+    if (!this.selectLine(type, index)) {
+      this.suppressCellToolbar = false;
+      return;
+    }
+    this.showDropdown(type, index);
   }
 
   private getTablePos(): number {
@@ -660,48 +732,30 @@ export class TableView implements NodeView {
     this.view.focus();
   }
 
-  private selectRow(row: number): void {
-    const tablePos = this.getTablePos();
-    const tableStart = tablePos + 1;
-    const map = TableMap.get(this.node);
-    if (row < 0 || row >= map.height) return;
-
-    const anchorOffset = map.map[row * map.width];
-    const headOffset = map.map[row * map.width + map.width - 1];
-    if (anchorOffset === undefined || headOffset === undefined) return;
-    const sel = CellSelection.create(this.view.state.doc, tableStart + anchorOffset, tableStart + headOffset);
-    this.dispatchCellSelection(sel);
+  /**
+   * Select the cells lying wholly in one row or column, so a merged cell that only crosses the
+   * line is not selected and does not widen the selection. False when the line has none.
+   */
+  private selectLine(axis: 'row' | 'column', index: number): boolean {
+    const cells = this.lineCells(axis, index);
+    if (!cells) return false;
+    const tableStart = this.getTablePos() + 1;
+    this.dispatchCellSelection(CellSelection.create(this.view.state.doc, tableStart + cells[0], tableStart + cells[1]));
+    return true;
   }
 
-  private selectColumn(col: number): void {
-    const tablePos = this.getTablePos();
-    const tableStart = tablePos + 1;
-    const map = TableMap.get(this.node);
-    if (col < 0 || col >= map.width) return;
-
-    const anchorOffset = map.map[col];
-    const headOffset = map.map[(map.height - 1) * map.width + col];
-    if (anchorOffset === undefined || headOffset === undefined) return;
-    const sel = CellSelection.create(this.view.state.doc, tableStart + anchorOffset, tableStart + headOffset);
-    this.dispatchCellSelection(sel);
+  private selectRow(row: number): boolean {
+    return this.selectLine('row', row);
   }
 
-  private setCursorInCell(row: number, col: number): void {
-    const tablePos = this.getTablePos();
-    const tableStart = tablePos + 1;
-    const map = TableMap.get(this.node);
-    if (row < 0 || row >= map.height || col < 0 || col >= map.width) return;
-
-    const cellOffset = map.map[row * map.width + col];
-    if (cellOffset === undefined) return;
-    const $pos = this.view.state.doc.resolve(tableStart + cellOffset + 1);
-    const sel = TextSelection.near($pos);
-    this.view.dispatch(this.view.state.tr.setSelection(sel));
+  private selectColumn(col: number): boolean {
+    return this.selectLine('column', col);
   }
 
   // ─── Dropdown ────────────────────────────────────────────────────────
 
-  private showDropdown(type: 'row' | 'column'): void {
+  /** Open a row or column handle's menu. Its items act on the row or column `index`. */
+  private showDropdown(type: 'row' | 'column', index = type === 'row' ? this.hoveredRow : this.hoveredCol): void {
     this.closeDropdown();
 
     const dropdown = document.createElement('div');
@@ -716,14 +770,14 @@ export class TableView implements NodeView {
     const items: { icon: DOMOutputSpec; label: () => ResolvedMessage; action: () => void }[] =
       type === 'row'
         ? [
-            { icon: ICON_ROW_PLUS_TOP, label: () => localizeMessage(this.i18n, tableMessages.insertRowAbove), action: () => { this.execRowCmd(addRowBefore); } },
-            { icon: ICON_ROW_PLUS_BOTTOM, label: () => localizeMessage(this.i18n, tableMessages.insertRowBelow), action: () => { this.execRowCmd(addRowAfter); } },
-            { icon: ICON_DELETE_ROW, label: () => localizeMessage(this.i18n, tableMessages.deleteRow), action: () => { this.execRowCmd(deleteRow); } },
+            { icon: ICON_ROW_PLUS_TOP, label: () => localizeMessage(this.i18n, tableMessages.insertRowAbove), action: () => { this.execRowCmd(addRowBefore, index); } },
+            { icon: ICON_ROW_PLUS_BOTTOM, label: () => localizeMessage(this.i18n, tableMessages.insertRowBelow), action: () => { this.execRowCmd(addRowAfter, index); } },
+            { icon: ICON_DELETE_ROW, label: () => localizeMessage(this.i18n, tableMessages.deleteRow), action: () => { this.execRowCmd(deleteRow, index); } },
           ]
         : [
-            { icon: ICON_COL_PLUS_LEFT, label: () => localizeMessage(this.i18n, tableMessages.insertColumnLeft), action: () => { this.execColCmd(addColumnBefore); } },
-            { icon: ICON_COL_PLUS_RIGHT, label: () => localizeMessage(this.i18n, tableMessages.insertColumnRight), action: () => { this.execColCmd(addColumnAfter); } },
-            { icon: ICON_DELETE_COL, label: () => localizeMessage(this.i18n, tableMessages.deleteColumn), action: () => { this.execColCmd(deleteColumn); } },
+            { icon: ICON_COL_PLUS_LEFT, label: () => localizeMessage(this.i18n, tableMessages.insertColumnLeft), action: () => { this.execColCmd(addColumnBefore, index); } },
+            { icon: ICON_COL_PLUS_RIGHT, label: () => localizeMessage(this.i18n, tableMessages.insertColumnRight), action: () => { this.execColCmd(addColumnAfter, index); } },
+            { icon: ICON_DELETE_COL, label: () => localizeMessage(this.i18n, tableMessages.deleteColumn), action: () => { this.execColCmd(deleteColumn, index); } },
           ];
 
     for (const item of items) {
@@ -739,7 +793,12 @@ export class TableView implements NodeView {
       this.bindLabel(btn, item.label, label);
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        item.action();
+        this.lineActionRunning = true;
+        try {
+          item.action();
+        } finally {
+          this.lineActionRunning = false;
+        }
         this.closeDropdown();
         this.hideHandles();
       });
@@ -748,6 +807,10 @@ export class TableView implements NodeView {
 
     const handle = type === 'row' ? this.rowHandle : this.colHandle;
     this.mountDropdown(dropdown, handle, 'bottom-start');
+    // The line stays selected while its menu is open: the cell toolbar stays off it, and the
+    // handles stay on it.
+    this.suppressCellToolbar = true;
+    this.lineMenu = type;
   }
 
   // ─── Cell toolbar dropdowns ──────────────────────────────────────────
@@ -924,11 +987,15 @@ export class TableView implements NodeView {
     }
     this.dropdown.remove();
     this.dropdown = null;
+    this.lineMenu = null;
     this.suppressCellToolbar = false;
     this.cellToolbar.querySelectorAll('.dm-table-cell-toolbar-btn--open').forEach(
       (el) => { el.classList.remove('dm-table-cell-toolbar-btn--open'); },
     );
     this.removeDropdownListeners();
+    // A change in table size while the dropdown was open cleared the targeted line, so the
+    // handles it kept visible would open nothing until the pointer targets a line again.
+    if (this.hoveredRow < 0 && this.hoveredCol < 0) this.hideHandles();
   }
 
   private onDocMouseDown(e: MouseEvent): void {
@@ -950,12 +1017,17 @@ export class TableView implements NodeView {
     }
   }
 
-  private execRowCmd(cmd: PMCommand): void {
+  /**
+   * Run a row command on one row. The row is selected again from the current table first, so the
+   * command changes exactly the cells the highlight shows, whatever the selection was meanwhile.
+   */
+  private execRowCmd(cmd: PMCommand, row = this.hoveredRow): void {
     // A dropdown left open across a switch to read-only must not still mutate
     // (onRowClick already blocks opening a fresh one).
     if (!this.view.editable || this.holdsUnsupportedSpan) return;
-    this.setCursorInCell(this.hoveredRow, 0);
+    if (!this.selectRow(row)) return;
     const state = this.view.state;
+    // With one row selected, this holds only for a table of one row: deleting it deletes the table.
     if (cmd === deleteRow && isInTable(state)) {
       const rect = selectedRect(state);
       if (rect.top === 0 && rect.bottom === rect.map.height) {
@@ -966,9 +1038,10 @@ export class TableView implements NodeView {
     cmd(state, this.view.dispatch);
   }
 
-  private execColCmd(cmd: PMCommand): void {
+  /** Run a column command on one column, selected again from the current table like a row. */
+  private execColCmd(cmd: PMCommand, col = this.hoveredCol): void {
     if (!this.view.editable || this.holdsUnsupportedSpan) return;
-    this.setCursorInCell(0, this.hoveredCol);
+    if (!this.selectColumn(col)) return;
     if (cmd === addColumnBefore || cmd === addColumnAfter) {
       addColumnWithWidths(
         cmd === addColumnBefore ? 'before' : 'after',
@@ -984,6 +1057,7 @@ export class TableView implements NodeView {
       return;
     }
     const state = this.view.state;
+    // With one column selected, this holds only for a table of one column.
     if (cmd === deleteColumn && isInTable(state)) {
       const rect = selectedRect(state);
       if (rect.left === 0 && rect.right === rect.map.width) {
