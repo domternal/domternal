@@ -127,9 +127,15 @@ check a translation for every current message.
 
 ## Version compatibility
 
-Upgrade installed `@domternal/*` packages together to **1.8.1**. Wrappers require
+Upgrade installed `@domternal/*` packages together to **1.8.2**. Wrappers require
 core `>=1.8.0 <2.0.0`, and extensions require both core and pm as peers in that
-range. Core 1.8.1 requires pm `>=1.8.1 <2.0.0` at runtime.
+range. Core 1.8.2 requires pm `>=1.8.2 <2.0.0` at runtime.
+
+Version 1.8.2 indents every selected line on Tab in a code block, keeps typed
+dollar amounts as text with the math extension, opens mention, emoji and slash
+suggestions at the start of a line made with Shift+Enter, keeps the React editor
+when a new extensions array holds the same extensions and makes table row and
+column handles act on their own line in tables with merged cells.
 
 Version 1.8.1 fixes server-side HTML and JSON generation in Node.js ES modules,
 repairs JSON content that lacks required blocks, draws list markers in Firefox and

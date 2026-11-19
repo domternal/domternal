@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.8.2 (2026-11-19)
 
 ### Fixes
 
@@ -12,6 +12,10 @@
 - Open the slash menu at the start of a line made with Shift+Enter, and close it when a line break is typed into its query, where the menu stayed open with the break inside the query.
 - Keep the React editor when `useEditor`, `Domternal` or `DomternalEditor` receive a new `extensions` array with the same extensions in the same order, such as an inline `extensions={[StarterKit]}`. Such an array recreated the editor, so the documented hook and `EditorContent` examples created and destroyed editors without end, and the controlled example lost focus, caret position and undo history on every keystroke. Adding, removing, reordering or replacing an extension, including a `configure()` call during render, still recreates the editor with its content kept, and a changed `history` or `preset` value now applies at that recreation or at a `deps` change.
 - Make the table row and column handles act on the one row or column they sit on when the table has merged cells. Under a title row merged across the table, Delete Column deleted the whole table and Insert Column Left or Right inserted at its edge, beside a merged first column Delete Row removed the merged rows or the whole table, and a table change between hovering and clicking could run the command on the selection in another table. A merged cell crossing that row or column now shrinks or grows by one, the highlight shows exactly the cells the command changes, the row handle beside a merged cell stays on its row, and a nested table no longer moves the outer table's handles.
+
+### Docs
+
+- Update installation guidance for 1.8.2 across all package READMEs. The CodeBlockLowlight README describes Tab on selected lines, the Math README lists which dollar signs stay text, and the React README explains when a new `extensions` array recreates the editor.
 
 ## 1.8.1 (2026-11-08)
 

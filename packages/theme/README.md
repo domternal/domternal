@@ -15,7 +15,7 @@ pnpm add @domternal/theme
 ```
 
 The package declares Node.js 22 or later for tooling and has no peer dependencies.
-Use version 1.8.1 for the theme, editor and framework wrapper so component markup
+Use version 1.8.2 for the theme, editor and framework wrapper so component markup
 and styles stay aligned.
 
 ## Usage
